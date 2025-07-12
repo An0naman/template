@@ -1,0 +1,51 @@
+services:
+  template: # This service name will be used by CasaOS's Dev Manager
+    build: .
+    container_name: template # This will be prefixed by CasaOS with the app name
+    restart: always
+    ports:
+      # This maps the chosen HOST_PORT (e.g., 5052) to the container's internal PORT 5000
+      - "5000:5000" # NOTE: Dev Manager will override the host side of this with your chosen port
+    
+    # CRITICAL: Use a named Docker volume for data persistence.
+    # This ensures Docker manages permissions and persists data even if host folder is read-only.
+    volumes:
+      - template_db_data:/app/data # Mount the named volume 'template_db_data' to '/app/data' in container
+    
+    # Explicitly set user ID for consistency with the host if needed, though Docker volumes handle much of it.
+    #user: "1000:1000" # Uncomment if you need to run as a specific user
+
+    environment:
+      - FLASK_APP=app.py
+    # REMOVED: command: ["sh", "-c", "chmod -R 777 /app/data && python run.py"]
+    # The CMD instruction in the Dockerfile will now be used.
+
+    x-casaos: # CasaOS specific metadata for the Dev Manager UI
+      main: template # This must match the service name defined above (e.g., 'template' or 'geminiapp')
+      developer: an0naman
+      icon: https://cdn-icons-png.flaticon.com/512/8648/8648719.png
+      description:
+        en_us: "A Python Flask app with SQLite persistence."
+      tag:
+        en_us: latest
+      category: My App
+      port_map: '5000' # The internal container port that CasaOS should expose
+      # store_url: https://raw.githubusercontent.com/IceWhale-Projects/CasaOS-AppStore/main/apps/hello-world-for-dev/casaos.json # Only needed if sharing publicly
+      container_scheme: http
+      ports:
+        - container: '5000'
+          host: '5000' # This 'host' value will be overridden by Dev Manager selection
+          name: HTTP
+          label:
+            en_us: Main Web UI
+      # CRITICAL: DO NOT include x-casaos.volumes, as it causes bind mount conflicts.
+      # volumes:
+      #   - container: /app
+      #     description:
+      #       en_us: App source code
+
+# Define the named volume at the root level of the docker-compose.yml file
+# This volume is managed by Docker and ensures data persistence across container restarts/updates
+volumes:
+  template_db_data: # The name of the Docker volume
+    driver: local # Specifies it's a local volume on the host disk

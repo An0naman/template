@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ project_name }} - {{ entry.title }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            margin-top: 30px;
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .form-control, .form-select {
+            margin-bottom: 15px;
+        }
+        .note-item {
+            background-color: #e9ecef;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .note-item h5 {
+            margin-top: 0;
+            font-size: 1.1rem;
+            color: #343a40;
+        }
+        .note-item p {
+            font-size: 0.9rem;
+            color: #495057;
+        }
+        .note-actions button {
+            margin-left: 5px;
+        }
+        .relationship-item {
+            background-color: #f0f8ff; /* Light blue background for relationships */
+            border: 1px solid #cceeff;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .relationship-item h5 {
+            margin-top: 0;
+            font-size: 1.1rem;
+            color: #0056b3;
+        }
+        .relationship-item p {
+            font-size: 0.9rem;
+            color: #495057;
+        }
+        .relationship-actions button {
+            margin-left: 5px;
+        }
+        /* New styles for inline note form */
+        .placeholder-section {
+            border: 1px dashed #ced4da;
+            padding: 20px;
+            text-align: center;
+            color: #6c757d;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        #newNoteForm.collapse:not(.show) {
+            display: none;
+        }
+        #newNoteForm.collapsing {
+            height: 0;
+            overflow: hidden;
+            transition: height 0.35s ease;
+        }
+        #newNoteForm.collapse.show {
+            height: auto;
+        }
+        /* Style for the modal note content to preserve line breaks and ensure expansion */
+        #modalNoteContent {
+            white-space: pre-wrap; /* Preserves whitespace and wraps text */
+        }
+        /* Ensure modals are responsive */
+        @media (max-width: 576px) {
+            .modal-dialog {
+                margin: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">{{ entry.title }} <small class="text-muted">({{ entry.entry_type_label }})</small></h1>
+
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}">Home</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ entry.title }}</li>
+            </ol>
+        </nav>
+
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h2 class="h4 mb-0">Entry Details</h2>
+                <div class="entry-actions">
+                    <button class="btn btn-sm btn-info" id="showEditEntryModalBtn">
+                        <i class="fas fa-edit me-1"></i> Edit
+                    </button>
+                    <button class="btn btn-sm btn-danger" id="deleteEntryBtn">
+                        <i class="fas fa-trash-alt me-1"></i> Delete
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <p><strong>Description:</strong> {{ entry.description or 'N/A' }}</p>
+                <p><strong>Created At:</strong> <span id="created-at">{{ entry.created_at }}</span></p>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-7">
+                <h4 class="mt-3 mt-md-0">Description</h4>
+                <div class="mb-3">
+                    <label for="descriptionTextarea" class="form-label">Entry Description:</label>
+                    <textarea class="form-control" id="descriptionTextarea" rows="6" placeholder="Add a detailed description for this entry...">{{ entry.description if entry.description is not none else '' }}</textarea>
+                </div>
+                <button type="button" class="btn btn-success" id="saveDescriptionBtn"><i class="fas fa-save me-1"></i> Save Description</button>
+                <div id="descriptionStatusMessage" class="mt-3 d-none"></div>
+
+                <hr class="my-4">
+
+                <h4 class="mt-3">Sensor Data</h4>
+                <div class="placeholder-section">
+                    <p>This space is reserved for displaying and managing sensor data related to this entry.</p>
+                    <p class="text-muted small"><em>(e.g., temperature, humidity, light levels)</em></p>
+                </div>
+
+                <hr class="my-4">
+
+                <h4 class="mt-3">Related Records</h4>
+                <div id="relatedRecordsContainer">
+                    <p class="text-muted text-center" id="loadingRelationships">Loading relationships...</p>
+                </div>
+            </div>
+
+            <div class="col-md-5">
+                <h4>Notes</h4>
+                <button class="btn btn-primary btn-sm mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#newNoteForm" aria-expanded="false" aria-controls="newNoteForm">
+                    <i class="fas fa-plus-circle me-2"></i> <span id="toggleNewNoteText">Add New Note</span>
+                </button>
+
+                <div class="collapse mb-3" id="newNoteForm">
+                    <div class="card card-body bg-light">
+                        <h5 class="card-title">New Note Details</h5>
+                        <div class="mb-3">
+                            <label for="noteTitleInput" class="form-label">Title:</label>
+                            <input type="text" class="form-control" id="noteTitleInput" placeholder="Provide a title">
+                        </div>
+                        <div class="mb-3">
+                            <label for="noteTypeSelect" class="form-label">Type:</label>
+                            <select class="form-select" id="noteTypeSelect">
+                                {# Options will be dynamically populated by JavaScript based on entry.note_types #}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newNoteTextarea" class="form-label">Notes:</label>
+                            <textarea class="form-control" id="newNoteTextarea" rows="4" placeholder="Type your new note here..."></textarea>
+                        </div>
+                        <hr>
+                        <div class="mb-3">
+                            <label for="imageUploadInput" class="form-label">Upload Images (Optional):</label>
+                            <input type="file" class="form-control" id="imageUploadInput" accept="image/*" multiple>
+                            <div id="selectedFilesInfo" class="mt-2 small text-muted">No files selected.</div>
+                            <p class="mt-2 text-info small">
+                                <i class="fas fa-info-circle me-1"></i> Images will be saved to Immich on your server.
+                                This feature is a placeholder and will be implemented in a future update.
+                            </p>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="addNoteBtn"><i class="fas fa-plus-circle me-1"></i> Save Note</button>
+                        <div id="noteStatusMessage" class="mt-3 d-none"></div>
+                    </div>
+                </div>
+
+                <div id="notesList" class="list-group mb-3">
+                    <p class="text-muted" id="noNotesMessage">Loading notes...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Entry Modal -->
+    <div class="modal fade" id="editEntryModal" tabindex="-1" aria-labelledby="editEntryModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editEntryModalLabel">Edit {{ entry_singular_label }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editEntryForm">
+                        <div class="mb-3">
+                            <label for="editEntryTitle" class="form-label">Title:</label>
+                            <input type="text" class="form-control" id="editEntryTitle" required value="{{ entry.title }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="editEntryType" class="form-label">Type:</label>
+                            <select class="form-select" id="editEntryType" required>
+                                <!-- Options will be loaded by JavaScript -->
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editEntryDescription" class="form-label">Description:</label>
+                            <textarea class="form-control" id="editEntryDescription" rows="3">{{ entry.description }}</textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Save Changes</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Note Detail Modal (Still a modal for full view) -->
+    <div class="modal fade" id="noteDetailModal" tabindex="-1" aria-labelledby="noteDetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="noteDetailModalLabel">Note Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Title:</strong> <span id="modalNoteTitle"></span></p>
+                    <p><strong>Type:</strong> <span id="modalNoteType"></span></p>
+                    <p><strong>Created On:</strong> <span id="modalNoteCreated"></span></p>
+                    <h6>Content:</h6>
+                    <p id="modalNoteContent"></p>
+                    <hr>
+                    <h6>Attached Images:</h6>
+                    <div id="modalNoteImages" class="row row-cols-1 row-cols-md-2 g-2">
+                        <div class="col">
+                            <div class="placeholder-section" style="min-height: 150px; display: flex; align-items: center; justify-content: center;">
+                                <p>No images attached yet.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="mt-2 text-muted small"><em>(Image display from Immich will be implemented in a future update)</em></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-danger" id="deleteNoteFromModalBtn">
+                        <i class="fas fa-trash-alt me-1"></i> Delete Note
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Relationship Modal (Still a modal) -->
+    <div class="modal fade" id="addRelatedEntryModal" tabindex="-1" aria-labelledby="addRelatedEntryModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addRelatedEntryModalLabel">Add Related <span id="modalRelatedEntryTypeLabel"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addRelatedEntryForm">
+                        <input type="hidden" id="currentRelationshipDefId">
+                        <p>Relating from: <strong>{{ entry.title }} ({{ entry.entry_type_label }})</strong></p>
+
+                        <div class="mb-3">
+                            <label for="relatedEntrySelect" class="form-label">Select Existing <span id="selectLabelEntryType"></span>:</label>
+                            <select class="form-select" id="relatedEntrySelect">
+                                <option value="">Search or Select...</option>
+                            </select>
+                        </div>
+                        <div class="mb-3" id="newRelatedEntryNameGroup" style="display:none;">
+                            <label for="newRelatedEntryName" class="form-label">New <span id="newLabelEntryType"></span> Name:</label>
+                            <input type="text" class="form-control" id="newRelatedEntryName">
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="createNewRelatedEntryCheckbox">
+                            <label class="form-check-label" for="createNewRelatedEntryCheckbox">
+                                Create a New <span id="createLabelEntryType"></span> instead
+                            </label>
+                        </div>
+
+                        <div class="row" id="quantityUnitFields" style="display: none;">
+                            <div class="col-md-6 mb-3">
+                                <label for="relatedQuantity" class="form-label">Quantity:</label>
+                                <input type="number" step="any" class="form-control" id="relatedQuantity">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="relatedUnit" class="form-label">Unit:</label>
+                                <input type="text" class="form-control" id="relatedUnit">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add Relationship</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Data injected from Flask/Jinja
+        const entryId = {{ entry.id }};
+        const entryTypeNoteTypesRaw = "{{ entry.note_types | default('General', true) }}";
+        const currentEntryTypeId = {{ entry.entry_type_id | tojson }}; // Needed for related records
+        const currentEntryName = {{ entry.title | tojson }}; // Using title as name for consistency
+        const currentEntryTypeLabel = {{ entry.entry_type_label | tojson }};
+
+        // DOM elements for Notes and Description (existing)
+        const noteTitleInput = document.getElementById('noteTitleInput');
+        const noteTypeSelect = document.getElementById('noteTypeSelect');
+        const newNoteTextarea = document.getElementById('newNoteTextarea');
+        const imageUploadInput = document.getElementById('imageUploadInput');
+        const selectedFilesInfo = document.getElementById('selectedFilesInfo');
+        const addNoteBtn = document.getElementById('addNoteBtn');
+        const notesList = document.getElementById('notesList');
+        const noNotesMessage = document.getElementById('noNotesMessage');
+        const noteStatusMessage = document.getElementById('noteStatusMessage');
+        const descriptionTextarea = document.getElementById('descriptionTextarea');
+        const saveDescriptionBtn = document.getElementById('saveDescriptionBtn');
+        const descriptionStatusMessage = document.getElementById('descriptionStatusMessage');
+        const createdAtSpan = document.getElementById('created-at');
+        const newNoteFormCollapseElement = document.getElementById('newNoteForm');
+        const toggleNewNoteText = document.getElementById('toggleNewNoteText');
+
+        // Modal elements for note detail (existing)
+        const noteDetailModal = new bootstrap.Modal(document.getElementById('noteDetailModal'));
+        const modalNoteTitle = document.getElementById('modalNoteTitle');
+        const modalNoteType = document.getElementById('modalNoteType');
+        const modalNoteCreated = document.getElementById('modalNoteCreated');
+        const modalNoteContent = document.getElementById('modalNoteContent');
+        const modalNoteImages = document.getElementById('modalNoteImages');
+        const deleteNoteFromModalBtn = document.getElementById('deleteNoteFromModalBtn');
+
+        // Map to store fetched notes by ID for quick lookup
+        let loadedNotes = new Map();
+        let currentNoteIdInModal = null; // To keep track of which note is open in the modal
+
+        // DOM elements for Related Records (new)
+        const relatedRecordsContainer = document.getElementById('relatedRecordsContainer');
+        const loadingRelationships = document.getElementById('loadingRelationships');
+        const addRelatedEntryModal = new bootstrap.Modal(document.getElementById('addRelatedEntryModal'));
+        const addRelatedEntryForm = document.getElementById('addRelatedEntryForm');
+        const relatedEntrySelect = document.getElementById('relatedEntrySelect');
+        const createNewRelatedEntryCheckbox = document.getElementById('createNewRelatedEntryCheckbox');
+        const newRelatedEntryNameGroup = document.getElementById('newRelatedEntryNameGroup');
+        const newRelatedEntryName = document.getElementById('newRelatedEntryName');
+        const quantityUnitFields = document.getElementById('quantityUnitFields');
+        const relatedQuantity = document.getElementById('relatedQuantity');
+        const relatedUnit = document.getElementById('relatedUnit');
+
+        let allRelationshipDefinitions = []; // Store definitions for easy lookup
+        let allPossibleRelatedEntries = {}; // Cache entries for dropdowns by type ID
+
+        // Format the created_at timestamp
+        if (createdAtSpan && createdAtSpan.textContent) {
+            try {
+                const date = new Date(createdAtSpan.textContent);
+                createdAtSpan.textContent = date.toLocaleString();
+            } catch (e) {
+                console.error("Error parsing date:", e);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeNoteTypeDropdown();
+            fetchNotes();
+            loadRelatedRecords(); // Call the new function to load related records
+        });
+
+        function initializeNoteTypeDropdown() {
+            const noteTypes = entryTypeNoteTypesRaw.split(',').map(type => type.trim()).filter(type => type !== '');
+            noteTypeSelect.innerHTML = '';
+
+            if (noteTypes.length === 0) {
+                const option = document.createElement('option');
+                option.value = 'General';
+                option.textContent = 'General';
+                noteTypeSelect.appendChild(option);
+            } else {
+                noteTypes.forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type;
+                    option.textContent = type;
+                    noteTypeSelect.appendChild(option);
+                });
+            }
+        }
+
+        // Bootstrap collapse event listener to update button text
+        newNoteFormCollapseElement.addEventListener('shown.bs.collapse', () => {
+            toggleNewNoteText.textContent = 'Hide New Note Form';
+        });
+        newNoteFormCollapseElement.addEventListener('hidden.bs.collapse', () => {
+            toggleNewNoteText.textContent = 'Add New Note';
+        });
+
+        // Handle file selection change
+        imageUploadInput.addEventListener('change', () => {
+            if (imageUploadInput.files.length > 0) {
+                let fileNames = Array.from(imageUploadInput.files).map(file => file.name).join(', ');
+                selectedFilesInfo.textContent = `Selected: ${fileNames}`;
+            } else {
+                selectedFilesInfo.textContent = 'No files selected.';
+            }
+        });
+
+        // --- Notes Section (Add Note) ---
+        addNoteBtn.addEventListener('click', async () => {
+            const noteTitle = noteTitleInput.value.trim();
+            const noteText = newNoteTextarea.value.trim();
+            const noteType = noteTypeSelect.value;
+            const files = imageUploadInput.files;
+
+            if (!noteText) {
+                displayStatus(noteStatusMessage, 'Note content cannot be empty.', 'alert-warning');
+                return;
+            }
+
+            displayStatus(noteStatusMessage, 'Adding note...', 'alert-info');
+
+            if (files.length > 0) {
+                console.log("Files selected for upload (not yet sent to Immich):", files);
+            }
+
+            try {
+                const response = await fetch(`/api/entries/${entryId}/notes`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ note_title: noteTitle, note_text: noteText, note_type: noteType })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayStatus(noteStatusMessage, 'Note added successfully!', 'alert-success');
+                    noteTitleInput.value = '';
+                    newNoteTextarea.value = '';
+                    noteTypeSelect.value = noteTypeSelect.options[0].value;
+                    imageUploadInput.value = '';
+                    selectedFilesInfo.textContent = 'No files selected.';
+
+                    const bsCollapse = new bootstrap.Collapse(newNoteFormCollapseElement, { toggle: false });
+                    bsCollapse.hide(); // Hide the form after successful submission
+                    fetchNotes(); // Refresh the notes list
+                } else {
+                    displayStatus(noteStatusMessage, `Error: ${data.message || 'Failed to add note.'}`, 'alert-danger');
+                }
+            } catch (error) {
+                console.error('Network or server error:', error);
+                displayStatus(noteStatusMessage, 'An unexpected error occurred while adding note.', 'alert-danger');
+            }
+        });
+
+        async function fetchNotes() {
+            noNotesMessage.textContent = 'Loading notes...';
+            notesList.innerHTML = '';
+            notesList.appendChild(noNotesMessage);
+            try {
+                const response = await fetch(`/api/entries/${entryId}/notes`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const notes = await response.json();
+
+                loadedNotes.clear();
+                notes.forEach(note => {
+                    loadedNotes.set(parseInt(note.id), note);
+                });
+
+                displayNotes(notes);
+            } catch (error) {
+                console.error('Error fetching notes:', error);
+                noNotesMessage.textContent = 'Failed to load notes.';
+                noNotesMessage.classList.add('text-danger');
+            }
+        }
+
+        function displayNotes(notes) {
+            notesList.innerHTML = '';
+            if (notes.length === 0) {
+                noNotesMessage.textContent = 'No notes yet.';
+                notesList.appendChild(noNotesMessage);
+                return;
+            }
+            if (noNotesMessage.parentNode === notesList) {
+                noNotesMessage.remove();
+            }
+
+            notes.forEach(note => {
+                const noteItem = document.createElement('div');
+                noteItem.classList.add('list-group-item', 'list-group-item-action', 'flex-column', 'align-items-start', 'mb-2');
+                noteItem.innerHTML = `
+                    <div class="d-flex w-100 justify-content-between">
+                        <h5 class="mb-1">${note.note_title ? note.note_title : 'No Title'} <small class="text-muted">(${note.note_type})</small></h5>
+                        <small>${new Date(note.created_at).toLocaleString()}</small>
+                    </div>
+                    <p class="mb-1">${note.note_text.substring(0, 100)}${note.note_text.length > 100 ? '...' : ''}</p>
+                    <button type="button" class="btn btn-outline-secondary btn-sm mt-2 open-note-details-btn" data-note-id="${note.id}">
+                        Open Details <i class="fas fa-external-link-alt ms-1"></i>
+                    </button>
+                `;
+                notesList.appendChild(noteItem);
+            });
+
+            notesList.querySelectorAll('.open-note-details-btn').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const noteId = parseInt(event.currentTarget.dataset.noteId);
+                    const note = loadedNotes.get(noteId);
+
+                    if (note) {
+                        currentNoteIdInModal = noteId;
+                        modalNoteTitle.textContent = note.note_title || 'No Title';
+                        modalNoteType.textContent = note.note_type || 'General';
+                        modalNoteCreated.textContent = new Date(note.created_at).toLocaleString();
+                        modalNoteContent.textContent = note.note_text;
+                        modalNoteImages.innerHTML = `
+                            <div class="col">
+                                <div class="placeholder-section" style="min-height: 150px; display: flex; align-items: center; justify-content: center;">
+                                    <p>No images attached yet.</p>
+                                </div>
+                            </div>
+                        `;
+
+                        noteDetailModal.show();
+                    } else {
+                        alert("Could not load note details. Please try again.");
+                    }
+                });
+            });
+        }
+
+        // Handle delete note from modal
+        deleteNoteFromModalBtn.addEventListener('click', async () => {
+            if (currentNoteIdInModal && confirm('Are you sure you want to delete this note? This cannot be undone.')) {
+                try {
+                    const response = await fetch(`/api/notes/${currentNoteIdInModal}`, {
+                        method: 'DELETE',
+                    });
+
+                    if (response.ok) {
+                        alert('Note deleted successfully!');
+                        noteDetailModal.hide();
+                        fetchNotes();
+                        currentNoteIdInModal = null;
+                    } else {
+                        const data = await response.json();
+                        alert('Error deleting note: ' + (data.error || 'Unknown error'));
+                    }
+                } catch (error) {
+                    console.error('Error deleting note:', error);
+                    alert('An unexpected error occurred while deleting the note.');
+                }
+            }
+        });
+
+        // --- Description Section ---
+        saveDescriptionBtn.addEventListener('click', async () => {
+            const description = descriptionTextarea.value;
+            displayStatus(descriptionStatusMessage, 'Saving description...', 'alert-info');
+
+            try {
+                const response = await fetch(`/api/entries/${entryId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ description: description })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayStatus(descriptionStatusMessage, 'Description saved successfully!', 'alert-success');
+                } else {
+                    displayStatus(descriptionStatusMessage, `Error: ${data.message || 'Failed to save description.'}`, 'alert-danger');
+                }
+            } catch (error) {
+                console.error('Network or server error:', error);
+                displayStatus(descriptionStatusMessage, 'An unexpected error occurred while saving description.', 'alert-danger');
+            }
+        });
+
+        // --- Generic Status Display Function ---
+        function displayStatus(element, message, type) {
+            element.classList.remove('d-none', 'alert-success', 'alert-danger', 'alert-warning', 'alert-info');
+            element.classList.add('alert', type);
+            element.textContent = message;
+            setTimeout(() => {
+                element.classList.add('d-none');
+            }, 5000);
+        }
+
+        // --- Related Records Functions (NEW) ---
+
+        async function loadRelatedRecords() {
+            loadingRelationships.style.display = 'block';
+            relatedRecordsContainer.innerHTML = ''; // Clear previous content
+
+            try {
+                // First, load all relationship definitions relevant to the current entry type
+                const definitionsResponse = await fetch(`/api/relationship_definitions?from_entry_type_id=${currentEntryTypeId}`);
+                if (!definitionsResponse.ok) throw new Error('Failed to load relationship definitions.');
+                allRelationshipDefinitions = await definitionsResponse.json();
+
+                if (allRelationshipDefinitions.length === 0) {
+                    relatedRecordsContainer.innerHTML = '<p class="text-muted text-center">No relationship definitions found for this entry type.</p>';
+                    loadingRelationships.style.display = 'none';
+                    return;
+                }
+
+                // Then, load existing related entries based on those definitions
+                const relatedEntriesResponse = await fetch(`/api/entries/${entryId}/relationships`);
+                if (!relatedEntriesResponse.ok) throw new Error('Failed to load related entries.');
+                const groupedRelatedEntries = await relatedEntriesResponse.json();
+
+                renderRelatedRecords(allRelationshipDefinitions, groupedRelatedEntries);
+
+            } catch (error) {
+                console.error('Error loading related records:', error);
+                relatedRecordsContainer.innerHTML = `<p class="text-danger text-center">Error loading related records: ${error.message}</p>`;
+            } finally {
+                loadingRelationships.style.display = 'none';
+            }
+        }
+
+        function renderRelatedRecords(definitions, groupedEntries) {
+            definitions.forEach(def => {
+                const relationsForDef = groupedEntries[def.id] || [];
+                const relatedEntryTypeName = def.entry_type_to_label;
+                const displayLabel = def.label_from_side;
+
+                const cardHtml = `
+                    <div class="card mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h4 class="h5 mb-0">${displayLabel} (${relatedEntryTypeName}s)</h4>
+                            <button class="btn btn-sm btn-success add-related-btn"
+                                data-bs-toggle="modal" data-bs-target="#addRelatedEntryModal"
+                                data-rel-def-id="${def.id}"
+                                data-to-type-id="${def.entry_type_id_to}"
+                                data-to-type-label="${relatedEntryTypeName}"
+                                data-allow-qty-unit="${def.allow_quantity_unit ? 1 : 0}">
+                                <i class="fas fa-plus me-1"></i> Add ${relatedEntryTypeName}
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <input type="text" class="form-control form-control-sm mb-3 related-filter-input"
+                                placeholder="Filter ${relatedEntryTypeName}s..." data-rel-def-id="${def.id}">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover related-record-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            ${def.allow_quantity_unit ? '<th>Quantity</th><th>Unit</th>' : ''}
+                                            <th class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${relationsForDef.length > 0 ? relationsForDef.map(rel => `
+                                            <tr data-relationship-id="${rel.relationship_id}">
+                                                <td><a href="/entry/${rel.related_entry_id}">${rel.related_entry_title}</a></td>
+                                                ${def.allow_quantity_unit ? `<td>${rel.quantity !== null ? rel.quantity : ''}</td><td>${rel.unit || ''}</td>` : ''}
+                                                <td class="text-end">
+                                                    <button class="btn btn-sm btn-danger delete-related-btn" data-relationship-id="${rel.relationship_id}">
+                                                        <i class="fas fa-trash-alt"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        `).join('') : `<tr><td colspan="${def.allow_quantity_unit ? 4 : 2}" class="text-center text-muted">No ${relatedEntryTypeName}s related yet.</td></tr>`}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                relatedRecordsContainer.insertAdjacentHTML('beforeend', cardHtml);
+            });
+            attachRelatedRecordEventListeners(); // Attach listeners for dynamically added elements
+        }
+
+        function attachRelatedRecordEventListeners() {
+            // Add Related Button (for each relationship type card)
+            document.querySelectorAll('.add-related-btn').forEach(button => {
+                button.addEventListener('click', async function() {
+                    const relDefId = this.dataset.relDefId;
+                    const toTypeId = this.dataset.toTypeId;
+                    const toTypeLabel = this.dataset.toTypeLabel;
+                    const allowQtyUnit = this.dataset.allowQtyUnit === '1';
+
+                    document.getElementById('currentRelationshipDefId').value = relDefId;
+                    document.getElementById('modalRelatedEntryTypeLabel').textContent = toTypeLabel;
+                    document.getElementById('selectLabelEntryType').textContent = toTypeLabel;
+                    document.getElementById('newLabelEntryType').textContent = toTypeLabel;
+                    document.getElementById('createLabelEntryType').textContent = toTypeLabel;
+
+                    // Reset form and fields
+                    addRelatedEntryForm.reset();
+                    document.getElementById('relatedEntryId').value = '';
+                    document.getElementById('selectedRelatedEntryDisplay').textContent = 'Selected: None';
+                    document.getElementById('relatedEntrySearchResults').innerHTML = '';
+                    createNewRelatedEntryCheckbox.checked = false;
+                    newRelatedEntryNameGroup.style.display = 'none';
+                    document.getElementById('relatedEntrySelect').style.display = 'block';
+                    document.getElementById('relatedEntrySearch').style.display = 'block';
+
+                    if (allowQtyUnit) {
+                        quantityUnitFields.style.display = 'flex';
+                        relatedQuantity.required = true;
+                    } else {
+                        quantityUnitFields.style.display = 'none';
+                        relatedQuantity.required = false;
+                        relatedUnit.required = false;
+                    }
+
+                    // Populate relatedEntrySelect with existing entries of the target type
+                    if (!allPossibleRelatedEntries[toTypeId]) {
+                        const response = await fetch(`/api/entries?entry_type_id=${toTypeId}`);
+                        if (response.ok) {
+                            allPossibleRelatedEntries[toTypeId] = await response.json();
+                        } else {
+                            console.error('Failed to fetch entries for type:', toTypeId);
+                            allPossibleRelatedEntries[toTypeId] = [];
+                        }
+                    }
+
+                    const selectElement = document.getElementById('relatedEntrySelect');
+                    selectElement.innerHTML = '<option value="">Search or Select...</option>';
+                    allPossibleRelatedEntries[toTypeId].forEach(entry => {
+                        if (entry.id !== entryId) { // Don't allow relating an entry to itself
+                            const option = document.createElement('option');
+                            option.value = entry.id;
+                            option.textContent = entry.title;
+                            selectElement.appendChild(option);
+                        }
+                    });
+
+                    addRelatedEntryModal.show();
+                });
+            });
+
+            // Handle filter input for related records tables
+            document.querySelectorAll('.related-filter-input').forEach(input => {
+                input.addEventListener('input', function() {
+                    const filterText = this.value.toLowerCase();
+                    const tableBody = this.closest('.card-body').querySelector('.related-record-table tbody');
+                    Array.from(tableBody.children).forEach(row => {
+                        const nameCell = row.querySelector('td:first-child');
+                        if (nameCell) {
+                            const name = nameCell.textContent.toLowerCase();
+                            if (name.includes(filterText)) {
+                                row.style.display = '';
+                            } else {
+                                row.style.display = 'none';
+                            }
+                        }
+                    });
+                });
+            });
+
+            // Delete Related Button
+            document.querySelectorAll('.delete-related-btn').forEach(button => {
+                button.addEventListener('click', async function() {
+                    const relationshipId = this.dataset.relationshipId;
+                    if (confirm('Are you sure you want to remove this relationship?')) {
+                        try {
+                            const response = await fetch(`/api/relationships/${relationshipId}`, {
+                                method: 'DELETE',
+                            });
+                            const data = await response.json();
+                            if (response.ok) {
+                                displayStatus(descriptionStatusMessage, 'Relationship removed successfully!', 'alert-success'); // Using description status for simplicity
+                                loadRelatedRecords(); // Reload the related records section
+                            } else {
+                                displayStatus(descriptionStatusMessage, `Error: ${data.error || 'Failed to remove relationship.'}`, 'alert-danger');
+                            }
+                        } catch (error) {
+                            console.error('Error deleting relationship:', error);
+                            displayStatus(descriptionStatusMessage, 'An unexpected error occurred during relationship removal.', 'alert-danger');
+                        }
+                    }
+                });
+            });
+
+            // Create New Related Entry Checkbox
+            createNewRelatedEntryCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    newRelatedEntryNameGroup.style.display = 'block';
+                    newRelatedEntryName.required = true;
+                    relatedEntrySelect.style.display = 'none';
+                    relatedEntrySelect.value = ''; // Clear selection
+                    document.getElementById('relatedEntrySearch').style.display = 'none';
+                    document.getElementById('relatedEntrySearchResults').innerHTML = ''; // Clear search results
+                    document.getElementById('relatedEntryId').value = ''; // Clear hidden ID
+                    document.getElementById('selectedRelatedEntryDisplay').textContent = 'Selected: None';
+                } else {
+                    newRelatedEntryNameGroup.style.display = 'none';
+                    newRelatedEntryName.required = false;
+                    relatedEntrySelect.style.display = 'block';
+                    document.getElementById('relatedEntrySearch').style.display = 'block';
+                }
+            });
+
+            // Handle Add Related Entry Form Submission
+            addRelatedEntryForm.addEventListener('submit', async function(event) {
+                event.preventDefault();
+
+                const definitionId = document.getElementById('currentRelationshipDefId').value;
+                let relatedEntryId = document.getElementById('relatedEntryId').value;
+                const newEntryName = newRelatedEntryName.value.trim();
+                const toTypeId = document.querySelector('.add-related-btn').dataset.toTypeId; // Get from any add button
+
+                let quantity = null;
+                let unit = null;
+                if (quantityUnitFields.style.display === 'flex') {
+                    quantity = relatedQuantity.value ? parseFloat(relatedQuantity.value) : null;
+                    unit = relatedUnit.value.trim() || null;
+                }
+
+                if (createNewRelatedEntryCheckbox.checked) {
+                    if (!newEntryName) {
+                        alert('Please provide a name for the new related entry.');
+                        return;
+                    }
+                    // First, create the new entry
+                    try {
+                        const createResponse = await fetch('/api/entries', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ title: newEntryName, entry_type_id: toTypeId, description: '' })
+                        });
+                        const createData = await createResponse.json();
+                        if (!createResponse.ok) {
+                            alert('Error creating new related entry: ' + (createData.error || 'Unknown error'));
+                            return;
+                        }
+                        relatedEntryId = createData.id; // Use the ID of the newly created entry
+                    } catch (error) {
+                        console.error('Error creating new related entry:', error);
+                        alert('An unexpected error occurred while creating the new related entry.');
+                        return;
+                    }
+                } else {
+                    // If not creating new, ensure an existing entry is selected
+                    if (!relatedEntryId) {
+                        alert('Please select an existing related entry or choose to create a new one.');
+                        return;
+                    }
+                }
+
+                // Now, add the relationship
+                try {
+                    const response = await fetch(`/api/entries/${entryId}/relationships`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            definition_id: definitionId,
+                            related_entry_id: relatedEntryId,
+                            quantity: quantity,
+                            unit: unit
+                        })
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        alert('Relationship added successfully!');
+                        addRelatedEntryModal.hide();
+                        loadRelatedRecords(); // Reload related records section
+                    } else {
+                        alert('Error adding relationship: ' + (data.error || 'Unknown error'));
+                    }
+                } catch (error) {
+                    console.error('Error adding relationship:', error);
+                    alert('An unexpected error occurred while adding the relationship.');
+                }
+            });
+
+            // Related Entry Search Input (for existing entries in modal)
+            let relatedEntrySearchTimeout;
+            document.getElementById('relatedEntrySearch').addEventListener('input', function() {
+                clearTimeout(relatedEntrySearchTimeout);
+                const query = this.value.trim();
+                const toTypeId = document.querySelector('.add-related-btn').dataset.toTypeId; // Get target type ID
+
+                if (query.length < 2) {
+                    document.getElementById('relatedEntrySearchResults').innerHTML = '';
+                    return;
+                }
+
+                relatedEntrySearchTimeout = setTimeout(async () => {
+                    try {
+                        const response = await fetch(`/api/search_entries?q=${encodeURIComponent(query)}&entry_type_id=${toTypeId}`);
+                        const results = await response.json();
+
+                        const searchResultsDiv = document.getElementById('relatedEntrySearchResults');
+                        searchResultsDiv.innerHTML = '';
+                        if (results.length === 0) {
+                            searchResultsDiv.innerHTML = '<div class="list-group-item text-muted">No results found.</div>';
+                            return;
+                        }
+
+                        results.forEach(entry => {
+                            const item = document.createElement('button');
+                            item.type = 'button';
+                            item.classList.add('list-group-item', 'list-group-item-action');
+                            item.textContent = `${entry.title} (${entry.entry_type_label})`;
+                            item.dataset.id = entry.id;
+                            item.dataset.title = entry.title;
+                            item.addEventListener('click', function() {
+                                document.getElementById('relatedEntryId').value = this.dataset.id;
+                                document.getElementById('selectedRelatedEntryDisplay').textContent = `Selected: ${this.dataset.title}`;
+                                searchResultsDiv.innerHTML = ''; // Clear results after selection
+                            });
+                            searchResultsDiv.appendChild(item);
+                        });
+                    } catch (error) {
+                        console.error('Error searching entries:', error);
+                        document.getElementById('relatedEntrySearchResults').innerHTML = '<div class="list-group-item text-danger">Error searching.</div>';
+                    }
+                }, 300); // Debounce search
+            });
+
+            // Handle selection from dropdown (if search is not used)
+            document.getElementById('relatedEntrySelect').addEventListener('change', function() {
+                const selectedId = this.value;
+                const selectedText = this.options[this.selectedIndex].textContent;
+                if (selectedId) {
+                    document.getElementById('relatedEntryId').value = selectedId;
+                    document.getElementById('selectedRelatedEntryDisplay').textContent = `Selected: ${selectedText}`;
+                } else {
+                    document.getElementById('relatedEntryId').value = '';
+                    document.getElementById('selectedRelatedEntryDisplay').textContent = 'Selected: None';
+                }
+            });
+        }
+    </script>
+</body>
+</html>

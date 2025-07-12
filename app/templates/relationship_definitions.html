@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ project_name }} - Manage Relationship Definitions</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            margin-top: 30px;
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .form-control, .form-select {
+            margin-bottom: 15px;
+        }
+        .table th, .table td {
+            vertical-align: middle;
+        }
+        .action-buttons button {
+            margin-right: 5px;
+        }
+        /* Ensure modals are responsive */
+        @media (max-width: 576px) {
+            .modal-dialog {
+                margin: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Manage Relationship Definitions</h1>
+
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('maintenance.maintenance_module_page') }}">Maintenance</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Manage Relationship Definitions</li>
+            </ol>
+        </nav>
+
+        <button id="showAddRelationshipDefinitionModalBtn" class="btn btn-success mb-3">
+            <i class="fas fa-plus-circle me-1"></i> Add New Definition
+        </button>
+
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Name</th>
+                        <th>From Type</th>
+                        <th>To Type</th>
+                        <th>From Label</th>
+                        <th>To Label</th>
+                        <th>Quantity/Unit</th>
+                        <th>Active</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="relationshipDefinitionsTableBody">
+                    {% if relationship_definitions %}
+                        {% for def in relationship_definitions %}
+                            <tr data-id="{{ def.id }}">
+                                <td>{{ def.name }}</td>
+                                <td>{{ def.entry_type_from_label }} ({{ def.cardinality_from }})</td>
+                                <td>{{ def.entry_type_to_label }} ({{ def.cardinality_to }})</td>
+                                <td>{{ def.label_from_side }}</td>
+                                <td>{{ def.label_to_side }}</td>
+                                <td>
+                                    {% if def.allow_quantity_unit %}
+                                        <i class="fas fa-check-circle text-success"></i> Yes
+                                    {% else %}
+                                        <i class="fas fa-times-circle text-danger"></i> No
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if def.is_active %}
+                                        <i class="fas fa-check-circle text-success"></i>
+                                    {% else %}
+                                        <i class="fas fa-times-circle text-danger"></i>
+                                    {% endif %}
+                                </td>
+                                <td class="action-buttons">
+                                    <button class="btn btn-sm btn-info edit-relationship-definition-btn"
+                                            data-id="{{ def.id }}"
+                                            data-name="{{ def.name }}"
+                                            data-description="{{ def.description or ''}}"
+                                            data-entry-type-id-from="{{ def.entry_type_id_from }}"
+                                            data-entry-type-id-to="{{ def.entry_type_id_to }}"
+                                            data-cardinality-from="{{ def.cardinality_from }}"
+                                            data-cardinality-to="{{ def.cardinality_to }}"
+                                            data-label-from-side="{{ def.label_from_side }}"
+                                            data-label-to-side="{{ def.label_to_side }}"
+                                            data-allow-quantity-unit="{{ def.allow_quantity_unit | int }}" {# CHANGED: Jinja2 ternary fix #}
+                                            data-is-active="{{ def.is_active | int }}"> {# CHANGED: Jinja2 ternary fix #}
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger delete-relationship-definition-btn" data-id="{{ def.id }}">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted">No relationship definitions defined yet.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Add/Edit Relationship Definition Modal -->
+    <div class="modal fade" id="relationshipDefinitionModal" tabindex="-1" aria-labelledby="relationshipDefinitionModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="relationshipDefinitionModalLabel">Add/Edit Relationship Definition</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="relationshipDefinitionForm">
+                        <input type="hidden" id="definitionId">
+                        <div class="mb-3">
+                            <label for="definitionName" class="form-label">Definition Name:</label>
+                            <input type="text" class="form-control" id="definitionName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="definitionDescription" class="form-label">Description:</label>
+                            <textarea class="form-control" id="definitionDescription" rows="2"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="entryTypeFrom" class="form-label">From Entry Type:</label>
+                            <select class="form-select" id="entryTypeFrom" required>
+                                {% for type_option in entry_types %}
+                                    <option value="{{ type_option.id }}">{{ type_option.singular_label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="entryTypeTo" class="form-label">To Entry Type:</label>
+                            <select class="form-select" id="entryTypeTo" required>
+                                {% for type_option in entry_types %}
+                                    <option value="{{ type_option.id }}">{{ type_option.singular_label }}</option> {# Corrected: changed singular_option back to singular_label #}
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="cardinalityFrom" class="form-label">Cardinality (From side):</label>
+                                <select class="form-select" id="cardinalityFrom" required>
+                                    <option value="one">One</option>
+                                    <option value="many">Many</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="cardinalityTo" class="form-label">Cardinality (To side):</label>
+                                <select class="form-select" id="cardinalityTo" required>
+                                    <option value="one">One</option>
+                                    <option value="many">Many</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="labelFromSide" class="form-label">Label (From side, e.g., "parent of"):</label>
+                            <input type="text" class="form-control" id="labelFromSide" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="labelToSide" class="form-label">Label (To side, e.g., "child of"):</label>
+                            <input type="text" class="form-control" id="labelToSide" required>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="allowQuantityUnit">
+                            <label class="form-check-label" for="allowQuantityUnit">
+                                Allow Quantity and Unit
+                            </label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="isActive" checked>
+                            <label class="form-check-label" for="isActive">
+                                Is Active
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Save Definition</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const relationshipDefinitionModal = new bootstrap.Modal(document.getElementById('relationshipDefinitionModal'));
+            const relationshipDefinitionForm = document.getElementById('relationshipDefinitionForm');
+            const definitionIdInput = document.getElementById('definitionId');
+            const definitionNameInput = document.getElementById('definitionName');
+            const definitionDescriptionInput = document.getElementById('definitionDescription');
+            const entryTypeFromSelect = document.getElementById('entryTypeFrom');
+            const entryTypeToSelect = document.getElementById('entryTypeTo');
+            const cardinalityFromSelect = document.getElementById('cardinalityFrom');
+            const cardinalityToSelect = document.getElementById('cardinalityTo');
+            const labelFromSideInput = document.getElementById('labelFromSide');
+            const labelToSideInput = document.getElementById('labelToSide');
+            const allowQuantityUnitCheckbox = document.getElementById('allowQuantityUnit');
+            const isActiveCheckbox = document.getElementById('isActive');
+
+            // Attach listener for the static "Add New Definition" button directly here
+            document.getElementById('showAddRelationshipDefinitionModalBtn').addEventListener('click', function() {
+                // Reset form for adding new
+                definitionIdInput.value = '';
+                relationshipDefinitionForm.reset();
+                definitionNameInput.readOnly = false; // Name is editable for new definitions
+                document.getElementById('relationshipDefinitionModalLabel').textContent = 'Add New Relationship Definition';
+                isActiveCheckbox.checked = true; // Default to active for new
+                relationshipDefinitionModal.show();
+            });
+
+            // Function to attach event listeners to dynamically added buttons (edit/delete)
+            function attachEventListeners() {
+                // Handle Edit Buttons
+                document.querySelectorAll('.edit-relationship-definition-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        document.getElementById('relationshipDefinitionModalLabel').textContent = 'Edit Relationship Definition';
+                        definitionIdInput.value = this.dataset.id;
+                        definitionNameInput.value = this.dataset.name;
+                        definitionDescriptionInput.value = this.dataset.description;
+                        entryTypeFromSelect.value = this.dataset.entryTypeIdFrom;
+                        entryTypeToSelect.value = this.dataset.entryTypeIdTo;
+                        cardinalityFromSelect.value = this.dataset.cardinalityFrom;
+                        cardinalityToSelect.value = this.dataset.cardinalityTo;
+                        labelFromSideInput.value = this.dataset.labelFromSide;
+                        labelToSideInput.value = this.dataset.labelToSide;
+                        allowQuantityUnitCheckbox.checked = (this.dataset.allowQuantityUnit === '1');
+                        isActiveCheckbox.checked = (this.dataset.isActive === '1');
+                        definitionNameInput.readOnly = true; // Name is not editable for existing definitions
+                        relationshipDefinitionModal.show();
+                    });
+                });
+
+                // Handle Form Submission (Add/Edit)
+                relationshipDefinitionForm.addEventListener('submit', function(event) {
+                    event.preventDefault();
+
+                    const id = definitionIdInput.value;
+                    const method = id ? 'PATCH' : 'POST';
+                    const url = id ? `/api/relationship_definitions/${id}` : '/api/relationship_definitions';
+
+                    const data = {
+                        name: definitionNameInput.value,
+                        description: definitionDescriptionInput.value,
+                        entry_type_id_from: entryTypeFromSelect.value,
+                        entry_type_id_to: entryTypeToSelect.value,
+                        cardinality_from: cardinalityFromSelect.value,
+                        cardinality_to: cardinalityToSelect.value,
+                        label_from_side: labelFromSideInput.value,
+                        label_to_side: labelToSideInput.value,
+                        allow_quantity_unit: allowQuantityUnitCheckbox.checked ? 1 : 0,
+                        is_active: isActiveCheckbox.checked ? 1 : 0
+                    };
+
+                    fetch(url, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(data),
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.message) {
+                            alert(data.message);
+                            relationshipDefinitionModal.hide();
+                            fetchRelationshipDefinitions(); // Reload definitions after successful operation
+                        } else if (data.error) {
+                            alert('Error: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An unexpected error occurred.');
+                    });
+                });
+
+                // Handle Delete Buttons
+                document.querySelectorAll('.delete-relationship-definition-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const definitionId = this.dataset.id;
+                        if (confirm(`Are you sure you want to delete this Relationship Definition? This will fail if there are any existing entry relationships using it.`)) {
+                            fetch(`/api/relationship_definitions/${definitionId}`, {
+                                method: 'DELETE',
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.message) {
+                                    alert(data.message);
+                                    fetchRelationshipDefinitions(); // Reload definitions after successful operation
+                                } else if (data.error) {
+                                    alert('Error: ' + data.error);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                alert('An unexpected error occurred during deletion.');
+                            });
+                        }
+                    });
+                });
+            }
+
+            fetchRelationshipDefinitions(); // Initial fetch when the page loads
+        });
+    </script>
+</body>
+</html>

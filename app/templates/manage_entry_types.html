@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ project_name }} - Manage Entry Types</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            margin-top: 30px;
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .form-control, .form-select {
+            margin-bottom: 15px;
+        }
+        .table th, .table td {
+            vertical-align: middle;
+        }
+        .action-buttons button {
+            margin-right: 5px;
+        }
+        /* Ensure modals are responsive */
+        @media (max-width: 576px) {
+            .modal-dialog {
+                margin: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Manage {{ entry_plural_label }} Types</h1>
+
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('maintenance.maintenance_module_page') }}">Maintenance</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Manage {{ entry_plural_label }} Types</li>
+            </ol>
+        </nav>
+
+        <button id="showAddEntryTypeModalBtn" class="btn btn-success mb-3">
+            <i class="fas fa-plus-circle me-1"></i> Add New {{ entry_singular_label }} Type
+        </button>
+
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Name</th>
+                        <th>Singular Label</th>
+                        <th>Plural Label</th>
+                        <th>Description</th>
+                        <th>Note Types</th>
+                        <th>Primary</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="entryTypesTableBody">
+                    {% if entry_types %}
+                        {% for type in entry_types %}
+                            <tr data-id="{{ type.id }}">
+                                <td>{{ type.name }}</td>
+                                <td>{{ type.singular_label }}</td>
+                                <td>{{ type.plural_label }}</td>
+                                <td>{{ type.description | truncate(50) }}</td>
+                                <td>{{ type.note_types | truncate(30) }}</td>
+                                <td>
+                                    {% if type.is_primary %}
+                                        <i class="fas fa-check-circle text-success"></i>
+                                    {% else %}
+                                        <i class="fas fa-times-circle text-danger"></i>
+                                    {% endif %}
+                                </td>
+                                <td class="action-buttons">
+                                    <button class="btn btn-sm btn-info edit-entry-type-btn"
+                                            data-id="{{ type.id }}"
+                                            data-name="{{ type.name }}"
+                                            data-singular="{{ type.singular_label }}"
+                                            data-plural="{{ type.plural_label }}"
+                                            data-description="{{ type.description }}"
+                                            data-note-types="{{ type.note_types }}"
+                                            data-is-primary="{{ type.is_primary }}">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger delete-entry-type-btn" data-id="{{ type.id }}">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted">No entry types defined yet.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Add/Edit Entry Type Modal -->
+    <div class="modal fade" id="entryTypeModal" tabindex="-1" aria-labelledby="entryTypeModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="entryTypeModalLabel">Add/Edit Entry Type</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="entryTypeForm">
+                        <input type="hidden" id="entryTypeId">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Name (Internal Identifier):</label>
+                            <input type="text" class="form-control" id="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="singularLabel" class="form-label">Singular Label (e.g., "Book"):</label>
+                            <input type="text" class="form-control" id="singularLabel" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="pluralLabel" class="form-label">Plural Label (e.g., "Books"):</label>
+                            <input type="text" class="form-control" id="pluralLabel" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description:</label>
+                            <textarea class="form-control" id="description" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="noteTypes" class="form-label">Default Note Types (comma-separated):</label>
+                            <input type="text" class="form-control" id="noteTypes" value="General">
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="isPrimary">
+                            <label class="form-check-label" for="isPrimary">
+                                Mark as Primary Entry Type (Only one can be primary)
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Save Entry Type</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const entryTypeModal = new bootstrap.Modal(document.getElementById('entryTypeModal'));
+            const entryTypeForm = document.getElementById('entryTypeForm');
+            const entryTypeIdInput = document.getElementById('entryTypeId');
+            const nameInput = document.getElementById('name');
+            const singularLabelInput = document.getElementById('singularLabel');
+            const pluralLabelInput = document.getElementById('pluralLabel');
+            const descriptionInput = document.getElementById('description');
+            const noteTypesInput = document.getElementById('noteTypes');
+            const isPrimaryInput = document.getElementById('isPrimary');
+
+            // Show Add Modal
+            document.getElementById('showAddEntryTypeModalBtn').addEventListener('click', function() {
+                // Reset form for adding new
+                entryTypeIdInput.value = '';
+                entryTypeForm.reset();
+                nameInput.readOnly = false; // Name is editable for new entries
+                document.getElementById('entryTypeModalLabel').textContent = 'Add New Entry Type';
+                entryTypeModal.show();
+            });
+
+            // Handle Edit Buttons
+            document.querySelectorAll('.edit-entry-type-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    document.getElementById('entryTypeModalLabel').textContent = 'Edit Entry Type';
+                    entryTypeIdInput.value = this.dataset.id;
+                    nameInput.value = this.dataset.name;
+                    singularLabelInput.value = this.dataset.singular;
+                    pluralLabelInput.value = this.dataset.plural;
+                    descriptionInput.value = this.dataset.description;
+                    noteTypesInput.value = this.dataset.noteTypes;
+                    isPrimaryInput.checked = (this.dataset.isPrimary === '1');
+                    nameInput.readOnly = true; // Name is not editable for existing entries
+                    entryTypeModal.show();
+                });
+            });
+
+            // Handle Form Submission (Add/Edit)
+            entryTypeForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+
+                const id = entryTypeIdInput.value;
+                const method = id ? 'PATCH' : 'POST';
+                const url = id ? `/api/entry_types/${id}` : '/api/entry_types';
+
+                const data = {
+                    name: nameInput.value,
+                    singular_label: singularLabelInput.value,
+                    plural_label: pluralLabelInput.value,
+                    description: descriptionInput.value,
+                    note_types: noteTypesInput.value,
+                    is_primary: isPrimaryInput.checked ? 1 : 0
+                };
+
+                fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.message) {
+                        alert(data.message);
+                        entryTypeModal.hide();
+                        window.location.reload(); // Reload page to show updated list
+                    } else if (data.error) {
+                        alert('Error: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An unexpected error occurred.');
+                });
+            });
+
+            // Handle Delete Buttons
+            document.querySelectorAll('.delete-entry-type-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const entryTypeId = this.dataset.id;
+                    if (confirm(`Are you sure you want to delete this Entry Type? This will fail if there are any entries or relationship definitions linked to it.`)) {
+                        fetch(`/api/entry_types/${entryTypeId}`, {
+                            method: 'DELETE',
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.message) {
+                                alert(data.message);
+                                window.location.reload();
+                            } else if (data.error) {
+                                alert('Error: ' + data.error);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('An unexpected error occurred during deletion.');
+                        });
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

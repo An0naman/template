@@ -1,0 +1,16 @@
+{
+  "version": "1.0",
+  "architecture": "amd64",
+  "id": "template",
+  "author": "an0naman",
+  "name": "Template",
+  "description": "CasaOS app template for development.",
+  "icon": "https://raw.githubusercontent.com/IceWhaleTech/CasaOS-AppStore/main/Apps/Portainer/icon.png",
+  "thumbnail": "",
+  "index": "http://192.168.1.108:5050",
+  "port_map": "5050",
+  "main": "docker",
+  "show_status": true,
+  "health": "/",
+  "container": "template-template-1"
+}
