@@ -53,7 +53,7 @@
 
         <div class="table-responsive">
             <table class="table table-hover table-striped">
-                <thead class="table-dark">
+                <thead class="table-dark" id="relationshipDefinitionsHeader">
                     <tr>
                         <th>Name</th>
                         <th>From Type</th>
@@ -200,20 +200,41 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // DOM element references
-            const relationshipDefinitionModal = new bootstrap.Modal(document.getElementById('relationshipDefinitionModal'));
+            // Get DOM elements with null checks
+            const relationshipDefinitionModal = document.getElementById('relationshipDefinitionModal') ? 
+                new bootstrap.Modal(document.getElementById('relationshipDefinitionModal')) : null;
             const relationshipDefinitionForm = document.getElementById('relationshipDefinitionForm');
-            const definitionIdInput = document.getElementById('definitionId');
-            const definitionNameInput = document.getElementById('definitionName');
-            const definitionDescriptionInput = document.getElementById('definitionDescription');
-            const entryTypeFromSelect = document.getElementById('entryTypeFrom');
-            const entryTypeToSelect = document.getElementById('entryTypeTo');
-            const cardinalityFromSelect = document.getElementById('cardinalityFrom');
-            const cardinalityToSelect = document.getElementById('cardinalityTo');
-            const labelFromSideInput = document.getElementById('labelFromSide');
-            const labelToSideInput = document.getElementById('labelToSide');
-            const allowQuantityUnitCheckbox = document.getElementById('allowQuantityUnit');
-            const isActiveCheckbox = document.getElementById('isActive');
+            
+            // Check if required elements exist
+            if (!relationshipDefinitionModal || !relationshipDefinitionForm) {
+                console.error('Required modal elements not found');
+                return;
+            }
+
+            // Get other DOM elements
+            const elements = {
+                definitionId: document.getElementById('definitionId'),
+                definitionName: document.getElementById('definitionName'),
+                definitionDescription: document.getElementById('definitionDescription'),
+                entryTypeFrom: document.getElementById('entryTypeFrom'),
+                entryTypeTo: document.getElementById('entryTypeTo'),
+                cardinalityFrom: document.getElementById('cardinalityFrom'),
+                cardinalityTo: document.getElementById('cardinalityTo'),
+                labelFromSide: document.getElementById('labelFromSide'),
+                labelToSide: document.getElementById('labelToSide'),
+                allowQuantityUnit: document.getElementById('allowQuantityUnit'),
+                isActive: document.getElementById('isActive'),
+                addButton: document.getElementById('showAddRelationshipDefinitionModalBtn'),
+                tableBody: document.getElementById('relationshipDefinitionsTableBody')
+            };
+
+            // Verify all elements exist
+            for (const [key, element] of Object.entries(elements)) {
+                if (!element) {
+                    console.error(`Required element '${key}' not found`);
+                    return;
+                }
+            }
 
             // Function to fetch and display relationship definitions
             function fetchRelationshipDefinitions() {
@@ -292,18 +313,18 @@
                 document.querySelectorAll('.edit-relationship-definition-btn').forEach(button => {
                     button.addEventListener('click', function() {
                         document.getElementById('relationshipDefinitionModalLabel').textContent = 'Edit Relationship Definition';
-                        definitionIdInput.value = this.dataset.id;
-                        definitionNameInput.value = this.dataset.name;
-                        definitionDescriptionInput.value = this.dataset.description;
-                        entryTypeFromSelect.value = this.dataset.entryTypeIdFrom;
-                        entryTypeToSelect.value = this.dataset.entryTypeIdTo;
-                        cardinalityFromSelect.value = this.dataset.cardinalityFrom;
-                        cardinalityToSelect.value = this.dataset.cardinalityTo;
-                        labelFromSideInput.value = this.dataset.labelFromSide;
-                        labelToSideInput.value = this.dataset.labelToSide;
-                        allowQuantityUnitCheckbox.checked = (this.dataset.allowQuantityUnit === '1');
-                        isActiveCheckbox.checked = (this.dataset.isActive === '1');
-                        definitionNameInput.readOnly = true;
+                        elements.definitionId.value = this.dataset.id;
+                        elements.definitionName.value = this.dataset.name;
+                        elements.definitionDescription.value = this.dataset.description;
+                        elements.entryTypeFrom.value = this.dataset.entryTypeIdFrom;
+                        elements.entryTypeTo.value = this.dataset.entryTypeIdTo;
+                        elements.cardinalityFrom.value = this.dataset.cardinalityFrom;
+                        elements.cardinalityTo.value = this.dataset.cardinalityTo;
+                        elements.labelFromSide.value = this.dataset.labelFromSide;
+                        elements.labelToSide.value = this.dataset.labelToSide;
+                        elements.allowQuantityUnit.checked = (this.dataset.allowQuantityUnit === '1');
+                        elements.isActive.checked = (this.dataset.isActive === '1');
+                        elements.definitionName.readOnly = true;
                         relationshipDefinitionModal.show();
                     });
                 });
@@ -335,12 +356,12 @@
             }
 
             // Add New Definition button listener
-            document.getElementById('showAddRelationshipDefinitionModalBtn').addEventListener('click', function() {
-                definitionIdInput.value = '';
+            elements.addButton.addEventListener('click', function() {
+                elements.definitionId.value = '';
                 relationshipDefinitionForm.reset();
-                definitionNameInput.readOnly = false;
+                elements.definitionName.readOnly = false;
                 document.getElementById('relationshipDefinitionModalLabel').textContent = 'Add New Relationship Definition';
-                isActiveCheckbox.checked = true;
+                elements.isActive.checked = true;
                 relationshipDefinitionModal.show();
             });
 
@@ -348,21 +369,21 @@
             relationshipDefinitionForm.addEventListener('submit', function(event) {
                 event.preventDefault();
 
-                const id = definitionIdInput.value;
+                const id = elements.definitionId.value;
                 const method = id ? 'PATCH' : 'POST';
                 const url = id ? `/api/relationship_definitions/${id}` : '/api/relationship_definitions';
 
                 const data = {
-                    name: definitionNameInput.value,
-                    description: definitionDescriptionInput.value,
-                    entry_type_id_from: entryTypeFromSelect.value,
-                    entry_type_id_to: entryTypeToSelect.value,
-                    cardinality_from: cardinalityFromSelect.value,
-                    cardinality_to: cardinalityToSelect.value,
-                    label_from_side: labelFromSideInput.value,
-                    label_to_side: labelToSideInput.value,
-                    allow_quantity_unit: allowQuantityUnitCheckbox.checked ? 1 : 0,
-                    is_active: isActiveCheckbox.checked ? 1 : 0
+                    name: elements.definitionName.value,
+                    description: elements.definitionDescription.value,
+                    entry_type_id_from: elements.entryTypeFrom.value,
+                    entry_type_id_to: elements.entryTypeTo.value,
+                    cardinality_from: elements.cardinalityFrom.value,
+                    cardinality_to: elements.cardinalityTo.value,
+                    label_from_side: elements.labelFromSide.value,
+                    label_to_side: elements.labelToSide.value,
+                    allow_quantity_unit: elements.allowQuantityUnit.checked ? 1 : 0,
+                    is_active: elements.isActive.checked ? 1 : 0
                 };
 
                 fetch(url, {
