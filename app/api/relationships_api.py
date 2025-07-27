@@ -267,7 +267,18 @@ def add_entry_relationship(entry_id):
         current_count_from = cursor.fetchone()[0]
 
         cursor.execute('''
-            SELECT cardinality_from, cardinality_to FROM RelationshipDefinition
+            SELECT 
+                CASE cardinality_from
+                    WHEN 'one' THEN 1
+                    WHEN 'many' THEN -1
+                    ELSE CAST(cardinality_from AS INTEGER)
+                END AS cardinality_from,
+                CASE cardinality_to
+                    WHEN 'one' THEN 1
+                    WHEN 'many' THEN -1
+                    ELSE CAST(cardinality_to AS INTEGER)
+                END AS cardinality_to
+            FROM RelationshipDefinition
             WHERE id = ?
         ''', (definition_id,))
         cardinality = cursor.fetchone()

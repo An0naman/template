@@ -684,6 +684,8 @@
         }
 
         function renderRelatedRecords(definitions, groupedEntries) {
+            // Store definitions globally for easy lookup
+            allRelationshipDefinitions = definitions;
             definitions.forEach(def => {
                 const relatedEntries = groupedEntries[def.id] || [];
                 const canAddMore = def.cardinality_from === -1 || relatedEntries.length < def.cardinality_from;
@@ -765,51 +767,53 @@
                     const addNewModal = new bootstrap.Modal(document.getElementById('addNewModal'));
                     addNewModal.show();
 
-                    document.getElementById('addNewForm').addEventListener('submit', async function(event) {
-                        event.preventDefault(); // Prevent default form submission
+                    // Wait for modal to be fully rendered before adding event listener
+                    addNewModal._element.addEventListener('shown.bs.modal', function() {
+                        document.getElementById('addNewForm').addEventListener('submit', function(event) {
+                            event.preventDefault(); // Prevent default form submission
 
-                        const name = document.getElementById('newEntryName').value.trim();
-                        console.log('Name field value:', name); // Debugging log
+                            // Make sure we're getting the field from the correct modal
+                            const modal = document.getElementById('addNewModal');
+                            const nameField = modal.querySelector('#newEntryName');
+                            const rawValue = nameField.value;
+                            const name = rawValue.trim();
 
-                        // Check if the Name field is empty
-                        if (!name) {
+                        // Detailed logging for debugging
+                        console.log('Raw field value:', `"${rawValue}"`);
+                        console.log('Trimmed field value:', `"${name}"`);
+                        console.log('Field value length:', rawValue.length);
+                        console.log('Trimmed value length:', name.length);
+                        console.log('Field element:', nameField);
+
+                        // Clear previous validation error styles
+                        nameField.classList.remove('is-invalid');
+
+                        // Check if the Name field is empty (using raw value first)
+                        if (!rawValue || !name) {
+                            console.error('Validation Failed: Name field is empty.');
+                            console.error('Raw value empty:', !rawValue);
+                            console.error('Trimmed value empty:', !name);
+                            nameField.classList.add('is-invalid');
                             alert('Name is required.');
                             return;
                         }
 
-                        const description = document.getElementById('newEntryDescription').value.trim();
-                        console.log('Description field value:', description); // Debugging log
+                        // Proceed if the Name field has a value
+                        console.log('Validation passed! Name field value:', name);
+                        
+                        // Get description field value
+                        const descriptionField = modal.querySelector('#newEntryDescription');
+                        const description = descriptionField.value.trim();
 
-                        try {
-                            const response = await fetch(`/api/entries/${entryId}/relationships/new`, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({
-                                    name,
-                                    description,
-                                    definition_id: selectedDefinitionId, // Ensure this variable is defined elsewhere
-                                }),
-                            });
+                        // Disable the submit button to prevent double submission
+                        const submitButton = modal.querySelector('button[type="submit"]');
+                        submitButton.disabled = true;
+                        submitButton.textContent = 'Creating...';
 
-                            if (!response.ok) {
-                                const errorData = await response.json();
-                                console.log('Error response from server:', errorData); // Debugging log
-                                alert(`Error: ${errorData.error}`);
-                                return;
-                            }
-
-                            const responseData = await response.json();
-                            console.log('Success response from server:', responseData); // Debugging log
-                            alert('New entry and relationship added successfully!');
-                            addNewModal.hide();
-                            location.reload(); // Reload the page to reflect changes
-                        } catch (error) {
-                            console.error('Error adding new entry and relationship:', error);
-                            alert('An unexpected error occurred. Please try again later.');
-                        }
+                        // Create the new entry and relationship
+                        createNewEntryAndRelationship(definitionId, name, description, addNewModal, submitButton);
                     });
+                });
                 });
             });
 
@@ -868,7 +872,7 @@
                             const response = await fetch(`/api/entries/${entryId}/relationships`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ definition_id: definitionId, related_entry_id: relatedEntryId })
+                                body: JSON.stringify({ definition_id: parseInt(definitionId), related_entry_id: parseInt(relatedEntryId) })
                             });
 
                             if (response.ok) {
@@ -900,6 +904,113 @@
                     }
                 });
             });
+        }
+
+        // Function to create new entry and establish relationship
+        async function createNewEntryAndRelationship(definitionId, entryName, entryDescription, modal, submitButton) {
+            try {
+                // Find the relationship definition from the already loaded definitions
+                let relationshipDef = allRelationshipDefinitions.find(def => def.id == definitionId);
+                
+                // If not found in cache, fetch all definitions again
+                if (!relationshipDef) {
+                    const definitionsResponse = await fetch(`/api/relationship_definitions`);
+                    if (!definitionsResponse.ok) {
+                        throw new Error('Failed to fetch relationship definitions');
+                    }
+                    allRelationshipDefinitions = await definitionsResponse.json();
+                    relationshipDef = allRelationshipDefinitions.find(def => def.id == definitionId);
+                }
+                
+                if (!relationshipDef) {
+                    throw new Error('Relationship definition not found');
+                }
+                
+                console.log('Found relationship definition:', relationshipDef);
+                console.log('Creating entry with:', {
+                    title: entryName,
+                    description: entryDescription,
+                    entry_type_id: relationshipDef.entry_type_id_to  // Correct field name from serializer
+                });
+                
+                // Validate that we have the required fields
+                if (!entryName || !relationshipDef.entry_type_id_to) {
+                    console.error('Missing required fields:');
+                    console.error('Title (entryName):', entryName);
+                    console.error('Entry Type ID:', relationshipDef.entry_type_id_to);
+                    throw new Error('Missing required fields for entry creation');
+                }
+                
+                // Create the new entry
+                const createEntryResponse = await fetch('/api/entries', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: entryName,  // API expects 'title', not 'name'
+                        description: entryDescription,
+                        entry_type_id: relationshipDef.entry_type_id_to // Use the correct field name from serializer
+                    })
+                });
+
+                if (!createEntryResponse.ok) {
+                    const error = await createEntryResponse.json();
+                    console.error('Create entry failed:', error);
+                    console.error('Response status:', createEntryResponse.status);
+                    throw new Error(error.error || error.message || 'Failed to create new entry');
+                }
+
+                const newEntry = await createEntryResponse.json();
+                console.log('New entry created:', newEntry);
+                
+                // Extract entry ID from the redirect URL (format: "/entry/5")
+                const newEntryId = newEntry.redirect.split('/').pop();
+                console.log('Extracted new entry ID:', newEntryId);
+
+                // Create the relationship between the current entry and the new entry
+                console.log('Creating relationship with data:', {
+                    definition_id: parseInt(definitionId),
+                    related_entry_id: parseInt(newEntryId)
+                });
+                
+                const createRelationshipResponse = await fetch(`/api/entries/${entryId}/relationships`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        definition_id: parseInt(definitionId),
+                        related_entry_id: parseInt(newEntryId)
+                    })
+                });
+
+                if (!createRelationshipResponse.ok) {
+                    const error = await createRelationshipResponse.json();
+                    console.error('Create relationship failed:', error);
+                    console.error('Response status:', createRelationshipResponse.status);
+                    throw new Error(error.error || error.message || 'Failed to create relationship');
+                }
+
+                console.log('Relationship created successfully');
+                alert(`New entry "${entryName}" created and relationship established successfully!`);
+                
+                // Hide the modal and refresh the related records
+                modal.hide();
+                loadRelatedRecords();
+
+                // Clean up the modal from DOM
+                setTimeout(() => {
+                    const modalElement = document.getElementById('addNewModal');
+                    if (modalElement) {
+                        modalElement.remove();
+                    }
+                }, 500);
+
+            } catch (error) {
+                console.error('Error creating entry and relationship:', error);
+                alert(`Error: ${error.message}`);
+                
+                // Re-enable the submit button
+                submitButton.disabled = false;
+                submitButton.textContent = 'Add';
+            }
         }
     </script>
 </body>
