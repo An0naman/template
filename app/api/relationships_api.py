@@ -27,7 +27,16 @@ def api_get_relationship_definitions():
             rd.id, rd.name, rd.description,
             rd.entry_type_id_from, et_from.singular_label AS entry_type_from_label,
             rd.entry_type_id_to, et_to.singular_label AS entry_type_to_label,
-            rd.cardinality_from, rd.cardinality_to,
+            CASE rd.cardinality_from
+                WHEN 'one' THEN 1
+                WHEN 'many' THEN -1
+                ELSE rd.cardinality_from
+            END AS cardinality_from,
+            CASE rd.cardinality_to
+                WHEN 'one' THEN 1
+                WHEN 'many' THEN -1
+                ELSE rd.cardinality_to
+            END AS cardinality_to,
             rd.label_from_side, rd.label_to_side,
             rd.allow_quantity_unit, rd.is_active
         FROM RelationshipDefinition rd
@@ -250,6 +259,36 @@ def add_entry_relationship(entry_id):
         if cursor.fetchone()[0] > 0:
             return jsonify({"error": "This specific relationship already exists."}), 409
 
+        # Check cardinality constraints
+        cursor.execute('''
+            SELECT COUNT(*) FROM EntryRelationship
+            WHERE source_entry_id = ? AND relationship_type = ?
+        ''', (source_entry_id, definition_id))
+        current_count_from = cursor.fetchone()[0]
+
+        cursor.execute('''
+            SELECT cardinality_from, cardinality_to FROM RelationshipDefinition
+            WHERE id = ?
+        ''', (definition_id,))
+        cardinality = cursor.fetchone()
+
+        if cardinality:
+            cardinality_from, cardinality_to = cardinality
+
+            # Enforce cardinality_from constraint
+            if cardinality_from != -1 and current_count_from >= cardinality_from:
+                return jsonify({"error": "Cardinality constraint violated: Too many relationships from this entry."}), 400
+
+            # Enforce cardinality_to constraint
+            cursor.execute('''
+                SELECT COUNT(*) FROM EntryRelationship
+                WHERE target_entry_id = ? AND relationship_type = ?
+            ''', (target_entry_id, definition_id))
+            current_count_to = cursor.fetchone()[0]
+
+            if cardinality_to != -1 and current_count_to >= cardinality_to:
+                return jsonify({"error": "Cardinality constraint violated: Too many relationships to this entry."}), 400
+
         cursor.execute(
             "INSERT INTO EntryRelationship (source_entry_id, target_entry_id, relationship_type, quantity, unit) VALUES (?, ?, ?, ?, ?)",
             (source_entry_id, target_entry_id, definition_id, quantity, unit)
@@ -280,3 +319,38 @@ def delete_entry_relationship(relationship_id):
         conn.rollback()
         logger.error(f"Error deleting relationship {relationship_id}: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
+@relationships_api_bp.route('/entries/<int:entry_id>/relationships/new', methods=['POST'])
+def add_new_entry_relationship(entry_id):
+    data = request.get_json()
+    definition_id = data.get('definition_id')
+    new_entry_name = data.get('name', '').strip()
+    new_entry_description = data.get('description', '').strip()
+
+    if not definition_id or not new_entry_name:
+        return jsonify({"error": "Missing relationship definition ID or new entry name."}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        # Create the new entry
+        cursor.execute('''
+            INSERT INTO Entry (name, description) VALUES (?, ?)
+        ''', (new_entry_name, new_entry_description))
+        new_entry_id = cursor.lastrowid
+
+        # Add the relationship
+        cursor.execute('''
+            INSERT INTO EntryRelationship (source_entry_id, target_entry_id, relationship_type)
+            VALUES (?, ?, ?)
+        ''', (entry_id, new_entry_id, definition_id))
+        conn.commit()
+
+        return jsonify({"message": "New entry and relationship added successfully!", "new_entry_id": new_entry_id}), 201
+    except sqlite3.IntegrityError as e:
+        conn.rollback()
+        return jsonify({"error": f"An integrity error occurred: {e}"}), 409
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error adding new entry and relationship: {e}", exc_info=True)
+        return jsonify({"error": f"An internal error occurred: {e}"}), 500
