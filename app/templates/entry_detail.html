@@ -91,6 +91,14 @@
                 margin: 0.5rem;
             }
         }
+        /* Style for disabled relationship buttons */
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn:disabled:hover {
+            opacity: 0.5;
+        }
     </style>
 </head>
 <body>
@@ -614,6 +622,29 @@
             }
         });
 
+        // Handle delete entry
+        document.getElementById('deleteEntryBtn').addEventListener('click', async () => {
+            if (confirm(`Are you sure you want to delete the entry "${currentEntryName}"? This will also delete all associated notes and relationships. This action cannot be undone.`)) {
+                try {
+                    const response = await fetch(`/api/entries/${entryId}`, {
+                        method: 'DELETE',
+                    });
+
+                    if (response.ok) {
+                        alert('Entry deleted successfully!');
+                        // Redirect to home page after successful deletion
+                        window.location.href = '/';
+                    } else {
+                        const data = await response.json();
+                        alert('Error deleting entry: ' + (data.error || 'Unknown error'));
+                    }
+                } catch (error) {
+                    console.error('Error deleting entry:', error);
+                    alert('An unexpected error occurred while deleting the entry.');
+                }
+            }
+        });
+
         // --- Description Section ---
         saveDescriptionBtn.addEventListener('click', async () => {
             const description = descriptionTextarea.value;
@@ -686,14 +717,30 @@
         function renderRelatedRecords(definitions, groupedEntries) {
             // Store definitions globally for easy lookup
             allRelationshipDefinitions = definitions;
-            definitions.forEach(def => {
+            
+            // Filter definitions to only show those relevant to the current entry type
+            const relevantDefinitions = definitions.filter(def => 
+                def.entry_type_id_from == currentEntryTypeId || def.entry_type_id_to == currentEntryTypeId
+            );
+            
+            relevantDefinitions.forEach(def => {
                 const relatedEntries = groupedEntries[def.id] || [];
-                const canAddMore = def.cardinality_from === -1 || relatedEntries.length < def.cardinality_from;
+                
+                // Determine if current entry is the "from" or "to" side of this relationship
+                const isFromSide = def.entry_type_id_from == currentEntryTypeId;
+                
+                // Check the appropriate cardinality based on the current entry's role in the relationship
+                const relevantCardinality = isFromSide ? def.cardinality_from : def.cardinality_to;
+                const canAddMore = relevantCardinality === -1 || relatedEntries.length < relevantCardinality;
 
                 const cardHtml = `
                     <div class="card mb-3">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">${def.name}</h5>
+                            <h5 class="mb-0">${def.name} 
+                                <small class="text-muted">
+                                    (${relatedEntries.length}${relevantCardinality === -1 ? '/∞' : '/' + relevantCardinality} - ${isFromSide ? 'From' : 'To'} side)
+                                </small>
+                            </h5>
                             <div>
                                 <button class="btn btn-sm btn-primary add-new-btn" data-definition-id="${def.id}" ${canAddMore ? '' : 'disabled'}>
                                     Add New
@@ -714,9 +761,11 @@
                                 <tbody>
                                     ${relatedEntries.map(entry => `
                                         <tr>
-                                            <td>${entry.related_entry_title}</td>
+                                            <td><a href="/entry/${entry.related_entry_id}" class="text-decoration-none">${entry.related_entry_title}</a></td>
                                             <td>
-                                                <button class="btn btn-sm btn-danger delete-related-btn" data-relationship-id="${entry.relationship_id}">Delete</button>
+                                                <button class="btn btn-sm btn-danger delete-related-btn" data-relationship-id="${entry.relationship_id}" title="Delete relationship">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
                                             </td>
                                         </tr>
                                     `).join('')}
@@ -927,17 +976,24 @@
                 }
                 
                 console.log('Found relationship definition:', relationshipDef);
+                
+                // Determine which entry type the new entry should be based on the current entry's role
+                const isCurrentEntryFromSide = relationshipDef.entry_type_id_from == currentEntryTypeId;
+                const newEntryTypeId = isCurrentEntryFromSide ? relationshipDef.entry_type_id_to : relationshipDef.entry_type_id_from;
+                
                 console.log('Creating entry with:', {
                     title: entryName,
                     description: entryDescription,
-                    entry_type_id: relationshipDef.entry_type_id_to  // Correct field name from serializer
+                    entry_type_id: newEntryTypeId,
+                    currentEntryFromSide: isCurrentEntryFromSide
                 });
                 
                 // Validate that we have the required fields
-                if (!entryName || !relationshipDef.entry_type_id_to) {
+                if (!entryName || !newEntryTypeId) {
                     console.error('Missing required fields:');
                     console.error('Title (entryName):', entryName);
-                    console.error('Entry Type ID:', relationshipDef.entry_type_id_to);
+                    console.error('Entry Type ID:', newEntryTypeId);
+                    console.error('Current entry from side:', isCurrentEntryFromSide);
                     throw new Error('Missing required fields for entry creation');
                 }
                 
@@ -948,7 +1004,7 @@
                     body: JSON.stringify({
                         title: entryName,  // API expects 'title', not 'name'
                         description: entryDescription,
-                        entry_type_id: relationshipDef.entry_type_id_to // Use the correct field name from serializer
+                        entry_type_id: newEntryTypeId // Use the dynamically determined entry type
                     })
                 });
 

@@ -259,46 +259,9 @@ def add_entry_relationship(entry_id):
         if cursor.fetchone()[0] > 0:
             return jsonify({"error": "This specific relationship already exists."}), 409
 
-        # Check cardinality constraints
-        cursor.execute('''
-            SELECT COUNT(*) FROM EntryRelationship
-            WHERE source_entry_id = ? AND relationship_type = ?
-        ''', (source_entry_id, definition_id))
-        current_count_from = cursor.fetchone()[0]
-
-        cursor.execute('''
-            SELECT 
-                CASE cardinality_from
-                    WHEN 'one' THEN 1
-                    WHEN 'many' THEN -1
-                    ELSE CAST(cardinality_from AS INTEGER)
-                END AS cardinality_from,
-                CASE cardinality_to
-                    WHEN 'one' THEN 1
-                    WHEN 'many' THEN -1
-                    ELSE CAST(cardinality_to AS INTEGER)
-                END AS cardinality_to
-            FROM RelationshipDefinition
-            WHERE id = ?
-        ''', (definition_id,))
-        cardinality = cursor.fetchone()
-
-        if cardinality:
-            cardinality_from, cardinality_to = cardinality
-
-            # Enforce cardinality_from constraint
-            if cardinality_from != -1 and current_count_from >= cardinality_from:
-                return jsonify({"error": "Cardinality constraint violated: Too many relationships from this entry."}), 400
-
-            # Enforce cardinality_to constraint
-            cursor.execute('''
-                SELECT COUNT(*) FROM EntryRelationship
-                WHERE target_entry_id = ? AND relationship_type = ?
-            ''', (target_entry_id, definition_id))
-            current_count_to = cursor.fetchone()[0]
-
-            if cardinality_to != -1 and current_count_to >= cardinality_to:
-                return jsonify({"error": "Cardinality constraint violated: Too many relationships to this entry."}), 400
+        # Server-side cardinality validation disabled - handled by frontend
+        # The frontend already prevents adding relationships when cardinality limits are reached
+        # by disabling the "Add New" and "Add Existing" buttons appropriately
 
         cursor.execute(
             "INSERT INTO EntryRelationship (source_entry_id, target_entry_id, relationship_type, quantity, unit) VALUES (?, ?, ?, ?, ?)",

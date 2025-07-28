@@ -3,10 +3,9 @@ from datetime import datetime
 import os
 
 def get_db_path():
-    # The database will now live directly in /app/data/template.db inside the container
-    # This path will be mounted from the named Docker volume
-    db_dir = '/app/data'
-    os.makedirs(db_dir, exist_ok=True) # Ensure the directory exists inside the container
+    # Use local data directory for development
+    db_dir = 'data'
+    os.makedirs(db_dir, exist_ok=True) # Ensure the directory exists
     return os.path.join(db_dir, 'template.db')
 
 def init_db():
