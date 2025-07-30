@@ -27,7 +27,7 @@ def manage_entry_types_page():
     params = get_system_parameters()
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, singular_label, plural_label, description, note_types, is_primary FROM EntryType ORDER BY singular_label")
+    cursor.execute("SELECT id, name, singular_label, plural_label, description, note_types, is_primary, has_sensors FROM EntryType ORDER BY singular_label")
     entry_types = cursor.fetchall()
     return render_template('manage_entry_types.html',
                            project_name=params.get('project_name'),
@@ -46,5 +46,14 @@ def manage_relationships_page():
     return render_template('relationship_definitions.html',
                            project_name=params.get('project_name'),
                            entry_types=[dict(row) for row in entry_types],
+                           entry_singular_label=params.get('entry_singular_label'),
+                           entry_plural_label=params.get('entry_plural_label'))
+
+@maintenance_bp.route('/manage_sensors')
+def manage_sensors_page():
+    from ..db import get_system_parameters
+    params = get_system_parameters()
+    return render_template('manage_sensors.html',
+                           project_name=params.get('project_name'),
                            entry_singular_label=params.get('entry_singular_label'),
                            entry_plural_label=params.get('entry_plural_label'))

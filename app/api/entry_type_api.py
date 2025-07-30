@@ -20,7 +20,7 @@ def get_db():
 def get_entry_types_api():
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, singular_label, plural_label, description, note_types, is_primary FROM EntryType ORDER BY singular_label")
+    cursor.execute("SELECT id, name, singular_label, plural_label, description, note_types, is_primary, has_sensors FROM EntryType ORDER BY singular_label")
     entry_types_rows = cursor.fetchall()
     entry_types_list = []
     for row in entry_types_rows:
@@ -36,6 +36,7 @@ def add_entry_type():
     description = data.get('description')
     note_types = data.get('note_types', 'General')
     is_primary = int(data.get('is_primary', 0))
+    has_sensors = int(data.get('has_sensors', 0))
 
     if not all([name, singular_label, plural_label]):
         return jsonify({'error': 'Name, singular label, and plural label are required.'}), 400
@@ -48,8 +49,8 @@ def add_entry_type():
             cursor.execute("UPDATE EntryType SET is_primary = 0 WHERE is_primary = 1")
 
         cursor.execute(
-            "INSERT INTO EntryType (name, singular_label, plural_label, description, note_types, is_primary) VALUES (?, ?, ?, ?, ?, ?)",
-            (name, singular_label, plural_label, description, note_types, is_primary)
+            "INSERT INTO EntryType (name, singular_label, plural_label, description, note_types, is_primary, has_sensors) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (name, singular_label, plural_label, description, note_types, is_primary, has_sensors)
         )
         conn.commit()
         return jsonify({'message': 'Entry type added successfully!', 'id': cursor.lastrowid}), 201
@@ -98,6 +99,10 @@ def update_entry_type(entry_type_id):
             cursor.execute("UPDATE EntryType SET is_primary = 0 WHERE is_primary = 1 AND id != ?", (entry_type_id,))
         set_clauses.append("is_primary = ?")
         params.append(is_primary)
+    
+    if 'has_sensors' in data:
+        set_clauses.append("has_sensors = ?")
+        params.append(int(data['has_sensors']))
 
     if not set_clauses:
         return jsonify({'message': 'No fields provided for update.'}), 200

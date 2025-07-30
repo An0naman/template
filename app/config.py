@@ -15,6 +15,6 @@ SECRET_KEY = 'your_super_secret_key_please_change_this_for_security'
 LOG_DIR = 'logs'
 
 # Application host and port for development
-HOST = '0.0.0.0'
-PORT = 5001
-DEBUG = True
+HOST = os.environ.get('HOST', '0.0.0.0')
+PORT = int(os.environ.get('PORT', 5001))
+DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'

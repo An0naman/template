@@ -146,6 +146,26 @@
                         <div class="mb-3">
                             <label for="newEntryDescription" class="form-label">Description:</label>
                             <textarea class="form-control" id="newEntryDescription" name="description" rows="3"></textarea>
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="searchWikipediaModalBtn">
+                                    <i class="fab fa-wikipedia-w me-1"></i> Search Wikipedia
+                                </button>
+                            </div>
+                        </div>
+                        <div id="wikipediaModalResults" class="mb-3 d-none">
+                            <div class="card border-info">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0"><i class="fab fa-wikipedia-w me-1"></i> Wikipedia Result</h6>
+                                </div>
+                                <div class="card-body">
+                                    <h6 id="wikipediaModalTitle" class="card-title"></h6>
+                                    <p id="wikipediaModalExtract" class="card-text" style="font-size: 0.9em; max-height: 100px; overflow-y: auto;"></p>
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-sm btn-primary" id="useWikipediaModalBtn">Use This Description</button>
+                                        <a id="wikipediaModalLink" href="#" target="_blank" class="btn btn-sm btn-outline-secondary">View on Wikipedia</a>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <button type="submit" class="btn btn-primary w-100">Create {{ entry_singular_label }}</button>
                     </form>
@@ -162,6 +182,65 @@
             // Show Add Entry Modal
             document.getElementById('showAddEntryFormBtn').addEventListener('click', function() {
                 addEntryModal.show();
+            });
+
+            // Wikipedia search functionality for modal
+            document.getElementById('searchWikipediaModalBtn').addEventListener('click', async function() {
+                const titleInput = document.getElementById('newEntryTitle');
+                const searchBtn = this;
+                const wikipediaResults = document.getElementById('wikipediaModalResults');
+                const entryTitle = titleInput.value.trim();
+                
+                if (!entryTitle) {
+                    alert('Please enter a title first to search Wikipedia');
+                    return;
+                }
+                
+                // Update button state
+                searchBtn.disabled = true;
+                searchBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Searching...';
+                
+                try {
+                    const response = await fetch(`/api/wikipedia/search/${encodeURIComponent(entryTitle)}`);
+                    const data = await response.json();
+                    
+                    if (data.found) {
+                        // Populate Wikipedia results
+                        document.getElementById('wikipediaModalTitle').textContent = data.title;
+                        document.getElementById('wikipediaModalExtract').textContent = data.extract;
+                        document.getElementById('wikipediaModalLink').href = data.url;
+                        
+                        // Store the extract for later use
+                        wikipediaResults.dataset.extract = data.extract;
+                        
+                        // Show results
+                        wikipediaResults.classList.remove('d-none');
+                    } else {
+                        alert(data.message || 'No Wikipedia article found');
+                        wikipediaResults.classList.add('d-none');
+                    }
+                } catch (error) {
+                    console.error('Wikipedia search error:', error);
+                    alert('Error searching Wikipedia');
+                    wikipediaResults.classList.add('d-none');
+                } finally {
+                    // Reset button state
+                    searchBtn.disabled = false;
+                    searchBtn.innerHTML = '<i class="fab fa-wikipedia-w me-1"></i> Search Wikipedia';
+                }
+            });
+
+            // Handle "Use This Description" button in modal
+            document.getElementById('useWikipediaModalBtn').addEventListener('click', function() {
+                const wikipediaResults = document.getElementById('wikipediaModalResults');
+                const extract = wikipediaResults.dataset.extract;
+                const descriptionTextarea = document.getElementById('newEntryDescription');
+                
+                if (extract) {
+                    descriptionTextarea.value = extract;
+                    // Hide Wikipedia results after use
+                    wikipediaResults.classList.add('d-none');
+                }
             });
 
             // Handle new entry form submission

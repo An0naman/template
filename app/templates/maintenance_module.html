@@ -62,6 +62,10 @@
                 <h5><i class="fas fa-link me-2"></i> Manage Relationship Definitions</h5>
                 <p>Set up how different {{ entry_plural_label }} can be related to each other (e.g., "Parent of", "Authored by").</p>
             </a>
+            <a href="{{ url_for('maintenance.manage_sensors_page') }}" class="card-link-item">
+                <h5><i class="fas fa-thermometer-half me-2"></i> Manage Sensors</h5>
+                <p>Configure which {{ entry_plural_label }} types support sensor data collection and management.</p>
+            </a>
             <a href="{{ url_for('main.index') }}" class="card-link-item">
                 <h5><i class="fas fa-arrow-left me-2"></i> Back to Main Page</h5>
                 <p>Return to the main listing of your {{ entry_plural_label }}.</p>

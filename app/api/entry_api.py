@@ -17,6 +17,38 @@ def get_db():
         g.db.row_factory = sqlite3.Row
     return g.db
 
+@entry_api_bp.route('/entries', methods=['GET'])
+def get_all_entries():
+    """Get all entries"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT e.id, e.title, e.description, e.created_at, et.singular_label AS entry_type_label
+            FROM Entry e
+            JOIN EntryType et ON e.entry_type_id = et.id
+            ORDER BY e.created_at DESC
+        ''')
+        
+        rows = cursor.fetchall()
+        entries = []
+        for row in rows:
+            entries.append({
+                'id': row['id'],
+                'name': row['title'],  # Using 'name' for consistency with frontend expectations
+                'title': row['title'],
+                'description': row['description'],
+                'created_at': row['created_at'],
+                'entry_type_label': row['entry_type_label']
+            })
+        
+        return jsonify(entries)
+        
+    except Exception as e:
+        logger.error(f"Error fetching entries: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
 @entry_api_bp.route('/entries', methods=['POST'])
 def add_entry():
     data = request.json

@@ -26,9 +26,20 @@ def init_db():
             description TEXT,
             note_types TEXT DEFAULT 'General',    -- Comma-separated list of allowed note types for this EntryType
             is_primary BOOLEAN NOT NULL DEFAULT 0, -- This line is correct and should remain
+            has_sensors BOOLEAN NOT NULL DEFAULT 0, -- Whether this entry type supports sensor data
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+
+    # Migration: Add has_sensors column if it doesn't exist
+    try:
+        cursor.execute("PRAGMA table_info(EntryType)")
+        columns = [col[1] for col in cursor.fetchall()]
+        if 'has_sensors' not in columns:
+            cursor.execute("ALTER TABLE EntryType ADD COLUMN has_sensors BOOLEAN NOT NULL DEFAULT 0")
+    except Exception as e:
+        # Column might already exist, ignore error
+        pass
 
     # --- Entry Table ---
     cursor.execute('''

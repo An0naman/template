@@ -6,6 +6,8 @@ import os
 import json
 from datetime import datetime
 import logging # Import logging module
+import requests
+from urllib.parse import quote
 
 # Configure logging to a file
 # Ensure the 'logs' directory exists in your project root
@@ -168,7 +170,7 @@ def entry_detail_page(entry_id):
             e.id, e.title, e.description, e.entry_type_id,
             et.singular_label AS entry_type_label,
             et.name AS entry_type_name,
-            et.note_types, e.created_at
+            et.note_types, et.has_sensors, e.created_at
         FROM Entry e
         JOIN EntryType et ON e.entry_type_id = et.id
         WHERE e.id = ?
@@ -186,6 +188,7 @@ def entry_detail_page(entry_id):
         'entry_type_label': entry['entry_type_label'],
         'entry_type_name': entry['entry_type_name'],
         'note_types': entry['note_types'],
+        'has_sensors': entry['has_sensors'],
         'created_at': entry['created_at']
     }
 
@@ -231,29 +234,62 @@ def manage_relationships_page():
                            entry_plural_label=params.get('entry_plural_label'))
 
 # --- API Endpoints: Entries ---
-@app.route('/api/entries', methods=['POST'])
-def add_entry():
-    data = request.json
-    title = data.get('title')
-    description = data.get('description')
-    entry_type_id = data.get('entry_type_id')
+@app.route('/api/entries', methods=['GET', 'POST'])
+def handle_entries():
+    if request.method == 'GET':
+        """Get all entries"""
+        try:
+            conn = get_db()
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT e.id, e.title, e.description, e.created_at, et.singular_label AS entry_type_label
+                FROM Entry e
+                JOIN EntryType et ON e.entry_type_id = et.id
+                ORDER BY e.created_at DESC
+            ''')
+            
+            rows = cursor.fetchall()
+            entries = []
+            for row in rows:
+                entries.append({
+                    'id': row['id'],
+                    'name': row['title'],  # Using 'name' for consistency with frontend expectations
+                    'title': row['title'],
+                    'description': row['description'],
+                    'created_at': row['created_at'],
+                    'entry_type_label': row['entry_type_label']
+                })
+            
+            return jsonify(entries)
+            
+        except Exception as e:
+            app.logger.error(f"Error fetching entries: {e}", exc_info=True)
+            return jsonify({"error": str(e)}), 500
+    
+    elif request.method == 'POST':
+        """Add a new entry"""
+        data = request.json
+        title = data.get('title')
+        description = data.get('description')
+        entry_type_id = data.get('entry_type_id')
 
-    if not title or not entry_type_id:
-        return jsonify({'error': 'Title and Entry Type are required.'}), 400
+        if not title or not entry_type_id:
+            return jsonify({'error': 'Title and Entry Type are required.'}), 400
 
-    conn = get_db()
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "INSERT INTO Entry (title, description, entry_type_id, created_at) VALUES (?, ?, ?, ?)",
-            (title, description, entry_type_id, datetime.now().isoformat())
-        )
-        conn.commit()
-        return jsonify({'message': 'Entry added successfully!', 'redirect': url_for('entry_detail_page', entry_id=cursor.lastrowid)}), 201
-    except Exception as e:
-        app.logger.error(f"Error adding entry: {e}", exc_info=True)
-        conn.rollback() # Ensure rollback on error
-        return jsonify({'error': 'An internal error occurred.'}), 500
+        conn = get_db()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "INSERT INTO Entry (title, description, entry_type_id, created_at) VALUES (?, ?, ?, ?)",
+                (title, description, entry_type_id, datetime.now().isoformat())
+            )
+            conn.commit()
+            return jsonify({'message': 'Entry added successfully!', 'redirect': url_for('entry_detail_page', entry_id=cursor.lastrowid)}), 201
+        except Exception as e:
+            app.logger.error(f"Error adding entry: {e}", exc_info=True)
+            conn.rollback() # Ensure rollback on error
+            return jsonify({'error': 'An internal error occurred.'}), 500
 
 @app.route('/api/entries/<int:entry_id>', methods=['PATCH'])
 def update_entry(entry_id):
@@ -316,7 +352,7 @@ def delete_entry(entry_id):
 def get_entry_types_api(): # Renamed to avoid clash with manage_entry_types_page's internal use
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, singular_label, plural_label, description, note_types, is_primary FROM EntryType ORDER BY singular_label")
+    cursor.execute("SELECT id, name, singular_label, plural_label, description, note_types, is_primary, has_sensors FROM EntryType ORDER BY singular_label")
     entry_types_rows = cursor.fetchall()
     entry_types_list = []
     for row in entry_types_rows:
@@ -394,6 +430,10 @@ def update_entry_type(entry_type_id):
             cursor.execute("UPDATE EntryType SET is_primary = 0 WHERE is_primary = 1 AND id != ?", (entry_type_id,))
         set_clauses.append("is_primary = ?")
         params.append(is_primary)
+
+    if 'has_sensors' in data:
+        set_clauses.append("has_sensors = ?")
+        params.append(int(data['has_sensors']))
 
     if not set_clauses:
         return jsonify({'message': 'No fields provided for update.'}), 200
@@ -492,6 +532,58 @@ def delete_note(note_id):
         return jsonify({'message': 'Note deleted successfully!'}), 200
     except Exception as e:
         app.logger.error(f"Error deleting note {note_id}: {e}", exc_info=True)
+        conn.rollback()
+        return jsonify({'error': 'An internal error occurred.'}), 500
+
+# --- API Endpoints: Sensor Data ---
+@app.route('/api/entries/<int:entry_id>/sensor_data', methods=['GET'])
+def get_sensor_data_for_entry(entry_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, sensor_type, value, recorded_at FROM SensorData WHERE entry_id = ? ORDER BY recorded_at DESC", (entry_id,))
+    sensor_data = cursor.fetchall()
+    return jsonify([dict(row) for row in sensor_data])
+
+@app.route('/api/entries/<int:entry_id>/sensor_data', methods=['POST'])
+def add_sensor_data_to_entry(entry_id):
+    data = request.json
+    sensor_type = data.get('sensor_type')
+    value = data.get('value')
+    recorded_at = data.get('recorded_at', datetime.now().isoformat())
+
+    if not sensor_type or not value:
+        return jsonify({'error': 'Sensor type and value are required.'}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO SensorData (entry_id, sensor_type, value, recorded_at) VALUES (?, ?, ?, ?)",
+            (entry_id, sensor_type, value, recorded_at)
+        )
+        conn.commit()
+        return jsonify({'message': 'Sensor data added successfully!', 'sensor_id': cursor.lastrowid}), 201
+    except sqlite3.IntegrityError:
+        # This occurs if entry_id doesn't exist due to FOREIGN KEY constraint
+        conn.rollback()
+        return jsonify({'error': 'Entry not found for adding sensor data.'}), 404
+    except Exception as e:
+        app.logger.error(f"Error adding sensor data to entry {entry_id}: {e}", exc_info=True)
+        conn.rollback()
+        return jsonify({'error': 'An internal error occurred.'}), 500
+
+@app.route('/api/sensor_data/<int:sensor_id>', methods=['DELETE'])
+def delete_sensor_data(sensor_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM SensorData WHERE id = ?", (sensor_id,))
+        conn.commit()
+        if cursor.rowcount == 0:
+            return jsonify({'error': 'Sensor data not found.'}), 404
+        return jsonify({'message': 'Sensor data deleted successfully!'}), 200
+    except Exception as e:
+        app.logger.error(f"Error deleting sensor data {sensor_id}: {e}", exc_info=True)
         conn.rollback()
         return jsonify({'error': 'An internal error occurred.'}), 500
 
@@ -842,6 +934,92 @@ def search_entries():
             'entry_type_label': row['entry_type_label']
         })
     return jsonify(results)
+
+# --- Wikipedia API Integration ---
+@app.route('/api/wikipedia/search/<string:query>', methods=['GET'])
+def wikipedia_search(query):
+    """Search Wikipedia and return article summary"""
+    try:
+        # First, search for the article to get the exact title
+        search_url = "https://en.wikipedia.org/api/rest_v1/page/summary/" + quote(query)
+        
+        # Set a proper User-Agent header as required by Wikipedia API
+        headers = {
+            'User-Agent': 'YourAppName/1.0 (https://your-domain.com; your-email@domain.com)'
+        }
+        
+        response = requests.get(search_url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            # Extract relevant information
+            result = {
+                'title': data.get('title', ''),
+                'extract': data.get('extract', ''),
+                'description': data.get('description', ''),
+                'url': data.get('content_urls', {}).get('desktop', {}).get('page', ''),
+                'thumbnail': data.get('thumbnail', {}).get('source', '') if data.get('thumbnail') else '',
+                'found': True
+            }
+            
+            return jsonify(result)
+        
+        elif response.status_code == 404:
+            # Try a search query if direct lookup fails
+            search_api_url = "https://en.wikipedia.org/api/rest_v1/page/search/" + quote(query)
+            search_response = requests.get(search_api_url, headers=headers, timeout=10)
+            
+            if search_response.status_code == 200:
+                search_data = search_response.json()
+                pages = search_data.get('pages', [])
+                
+                if pages:
+                    # Get the first search result
+                    first_result = pages[0]
+                    
+                    result = {
+                        'title': first_result.get('title', ''),
+                        'extract': first_result.get('excerpt', ''),
+                        'description': first_result.get('description', ''),
+                        'url': f"https://en.wikipedia.org/wiki/{quote(first_result.get('key', ''))}",
+                        'thumbnail': first_result.get('thumbnail', {}).get('url', '') if first_result.get('thumbnail') else '',
+                        'found': True,
+                        'search_result': True
+                    }
+                    
+                    return jsonify(result)
+            
+            return jsonify({
+                'found': False,
+                'message': f'No Wikipedia article found for "{query}"'
+            })
+        
+        else:
+            return jsonify({
+                'found': False,
+                'message': f'Wikipedia API error: {response.status_code}'
+            }), response.status_code
+            
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'found': False,
+            'message': 'Wikipedia request timed out'
+        }), 408
+        
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Wikipedia API error: {e}", exc_info=True)
+        return jsonify({
+            'found': False,
+            'message': 'Failed to connect to Wikipedia API'
+        }), 500
+        
+    except Exception as e:
+        app.logger.error(f"Unexpected error in Wikipedia search: {e}", exc_info=True)
+        return jsonify({
+            'found': False,
+            'message': 'An unexpected error occurred'
+        }), 500
 
 
 # --- Initial Database Setup (for development) ---

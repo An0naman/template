@@ -103,7 +103,7 @@
 </head>
 <body>
     <div class="container">
-        <h1 class="mb-4">{{ entry.title }} <small class="text-muted">({{ entry.entry_type_label }})</small></h1>
+        <h1 class="mb-4">{{ entry.title }}</h1>
 
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
@@ -114,10 +114,10 @@
 
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h2 class="h4 mb-0">Entry Details</h2>
+                <h2 class="h4 mb-0" id="entryTitle">{{ entry.title }}</h2>
                 <div class="entry-actions">
-                    <button class="btn btn-sm btn-info" id="showEditEntryModalBtn">
-                        <i class="fas fa-edit me-1"></i> Edit
+                    <button class="btn btn-sm btn-outline-secondary me-2" id="editDescriptionBtn" type="button">
+                        <i class="fas fa-edit me-1"></i> Edit Entry
                     </button>
                     <button class="btn btn-sm btn-danger" id="deleteEntryBtn">
                         <i class="fas fa-trash-alt me-1"></i> Delete
@@ -125,34 +125,86 @@
                 </div>
             </div>
             <div class="card-body">
-                <p><strong>Description:</strong> {{ entry.description or 'N/A' }}</p>
+                <div class="flex-grow-1">
+                    <p><strong>Entry Type:</strong> <span id="entryTypeDisplay">{{ entry.entry_type_label }}</span></p>
+                    <p><strong>Description:</strong> 
+                        <span id="descriptionDisplay">{{ entry.description or 'No description available' }}</span>
+                    </p>
+                </div>
                 <p><strong>Created At:</strong> <span id="created-at">{{ entry.created_at }}</span></p>
             </div>
         </div>
 
         <div class="row">
             <div class="col-md-7">
-                <h4 class="mt-3 mt-md-0">Description</h4>
-                <div class="mb-3">
-                    <label for="descriptionTextarea" class="form-label">Entry Description:</label>
-                    <textarea class="form-control" id="descriptionTextarea" rows="6" placeholder="Add a detailed description for this entry...">{{ entry.description if entry.description is not none else '' }}</textarea>
+                <!-- Collapsible Entry Editor -->
+                <div class="collapse" id="descriptionEditor">
+                    <div class="card border-secondary mb-4">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0"><i class="fas fa-edit me-1"></i> Edit Entry</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="entryTitleInput" class="form-label">Entry Title:</label>
+                                <input type="text" class="form-control" id="entryTitleInput" value="{{ entry.title }}" placeholder="Enter entry title">
+                            </div>
+                            <div class="mb-3">
+                                <label for="entryTypeSelect" class="form-label">Entry Type:</label>
+                                <select class="form-select" id="entryTypeSelect">
+                                    <!-- Options will be loaded dynamically -->
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="descriptionTextarea" class="form-label">Entry Description:</label>
+                                <textarea class="form-control" id="descriptionTextarea" rows="6" placeholder="Add a detailed description for this entry...">{{ entry.description if entry.description is not none else '' }}</textarea>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-success" id="saveDescriptionBtn"><i class="fas fa-save me-1"></i> Save Changes</button>
+                                <button type="button" class="btn btn-outline-primary" id="searchWikipediaBtn"><i class="fab fa-wikipedia-w me-1"></i> Search Wikipedia</button>
+                                <button type="button" class="btn btn-secondary" id="cancelDescriptionBtn"><i class="fas fa-times me-1"></i> Cancel</button>
+                            </div>
+                            <div id="descriptionStatusMessage" class="mt-3 d-none"></div>
+                            <div id="wikipediaResults" class="mt-3 d-none">
+                                <div class="card border-info">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0"><i class="fab fa-wikipedia-w me-1"></i> Wikipedia Result</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <h6 id="wikipediaTitle" class="card-title"></h6>
+                                        <p id="wikipediaExtract" class="card-text"></p>
+                                        <div class="d-flex gap-2">
+                                            <button type="button" class="btn btn-sm btn-primary" id="useWikipediaBtn">Use This Description</button>
+                                            <a id="wikipediaLink" href="#" target="_blank" class="btn btn-sm btn-outline-secondary">View on Wikipedia</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <button type="button" class="btn btn-success" id="saveDescriptionBtn"><i class="fas fa-save me-1"></i> Save Description</button>
-                <div id="descriptionStatusMessage" class="mt-3 d-none"></div>
 
                 <hr class="my-4">
 
-                <h4 class="mt-3">Sensor Data</h4>
-                <div class="placeholder-section">
-                    <p>This space is reserved for displaying and managing sensor data related to this entry.</p>
-                    <p class="text-muted small"><em>(e.g., temperature, humidity, light levels)</em></p>
+                {% if entry.has_sensors %}
+                <div id="sensorDataSection">
+                    <h4 class="mt-3">Sensor Data</h4>
+                    <div id="sensorDataContainer">
+                        <p class="text-muted text-center" id="loadingSensorData">Loading sensor data...</p>
+                        <!-- Sensor data will be loaded here -->
+                    </div>
+                    <button class="btn btn-primary btn-sm mb-3" type="button" data-bs-toggle="modal" data-bs-target="#addSensorDataModal">
+                        <i class="fas fa-plus-circle me-2"></i> Add Sensor Reading
+                    </button>
                 </div>
 
                 <hr class="my-4">
+                {% endif %}
 
-                <h4 class="mt-3">Related Records</h4>
-                <div id="relatedRecordsContainer">
-                    <p class="text-muted text-center" id="loadingRelationships">Loading relationships...</p>
+                <div id="relatedRecordsSection" style="display: none;">
+                    <h4 class="mt-3">Related Records</h4>
+                    <div id="relatedRecordsContainer">
+                        <p class="text-muted text-center" id="loadingRelationships">Loading relationships...</p>
+                    </div>
                 </div>
             </div>
 
@@ -196,37 +248,6 @@
 
                 <div id="notesList" class="list-group mb-3">
                     <p class="text-muted" id="noNotesMessage">Loading notes...</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Edit Entry Modal -->
-    <div class="modal fade" id="editEntryModal" tabindex="-1" aria-labelledby="editEntryModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="editEntryModalLabel">Edit {{ entry_singular_label }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="editEntryForm">
-                        <div class="mb-3">
-                            <label for="editEntryTitle" class="form-label">Title:</label>
-                            <input type="text" class="form-control" id="editEntryTitle" required value="{{ entry.title }}">
-                        </div>
-                        <div class="mb-3">
-                            <label for="editEntryType" class="form-label">Type:</label>
-                            <select class="form-select" id="editEntryType" required>
-                                <!-- Options will be loaded by JavaScript -->
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label for="editEntryDescription" class="form-label">Description:</label>
-                            <textarea class="form-control" id="editEntryDescription" rows="3">{{ entry.description }}</textarea>
-                        </div>
-                        <button type="submit" class="btn btn-primary w-100">Save Changes</button>
-                    </form>
                 </div>
             </div>
         </div>
@@ -363,6 +384,37 @@
         </div>
     </div>
 
+    <!-- Add Sensor Data Modal -->
+    {% if entry.has_sensors %}
+    <div class="modal fade" id="addSensorDataModal" tabindex="-1" aria-labelledby="addSensorDataModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addSensorDataModalLabel">Add Sensor Reading</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addSensorDataForm">
+                        <div class="mb-3">
+                            <label for="sensorTypeInput" class="form-label">Sensor Type:</label>
+                            <input type="text" class="form-control" id="sensorTypeInput" placeholder="e.g., Temperature, Humidity, Pressure" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="sensorValueInput" class="form-label">Value:</label>
+                            <input type="text" class="form-control" id="sensorValueInput" placeholder="e.g., 23.5°C, 65%, 1013.2 hPa" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="sensorRecordedAt" class="form-label">Recorded At:</label>
+                            <input type="datetime-local" class="form-control" id="sensorRecordedAt">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add Reading</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Data injected from Flask/Jinja
@@ -371,6 +423,7 @@
         const currentEntryTypeId = "{{ entry.entry_type_id }}"; // Needed for related records
         const currentEntryName = "{{ entry.title }}"; // Using title as name for consistency
         const currentEntryTypeLabel = "{{ entry.entry_type_label }}";
+        const hasSensors = {{ entry.has_sensors|tojson }}; // Convert to JavaScript boolean
 
         // DOM elements for Notes and Description (existing)
         const noteTitleInput = document.getElementById('noteTitleInput');
@@ -383,7 +436,15 @@
         const noNotesMessage = document.getElementById('noNotesMessage');
         const noteStatusMessage = document.getElementById('noteStatusMessage');
         const descriptionTextarea = document.getElementById('descriptionTextarea');
+        const entryTitleInput = document.getElementById('entryTitleInput');
+        const entryTypeSelect = document.getElementById('entryTypeSelect');
         const saveDescriptionBtn = document.getElementById('saveDescriptionBtn');
+        const editDescriptionBtn = document.getElementById('editDescriptionBtn');
+        const cancelDescriptionBtn = document.getElementById('cancelDescriptionBtn');
+        const descriptionDisplay = document.getElementById('descriptionDisplay');
+        const entryTitle = document.getElementById('entryTitle');
+        const entryTypeDisplay = document.getElementById('entryTypeDisplay');
+        const descriptionEditor = document.getElementById('descriptionEditor');
         const descriptionStatusMessage = document.getElementById('descriptionStatusMessage');
         const createdAtSpan = document.getElementById('created-at');
         const newNoteFormCollapseElement = document.getElementById('newNoteForm');
@@ -432,6 +493,10 @@
             initializeNoteTypeDropdown();
             fetchNotes();
             loadRelatedRecords(); // Call the new function to load related records
+            if (hasSensors) {
+                loadSensorData(); // Load sensor data if this entry type supports sensors
+                initializeSensorDataForm(); // Initialize sensor data form
+            }
         });
 
         function initializeNoteTypeDropdown() {
@@ -645,10 +710,67 @@
             }
         });
 
-        // --- Description Section ---
+        // --- Entry Editing Section ---
+        const originalEntryTypeId = {{ entry.entry_type_id }};
+        
+        // Toggle entry editor
+        editDescriptionBtn.addEventListener('click', async () => {
+            // Load entry types before showing the editor
+            try {
+                const response = await fetch('/api/entry_types');
+                const entryTypes = await response.json();
+                
+                // Clear and populate entry type select
+                entryTypeSelect.innerHTML = '';
+                entryTypes.forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type.id;
+                    option.textContent = type.singular_label;
+                    if (type.id == originalEntryTypeId) {
+                        option.selected = true;
+                    }
+                    entryTypeSelect.appendChild(option);
+                });
+                
+                // Show the editor
+                const collapse = new bootstrap.Collapse(descriptionEditor, { show: true });
+                editDescriptionBtn.style.display = 'none';
+            } catch (error) {
+                console.error('Error loading entry types:', error);
+                displayStatus(descriptionStatusMessage, 'Error loading entry types', 'alert-danger');
+            }
+        });
+
+        // Cancel entry editing
+        cancelDescriptionBtn.addEventListener('click', () => {
+            const collapse = new bootstrap.Collapse(descriptionEditor, { show: false });
+            // Reset all fields to original values
+            entryTitleInput.value = '{{ entry.title|e }}';
+            descriptionTextarea.value = '{{ entry.description|e if entry.description is not none else "" }}';
+            // Reset entry type to original
+            entryTypeSelect.value = originalEntryTypeId;
+            // Clear any status messages
+            descriptionStatusMessage.className = 'mt-3 d-none';
+            // Clear Wikipedia results
+            document.getElementById('wikipediaResults').classList.add('d-none');
+        });
+
+        // Show edit button when entry editor is hidden
+        descriptionEditor.addEventListener('hidden.bs.collapse', () => {
+            editDescriptionBtn.style.display = 'inline-block';
+        });
+
         saveDescriptionBtn.addEventListener('click', async () => {
+            const title = entryTitleInput.value.trim();
             const description = descriptionTextarea.value;
-            displayStatus(descriptionStatusMessage, 'Saving description...', 'alert-info');
+            const entryTypeId = parseInt(entryTypeSelect.value);
+            
+            if (!title) {
+                displayStatus(descriptionStatusMessage, 'Entry title is required.', 'alert-danger');
+                return;
+            }
+            
+            displayStatus(descriptionStatusMessage, 'Saving changes...', 'alert-info');
 
             try {
                 const response = await fetch(`/api/entries/${entryId}`, {
@@ -656,19 +778,103 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ description: description })
+                    body: JSON.stringify({ 
+                        title: title,
+                        description: description,
+                        entry_type_id: entryTypeId
+                    })
                 });
 
                 const data = await response.json();
 
                 if (response.ok) {
-                    displayStatus(descriptionStatusMessage, 'Description saved successfully!', 'alert-success');
+                    displayStatus(descriptionStatusMessage, 'Entry updated successfully!', 'alert-success');
+                    
+                    // Update the display elements
+                    entryTitle.textContent = title;
+                    descriptionDisplay.textContent = description || 'No description available';
+                    
+                    // Update entry type display
+                    const selectedOption = entryTypeSelect.options[entryTypeSelect.selectedIndex];
+                    if (selectedOption) {
+                        entryTypeDisplay.textContent = selectedOption.textContent;
+                    }
+                    
+                    // Update the page title
+                    document.title = document.title.replace(/- .+ -/, `- ${title} -`);
+                    
+                    // Update breadcrumb
+                    const breadcrumbActive = document.querySelector('.breadcrumb-item.active');
+                    if (breadcrumbActive) {
+                        breadcrumbActive.textContent = title;
+                    }
+                    
+                    // Hide the editor after successful save
+                    setTimeout(() => {
+                        const collapse = new bootstrap.Collapse(descriptionEditor, { show: false });
+                    }, 1500);
                 } else {
-                    displayStatus(descriptionStatusMessage, `Error: ${data.message || 'Failed to save description.'}`, 'alert-danger');
+                    displayStatus(descriptionStatusMessage, `Error: ${data.error || 'Failed to update entry.'}`, 'alert-danger');
                 }
             } catch (error) {
                 console.error('Network or server error:', error);
-                displayStatus(descriptionStatusMessage, 'An unexpected error occurred while saving description.', 'alert-danger');
+                displayStatus(descriptionStatusMessage, 'An unexpected error occurred while updating entry.', 'alert-danger');
+            }
+        });
+
+        // --- Wikipedia Search Functionality ---
+        document.getElementById('searchWikipediaBtn').addEventListener('click', async () => {
+            const searchBtn = document.getElementById('searchWikipediaBtn');
+            const wikipediaResults = document.getElementById('wikipediaResults');
+            const entryTitle = currentEntryName; // Use the entry title as search query
+            
+            // Update button state
+            searchBtn.disabled = true;
+            searchBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Searching...';
+            
+            try {
+                const response = await fetch(`/api/wikipedia/search/${encodeURIComponent(entryTitle)}`);
+                const data = await response.json();
+                
+                if (data.found) {
+                    // Populate Wikipedia results
+                    document.getElementById('wikipediaTitle').textContent = data.title;
+                    document.getElementById('wikipediaExtract').textContent = data.extract;
+                    document.getElementById('wikipediaLink').href = data.url;
+                    
+                    // Store the extract for later use
+                    wikipediaResults.dataset.extract = data.extract;
+                    
+                    // Show results
+                    wikipediaResults.classList.remove('d-none');
+                    
+                    displayStatus(descriptionStatusMessage, 'Wikipedia article found!', 'alert-success');
+                } else {
+                    displayStatus(descriptionStatusMessage, data.message || 'No Wikipedia article found', 'alert-warning');
+                    wikipediaResults.classList.add('d-none');
+                }
+            } catch (error) {
+                console.error('Wikipedia search error:', error);
+                displayStatus(descriptionStatusMessage, 'Error searching Wikipedia', 'alert-danger');
+                wikipediaResults.classList.add('d-none');
+            } finally {
+                // Reset button state
+                searchBtn.disabled = false;
+                searchBtn.innerHTML = '<i class="fab fa-wikipedia-w me-1"></i> Search Wikipedia';
+            }
+        });
+
+        // Handle "Use This Description" button
+        document.getElementById('useWikipediaBtn').addEventListener('click', () => {
+            const wikipediaResults = document.getElementById('wikipediaResults');
+            const extract = wikipediaResults.dataset.extract;
+            
+            if (extract) {
+                descriptionTextarea.value = extract;
+                displayStatus(descriptionStatusMessage, 'Wikipedia description added! Remember to save.', 'alert-info');
+                
+                // Hide Wikipedia results after use
+                wikipediaResults.classList.add('d-none');
             }
         });
 
@@ -723,6 +929,15 @@
                 def.entry_type_id_from == currentEntryTypeId || def.entry_type_id_to == currentEntryTypeId
             );
             
+            // Show or hide the Related Records section based on whether there are relevant definitions
+            const relatedRecordsSection = document.getElementById('relatedRecordsSection');
+            if (relevantDefinitions.length === 0) {
+                relatedRecordsSection.style.display = 'none';
+                return;
+            } else {
+                relatedRecordsSection.style.display = 'block';
+            }
+            
             relevantDefinitions.forEach(def => {
                 const relatedEntries = groupedEntries[def.id] || [];
                 
@@ -736,11 +951,7 @@
                 const cardHtml = `
                     <div class="card mb-3">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">${def.name} 
-                                <small class="text-muted">
-                                    (${relatedEntries.length}${relevantCardinality === -1 ? '/∞' : '/' + relevantCardinality} - ${isFromSide ? 'From' : 'To'} side)
-                                </small>
-                            </h5>
+                            <h5 class="mb-0">${def.name}</h5>
                             <div>
                                 <button class="btn btn-sm btn-primary add-new-btn" data-definition-id="${def.id}" ${canAddMore ? '' : 'disabled'}>
                                     Add New
@@ -870,23 +1081,43 @@
             document.querySelectorAll('.add-existing-btn').forEach(button => {
                 button.addEventListener('click', async function() {
                     const definitionId = this.getAttribute('data-definition-id');
+                    
+                    // Get the relationship definition to determine which entry type we need
+                    const relationshipDef = allRelationshipDefinitions.find(def => def.id == definitionId);
+                    if (!relationshipDef) {
+                        alert('Relationship definition not found');
+                        return;
+                    }
+                    
+                    // Determine which entry type the related entry should be
+                    const isCurrentEntryFromSide = relationshipDef.entry_type_id_from == currentEntryTypeId;
+                    const targetEntryTypeId = isCurrentEntryFromSide ? relationshipDef.entry_type_id_to : relationshipDef.entry_type_id_from;
+                    const targetEntryTypeLabel = isCurrentEntryFromSide ? relationshipDef.entry_type_to_label : relationshipDef.entry_type_from_label;
+                    
                     const modalHtml = `
                         <div class="modal fade" id="addExistingModal" tabindex="-1" aria-labelledby="addExistingModalLabel" aria-hidden="true">
                             <div class="modal-dialog">
                                 <div class="modal-content">
                                     <div class="modal-header">
-                                        <h5 class="modal-title" id="addExistingModalLabel">Add Existing Entry</h5>
+                                        <h5 class="modal-title" id="addExistingModalLabel">Add Existing ${targetEntryTypeLabel}</h5>
                                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                     </div>
                                     <div class="modal-body">
                                         <form id="addExistingForm">
                                             <div class="mb-3">
-                                                <label for="existingEntryId" class="form-label">Select Entry:</label>
-                                                <select class="form-select" id="existingEntryId" required>
-                                                    <!-- Options will be dynamically loaded -->
-                                                </select>
+                                                <label for="entrySearchInput" class="form-label">Search for ${targetEntryTypeLabel}:</label>
+                                                <input type="text" class="form-control" id="entrySearchInput" placeholder="Type to search..." autocomplete="off">
+                                                <div id="searchResults" class="mt-2" style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; display: none;">
+                                                    <!-- Search results will appear here -->
+                                                </div>
+                                                <input type="hidden" id="selectedEntryId" required>
+                                                <div id="selectedEntryDisplay" class="mt-2 p-2 bg-light rounded" style="display: none;">
+                                                    <small class="text-muted">Selected:</small>
+                                                    <div id="selectedEntryName" class="fw-bold"></div>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-1" id="clearSelection">Clear Selection</button>
+                                                </div>
                                             </div>
-                                            <button type="submit" class="btn btn-primary w-100">Add</button>
+                                            <button type="submit" class="btn btn-primary w-100" id="addExistingSubmitBtn" disabled>Add Relationship</button>
                                         </form>
                                     </div>
                                 </div>
@@ -898,24 +1129,118 @@
                     const addExistingModal = new bootstrap.Modal(document.getElementById('addExistingModal'));
                     addExistingModal.show();
 
-                    // Load existing entries into the select dropdown
-                    const selectElement = document.getElementById('existingEntryId');
+                    // Get already related entry IDs for this definition to exclude them
+                    const alreadyRelatedIds = new Set();
                     try {
-                        const response = await fetch('/api/entries');
-                        const entries = await response.json();
-                        entries.forEach(entry => {
-                            const option = document.createElement('option');
-                            option.value = entry.id;
-                            option.textContent = entry.name;
-                            selectElement.appendChild(option);
+                        const relResponse = await fetch(`/api/entries/${entryId}/relationships`);
+                        const relationships = await relResponse.json();
+                        relationships.forEach(rel => {
+                            if (rel.definition_id == definitionId) {
+                                alreadyRelatedIds.add(rel.related_entry_id);
+                            }
                         });
+                        // Also exclude the current entry itself
+                        alreadyRelatedIds.add(parseInt(entryId));
                     } catch (error) {
-                        alert(`Error loading entries: ${error.message}`);
+                        console.error('Error fetching existing relationships:', error);
                     }
+
+                    // Search functionality
+                    const searchInput = document.getElementById('entrySearchInput');
+                    const searchResults = document.getElementById('searchResults');
+                    const selectedEntryId = document.getElementById('selectedEntryId');
+                    const selectedEntryDisplay = document.getElementById('selectedEntryDisplay');
+                    const selectedEntryName = document.getElementById('selectedEntryName');
+                    const submitBtn = document.getElementById('addExistingSubmitBtn');
+                    const clearBtn = document.getElementById('clearSelection');
+                    
+                    let searchTimeout;
+                    
+                    searchInput.addEventListener('input', function() {
+                        clearTimeout(searchTimeout);
+                        const query = this.value.trim();
+                        
+                        if (query.length < 2) {
+                            searchResults.style.display = 'none';
+                            return;
+                        }
+                        
+                        searchTimeout = setTimeout(async () => {
+                            try {
+                                const response = await fetch(`/api/search_entries?q=${encodeURIComponent(query)}&entry_type_id=${targetEntryTypeId}`);
+                                const entries = await response.json();
+                                
+                                // Filter out already related entries
+                                const availableEntries = entries.filter(entry => !alreadyRelatedIds.has(entry.id));
+                                
+                                if (availableEntries.length === 0) {
+                                    searchResults.innerHTML = '<div class="p-2 text-muted">No available entries found</div>';
+                                } else {
+                                    searchResults.innerHTML = availableEntries.map(entry => 
+                                        `<div class="search-result-item p-2 border-bottom" data-entry-id="${entry.id}" data-entry-name="${entry.title}" style="cursor: pointer;">
+                                            <div class="fw-semibold">${entry.title}</div>
+                                            <small class="text-muted">${entry.entry_type_label}</small>
+                                        </div>`
+                                    ).join('');
+                                    
+                                    // Add click handlers for search results
+                                    document.querySelectorAll('.search-result-item').forEach(item => {
+                                        item.addEventListener('click', function() {
+                                            const entryIdValue = this.getAttribute('data-entry-id');
+                                            const entryName = this.getAttribute('data-entry-name');
+                                            
+                                            selectedEntryId.value = entryIdValue;
+                                            selectedEntryName.textContent = entryName;
+                                            selectedEntryDisplay.style.display = 'block';
+                                            searchResults.style.display = 'none';
+                                            searchInput.value = '';
+                                            submitBtn.disabled = false;
+                                        });
+                                        
+                                        // Add hover effect
+                                        item.addEventListener('mouseenter', function() {
+                                            this.style.backgroundColor = '#f8f9fa';
+                                        });
+                                        item.addEventListener('mouseleave', function() {
+                                            this.style.backgroundColor = '';
+                                        });
+                                    });
+                                }
+                                
+                                searchResults.style.display = 'block';
+                            } catch (error) {
+                                searchResults.innerHTML = '<div class="p-2 text-danger">Error searching entries</div>';
+                                searchResults.style.display = 'block';
+                            }
+                        }, 300);
+                    });
+                    
+                    // Clear selection handler
+                    clearBtn.addEventListener('click', function() {
+                        selectedEntryId.value = '';
+                        selectedEntryDisplay.style.display = 'none';
+                        submitBtn.disabled = true;
+                        searchInput.focus();
+                    });
+                    
+                    // Hide search results when clicking outside
+                    document.addEventListener('click', function(e) {
+                        if (!searchResults.contains(e.target) && e.target !== searchInput) {
+                            searchResults.style.display = 'none';
+                        }
+                    });
 
                     document.getElementById('addExistingForm').addEventListener('submit', async function(event) {
                         event.preventDefault();
-                        const relatedEntryId = document.getElementById('existingEntryId').value;
+                        const relatedEntryId = selectedEntryId.value;
+                        
+                        if (!relatedEntryId) {
+                            alert('Please select an entry first');
+                            return;
+                        }
+
+                        submitBtn.disabled = true;
+                        submitBtn.textContent = 'Adding...';
 
                         try {
                             const response = await fetch(`/api/entries/${entryId}/relationships`, {
@@ -934,7 +1259,15 @@
                             }
                         } catch (error) {
                             alert(`Error: ${error.message}`);
+                        } finally {
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = 'Add Relationship';
                         }
+                    });
+                    
+                    // Clean up modal when closed
+                    addExistingModal._element.addEventListener('hidden.bs.modal', function() {
+                        document.getElementById('addExistingModal').remove();
                     });
                 });
             });
@@ -1068,6 +1401,157 @@
                 submitButton.textContent = 'Add';
             }
         }
+
+        // --- Sensor Data Functions ---
+        {% if entry.has_sensors %}
+        async function loadSensorData() {
+            const sensorDataContainer = document.getElementById('sensorDataContainer');
+            const loadingSensorData = document.getElementById('loadingSensorData');
+            
+            try {
+                loadingSensorData.style.display = 'block';
+                const response = await fetch(`/api/entries/${entryId}/sensor_data`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const sensorData = await response.json();
+                renderSensorData(sensorData);
+            } catch (error) {
+                console.error('Error loading sensor data:', error);
+                sensorDataContainer.innerHTML = '<p class="text-danger">Error loading sensor data.</p>';
+            } finally {
+                loadingSensorData.style.display = 'none';
+            }
+        }
+
+        function renderSensorData(sensorData) {
+            const sensorDataContainer = document.getElementById('sensorDataContainer');
+            
+            if (sensorData.length === 0) {
+                sensorDataContainer.innerHTML = '<p class="text-muted">No sensor data recorded yet.</p>';
+                return;
+            }
+
+            const tableHtml = `
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Sensor Type</th>
+                            <th>Value</th>
+                            <th>Recorded At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${sensorData.map(data => `
+                            <tr>
+                                <td>${data.sensor_type}</td>
+                                <td>${data.value}</td>
+                                <td>${new Date(data.recorded_at).toLocaleString()}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-danger delete-sensor-btn" data-sensor-id="${data.id}" title="Delete reading">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            sensorDataContainer.innerHTML = tableHtml;
+            attachSensorDataEventListeners();
+        }
+
+        function attachSensorDataEventListeners() {
+            // Delete sensor data buttons
+            document.querySelectorAll('.delete-sensor-btn').forEach(button => {
+                button.addEventListener('click', async function() {
+                    const sensorId = this.getAttribute('data-sensor-id');
+                    if (confirm('Are you sure you want to delete this sensor reading?')) {
+                        await deleteSensorData(sensorId);
+                    }
+                });
+            });
+        }
+
+        async function deleteSensorData(sensorId) {
+            try {
+                const response = await fetch(`/api/sensor_data/${sensorId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to delete sensor data');
+                }
+
+                // Reload sensor data
+                await loadSensorData();
+                
+            } catch (error) {
+                console.error('Error deleting sensor data:', error);
+                alert('Error deleting sensor data: ' + error.message);
+            }
+        }
+
+        function initializeSensorDataForm() {
+            const addSensorDataForm = document.getElementById('addSensorDataForm');
+            const addSensorDataModal = bootstrap.Modal.getInstance(document.getElementById('addSensorDataModal')) || 
+                                      new bootstrap.Modal(document.getElementById('addSensorDataModal'));
+            
+            // Set current date/time as default
+            const now = new Date();
+            const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+            document.getElementById('sensorRecordedAt').value = localDateTime;
+            
+            addSensorDataForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const sensorType = document.getElementById('sensorTypeInput').value.trim();
+                const sensorValue = document.getElementById('sensorValueInput').value.trim();
+                const recordedAt = document.getElementById('sensorRecordedAt').value;
+                
+                if (!sensorType || !sensorValue) {
+                    alert('Please fill in all required fields.');
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`/api/entries/${entryId}/sensor_data`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            sensor_type: sensorType,
+                            value: sensorValue,
+                            recorded_at: recordedAt || new Date().toISOString()
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Failed to add sensor data');
+                    }
+                    
+                    // Reset form and close modal
+                    addSensorDataForm.reset();
+                    document.getElementById('sensorRecordedAt').value = localDateTime; // Reset to current time
+                    addSensorDataModal.hide();
+                    
+                    // Reload sensor data
+                    await loadSensorData();
+                    
+                } catch (error) {
+                    console.error('Error adding sensor data:', error);
+                    alert('Error adding sensor data: ' + error.message);
+                }
+            });
+        }
+        {% endif %}
     </script>
 </body>
 </html>
