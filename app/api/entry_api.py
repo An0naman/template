@@ -166,3 +166,71 @@ def search_entries():
     except Exception as e:
         logger.error(f"Error searching entries: {e}", exc_info=True)
         return jsonify({'error': 'An internal error occurred during search.'}), 500
+
+# --- Sensor Data Endpoints ---
+
+@entry_api_bp.route('/entries/<int:entry_id>/sensor_data', methods=['GET'])
+def get_sensor_data_for_entry(entry_id):
+    """Get all sensor data for a specific entry"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, sensor_type, value, recorded_at FROM SensorData WHERE entry_id = ? ORDER BY recorded_at DESC", 
+            (entry_id,)
+        )
+        sensor_data = cursor.fetchall()
+        return jsonify([dict(row) for row in sensor_data])
+    except Exception as e:
+        logger.error(f"Error fetching sensor data for entry {entry_id}: {e}", exc_info=True)
+        return jsonify({'error': 'An internal error occurred while fetching sensor data.'}), 500
+
+@entry_api_bp.route('/entries/<int:entry_id>/sensor_data', methods=['POST'])
+def add_sensor_data_to_entry(entry_id):
+    """Add sensor data to a specific entry"""
+    try:
+        data = request.json
+        sensor_type = data.get('sensor_type')
+        value = data.get('value')
+        recorded_at = data.get('recorded_at', datetime.now().isoformat())
+
+        if not sensor_type or not value:
+            return jsonify({'error': 'Sensor type and value are required.'}), 400
+
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            "INSERT INTO SensorData (entry_id, sensor_type, value, recorded_at) VALUES (?, ?, ?, ?)",
+            (entry_id, sensor_type, value, recorded_at)
+        )
+        conn.commit()
+        return jsonify({'message': 'Sensor data added successfully!', 'sensor_id': cursor.lastrowid}), 201
+        
+    except sqlite3.IntegrityError:
+        # This occurs if entry_id doesn't exist due to FOREIGN KEY constraint
+        conn.rollback()
+        return jsonify({'error': 'Entry not found for adding sensor data.'}), 404
+    except Exception as e:
+        logger.error(f"Error adding sensor data to entry {entry_id}: {e}", exc_info=True)
+        conn.rollback()
+        return jsonify({'error': 'An internal error occurred.'}), 500
+
+@entry_api_bp.route('/sensor_data/<int:sensor_id>', methods=['DELETE'])
+def delete_sensor_data(sensor_id):
+    """Delete a specific sensor data record"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute("DELETE FROM SensorData WHERE id = ?", (sensor_id,))
+        if cursor.rowcount == 0:
+            return jsonify({'error': 'Sensor data not found.'}), 404
+        
+        conn.commit()
+        return jsonify({'message': 'Sensor data deleted successfully!'}), 200
+        
+    except Exception as e:
+        logger.error(f"Error deleting sensor data {sensor_id}: {e}", exc_info=True)
+        conn.rollback()
+        return jsonify({'error': 'An internal error occurred.'}), 500

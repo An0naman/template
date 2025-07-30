@@ -49,11 +49,23 @@ def manage_relationships_page():
                            entry_singular_label=params.get('entry_singular_label'),
                            entry_plural_label=params.get('entry_plural_label'))
 
+@maintenance_bp.route('/manage_sensor_types')
+def manage_sensor_types_page():
+    from ..db import get_system_parameters
+    params = get_system_parameters()
+    return render_template('manage_sensor_types.html',
+                           project_name=params.get('project_name'),
+                           entry_singular_label=params.get('entry_singular_label'),
+                           entry_plural_label=params.get('entry_plural_label'),
+                           sensor_types=params.get('sensor_types', 'Temperature,Humidity,Pressure'))
+
 @maintenance_bp.route('/manage_sensors')
 def manage_sensors_page():
     from ..db import get_system_parameters
+    from flask import url_for
     params = get_system_parameters()
     return render_template('manage_sensors.html',
                            project_name=params.get('project_name'),
                            entry_singular_label=params.get('entry_singular_label'),
-                           entry_plural_label=params.get('entry_plural_label'))
+                           entry_plural_label=params.get('entry_plural_label'),
+                           manage_sensor_types_url=url_for('maintenance.manage_sensor_types_page'))

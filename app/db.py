@@ -39,7 +39,8 @@ def init_db():
                 description TEXT,
                 note_types TEXT DEFAULT 'General', -- Comma-separated list of default note types
                 is_primary INTEGER DEFAULT 0, -- 1 for primary, 0 for secondary
-                has_sensors BOOLEAN NOT NULL DEFAULT 0 -- Whether this entry type supports sensor data
+                has_sensors BOOLEAN NOT NULL DEFAULT 0, -- Whether this entry type supports sensor data
+                enabled_sensor_types TEXT DEFAULT '' -- Comma-separated list of enabled sensor types for this entry type
             );
         ''')
 
@@ -49,8 +50,10 @@ def init_db():
             columns = [col[1] for col in cursor.fetchall()]
             if 'has_sensors' not in columns:
                 cursor.execute("ALTER TABLE EntryType ADD COLUMN has_sensors BOOLEAN NOT NULL DEFAULT 0")
+            if 'enabled_sensor_types' not in columns:
+                cursor.execute("ALTER TABLE EntryType ADD COLUMN enabled_sensor_types TEXT DEFAULT ''")
         except Exception as e:
-            # Column might already exist, ignore error
+            # Columns might already exist, ignore error
             pass
 
         # Create Entry Table
@@ -123,11 +126,24 @@ def init_db():
             );
         ''')
 
+        # Create SensorData Table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS SensorData (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                entry_id INTEGER NOT NULL,
+                sensor_type TEXT NOT NULL,
+                value TEXT NOT NULL,
+                recorded_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (entry_id) REFERENCES Entry(id) ON DELETE CASCADE
+            );
+        ''')
+
         # Insert default system parameters if they don't exist
         default_params = {
             'project_name': 'My Awesome Project',
             'entry_singular_label': 'Entry',
-            'entry_plural_label': 'Entries'
+            'entry_plural_label': 'Entries',
+            'sensor_types': 'Temperature,Humidity,Pressure,pH,Light,Motion,Sound,Vibration,Distance,Weight,Voltage,Current'
         }
         for name, value in default_params.items():
             cursor.execute("INSERT OR IGNORE INTO SystemParameters (parameter_name, parameter_value) VALUES (?, ?)", (name, value))
@@ -162,7 +178,8 @@ def get_system_parameters():
             default_params = {
                 'project_name': 'My Awesome Project',
                 'entry_singular_label': 'Entry',
-                'entry_plural_label': 'Entries'
+                'entry_plural_label': 'Entries',
+                'sensor_types': 'Temperature,Humidity,Pressure,pH,Light,Motion,Sound,Vibration,Distance,Weight,Voltage,Current'
             }
             for name, value in default_params.items():
                 try:

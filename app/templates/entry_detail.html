@@ -397,7 +397,10 @@
                     <form id="addSensorDataForm">
                         <div class="mb-3">
                             <label for="sensorTypeInput" class="form-label">Sensor Type:</label>
-                            <input type="text" class="form-control" id="sensorTypeInput" placeholder="e.g., Temperature, Humidity, Pressure" required>
+                            <select class="form-select" id="sensorTypeInput" required>
+                                <option value="" disabled selected>Select a sensor type</option>
+                                <!-- Options will be dynamically populated -->
+                            </select>
                         </div>
                         <div class="mb-3">
                             <label for="sensorValueInput" class="form-label">Value:</label>
@@ -424,6 +427,7 @@
         const currentEntryName = "{{ entry.title }}"; // Using title as name for consistency
         const currentEntryTypeLabel = "{{ entry.entry_type_label }}";
         const hasSensors = {{ entry.has_sensors|tojson }}; // Convert to JavaScript boolean
+        const enabledSensorTypes = "{{ entry.enabled_sensor_types | default('', true) }}"; // Entry type's enabled sensor types
 
         // DOM elements for Notes and Description (existing)
         const noteTitleInput = document.getElementById('noteTitleInput');
@@ -1408,8 +1412,16 @@
             const sensorDataContainer = document.getElementById('sensorDataContainer');
             const loadingSensorData = document.getElementById('loadingSensorData');
             
+            // Check if elements exist before proceeding
+            if (!sensorDataContainer) {
+                console.error('sensorDataContainer element not found');
+                return;
+            }
+            
             try {
-                loadingSensorData.style.display = 'block';
+                if (loadingSensorData) {
+                    loadingSensorData.style.display = 'block';
+                }
                 const response = await fetch(`/api/entries/${entryId}/sensor_data`);
                 
                 if (!response.ok) {
@@ -1417,12 +1429,15 @@
                 }
                 
                 const sensorData = await response.json();
+                console.log('Loaded sensor data:', sensorData); // Debug log
                 renderSensorData(sensorData);
             } catch (error) {
                 console.error('Error loading sensor data:', error);
                 sensorDataContainer.innerHTML = '<p class="text-danger">Error loading sensor data.</p>';
             } finally {
-                loadingSensorData.style.display = 'none';
+                if (loadingSensorData) {
+                    loadingSensorData.style.display = 'none';
+                }
             }
         }
 
@@ -1502,15 +1517,64 @@
             const addSensorDataModal = bootstrap.Modal.getInstance(document.getElementById('addSensorDataModal')) || 
                                       new bootstrap.Modal(document.getElementById('addSensorDataModal'));
             
-            // Set current date/time as default
-            const now = new Date();
-            const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-            document.getElementById('sensorRecordedAt').value = localDateTime;
+            // Function to set current date/time
+            function setCurrentDateTime() {
+                const now = new Date();
+                const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                document.getElementById('sensorRecordedAt').value = localDateTime;
+            }
+            
+            // Function to populate sensor types dropdown
+            async function populateSensorTypes() {
+                try {
+                    // Use the entry type's enabled sensor types
+                    const sensorTypes = enabledSensorTypes ? enabledSensorTypes.split(',').map(type => type.trim()).filter(type => type !== '') : [];
+                    
+                    const sensorTypeSelect = document.getElementById('sensorTypeInput');
+                    // Clear existing options except the first one
+                    sensorTypeSelect.innerHTML = '<option value="" disabled selected>Select a sensor type</option>';
+                    
+                    if (sensorTypes.length === 0) {
+                        // No sensor types enabled for this entry type
+                        sensorTypeSelect.innerHTML = '<option value="" disabled selected>No sensor types configured for this entry type</option>';
+                        return;
+                    }
+                    
+                    // Add enabled sensor type options
+                    sensorTypes.forEach(sensorType => {
+                        const option = document.createElement('option');
+                        option.value = sensorType;
+                        option.textContent = sensorType;
+                        sensorTypeSelect.appendChild(option);
+                    });
+                } catch (error) {
+                    console.error('Error loading sensor types:', error);
+                    // Fallback to some default sensor types
+                    const sensorTypeSelect = document.getElementById('sensorTypeInput');
+                    sensorTypeSelect.innerHTML = `
+                        <option value="" disabled selected>Select a sensor type</option>
+                        <option value="Temperature">Temperature</option>
+                        <option value="Humidity">Humidity</option>
+                        <option value="Pressure">Pressure</option>
+                    `;
+                }
+            }
+            
+            // Set current date/time as default on initialization
+            setCurrentDateTime();
+            
+            // Populate sensor types dropdown
+            populateSensorTypes();
+            
+            // Reset date/time each time the modal is shown
+            document.getElementById('addSensorDataModal').addEventListener('shown.bs.modal', function() {
+                setCurrentDateTime();
+            });
             
             addSensorDataForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 
-                const sensorType = document.getElementById('sensorTypeInput').value.trim();
+                const sensorType = document.getElementById('sensorTypeInput').value;
                 const sensorValue = document.getElementById('sensorValueInput').value.trim();
                 const recordedAt = document.getElementById('sensorRecordedAt').value;
                 
@@ -1532,17 +1596,23 @@
                         })
                     });
                     
+                    console.log('Sensor data POST response status:', response.status); // Debug log
+                    
                     if (!response.ok) {
                         const errorData = await response.json();
                         throw new Error(errorData.error || 'Failed to add sensor data');
                     }
                     
+                    const result = await response.json();
+                    console.log('Sensor data added successfully:', result); // Debug log
+                    
                     // Reset form and close modal
                     addSensorDataForm.reset();
-                    document.getElementById('sensorRecordedAt').value = localDateTime; // Reset to current time
+                    setCurrentDateTime(); // Reset to current time
                     addSensorDataModal.hide();
                     
-                    // Reload sensor data
+                    // Reload sensor data to show the new entry
+                    console.log('Reloading sensor data...'); // Debug log
                     await loadSensorData();
                     
                 } catch (error) {

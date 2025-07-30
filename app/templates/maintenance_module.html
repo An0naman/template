@@ -66,6 +66,10 @@
                 <h5><i class="fas fa-thermometer-half me-2"></i> Manage Sensors</h5>
                 <p>Configure which {{ entry_plural_label }} types support sensor data collection and management.</p>
             </a>
+            <a href="{{ url_for('maintenance.manage_sensor_types_page') }}" class="card-link-item">
+                <h5><i class="fas fa-list me-2"></i> Manage Sensor Types</h5>
+                <p>Configure the available sensor types for data collection (e.g., Temperature, Humidity, Pressure).</p>
+            </a>
             <a href="{{ url_for('main.index') }}" class="card-link-item">
                 <h5><i class="fas fa-arrow-left me-2"></i> Back to Main Page</h5>
                 <p>Return to the main listing of your {{ entry_plural_label }}.</p>

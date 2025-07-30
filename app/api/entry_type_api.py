@@ -20,7 +20,7 @@ def get_db():
 def get_entry_types_api():
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, singular_label, plural_label, description, note_types, is_primary, has_sensors FROM EntryType ORDER BY singular_label")
+    cursor.execute("SELECT id, name, singular_label, plural_label, description, note_types, is_primary, has_sensors, enabled_sensor_types FROM EntryType ORDER BY singular_label")
     entry_types_rows = cursor.fetchall()
     entry_types_list = []
     for row in entry_types_rows:
@@ -103,6 +103,10 @@ def update_entry_type(entry_type_id):
     if 'has_sensors' in data:
         set_clauses.append("has_sensors = ?")
         params.append(int(data['has_sensors']))
+    
+    if 'enabled_sensor_types' in data:
+        set_clauses.append("enabled_sensor_types = ?")
+        params.append(data['enabled_sensor_types'])
 
     if not set_clauses:
         return jsonify({'message': 'No fields provided for update.'}), 200

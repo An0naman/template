@@ -77,7 +77,7 @@ def entry_detail_page(entry_id):
             e.id, e.title, e.description, e.entry_type_id,
             et.singular_label AS entry_type_label,
             et.name AS entry_type_name,
-            et.note_types, et.has_sensors, e.created_at
+            et.note_types, et.has_sensors, et.enabled_sensor_types, e.created_at
         FROM Entry e
         JOIN EntryType et ON e.entry_type_id = et.id
         WHERE e.id = ?
@@ -96,6 +96,7 @@ def entry_detail_page(entry_id):
         'entry_type_name': entry['entry_type_name'],
         'note_types': entry['note_types'],
         'has_sensors': bool(entry['has_sensors']) if entry['has_sensors'] is not None else False,
+        'enabled_sensor_types': entry['enabled_sensor_types'] or '',
         'created_at': entry['created_at']
     }
 
