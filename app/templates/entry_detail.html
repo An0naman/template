@@ -6,6 +6,9 @@
     <title>{{ project_name }} - {{ entry.title }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='notifications_modern.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <style>
         body {
             background-color: #f8f9fa;
@@ -188,10 +191,66 @@
                 {% if entry.has_sensors %}
                 <div id="sensorDataSection">
                     <h4 class="mt-3">Sensor Data</h4>
-                    <div id="sensorDataContainer">
+                    
+                    <!-- Chart/Table Toggle Buttons -->
+                    <div class="btn-group mb-3" role="group" aria-label="Data view options">
+                        <input type="radio" class="btn-check" name="viewOptions" id="tableView">
+                        <label class="btn btn-outline-primary" for="tableView">
+                            <i class="fas fa-table me-1"></i> Table View
+                        </label>
+                        
+                        <input type="radio" class="btn-check" name="viewOptions" id="chartView" checked>
+                        <label class="btn btn-outline-primary" for="chartView">
+                            <i class="fas fa-chart-line me-1"></i> Chart View
+                        </label>
+                    </div>
+                    
+                    <!-- Sensor Data Container (hidden by default) -->
+                    <div id="sensorDataContainer" style="display: none;">
                         <p class="text-muted text-center" id="loadingSensorData">Loading sensor data...</p>
                         <!-- Sensor data will be loaded here -->
                     </div>
+                    
+                    <!-- Chart Container (visible by default) -->
+                    <div id="sensorChartContainer">
+                        <p class="text-muted text-center" id="loadingChart">Loading chart...</p>
+                        <div class="row">
+                            <div class="col-md-12">
+                                <canvas id="sensorChart" width="400" height="200"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Chart Options -->
+                        <div class="mt-3">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label for="chartTypeSelect" class="form-label">Chart Type:</label>
+                                    <select class="form-select form-select-sm" id="chartTypeSelect">
+                                        <option value="line">Line Chart</option>
+                                        <option value="bar">Bar Chart</option>
+                                        <option value="scatter">Scatter Plot</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="sensorTypeFilter" class="form-label">Filter by Sensor Type:</label>
+                                    <select class="form-select form-select-sm" id="sensorTypeFilter">
+                                        <option value="all">All Sensor Types</option>
+                                        <!-- Options will be populated dynamically -->
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="timeRangeFilter" class="form-label">Time Range:</label>
+                                    <select class="form-select form-select-sm" id="timeRangeFilter">
+                                        <option value="all">All Time</option>
+                                        <option value="24h">Last 24 Hours</option>
+                                        <option value="7d">Last 7 Days</option>
+                                        <option value="30d">Last 30 Days</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <button class="btn btn-primary btn-sm mb-3" type="button" data-bs-toggle="modal" data-bs-target="#addSensorDataModal">
                         <i class="fas fa-plus-circle me-2"></i> Add Sensor Reading
                     </button>
@@ -230,6 +289,29 @@
                         <div class="mb-3">
                             <label for="newNoteTextarea" class="form-label">Notes:</label>
                             <textarea class="form-control" id="newNoteTextarea" rows="4" placeholder="Type your new note here..."></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="reminderDateInput" class="form-label">
+                                <i class="fas fa-bell text-warning me-1"></i>Set Reminder Date & Time:
+                            </label>
+                            <input type="datetime-local" class="form-control" id="reminderDateInput" 
+                                   min="" placeholder="Choose reminder date and time">
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i> 
+                                A notification will appear at this exact date and time. 
+                                <strong>Tip:</strong> If you only need a date reminder, it will alert you all day.
+                            </div>
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="setReminderToToday()">
+                                    <i class="fas fa-calendar-day me-1"></i>Today
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="setReminderToTomorrow()">
+                                    <i class="fas fa-calendar-plus me-1"></i>Tomorrow
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearReminder()">
+                                    <i class="fas fa-times me-1"></i>Clear
+                                </button>
+                            </div>
                         </div>
                         <hr>
                         <div class="mb-3">
@@ -483,6 +565,11 @@
         let allRelationshipDefinitions = []; // Store definitions for easy lookup
         let allPossibleRelatedEntries = {}; // Cache entries for dropdowns by type ID
 
+        // Chart variables for sensor data
+        let sensorChart = null;
+        let allSensorData = []; // Store all sensor data for filtering and charting
+        let chartTypeSelect, sensorTypeFilter, timeRangeFilter, tableViewBtn, chartViewBtn, sensorChartContainer;
+
         // Format the created_at timestamp
         if (createdAtSpan && createdAtSpan.textContent) {
             try {
@@ -500,6 +587,7 @@
             if (hasSensors) {
                 loadSensorData(); // Load sensor data if this entry type supports sensors
                 initializeSensorDataForm(); // Initialize sensor data form
+                initializeChartControls(); // Initialize chart controls
             }
         });
 
@@ -541,10 +629,49 @@
         });
 
         // --- Notes Section (Add Note) ---
+        const reminderDateInput = document.getElementById('reminderDateInput');
+        
+        // Set minimum date to today
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); // Adjust for timezone
+        reminderDateInput.min = now.toISOString().slice(0, 16);
+        
+        // Helper functions for reminder date buttons
+        function setReminderToToday() {
+            const today = new Date();
+            today.setHours(today.getHours() + 1); // Set to 1 hour from now
+            today.setMinutes(0); // Round to nearest hour
+            today.setSeconds(0);
+            today.setMilliseconds(0);
+            today.setMinutes(today.getMinutes() - today.getTimezoneOffset()); // Adjust for timezone
+            reminderDateInput.value = today.toISOString().slice(0, 16);
+        }
+        
+        function setReminderToTomorrow() {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(9); // Set to 9 AM tomorrow
+            tomorrow.setMinutes(0);
+            tomorrow.setSeconds(0);
+            tomorrow.setMilliseconds(0);
+            tomorrow.setMinutes(tomorrow.getMinutes() - tomorrow.getTimezoneOffset()); // Adjust for timezone
+            reminderDateInput.value = tomorrow.toISOString().slice(0, 16);
+        }
+        
+        function clearReminder() {
+            reminderDateInput.value = '';
+        }
+        
+        // Make functions global so onclick can access them
+        window.setReminderToToday = setReminderToToday;
+        window.setReminderToTomorrow = setReminderToTomorrow;
+        window.clearReminder = clearReminder;
+        
         addNoteBtn.addEventListener('click', async () => {
             const noteTitle = noteTitleInput.value.trim();
             const noteText = newNoteTextarea.value.trim();
             const noteType = noteTypeSelect.value;
+            const reminderDate = reminderDateInput.value;
             const files = imageUploadInput.files;
 
             if (!noteText) {
@@ -559,12 +686,23 @@
             }
 
             try {
+                const requestBody = { 
+                    note_title: noteTitle, 
+                    note_text: noteText, 
+                    note_type: noteType 
+                };
+                
+                // Add reminder date if provided
+                if (reminderDate) {
+                    requestBody.reminder_date = reminderDate;
+                }
+                
                 const response = await fetch(`/api/entries/${entryId}/notes`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ note_title: noteTitle, note_text: noteText, note_type: noteType })
+                    body: JSON.stringify(requestBody)
                 });
 
                 const data = await response.json();
@@ -573,6 +711,7 @@
                     displayStatus(noteStatusMessage, 'Note added successfully!', 'alert-success');
                     noteTitleInput.value = '';
                     newNoteTextarea.value = '';
+                    reminderDateInput.value = '';
                     noteTypeSelect.value = noteTypeSelect.options[0].value;
                     imageUploadInput.value = '';
                     selectedFilesInfo.textContent = 'No files selected.';
@@ -1444,11 +1583,30 @@
         function renderSensorData(sensorData) {
             const sensorDataContainer = document.getElementById('sensorDataContainer');
             
+            // Store data globally for chart functionality
+            allSensorData = sensorData;
+            
             if (sensorData.length === 0) {
                 sensorDataContainer.innerHTML = '<p class="text-muted">No sensor data recorded yet.</p>';
+                sensorChartContainer.innerHTML = '<p class="text-muted">No sensor data recorded yet.</p>';
                 return;
             }
 
+            // Always render table view for when user switches to it
+            renderTableView(sensorData);
+            
+            // Update chart filters
+            updateChartFilters(sensorData);
+            
+            // Show chart view by default (or if chart view is active)
+            if (!chartViewBtn || chartViewBtn.checked) {
+                renderChartView();
+            }
+        }
+
+        function renderTableView(sensorData) {
+            const sensorDataContainer = document.getElementById('sensorDataContainer');
+            
             const tableHtml = `
                 <table class="table table-sm table-striped">
                     <thead>
@@ -1621,7 +1779,253 @@
                 }
             });
         }
+
+        // Chart Functions
+        function initializeChartControls() {
+            // Initialize DOM element references
+            chartTypeSelect = document.getElementById('chartTypeSelect');
+            sensorTypeFilter = document.getElementById('sensorTypeFilter');
+            timeRangeFilter = document.getElementById('timeRangeFilter');
+            tableViewBtn = document.getElementById('tableView');
+            chartViewBtn = document.getElementById('chartView');
+            sensorChartContainer = document.getElementById('sensorChartContainer');
+            
+            // Set initial visibility based on default selection (chart view)
+            if (sensorDataContainer && sensorChartContainer) {
+                sensorDataContainer.style.display = 'none';
+                sensorChartContainer.style.display = 'block';
+            }
+            
+            // View toggle event listeners
+            if (tableViewBtn) {
+                tableViewBtn.addEventListener('change', function() {
+                    if (this.checked) {
+                        sensorDataContainer.style.display = 'block';
+                        sensorChartContainer.style.display = 'none';
+                    }
+                });
+            }
+
+            if (chartViewBtn) {
+                chartViewBtn.addEventListener('change', function() {
+                    if (this.checked) {
+                        sensorDataContainer.style.display = 'none';
+                        sensorChartContainer.style.display = 'block';
+                        renderChartView();
+                    }
+                });
+            }
+
+            // Chart control event listeners
+            if (chartTypeSelect) {
+                chartTypeSelect.addEventListener('change', renderChartView);
+            }
+            if (sensorTypeFilter) {
+                sensorTypeFilter.addEventListener('change', renderChartView);
+            }
+            if (timeRangeFilter) {
+                timeRangeFilter.addEventListener('change', renderChartView);
+            }
+        }
+
+        function updateChartFilters(sensorData) {
+            if (!sensorTypeFilter) return;
+            
+            // Get unique sensor types
+            const sensorTypes = [...new Set(sensorData.map(d => d.sensor_type))];
+            
+            // Clear and repopulate sensor type filter
+            sensorTypeFilter.innerHTML = '<option value="all">All Sensor Types</option>';
+            sensorTypes.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type;
+                sensorTypeFilter.appendChild(option);
+            });
+        }
+
+        function getFilteredSensorData() {
+            let filteredData = [...allSensorData];
+            
+            // Filter by sensor type
+            if (sensorTypeFilter && sensorTypeFilter.value !== 'all') {
+                filteredData = filteredData.filter(d => d.sensor_type === sensorTypeFilter.value);
+            }
+            
+            // Filter by time range
+            if (timeRangeFilter && timeRangeFilter.value !== 'all') {
+                const now = new Date();
+                let cutoffDate;
+                
+                switch (timeRangeFilter.value) {
+                    case '24h':
+                        cutoffDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                        break;
+                    case '7d':
+                        cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                        break;
+                    case '30d':
+                        cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                        break;
+                    default:
+                        cutoffDate = new Date(0);
+                }
+                
+                filteredData = filteredData.filter(d => new Date(d.recorded_at) >= cutoffDate);
+            }
+            
+            // Sort by recorded_at
+            filteredData.sort((a, b) => new Date(a.recorded_at) - new Date(b.recorded_at));
+            
+            return filteredData;
+        }
+
+        function renderChartView() {
+            const canvas = document.getElementById('sensorChart');
+            const loadingChart = document.getElementById('loadingChart');
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            const filteredData = getFilteredSensorData();
+            
+            // Hide loading message
+            if (loadingChart) {
+                loadingChart.style.display = 'none';
+            }
+            
+            if (filteredData.length === 0) {
+                // Clear chart and show message
+                if (sensorChart) {
+                    sensorChart.destroy();
+                    sensorChart = null;
+                }
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.font = '16px Arial';
+                ctx.fillStyle = '#6c757d';
+                ctx.textAlign = 'center';
+                ctx.fillText('No data available for the selected filters', canvas.width / 2, canvas.height / 2);
+                return;
+            }
+            
+            // Group data by sensor type for multiple datasets
+            const groupedData = {};
+            filteredData.forEach(d => {
+                if (!groupedData[d.sensor_type]) {
+                    groupedData[d.sensor_type] = [];
+                }
+                groupedData[d.sensor_type].push(d);
+            });
+            
+            // Create datasets
+            const datasets = [];
+            const colors = [
+                'rgba(255, 99, 132, 0.8)',
+                'rgba(54, 162, 235, 0.8)',
+                'rgba(255, 205, 86, 0.8)',
+                'rgba(75, 192, 192, 0.8)',
+                'rgba(153, 102, 255, 0.8)',
+                'rgba(255, 159, 64, 0.8)',
+                'rgba(199, 199, 199, 0.8)',
+                'rgba(83, 102, 255, 0.8)'
+            ];
+            
+            let colorIndex = 0;
+            Object.keys(groupedData).forEach(sensorType => {
+                const data = groupedData[sensorType];
+                const color = colors[colorIndex % colors.length];
+                
+                datasets.push({
+                    label: sensorType,
+                    data: data.map(d => ({
+                        x: new Date(d.recorded_at),
+                        y: parseFloat(d.value)
+                    })),
+                    backgroundColor: color,
+                    borderColor: color.replace('0.8', '1'),
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.1
+                });
+                
+                colorIndex++;
+            });
+            
+            // Destroy existing chart
+            if (sensorChart) {
+                sensorChart.destroy();
+            }
+            
+            // Create new chart
+            const chartType = chartTypeSelect ? chartTypeSelect.value : 'line';
+            
+            sensorChart = new Chart(ctx, {
+                type: chartType,
+                data: {
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                parser: 'YYYY-MM-DDTHH:mm:ss.sssZ',
+                                displayFormats: {
+                                    millisecond: 'HH:mm:ss.SSS',
+                                    second: 'HH:mm:ss',
+                                    minute: 'HH:mm',
+                                    hour: 'MM/DD HH:mm',
+                                    day: 'MM/DD',
+                                    week: 'MM/DD',
+                                    month: 'MM/YY',
+                                    quarter: 'MM/YY',
+                                    year: 'YYYY'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Time'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Value'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Sensor Data Over Time'
+                        },
+                        legend: {
+                            display: Object.keys(groupedData).length > 1
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                title: function(context) {
+                                    if (context[0]) {
+                                        return new Date(context[0].parsed.x).toLocaleString();
+                                    }
+                                    return '';
+                                }
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+        }
         {% endif %}
     </script>
+    <script src="{{ url_for('static', filename='notifications.js') }}"></script>
 </body>
 </html>

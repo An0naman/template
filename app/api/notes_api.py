@@ -19,12 +19,20 @@ def get_db():
         g.db.row_factory = sqlite3.Row
     return g.db
 
+# Import notification creation function
+try:
+    from .notifications_api import create_note_notification
+except ImportError:
+    logger.warning("Could not import create_note_notification function")
+    create_note_notification = None
+
 @notes_api_bp.route('/entries/<int:entry_id>/notes', methods=['POST'])
 def add_note_to_entry(entry_id):
     data = request.json
     note_title = data.get('note_title')
     note_text = data.get('note_text')
     note_type = data.get('note_type', 'General')
+    reminder_date = data.get('reminder_date')  # New field for future notifications
 
     if not note_text:
         return jsonify({'message': 'Note content cannot be empty!'}), 400
@@ -37,7 +45,27 @@ def add_note_to_entry(entry_id):
             (entry_id, note_title, note_text, note_type, datetime.now().isoformat(), json.dumps([]))
         )
         conn.commit()
-        return jsonify({'message': 'Note added successfully!', 'note_id': cursor.lastrowid}), 201
+        note_id = cursor.lastrowid
+        
+                # Create notification if reminder_date is provided
+        if reminder_date and create_note_notification:
+            try:
+                notification_title = f"Reminder: {note_title or 'Note'}"
+                notification_message = f"Reminder for note: {note_text[:100]}{'...' if len(note_text) > 100 else ''}"
+                
+                create_note_notification(
+                    note_id=note_id,
+                    entry_id=entry_id,
+                    scheduled_for=reminder_date,
+                    title=notification_title,
+                    message=notification_message
+                )
+                logger.info(f"Created notification for note {note_id} scheduled for {reminder_date}")
+            except Exception as e:
+                logger.warning(f"Error creating note notification: {e}")
+                # Don't fail note creation if notification creation fails
+        
+        return jsonify({'message': 'Note added successfully!', 'note_id': note_id}), 201
     except sqlite3.IntegrityError:
         conn.rollback()
         return jsonify({'message': 'Entry not found for adding note.'}), 404

@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ project_name }} - Manage Sensor Alarms</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            margin-top: 30px;
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .alarm-card {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: #f8f9fa;
+        }
+        .alarm-card.active {
+            border-color: #28a745;
+            background-color: #d4edda;
+        }
+        .alarm-card.inactive {
+            border-color: #dc3545;
+            background-color: #f8d7da;
+        }
+        .priority-critical { border-left: 4px solid #dc3545; }
+        .priority-high { border-left: 4px solid #fd7e14; }
+        .priority-medium { border-left: 4px solid #ffc107; }
+        .priority-low { border-left: 4px solid #28a745; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-bell me-2"></i> Manage Sensor Alarms</h1>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAlarmModal">
+                <i class="fas fa-plus me-2"></i> Add New Alarm
+            </button>
+        </div>
+
+        <p class="lead mb-4">
+            Set up automatic notifications when sensor values cross defined thresholds. 
+            Alarms can monitor specific {{ entry_plural_label }} or entire types.
+        </p>
+
+        <!-- Existing Alarms List -->
+        <div class="row">
+            <div class="col-12">
+                <h3>Existing Sensor Alarms</h3>
+                <div id="alarmsList">
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-bell-slash fa-2x mb-2"></i>
+                        <p>No sensor alarms configured yet. Create your first alarm using the button above.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Alarm Modal -->
+        <div class="modal fade" id="addAlarmModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Create Sensor Alarm</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="alarmForm">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="alarmName" class="form-label">Alarm Name *</label>
+                                        <input type="text" class="form-control" id="alarmName" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="alarmPriority" class="form-label">Priority *</label>
+                                        <select class="form-select" id="alarmPriority" required>
+                                            <option value="low">Low</option>
+                                            <option value="medium" selected>Medium</option>
+                                            <option value="high">High</option>
+                                            <option value="critical">Critical</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="alarmDescription" class="form-label">Description</label>
+                                <textarea class="form-control" id="alarmDescription" rows="2"></textarea>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="alarmScope" class="form-label">Apply To *</label>
+                                        <select class="form-select" id="alarmScope" required>
+                                            <option value="entry_type">All {{ entry_plural_label }} of a specific type</option>
+                                            <option value="specific_entry">A specific {{ entry_singular_label }}</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3" id="entryTypeGroup">
+                                        <label for="alarmEntryType" class="form-label">{{ entry_singular_label|title }} Type</label>
+                                        <select class="form-select" id="alarmEntryType">
+                                            <option value="">Select type...</option>
+                                            {% for entry_type in entry_types %}
+                                            <option value="{{ entry_type.id }}">{{ entry_type.singular_label }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="mb-3" id="specificEntryGroup" style="display: none;">
+                                        <label for="alarmSpecificEntry" class="form-label">Specific {{ entry_singular_label|title }}</label>
+                                        <select class="form-select" id="alarmSpecificEntry">
+                                            <option value="">Select {{ entry_singular_label }}...</option>
+                                            {% for entry in entries %}
+                                            <option value="{{ entry.id }}">{{ entry.title }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="alarmSensorType" class="form-label">Sensor Type *</label>
+                                        <select class="form-select" id="alarmSensorType" required>
+                                            {% for sensor_type in sensor_types %}
+                                            <option value="{{ sensor_type.strip() }}">{{ sensor_type.strip() }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="alarmCondition" class="form-label">Condition *</label>
+                                        <select class="form-select" id="alarmCondition" required>
+                                            <option value="greater_than">Greater than</option>
+                                            <option value="less_than">Less than</option>
+                                            <option value="equals">Equals</option>
+                                            <option value="between">Between</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="alarmThreshold" class="form-label">Threshold Value *</label>
+                                        <input type="number" step="0.01" class="form-control" id="alarmThreshold" required>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row" id="secondaryThresholdGroup" style="display: none;">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="alarmThresholdSecondary" class="form-label">Upper Threshold</label>
+                                        <input type="number" step="0.01" class="form-control" id="alarmThresholdSecondary">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="alarmUnit" class="form-label">Unit</label>
+                                        <input type="text" class="form-control" id="alarmUnit" placeholder="e.g., °C, %, psi">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="alarmCooldown" class="form-label">Cooldown (minutes)</label>
+                                        <input type="number" class="form-control" id="alarmCooldown" value="60">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row" id="singleThresholdGroup">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="alarmUnitSingle" class="form-label">Unit</label>
+                                        <input type="text" class="form-control" id="alarmUnitSingle" placeholder="e.g., °C, %, psi">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="alarmCooldownSingle" class="form-label">Cooldown (minutes)</label>
+                                        <input type="number" class="form-control" id="alarmCooldownSingle" value="60">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="alarmNotificationTitle" class="form-label">Notification Title *</label>
+                                <input type="text" class="form-control" id="alarmNotificationTitle" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="alarmNotificationMessage" class="form-label">Notification Message *</label>
+                                <textarea class="form-control" id="alarmNotificationMessage" rows="3" required></textarea>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="saveAlarm()">Create Alarm</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Alarm Modal -->
+        <div class="modal fade" id="editAlarmModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Sensor Alarm</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="editAlarmForm">
+                            <input type="hidden" id="editAlarmId">
+                            
+                            <div class="mb-3">
+                                <label for="editAlarmName" class="form-label">Alarm Name *</label>
+                                <input type="text" class="form-control" id="editAlarmName" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="editAlarmDescription" class="form-label">Description</label>
+                                <textarea class="form-control" id="editAlarmDescription" rows="2"></textarea>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="editAlarmScope" class="form-label">Apply To *</label>
+                                        <select class="form-select" id="editAlarmScope" required>
+                                            <option value="entry_type">All {{ entry_plural_label }} of a specific type</option>
+                                            <option value="specific_entry">A specific {{ entry_singular_label }}</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3" id="editEntryTypeGroup">
+                                        <label for="editAlarmEntryType" class="form-label">{{ entry_singular_label|title }} Type</label>
+                                        <select class="form-select" id="editAlarmEntryType">
+                                            <option value="">Select type...</option>
+                                            {% for entry_type in entry_types %}
+                                            <option value="{{ entry_type.id }}">{{ entry_type.singular_label }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="mb-3" id="editSpecificEntryGroup" style="display: none;">
+                                        <label for="editAlarmSpecificEntry" class="form-label">Specific {{ entry_singular_label|title }}</label>
+                                        <select class="form-select" id="editAlarmSpecificEntry">
+                                            <option value="">Select {{ entry_singular_label }}...</option>
+                                            {% for entry in entries %}
+                                            <option value="{{ entry.id }}">{{ entry.title }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="editAlarmSensorType" class="form-label">Sensor Type *</label>
+                                        <select class="form-select" id="editAlarmSensorType" required>
+                                            {% for sensor_type in sensor_types %}
+                                            <option value="{{ sensor_type.strip() }}">{{ sensor_type.strip() }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="editAlarmCondition" class="form-label">Condition *</label>
+                                        <select class="form-select" id="editAlarmCondition" required>
+                                            <option value="greater_than">Greater than</option>
+                                            <option value="less_than">Less than</option>
+                                            <option value="equals">Equals</option>
+                                            <option value="between">Between</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="editAlarmUnit" class="form-label">Unit</label>
+                                        <input type="text" class="form-control" id="editAlarmUnit" placeholder="e.g., °C, %, V">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="editAlarmThreshold" class="form-label">Threshold Value *</label>
+                                        <input type="number" step="any" class="form-control" id="editAlarmThreshold" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3" id="editSecondaryThresholdGroup" style="display: none;">
+                                        <label for="editAlarmThresholdSecondary" class="form-label">Upper Threshold *</label>
+                                        <input type="number" step="any" class="form-control" id="editAlarmThresholdSecondary">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="editAlarmPriority" class="form-label">Priority *</label>
+                                        <select class="form-select" id="editAlarmPriority" required>
+                                            <option value="low">Low</option>
+                                            <option value="medium">Medium</option>
+                                            <option value="high">High</option>
+                                            <option value="critical">Critical</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="editAlarmCooldown" class="form-label">Cooldown (minutes) *</label>
+                                        <input type="number" class="form-control" id="editAlarmCooldown" value="60" min="1" required>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="editAlarmNotificationTitle" class="form-label">Notification Title *</label>
+                                <input type="text" class="form-control" id="editAlarmNotificationTitle" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="editAlarmNotificationMessage" class="form-label">Notification Message *</label>
+                                <textarea class="form-control" id="editAlarmNotificationMessage" rows="3" required></textarea>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="updateAlarm()">Update Alarm</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i> Back to Maintenance
+            </a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Load alarms on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadAlarms();
+            
+            // Handle scope change for add modal
+            document.getElementById('alarmScope').addEventListener('change', function() {
+                const scope = this.value;
+                const entryTypeGroup = document.getElementById('entryTypeGroup');
+                const specificEntryGroup = document.getElementById('specificEntryGroup');
+                
+                if (scope === 'entry_type') {
+                    entryTypeGroup.style.display = 'block';
+                    specificEntryGroup.style.display = 'none';
+                } else {
+                    entryTypeGroup.style.display = 'none';
+                    specificEntryGroup.style.display = 'block';
+                }
+            });
+            
+            // Handle scope change for edit modal
+            document.getElementById('editAlarmScope').addEventListener('change', function() {
+                const scope = this.value;
+                const entryTypeGroup = document.getElementById('editEntryTypeGroup');
+                const specificEntryGroup = document.getElementById('editSpecificEntryGroup');
+                
+                if (scope === 'entry_type') {
+                    entryTypeGroup.style.display = 'block';
+                    specificEntryGroup.style.display = 'none';
+                } else {
+                    entryTypeGroup.style.display = 'none';
+                    specificEntryGroup.style.display = 'block';
+                }
+            });
+            
+            // Handle condition change for add modal
+            document.getElementById('alarmCondition').addEventListener('change', function() {
+                const condition = this.value;
+                const secondaryGroup = document.getElementById('secondaryThresholdGroup');
+                const singleGroup = document.getElementById('singleThresholdGroup');
+                
+                if (condition === 'between') {
+                    secondaryGroup.style.display = 'block';
+                    singleGroup.style.display = 'none';
+                } else {
+                    secondaryGroup.style.display = 'none';
+                    singleGroup.style.display = 'block';
+                }
+            });
+            
+            // Handle condition change for edit modal
+            document.getElementById('editAlarmCondition').addEventListener('change', function() {
+                const condition = this.value;
+                const secondaryGroup = document.getElementById('editSecondaryThresholdGroup');
+                
+                if (condition === 'between') {
+                    secondaryGroup.style.display = 'block';
+                } else {
+                    secondaryGroup.style.display = 'none';
+                }
+            });
+        });
+
+        async function loadAlarms() {
+            try {
+                const response = await fetch('/api/notification_rules');
+                const alarms = await response.json();
+                
+                const alarmsList = document.getElementById('alarmsList');
+                
+                if (alarms.length === 0) {
+                    alarmsList.innerHTML = `
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-bell-slash fa-2x mb-2"></i>
+                            <p>No sensor alarms configured yet. Create your first alarm using the button above.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                alarmsList.innerHTML = alarms.map(alarm => `
+                    <div class="alarm-card ${alarm.is_active ? 'active' : 'inactive'} priority-${alarm.priority}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h5 class="mb-2">
+                                    <i class="fas fa-bell me-2"></i>
+                                    ${alarm.name}
+                                    <span class="badge bg-${getPriorityColor(alarm.priority)} ms-2">${alarm.priority}</span>
+                                    <span class="badge bg-${alarm.is_active ? 'success' : 'danger'} ms-1">
+                                        ${alarm.is_active ? 'Active' : 'Inactive'}
+                                    </span>
+                                </h5>
+                                <p class="mb-2 text-muted">${alarm.description || 'No description'}</p>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <small class="text-muted">
+                                            <strong>Monitors:</strong> ${alarm.sensor_type} sensor<br>
+                                            <strong>Condition:</strong> ${alarm.condition_type.replace('_', ' ')} ${alarm.threshold_value}${alarm.threshold_unit || ''}
+                                            ${alarm.threshold_value_secondary ? ` - ${alarm.threshold_value_secondary}${alarm.threshold_unit || ''}` : ''}
+                                        </small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <small class="text-muted">
+                                            <strong>Scope:</strong> ${alarm.entry_title || alarm.entry_type_label || 'Global'}<br>
+                                            <strong>Cooldown:</strong> ${alarm.cooldown_minutes} minutes
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="ms-3">
+                                <button class="btn btn-sm btn-outline-primary me-2" onclick="editAlarm(${alarm.id})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteAlarm(${alarm.id})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Error loading alarms:', error);
+                document.getElementById('alarmsList').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Error loading sensor alarms. Please try again.
+                    </div>
+                `;
+            }
+        }
+
+        function getPriorityColor(priority) {
+            const colors = {
+                'low': 'success',
+                'medium': 'warning',
+                'high': 'orange',
+                'critical': 'danger'
+            };
+            return colors[priority] || 'secondary';
+        }
+
+        async function saveAlarm() {
+            const form = document.getElementById('alarmForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const scope = document.getElementById('alarmScope').value;
+            const condition = document.getElementById('alarmCondition').value;
+            
+            const alarmData = {
+                name: document.getElementById('alarmName').value,
+                description: document.getElementById('alarmDescription').value,
+                sensor_type: document.getElementById('alarmSensorType').value,
+                condition_type: document.getElementById('alarmCondition').value,
+                threshold_value: parseFloat(document.getElementById('alarmThreshold').value),
+                notification_title: document.getElementById('alarmNotificationTitle').value,
+                notification_message: document.getElementById('alarmNotificationMessage').value,
+                priority: document.getElementById('alarmPriority').value
+            };
+
+            // Handle scope-specific fields
+            if (scope === 'entry_type') {
+                const entryTypeId = document.getElementById('alarmEntryType').value;
+                if (entryTypeId) alarmData.entry_type_id = parseInt(entryTypeId);
+            } else {
+                const entryId = document.getElementById('alarmSpecificEntry').value;
+                if (entryId) alarmData.entry_id = parseInt(entryId);
+            }
+
+            // Handle condition-specific fields
+            if (condition === 'between') {
+                alarmData.threshold_value_secondary = parseFloat(document.getElementById('alarmThresholdSecondary').value);
+                alarmData.threshold_unit = document.getElementById('alarmUnit').value;
+                alarmData.cooldown_minutes = parseInt(document.getElementById('alarmCooldown').value) || 60;
+            } else {
+                alarmData.threshold_unit = document.getElementById('alarmUnitSingle').value;
+                alarmData.cooldown_minutes = parseInt(document.getElementById('alarmCooldownSingle').value) || 60;
+            }
+
+            try {
+                const response = await fetch('/api/notification_rules', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(alarmData)
+                });
+
+                if (response.ok) {
+                    // Close modal and reload alarms
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('addAlarmModal'));
+                    modal.hide();
+                    form.reset();
+                    loadAlarms();
+                } else {
+                    const error = await response.json();
+                    alert('Error creating alarm: ' + (error.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error saving alarm:', error);
+                alert('Error creating alarm. Please try again.');
+            }
+        }
+
+        async function deleteAlarm(alarmId) {
+            if (!confirm('Are you sure you want to delete this sensor alarm?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/notification_rules/${alarmId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    loadAlarms();
+                } else {
+                    alert('Error deleting alarm. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error deleting alarm:', error);
+                alert('Error deleting alarm. Please try again.');
+            }
+        }
+
+        async function editAlarm(alarmId) {
+            try {
+                // Fetch the alarm data
+                const response = await fetch('/api/notification_rules');
+                if (!response.ok) throw new Error('Failed to fetch alarm data');
+                
+                const alarms = await response.json();
+                const alarm = alarms.find(a => a.id === alarmId);
+                
+                if (!alarm) {
+                    alert('Alarm not found');
+                    return;
+                }
+
+                // Populate the edit form
+                document.getElementById('editAlarmId').value = alarm.id;
+                document.getElementById('editAlarmName').value = alarm.name;
+                document.getElementById('editAlarmDescription').value = alarm.description || '';
+                document.getElementById('editAlarmSensorType').value = alarm.sensor_type;
+                document.getElementById('editAlarmCondition').value = alarm.condition_type;
+                document.getElementById('editAlarmThreshold').value = alarm.threshold_value;
+                document.getElementById('editAlarmThresholdSecondary').value = alarm.threshold_value_secondary || '';
+                document.getElementById('editAlarmUnit').value = alarm.threshold_unit || '';
+                document.getElementById('editAlarmPriority').value = alarm.priority;
+                document.getElementById('editAlarmCooldown').value = alarm.cooldown_minutes;
+                document.getElementById('editAlarmNotificationTitle').value = alarm.notification_title;
+                document.getElementById('editAlarmNotificationMessage').value = alarm.notification_message;
+                
+                // Set scope and related fields
+                if (alarm.entry_id) {
+                    document.getElementById('editAlarmScope').value = 'specific_entry';
+                    document.getElementById('editAlarmSpecificEntry').value = alarm.entry_id;
+                    document.getElementById('editEntryTypeGroup').style.display = 'none';
+                    document.getElementById('editSpecificEntryGroup').style.display = 'block';
+                } else {
+                    document.getElementById('editAlarmScope').value = 'entry_type';
+                    document.getElementById('editAlarmEntryType').value = alarm.entry_type_id || '';
+                    document.getElementById('editEntryTypeGroup').style.display = 'block';
+                    document.getElementById('editSpecificEntryGroup').style.display = 'none';
+                }
+                
+                // Handle secondary threshold visibility
+                const secondaryGroup = document.getElementById('editSecondaryThresholdGroup');
+                if (alarm.condition_type === 'between') {
+                    secondaryGroup.style.display = 'block';
+                } else {
+                    secondaryGroup.style.display = 'none';
+                }
+                
+                // Show the modal
+                const modal = new bootstrap.Modal(document.getElementById('editAlarmModal'));
+                modal.show();
+                
+            } catch (error) {
+                console.error('Error loading alarm for edit:', error);
+                alert('Error loading alarm data. Please try again.');
+            }
+        }
+
+        async function updateAlarm() {
+            const form = document.getElementById('editAlarmForm');
+            const formData = new FormData(form);
+            
+            const alarmData = {
+                name: document.getElementById('editAlarmName').value,
+                description: document.getElementById('editAlarmDescription').value,
+                sensor_type: document.getElementById('editAlarmSensorType').value,
+                condition_type: document.getElementById('editAlarmCondition').value,
+                threshold_value: parseFloat(document.getElementById('editAlarmThreshold').value),
+                threshold_unit: document.getElementById('editAlarmUnit').value,
+                priority: document.getElementById('editAlarmPriority').value,
+                cooldown_minutes: parseInt(document.getElementById('editAlarmCooldown').value),
+                notification_title: document.getElementById('editAlarmNotificationTitle').value,
+                notification_message: document.getElementById('editAlarmNotificationMessage').value
+            };
+
+            // Set threshold_value_secondary for 'between' condition
+            if (alarmData.condition_type === 'between') {
+                alarmData.threshold_value_secondary = parseFloat(document.getElementById('editAlarmThresholdSecondary').value);
+            }
+
+            // Set scope (entry_type_id or entry_id)
+            const scope = document.getElementById('editAlarmScope').value;
+            if (scope === 'entry_type') {
+                const entryTypeId = document.getElementById('editAlarmEntryType').value;
+                if (entryTypeId) {
+                    alarmData.entry_type_id = parseInt(entryTypeId);
+                }
+            } else if (scope === 'specific_entry') {
+                const entryId = document.getElementById('editAlarmSpecificEntry').value;
+                if (entryId) {
+                    alarmData.entry_id = parseInt(entryId);
+                }
+            }
+
+            try {
+                const alarmId = document.getElementById('editAlarmId').value;
+                const response = await fetch(`/api/notification_rules/${alarmId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(alarmData)
+                });
+
+                if (response.ok) {
+                    // Close modal and reload alarms
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('editAlarmModal'));
+                    modal.hide();
+                    form.reset();
+                    loadAlarms();
+                } else {
+                    const error = await response.json();
+                    alert('Error updating alarm: ' + (error.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error updating alarm:', error);
+                alert('Error updating alarm. Please try again.');
+            }
+        }
+    </script>
+</body>
+</html>

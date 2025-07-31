@@ -69,3 +69,26 @@ def manage_sensors_page():
                            entry_singular_label=params.get('entry_singular_label'),
                            entry_plural_label=params.get('entry_plural_label'),
                            manage_sensor_types_url=url_for('maintenance.manage_sensor_types_page'))
+
+@maintenance_bp.route('/manage_sensor_alarms')
+def manage_sensor_alarms_page():
+    from ..db import get_system_parameters
+    params = get_system_parameters()
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Get entry types for dropdown
+    cursor.execute("SELECT id, singular_label FROM EntryType ORDER BY singular_label")
+    entry_types = cursor.fetchall()
+    
+    # Get all entries for dropdown
+    cursor.execute("SELECT id, title FROM Entry ORDER BY title")
+    entries = cursor.fetchall()
+    
+    return render_template('manage_sensor_alarms.html',
+                           project_name=params.get('project_name'),
+                           entry_singular_label=params.get('entry_singular_label'),
+                           entry_plural_label=params.get('entry_plural_label'),
+                           entry_types=[dict(row) for row in entry_types],
+                           entries=[dict(row) for row in entries],
+                           sensor_types=params.get('sensor_types', 'Temperature,Humidity,Pressure').split(','))

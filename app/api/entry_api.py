@@ -205,7 +205,17 @@ def add_sensor_data_to_entry(entry_id):
             (entry_id, sensor_type, value, recorded_at)
         )
         conn.commit()
-        return jsonify({'message': 'Sensor data added successfully!', 'sensor_id': cursor.lastrowid}), 201
+        sensor_id = cursor.lastrowid
+        
+        # Check sensor notification rules
+        try:
+            from ..api.notifications_api import check_sensor_rules
+            check_sensor_rules(entry_id, sensor_type, value, recorded_at)
+        except Exception as e:
+            logger.warning(f"Error checking sensor rules for entry {entry_id}: {e}")
+            # Don't fail the sensor data creation if notification checking fails
+        
+        return jsonify({'message': 'Sensor data added successfully!', 'sensor_id': sensor_id}), 201
         
     except sqlite3.IntegrityError:
         # This occurs if entry_id doesn't exist due to FOREIGN KEY constraint

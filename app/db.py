@@ -138,6 +138,51 @@ def init_db():
             );
         ''')
 
+        # Create Notification Table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Notification (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                message TEXT NOT NULL,
+                notification_type TEXT NOT NULL, -- 'note_based', 'sensor_based', 'manual'
+                priority TEXT DEFAULT 'medium', -- 'low', 'medium', 'high', 'critical'
+                entry_id INTEGER, -- Related entry (optional)
+                note_id INTEGER, -- Related note (optional for note-based notifications)
+                scheduled_for TEXT, -- ISO datetime when notification should be shown
+                is_read INTEGER DEFAULT 0, -- 0 for unread, 1 for read
+                is_dismissed INTEGER DEFAULT 0, -- 0 for not dismissed, 1 for dismissed
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                read_at TEXT, -- When the notification was read
+                dismissed_at TEXT, -- When the notification was dismissed
+                FOREIGN KEY (entry_id) REFERENCES Entry(id) ON DELETE CASCADE,
+                FOREIGN KEY (note_id) REFERENCES Note(id) ON DELETE CASCADE
+            );
+        ''')
+
+        # Create NotificationRule Table for sensor-based notifications
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS NotificationRule (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                entry_type_id INTEGER, -- Optional: apply to specific entry type
+                entry_id INTEGER, -- Optional: apply to specific entry
+                sensor_type TEXT NOT NULL,
+                condition_type TEXT NOT NULL, -- 'greater_than', 'less_than', 'equals', 'between', 'change_rate'
+                threshold_value REAL, -- Primary threshold value
+                threshold_value_secondary REAL, -- For 'between' conditions
+                threshold_unit TEXT, -- Unit for the threshold
+                is_active INTEGER DEFAULT 1, -- 0 for inactive, 1 for active
+                notification_title TEXT NOT NULL,
+                notification_message TEXT NOT NULL,
+                priority TEXT DEFAULT 'medium',
+                cooldown_minutes INTEGER DEFAULT 60, -- Minimum minutes between notifications for same rule
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (entry_type_id) REFERENCES EntryType(id) ON DELETE CASCADE,
+                FOREIGN KEY (entry_id) REFERENCES Entry(id) ON DELETE CASCADE
+            );
+        ''')
+
         # Insert default system parameters if they don't exist
         default_params = {
             'project_name': 'My Awesome Project',
