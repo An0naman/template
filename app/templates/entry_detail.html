@@ -217,17 +217,14 @@
                 <div class="row g-3">
                     <div class="col-md-4">
                         <div class="info-card">
-                            <div class="info-label">Entry Type</div>
-                            <div class="info-value" id="entryTypeDisplay">{{ entry.entry_type_label }}</div>
+                            <div class="info-label">Details</div>
+                            <div class="info-value" id="detailsDisplay">
+                                <div><strong>Type:</strong> <span id="entryTypeDisplay">{{ entry.entry_type_label }}</span></div>
+                                <div><strong>Status:</strong> <span id="statusDisplay">{{ (entry.status or 'active').title() }}</span></div>
+                            </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="info-card">
-                            <div class="info-label">Status</div>
-                            <div class="info-value" id="statusDisplay">{{ (entry.status or 'active').title() }}</div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
+                    <div class="col-md-8">
                         <div class="info-card">
                             <div class="info-label">Dates</div>
                             <div class="info-value" id="datesDisplay">
@@ -773,6 +770,7 @@
         const entryTitle = document.getElementById('entryTitle');
         const entryTypeDisplay = document.getElementById('entryTypeDisplay');
         const statusDisplay = document.getElementById('statusDisplay');
+        const detailsDisplay = document.getElementById('detailsDisplay');
         const datesDisplay = document.getElementById('datesDisplay');
         const intendedEndDateDisplay = document.getElementById('intended-end-date-display');
         const actualEndDateDisplay = document.getElementById('actual-end-date-display');
@@ -843,6 +841,21 @@
                 datesDisplay.innerHTML = datesHtml;
             }
             {% endif %}
+        }
+
+        // Function to update the consolidated details display
+        function updateDetailsDisplay(entryType, status) {
+            if (detailsDisplay) {
+                let detailsHtml = '<div><strong>Type:</strong> <span id="entryTypeDisplay">' + entryType + '</span></div>';
+                detailsHtml += '<div><strong>Status:</strong> <span id="statusDisplay">' + status + '</span></div>';
+                detailsDisplay.innerHTML = detailsHtml;
+                
+                // Update individual references for compatibility
+                const updatedEntryTypeDisplay = document.getElementById('entryTypeDisplay');
+                const updatedStatusDisplay = document.getElementById('statusDisplay');
+                if (updatedEntryTypeDisplay) updatedEntryTypeDisplay.textContent = entryType;
+                if (updatedStatusDisplay) updatedStatusDisplay.textContent = status;
+            }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -1210,16 +1223,15 @@
                     // Update the display elements
                     entryTitle.textContent = title;
                     descriptionDisplay.textContent = description || 'No description available';
-                    statusDisplay.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+                    
+                    // Update consolidated details display (type and status)
+                    const selectedOption = entryTypeSelect.options[entryTypeSelect.selectedIndex];
+                    const entryTypeLabel = selectedOption ? selectedOption.textContent : 'Unknown';
+                    const capitalizedStatus = status.charAt(0).toUpperCase() + status.slice(1);
+                    updateDetailsDisplay(entryTypeLabel, capitalizedStatus);
                     
                     // Update consolidated dates display
                     updateDatesDisplay(intendedEndDate, actualEndDate);
-                    
-                    // Update entry type display
-                    const selectedOption = entryTypeSelect.options[entryTypeSelect.selectedIndex];
-                    if (selectedOption) {
-                        entryTypeDisplay.textContent = selectedOption.textContent;
-                    }
                     
                     // Update the page title
                     document.title = document.title.replace(/- .+ -/, `- ${title} -`);

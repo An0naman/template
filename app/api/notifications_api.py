@@ -174,7 +174,7 @@ def create_notification():
     if priority not in ['low', 'medium', 'high', 'critical']:
         return jsonify({'error': 'Invalid priority level.'}), 400
     
-    if notification_type not in ['note_based', 'sensor_based', 'manual']:
+    if notification_type not in ['note_based', 'sensor_based', 'manual', 'end_date_overdue']:
         return jsonify({'error': 'Invalid notification type.'}), 400
     
     conn = get_db()
@@ -452,3 +452,96 @@ def create_note_notification(note_id, entry_id, scheduled_for, title, message):
     except Exception as e:
         logger.error(f"Error creating note notification: {e}", exc_info=True)
         raise
+
+def check_overdue_end_dates():
+    """
+    Check for entries with overdue intended end dates and create notifications.
+    This function should be called periodically (e.g., daily) to monitor overdue entries.
+    """
+    conn = None
+    try:
+        # Get a new connection since this might be called from a background task
+        from ..db import get_connection
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Get current date (YYYY-MM-DD format)
+        current_date = datetime.now().strftime('%Y-%m-%d')
+        
+        # Find entries with intended_end_date that has passed and don't already have an overdue notification
+        query = '''
+            SELECT DISTINCT 
+                e.id as entry_id,
+                e.title,
+                e.intended_end_date,
+                et.singular_label as entry_type
+            FROM Entry e
+            JOIN EntryType et ON e.entry_type_id = et.id
+            WHERE 
+                e.intended_end_date IS NOT NULL 
+                AND e.intended_end_date != ''
+                AND date(e.intended_end_date) < date(?)
+                AND e.status != 'inactive'
+                AND et.show_end_dates = 1
+                AND NOT EXISTS (
+                    SELECT 1 FROM Notification n 
+                    WHERE n.entry_id = e.id 
+                    AND n.notification_type = 'end_date_overdue'
+                    AND n.is_dismissed = 0
+                )
+        '''
+        
+        cursor.execute(query, (current_date,))
+        overdue_entries = cursor.fetchall()
+        
+        notifications_created = 0
+        
+        for entry in overdue_entries:
+            try:
+                # Calculate how many days overdue
+                intended_end = datetime.strptime(entry['intended_end_date'][:10], '%Y-%m-%d')
+                current = datetime.now()
+                days_overdue = (current - intended_end).days
+                
+                # Create notification
+                title = f"Overdue: {entry['title']}"
+                message = f"The {entry['entry_type'].lower()} '{entry['title']}' has an intended end date of {entry['intended_end_date'][:10]} and is {days_overdue} day{'s' if days_overdue != 1 else ''} overdue."
+                
+                cursor.execute('''
+                    INSERT INTO Notification 
+                    (title, message, notification_type, priority, entry_id, scheduled_for)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (title, message, 'end_date_overdue', 'high', entry['entry_id'], current_date))
+                
+                notifications_created += 1
+                logger.info(f"Created overdue notification for entry {entry['entry_id']}: {entry['title']}")
+                
+            except Exception as e:
+                logger.error(f"Error creating overdue notification for entry {entry['entry_id']}: {e}")
+                continue
+        
+        conn.commit()
+        logger.info(f"Overdue end date check completed. Created {notifications_created} notifications.")
+        return notifications_created
+        
+    except Exception as e:
+        logger.error(f"Error in check_overdue_end_dates: {e}", exc_info=True)
+        if conn:
+            conn.rollback()
+        return 0
+    finally:
+        if conn:
+            conn.close()
+
+@notifications_api_bp.route('/check_overdue_end_dates', methods=['POST'])
+def manual_check_overdue_end_dates():
+    """Manually trigger the overdue end date check (for testing or manual execution)"""
+    try:
+        notifications_created = check_overdue_end_dates()
+        return jsonify({
+            'message': f'Overdue check completed. Created {notifications_created} notifications.',
+            'notifications_created': notifications_created
+        }), 200
+    except Exception as e:
+        logger.error(f"Error in manual overdue check: {e}", exc_info=True)
+        return jsonify({'error': 'An error occurred while checking for overdue entries.'}), 500
