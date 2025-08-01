@@ -1,3 +1,0 @@
-2025-07-30 20:02:36,058 INFO: Flask app initialized and logging configured. [in /home/an0naman/Documents/GitHub/template/app/__init__.py:36]
-2025-07-30 20:02:36,156 INFO: Blueprints registered. [in /home/an0naman/Documents/GitHub/template/app/__init__.py:79]
-2025-07-30 20:02:36,157 INFO: Database schema checked and updated (if necessary), default system parameters ensured. [in /home/an0naman/Documents/GitHub/template/app/db.py:139]
