@@ -223,14 +223,22 @@
                     </div>
                     <div class="col-md-4">
                         <div class="info-card">
-                            <div class="info-label">Created At</div>
-                            <div class="info-value" id="created-at">{{ entry.created_at }}</div>
+                            <div class="info-label">Status</div>
+                            <div class="info-value" id="statusDisplay">{{ (entry.status or 'active').title() }}</div>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="info-card">
-                            <div class="info-label">Status</div>
-                            <div class="info-value" id="statusDisplay">{{ entry.status or 'Active' }}</div>
+                            <div class="info-label">Dates</div>
+                            <div class="info-value" id="datesDisplay">
+                                <div><strong>Created On:</strong> <span id="created-at">{{ entry.created_at }}</span></div>
+                                {% if entry.intended_end_date and entry.show_end_dates %}
+                                <div><strong>Intended End:</strong> <span id="intended-end-date-display">{{ entry.intended_end_date[:10] if entry.intended_end_date else '' }}</span></div>
+                                {% endif %}
+                                {% if entry.actual_end_date and entry.show_end_dates %}
+                                <div><strong>Actual End:</strong> <span id="actual-end-date-display">{{ entry.actual_end_date[:10] if entry.actual_end_date else '' }}</span></div>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -323,7 +331,7 @@
                                 <textarea class="form-control" id="descriptionTextarea" rows="6" placeholder="Add a detailed description for this entry...">{{ entry.description if entry.description is not none else '' }}</textarea>
                             </div>
                             <div class="row g-3">
-                                <div class="col-md-4">
+                                <div class="col-md-{{ '4' if entry.show_end_dates else '12' }}">
                                     <div class="mb-3">
                                         <label for="statusSelect" class="form-label">Status</label>
                                         <select class="form-select" id="statusSelect">
@@ -332,6 +340,7 @@
                                         </select>
                                     </div>
                                 </div>
+                                {% if entry.show_end_dates %}
                                 <div class="col-md-4">
                                     <div class="mb-3">
                                         <label for="intendedEndDateInput" class="form-label">Intended End Date</label>
@@ -344,6 +353,7 @@
                                         <input type="date" class="form-control" id="actualEndDateInput" value="{{ entry.actual_end_date[:10] if entry.actual_end_date else '' }}">
                                     </div>
                                 </div>
+                                {% endif %}
                             </div>
                             <div class="d-flex flex-wrap gap-2 mb-3">
                                 <button type="button" class="btn btn-success" id="saveDescriptionBtn">
@@ -752,14 +762,20 @@
         const entryTitleInput = document.getElementById('entryTitleInput');
         const entryTypeSelect = document.getElementById('entryTypeSelect');
         const statusSelect = document.getElementById('statusSelect');
+        {% if entry.show_end_dates %}
         const intendedEndDateInput = document.getElementById('intendedEndDateInput');
         const actualEndDateInput = document.getElementById('actualEndDateInput');
+        {% endif %}
         const saveDescriptionBtn = document.getElementById('saveDescriptionBtn');
         const editDescriptionBtn = document.getElementById('editDescriptionBtn');
         const cancelDescriptionBtn = document.getElementById('cancelDescriptionBtn');
         const descriptionDisplay = document.getElementById('descriptionDisplay');
         const entryTitle = document.getElementById('entryTitle');
         const entryTypeDisplay = document.getElementById('entryTypeDisplay');
+        const statusDisplay = document.getElementById('statusDisplay');
+        const datesDisplay = document.getElementById('datesDisplay');
+        const intendedEndDateDisplay = document.getElementById('intended-end-date-display');
+        const actualEndDateDisplay = document.getElementById('actual-end-date-display');
         const descriptionEditor = document.getElementById('descriptionEditor');
         const descriptionStatusMessage = document.getElementById('descriptionStatusMessage');
         const createdAtSpan = document.getElementById('created-at');
@@ -808,6 +824,25 @@
             } catch (e) {
                 console.error("Error parsing date:", e);
             }
+        }
+
+        // Function to update the consolidated dates display
+        function updateDatesDisplay(intendedEndDate, actualEndDate) {
+            {% if entry.show_end_dates %}
+            if (datesDisplay) {
+                let datesHtml = '<div><strong>Created On:</strong> <span id="created-at">' + createdAtSpan.textContent + '</span></div>';
+                
+                if (intendedEndDate && intendedEndDate !== '') {
+                    datesHtml += '<div><strong>Intended End:</strong> <span id="intended-end-date-display">' + intendedEndDate + '</span></div>';
+                }
+                
+                if (actualEndDate && actualEndDate !== '') {
+                    datesHtml += '<div><strong>Actual End:</strong> <span id="actual-end-date-display">' + actualEndDate + '</span></div>';
+                }
+                
+                datesDisplay.innerHTML = datesHtml;
+            }
+            {% endif %}
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -1121,8 +1156,10 @@
             entryTypeSelect.value = originalEntryTypeId;
             // Reset new fields
             statusSelect.value = {{ (entry.status if entry.status else "active")|tojson }};
+            {% if entry.show_end_dates %}
             intendedEndDateInput.value = '{{ entry.intended_end_date[:10] if entry.intended_end_date else "" }}';
             actualEndDateInput.value = '{{ entry.actual_end_date[:10] if entry.actual_end_date else "" }}';
+            {% endif %}
             // Clear any status messages
             descriptionStatusMessage.className = 'mt-3 d-none';
             // Clear Wikipedia results
@@ -1134,8 +1171,13 @@
             const description = descriptionTextarea.value;
             const entryTypeId = parseInt(entryTypeSelect.value);
             const status = statusSelect.value;
+            {% if entry.show_end_dates %}
             const intendedEndDate = intendedEndDateInput.value;
             const actualEndDate = actualEndDateInput.value;
+            {% else %}
+            const intendedEndDate = null;
+            const actualEndDate = null;
+            {% endif %}
             
             if (!title) {
                 displayStatus(descriptionStatusMessage, 'Entry title is required.', 'alert-danger');
@@ -1168,6 +1210,10 @@
                     // Update the display elements
                     entryTitle.textContent = title;
                     descriptionDisplay.textContent = description || 'No description available';
+                    statusDisplay.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+                    
+                    // Update consolidated dates display
+                    updateDatesDisplay(intendedEndDate, actualEndDate);
                     
                     // Update entry type display
                     const selectedOption = entryTypeSelect.options[entryTypeSelect.selectedIndex];

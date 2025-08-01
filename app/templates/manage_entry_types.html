@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ project_name }} - Manage Entry Types</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>{{ project_name }} - Manage Entry Types</title>                                <td colspan="7" class="text-center text-muted py-4">    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         body {
@@ -140,6 +139,7 @@
                             <th>Note Types</th>
                             <th class="text-center">Primary</th>
                             <th class="text-center">Labels</th>
+                            <th class="text-center">End Dates</th>
                             <th class="text-center">Actions</th>
                         </tr>
                     </thead>
@@ -166,6 +166,13 @@
                                             <i class="fas fa-times-circle status-icon text-muted" title="No Labels Section"></i>
                                         {% endif %}
                                     </td>
+                                    <td class="text-center">
+                                        {% if type.show_end_dates %}
+                                            <i class="fas fa-check-circle status-icon text-success" title="Shows End Date Fields"></i>
+                                        {% else %}
+                                            <i class="fas fa-times-circle status-icon text-muted" title="No End Date Fields"></i>
+                                        {% endif %}
+                                    </td>
                                     <td class="action-buttons text-center">
                                         <button class="btn btn-sm btn-outline-primary edit-entry-type-btn"
                                                 data-id="{{ type.id }}"
@@ -176,6 +183,7 @@
                                                 data-note-types="{{ type.note_types }}"
                                                 data-is-primary="{{ type.is_primary }}"
                                                 data-show-labels-section="{{ type.show_labels_section | default(1, true) }}"
+                                                data-show-end-dates="{{ type.show_end_dates | default(0, true) }}"
                                                 title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </button>
@@ -189,7 +197,7 @@
                             {% endfor %}
                         {% else %}
                             <tr>
-                                <td colspan="8" class="text-center text-muted py-4">
+                                <td colspan="10" class="text-center text-muted py-4">
                                     <i class="fas fa-inbox fa-2x mb-2 d-block text-muted opacity-50"></i>
                                     No entry types defined yet.
                                 </td>
@@ -244,6 +252,12 @@
                                 Show Labels Section for entries of this type
                             </label>
                         </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="showEndDates">
+                            <label class="form-check-label" for="showEndDates">
+                                Show End Date fields (Intended & Actual) for entries of this type
+                            </label>
+                        </div>
                         <button type="submit" class="btn btn-blue w-100">Save Entry Type</button>
                     </form>
                 </div>
@@ -264,6 +278,7 @@
             const noteTypesInput = document.getElementById('noteTypes');
             const isPrimaryInput = document.getElementById('isPrimary');
             const showLabelsSectionInput = document.getElementById('showLabelsSection');
+            const showEndDatesInput = document.getElementById('showEndDates');
 
             // Show Add Modal
             document.getElementById('showAddEntryTypeModalBtn').addEventListener('click', function() {
@@ -287,6 +302,7 @@
                     noteTypesInput.value = this.dataset.noteTypes;
                     isPrimaryInput.checked = (this.dataset.isPrimary === '1');
                     showLabelsSectionInput.checked = (this.dataset.showLabelsSection === '1');
+                    showEndDatesInput.checked = (this.dataset.showEndDates === '1');
                     nameInput.readOnly = true; // Name is not editable for existing entries
                     entryTypeModal.show();
                 });
@@ -307,7 +323,8 @@
                     description: descriptionInput.value,
                     note_types: noteTypesInput.value,
                     is_primary: isPrimaryInput.checked ? 1 : 0,
-                    show_labels_section: showLabelsSectionInput.checked ? 1 : 0
+                    show_labels_section: showLabelsSectionInput.checked ? 1 : 0,
+                    show_end_dates: showEndDatesInput.checked ? 1 : 0
                 };
 
                 fetch(url, {

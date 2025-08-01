@@ -41,7 +41,8 @@ def init_db():
                 is_primary INTEGER DEFAULT 0, -- 1 for primary, 0 for secondary
                 has_sensors BOOLEAN NOT NULL DEFAULT 0, -- Whether this entry type supports sensor data
                 enabled_sensor_types TEXT DEFAULT '', -- Comma-separated list of enabled sensor types for this entry type
-                show_labels_section BOOLEAN NOT NULL DEFAULT 1 -- Whether to show the labels section for entries of this type
+                show_labels_section BOOLEAN NOT NULL DEFAULT 1, -- Whether to show the labels section for entries of this type
+                show_end_dates BOOLEAN NOT NULL DEFAULT 0 -- Whether to show the end date fields (intended and actual) for entries of this type
             );
         ''')
 
@@ -55,6 +56,8 @@ def init_db():
                 cursor.execute("ALTER TABLE EntryType ADD COLUMN enabled_sensor_types TEXT DEFAULT ''")
             if 'show_labels_section' not in columns:
                 cursor.execute("ALTER TABLE EntryType ADD COLUMN show_labels_section BOOLEAN NOT NULL DEFAULT 1")
+            if 'show_end_dates' not in columns:
+                cursor.execute("ALTER TABLE EntryType ADD COLUMN show_end_dates BOOLEAN NOT NULL DEFAULT 0")
         except Exception as e:
             # Columns might already exist, ignore error
             pass
