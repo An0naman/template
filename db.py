@@ -48,6 +48,9 @@ def init_db():
             title TEXT NOT NULL,
             description TEXT,
             entry_type_id INTEGER NOT NULL,
+            intended_end_date TEXT,
+            actual_end_date TEXT,
+            status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (entry_type_id) REFERENCES EntryType(id) ON DELETE RESTRICT
         )
@@ -93,6 +96,20 @@ def init_db():
     except sqlite3.OperationalError as e:
         if "duplicate column name: description" not in str(e):
             raise e
+
+    # Add new label printing related columns
+    for column, default in [
+        ('intended_end_date', 'TEXT'),
+        ('actual_end_date', 'TEXT'),
+        ('status', "TEXT DEFAULT 'active'")
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE Entry ADD COLUMN {column} {default}")
+            print(f"Added '{column}' column to Entry table.")
+        except sqlite3.OperationalError as e:
+            if f"duplicate column name: {column.split()[0]}" not in str(e):
+                print(f"Note: {column} column migration issue: {e}")
+            # Column already exists, continue
 
     # --- EntryRelationship Table ---
     cursor.execute('''
@@ -188,13 +205,47 @@ def init_db():
         )
     ''')
 
+    # Migration: Handle existing SystemParameters table with old column names
+    try:
+        cursor.execute("PRAGMA table_info(SystemParameters)")
+        columns = [col[1] for col in cursor.fetchall()]
+        if 'key' in columns and 'parameter_name' not in columns:
+            print("Detected old SystemParameters schema with 'key' and 'value' columns. Migrating...")
+            # Create new table with correct column names
+            cursor.execute('''
+                CREATE TABLE SystemParameters_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    parameter_name TEXT UNIQUE NOT NULL,
+                    parameter_value TEXT,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            # Copy data from old table to new table
+            cursor.execute("INSERT INTO SystemParameters_new (id, parameter_name, parameter_value, updated_at) SELECT id, key, value, updated_at FROM SystemParameters")
+            # Drop old table and rename new one
+            cursor.execute("DROP TABLE SystemParameters")
+            cursor.execute("ALTER TABLE SystemParameters_new RENAME TO SystemParameters")
+            print("SystemParameters table migration completed.")
+        elif 'parameter_name' not in columns:
+            # Add missing columns if they don't exist
+            cursor.execute("ALTER TABLE SystemParameters ADD COLUMN parameter_name TEXT")
+            cursor.execute("ALTER TABLE SystemParameters ADD COLUMN parameter_value TEXT")
+            print("Added parameter_name and parameter_value columns to SystemParameters table.")
+    except sqlite3.OperationalError as e:
+        print(f"SystemParameters migration issue: {e}")
+
     # --- Initial System Parameters for Labels ---
     # Insert default values for entry labels if they don't exist
-    # FIX: Changed 'key' to 'parameter_name' and 'value' to 'parameter_value'
     cursor.execute("INSERT OR IGNORE INTO SystemParameters (parameter_name, parameter_value) VALUES ('entry_singular_label', 'Entry')")
     cursor.execute("INSERT OR IGNORE INTO SystemParameters (parameter_name, parameter_value) VALUES ('entry_plural_label', 'Entries')")
     cursor.execute("INSERT OR IGNORE INTO SystemParameters (parameter_name, parameter_value) VALUES ('default_entry_type_name', 'general_entry')")
     cursor.execute("INSERT OR IGNORE INTO SystemParameters (parameter_name, parameter_value) VALUES ('project_name', 'My Awesome Project')") # Ensure project_name is also initialized
+    
+    # Label printing parameters
+    cursor.execute("INSERT OR IGNORE INTO SystemParameters (parameter_name, parameter_value) VALUES ('project_logo_path', '')")
+    cursor.execute("INSERT OR IGNORE INTO SystemParameters (parameter_name, parameter_value) VALUES ('label_font_size', '10')")
+    cursor.execute("INSERT OR IGNORE INTO SystemParameters (parameter_name, parameter_value) VALUES ('label_include_qr_code', 'true')")
+    cursor.execute("INSERT OR IGNORE INTO SystemParameters (parameter_name, parameter_value) VALUES ('label_include_logo', 'true')")
 
     # MaintenanceTask Table
     cursor.execute('''

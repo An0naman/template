@@ -33,6 +33,10 @@ file_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s: %(messag
 app.logger.addHandler(file_handler)
 app.logger.setLevel(logging.INFO) # Set default level for Flask's logger (e.g., for info messages)
 
+# --- Register API Blueprints ---
+from app.api.notifications_api import notifications_api_bp
+app.register_blueprint(notifications_api_bp, url_prefix='/api')
+
 
 # --- Database Connection Management ---
 def get_db():
