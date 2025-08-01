@@ -14,24 +14,53 @@
             margin-top: 30px;
             background-color: #ffffff;
             padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
             margin-bottom: 30px;
+        }
+        .content-section {
+            position: relative;
+            overflow: hidden;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+        .content-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(135deg, #198754, #20c997);
         }
         .sensor-enabled {
             background-color: #d4edda;
             border-color: #c3e6cb;
+            border-radius: 8px;
         }
         .sensor-disabled {
             background-color: #f8d7da;
             border-color: #f5c6cb;
+            border-radius: 8px;
         }
         .btn-toggle {
             min-width: 120px;
         }
+        .btn-green {
+            background: linear-gradient(135deg, #198754, #20c997);
+            border: none;
+            color: white;
+        }
+        .btn-green:hover {
+            background: linear-gradient(135deg, #157347, #1aa179);
+            color: white;
+        }
         .sensor-types-section {
-            background-color: #f8f9fa;
-            border-radius: 5px;
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
             padding: 15px;
             margin-top: 10px;
         }
@@ -40,39 +69,78 @@
             margin-bottom: 8px;
         }
         .entry-type-card {
-            margin-bottom: 20px;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s ease;
+        }
+        .entry-type-card:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .alert-section {
+            background: #e8f5e8;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .btn-spacing {
+            margin-left: 1rem;
+        }
+        @media (max-width: 768px) {
+            .container {
+                margin-top: 15px;
+                padding: 20px;
+            }
+            .header-actions {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+            }
+            .btn-spacing {
+                margin-left: 0;
+                margin-top: 0.5rem;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>Manage Sensors for {{ project_name }}</h1>
-            <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left me-1"></i> Back to Maintenance
-            </a>
-        </div>
-
-        <p class="lead mb-4">Configure which {{ entry_plural_label }} types support sensor data collection.</p>
-
-        <div class="alert alert-info" role="alert">
-            <i class="fas fa-info-circle me-2"></i>
-            <strong>About Sensor Data:</strong> When enabled for an entry type, users can record and track sensor measurements 
-            (temperature, humidity, pressure, etc.) for entries of that type. This is useful for monitoring physical objects, 
-            locations, or equipment.
-        </div>
-
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title mb-0">{{ entry_plural_label }} Types - Sensor Configuration</h3>
+        <div class="d-flex justify-content-between align-items-start mb-4">
+            <div>
+                <h1 class="mb-0">{{ project_name }} Sensors</h1>
             </div>
-            <div class="card-body">
-                <div id="loadingMessage" class="text-center text-muted">
-                    <i class="fas fa-spinner fa-spin me-2"></i> Loading entry types...
+            <div class="header-actions d-flex align-items-center">
+                <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back
+                </a>
+            </div>
+        </div>
+
+        <div class="alert-section">
+            <div class="d-flex align-items-start">
+                <i class="fas fa-info-circle text-success me-3 mt-1"></i>
+                <div>
+                    <strong>About Sensor Data:</strong> When enabled for an entry type, users can record and track sensor measurements 
+                    (temperature, humidity, pressure, etc.) for entries of that type. This is useful for monitoring physical objects, 
+                    locations, or equipment.
                 </div>
-                <div id="entryTypesContainer" style="display: none;">
-                    <!-- Entry types will be loaded here -->
-                </div>
+            </div>
+        </div>
+
+        <div class="content-section">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0 text-success">
+                    <i class="fas fa-microchip me-2"></i>{{ entry_plural_label }} Types - Sensor Configuration
+                </h5>
+            </div>
+            <div id="loadingMessage" class="text-center text-muted">
+                <i class="fas fa-spinner fa-spin me-2"></i> Loading entry types...
+            </div>
+            <div id="entryTypesContainer" style="display: none;">
+                <!-- Entry types will be loaded here -->
             </div>
         </div>
 

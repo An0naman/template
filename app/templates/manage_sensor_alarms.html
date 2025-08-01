@@ -14,54 +14,122 @@
             margin-top: 30px;
             background-color: #ffffff;
             padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
             margin-bottom: 30px;
+        }
+        .content-section {
+            position: relative;
+            overflow: hidden;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+        .content-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(135deg, #198754, #20c997);
         }
         .alarm-card {
             border: 1px solid #dee2e6;
             border-radius: 8px;
             padding: 15px;
             margin-bottom: 15px;
-            background-color: #f8f9fa;
+            background-color: white;
+            transition: all 0.2s ease;
+        }
+        .alarm-card:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         .alarm-card.active {
             border-color: #28a745;
-            background-color: #d4edda;
+            background-color: #f8fff9;
         }
         .alarm-card.inactive {
             border-color: #dc3545;
-            background-color: #f8d7da;
+            background-color: #fff8f8;
         }
         .priority-critical { border-left: 4px solid #dc3545; }
         .priority-high { border-left: 4px solid #fd7e14; }
         .priority-medium { border-left: 4px solid #ffc107; }
         .priority-low { border-left: 4px solid #28a745; }
+        .btn-green {
+            background: linear-gradient(135deg, #198754, #20c997);
+            border: none;
+            color: white;
+        }
+        .btn-green:hover {
+            background: linear-gradient(135deg, #157347, #1aa179);
+            color: white;
+        }
+        .btn-spacing {
+            margin-left: 1rem;
+        }
+        .alert-section {
+            background: #e8f5e8;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        @media (max-width: 768px) {
+            .container {
+                margin-top: 15px;
+                padding: 20px;
+            }
+            .header-actions {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+            }
+            .btn-spacing {
+                margin-left: 0;
+                margin-top: 0.5rem;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1><i class="fas fa-bell me-2"></i> Manage Sensor Alarms</h1>
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAlarmModal">
-                <i class="fas fa-plus me-2"></i> Add New Alarm
-            </button>
+        <div class="d-flex justify-content-between align-items-start mb-4">
+            <div>
+                <h1 class="mb-0">{{ project_name }} Sensor Alarms</h1>
+            </div>
+            <div class="header-actions d-flex align-items-center">
+                <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back
+                </a>
+                <button class="btn btn-green btn-spacing" data-bs-toggle="modal" data-bs-target="#addAlarmModal">
+                    <i class="fas fa-plus me-1"></i>Add Alarm
+                </button>
+            </div>
         </div>
 
-        <p class="lead mb-4">
-            Set up automatic notifications when sensor values cross defined thresholds. 
-            Alarms can monitor specific {{ entry_plural_label }} or entire types.
-        </p>
+        <div class="alert-section">
+            <div class="d-flex align-items-start">
+                <i class="fas fa-info-circle text-success me-3 mt-1"></i>
+                <div>
+                    <strong>About Sensor Alarms:</strong> Set up automatic notifications when sensor values cross defined thresholds. 
+                    Alarms can monitor specific {{ entry_plural_label }} or entire types.
+                </div>
+            </div>
+        </div>
 
-        <!-- Existing Alarms List -->
-        <div class="row">
-            <div class="col-12">
-                <h3>Existing Sensor Alarms</h3>
-                <div id="alarmsList">
-                    <div class="text-center text-muted py-4">
-                        <i class="fas fa-bell-slash fa-2x mb-2"></i>
-                        <p>No sensor alarms configured yet. Create your first alarm using the button above.</p>
-                    </div>
+        <div class="content-section">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0 text-success">
+                    <i class="fas fa-bell me-2"></i>Existing Sensor Alarms
+                </h5>
+            </div>
+            <div id="alarmsList">
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-bell-slash fa-2x mb-2 d-block text-muted opacity-50"></i>
+                    <p>No sensor alarms configured yet. Create your first alarm using the button above.</p>
                 </div>
             </div>
         </div>
@@ -212,7 +280,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-primary" onclick="saveAlarm()">Create Alarm</button>
+                        <button type="button" class="btn btn-green" onclick="saveAlarm()">Create Alarm</button>
                     </div>
                 </div>
             </div>
@@ -350,7 +418,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-primary" onclick="updateAlarm()">Update Alarm</button>
+                        <button type="button" class="btn btn-green" onclick="updateAlarm()">Update Alarm</button>
                     </div>
                 </div>
             </div>

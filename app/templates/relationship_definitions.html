@@ -14,9 +14,26 @@
             margin-top: 30px;
             background-color: #ffffff;
             padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
             margin-bottom: 30px;
+        }
+        .content-section {
+            position: relative;
+            overflow: hidden;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+        .content-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(135deg, #0d6efd, #6f42c1);
         }
         .form-control, .form-select {
             margin-bottom: 15px;
@@ -27,69 +44,132 @@
         .action-buttons button {
             margin-right: 5px;
         }
-        /* Ensure modals are responsive */
-        @media (max-width: 576px) {
+        .btn-blue {
+            background: linear-gradient(135deg, #0d6efd, #6f42c1);
+            border: none;
+            color: white;
+        }
+        .btn-blue:hover {
+            background: linear-gradient(135deg, #0a58ca, #5a359a);
+            color: white;
+        }
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #dee2e6;
+        }
+        .table thead th {
+            background: #f8f9fa;
+            border-bottom: 2px solid #0d6efd;
+            color: #495057;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            font-size: 0.9rem;
+        }
+        .action-buttons {
+            white-space: nowrap;
+        }
+        .status-icon {
+            font-size: 1.1em;
+        }
+        .btn-spacing {
+            margin-left: 1rem;
+        }
+        @media (max-width: 768px) {
+            .container {
+                margin-top: 15px;
+                padding: 20px;
+            }
             .modal-dialog {
                 margin: 0.5rem;
+            }
+            .header-actions {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+            }
+            .btn-spacing {
+                margin-left: 0;
+                margin-top: 0.5rem;
+            }
+            .table-container {
+                font-size: 0.875rem;
+                overflow-x: auto;
+            }
+            .table th, .table td {
+                padding: 0.5rem 0.25rem;
+                min-width: 80px;
+            }
+            .action-buttons .btn {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.75rem;
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1 class="mb-4">Manage Relationship Definitions</h1>
+        <div class="d-flex justify-content-between align-items-start mb-4">
+            <div>
+                <h1 class="mb-0">{{ project_name }} Relationship Definitions</h1>
+            </div>
+            <div class="header-actions d-flex align-items-center">
+                <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back
+                </a>
+                <button id="showAddRelationshipDefinitionModalBtn" class="btn btn-blue btn-spacing">
+                    <i class="fas fa-plus me-1"></i>Add Definition
+                </button>
+            </div>
+        </div>
 
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}">Home</a></li>
-                <li class="breadcrumb-item"><a href="{{ url_for('maintenance.maintenance_module_page') }}">Maintenance</a></li>
-                <li class="breadcrumb-item active" aria-current="page">Manage Relationship Definitions</li>
-            </ol>
-        </nav>
+        <div class="content-section">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0 text-primary">
+                    <i class="fas fa-link me-2"></i>Relationship Definitions
+                </h5>
+            </div>
 
-        <button id="showAddRelationshipDefinitionModalBtn" class="btn btn-success mb-3">
-            <i class="fas fa-plus-circle me-1"></i> Add New Definition
-        </button>
-
-        <div class="table-responsive">
-            <table class="table table-hover table-striped">
-                <thead class="table-dark" id="relationshipDefinitionsHeader">
-                    <tr>
-                        <th>Name</th>
-                        <th>From Type</th>
-                        <th>To Type</th>
-                        <th>From Label</th>
-                        <th>To Label</th>
-                        <th>Quantity/Unit</th>
-                        <th>Active</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="relationshipDefinitionsTableBody">
+            <div class="table-container">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>From Type</th>
+                            <th>To Type</th>
+                            <th>From Label</th>
+                            <th>To Label</th>
+                            <th class="text-center">Quantity/Unit</th>
+                            <th class="text-center">Active</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="relationshipDefinitionsTableBody">
                     {% if relationship_definitions %}
                         {% for def in relationship_definitions %}
                             <tr data-id="{{ def.id }}">
-                                <td>{{ def.name }}</td>
-                                <td>{{ def.entry_type_from_label }} ({{ def.cardinality_from }})</td>
-                                <td>{{ def.entry_type_to_label }} ({{ def.cardinality_to }})</td>
+                                <td><strong>{{ def.name }}</strong></td>
+                                <td><span class="badge bg-info text-white">{{ def.entry_type_from_label }}</span> <small class="text-muted">({{ def.cardinality_from }})</small></td>
+                                <td><span class="badge bg-success text-white">{{ def.entry_type_to_label }}</span> <small class="text-muted">({{ def.cardinality_to }})</small></td>
                                 <td>{{ def.label_from_side }}</td>
                                 <td>{{ def.label_to_side }}</td>
-                                <td>
+                                <td class="text-center">
                                     {% if def.allow_quantity_unit %}
-                                        <i class="fas fa-check-circle text-success"></i> Yes
+                                        <i class="fas fa-check-circle status-icon text-success" title="Allows Quantity/Unit"></i>
                                     {% else %}
-                                        <i class="fas fa-times-circle text-danger"></i> No
+                                        <i class="fas fa-times-circle status-icon text-muted" title="No Quantity/Unit"></i>
                                     {% endif %}
                                 </td>
-                                <td>
+                                <td class="text-center">
                                     {% if def.is_active %}
-                                        <i class="fas fa-check-circle text-success"></i>
+                                        <i class="fas fa-toggle-on status-icon text-success" title="Active"></i>
                                     {% else %}
-                                        <i class="fas fa-times-circle text-danger"></i>
+                                        <i class="fas fa-toggle-off status-icon text-muted" title="Inactive"></i>
                                     {% endif %}
                                 </td>
-                                <td class="action-buttons">
-                                    <button class="btn btn-sm btn-info edit-relationship-definition-btn"
+                                <td class="action-buttons text-center">
+                                    <button class="btn btn-sm btn-outline-primary edit-relationship-definition-btn"
                                             data-id="{{ def.id }}"
                                             data-name="{{ def.name }}"
                                             data-description="{{ def.description or ''}}"
@@ -99,11 +179,14 @@
                                             data-cardinality-to="{{ def.cardinality_to }}"
                                             data-label-from-side="{{ def.label_from_side }}"
                                             data-label-to-side="{{ def.label_to_side }}"
-                                            data-allow-quantity-unit="{{ def.allow_quantity_unit | int }}" {# CHANGED: Jinja2 ternary fix #}
-                                            data-is-active="{{ def.is_active | int }}"> {# CHANGED: Jinja2 ternary fix #}
+                                            data-allow-quantity-unit="{{ def.allow_quantity_unit | int }}"
+                                            data-is-active="{{ def.is_active | int }}"
+                                            title="Edit">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <button class="btn btn-sm btn-danger delete-relationship-definition-btn" data-id="{{ def.id }}">
+                                    <button class="btn btn-sm btn-outline-danger delete-relationship-definition-btn ms-1" 
+                                            data-id="{{ def.id }}"
+                                            title="Delete">
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
                                 </td>
@@ -111,11 +194,15 @@
                         {% endfor %}
                     {% else %}
                         <tr>
-                            <td colspan="8" class="text-center text-muted">No relationship definitions defined yet.</td>
+                            <td colspan="8" class="text-center text-muted py-4">
+                                <i class="fas fa-link fa-2x mb-2 d-block text-muted opacity-50"></i>
+                                No relationship definitions defined yet.
+                            </td>
                         </tr>
                     {% endif %}
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 
@@ -190,7 +277,7 @@
                                 Is Active
                             </label>
                         </div>
-                        <button type="submit" class="btn btn-primary w-100">Save Definition</button>
+                        <button type="submit" class="btn btn-blue w-100">Save Definition</button>
                     </form>
                 </div>
             </div>

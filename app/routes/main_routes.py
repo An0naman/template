@@ -14,45 +14,60 @@ def get_db():
 
 @main_bp.route('/')
 def index():
-    # get_system_parameters is now a global in jinja_env, so no direct import needed here,
-    # but we will call it from get_db or directly if needed within the function.
-    # Accessing it via current_app.jinja_env.globals.get('get_system_parameters')
-    # or ensuring it's loaded into app context. For simplicity, we'll re-import
-    # it from db.py for use within Python, and it will be available for templates.
     from ..db import get_system_parameters # Import locally for function use
 
     params = get_system_parameters()
     conn = get_db()
     cursor = conn.cursor()
 
-    view_all = request.args.get('view', 'primary') # Default to 'primary' view
+    # Get filter parameters
+    view_type = request.args.get('view_type', 'primary')  # 'primary', 'all', 'type'
+    entry_type_filter = request.args.get('entry_type', '')
+    status_filter = request.args.get('status', 'active')  # Default to active only
+    
+    # Build the query based on filters
+    query_parts = []
+    params_list = []
+    
+    base_query = '''
+        SELECT
+            e.id, e.title, e.description,
+            et.singular_label AS entry_type_label,
+            et.name AS entry_type_name,
+            e.created_at, e.status
+        FROM Entry e
+        JOIN EntryType et ON e.entry_type_id = et.id
+    '''
+    
+    # Add WHERE conditions
+    conditions = []
+    
+    # Status filter (default to active)
+    if status_filter == 'active':
+        conditions.append("(e.status = 'active' OR e.status IS NULL)")
+    elif status_filter == 'inactive':
+        conditions.append("e.status = 'inactive'")
+    # 'all' status means no status filter
+    
+    # View type filter
+    if view_type == 'primary':
+        conditions.append("et.is_primary = 1")
+    elif view_type == 'type' and entry_type_filter:
+        conditions.append("et.id = ?")
+        params_list.append(entry_type_filter)
+    
+    # Combine conditions
+    if conditions:
+        query_parts.append("WHERE " + " AND ".join(conditions))
+    
+    query_parts.append("ORDER BY e.created_at DESC")
+    
+    final_query = base_query + " " + " ".join(query_parts)
+    
+    cursor.execute(final_query, params_list)
+    entries = cursor.fetchall()
 
-    if view_all == 'all':
-        cursor.execute('''
-            SELECT
-                e.id, e.title, e.description,
-                et.singular_label AS entry_type_label,
-                et.name AS entry_type_name,
-                e.created_at
-            FROM Entry e
-            JOIN EntryType et ON e.entry_type_id = et.id
-            ORDER BY e.created_at DESC
-        ''')
-        entries = cursor.fetchall()
-    else: # view_all == 'primary'
-        cursor.execute('''
-            SELECT
-                e.id, e.title, e.description,
-                et.singular_label AS entry_type_label,
-                et.name AS entry_type_name,
-                e.created_at
-            FROM Entry e
-            JOIN EntryType et ON e.entry_type_id = et.id
-            WHERE et.is_primary = 1
-            ORDER BY e.created_at DESC
-        ''')
-        entries = cursor.fetchall()
-
+    # Get all entry types for the filter dropdown
     cursor.execute("SELECT id, name, singular_label, plural_label, is_primary FROM EntryType ORDER BY singular_label")
     entry_types = cursor.fetchall()
 
@@ -62,7 +77,9 @@ def index():
                            entry_singular_label=params.get('entry_singular_label'),
                            entry_plural_label=params.get('entry_plural_label'),
                            all_entry_types=entry_types,
-                           current_view=view_all)
+                           current_view_type=view_type,
+                           current_entry_type=entry_type_filter,
+                           current_status=status_filter)
 
 @main_bp.route('/entry/<int:entry_id>')
 def entry_detail_page(entry_id):

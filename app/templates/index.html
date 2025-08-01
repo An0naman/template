@@ -11,116 +11,377 @@
         body {
             background-color: #f8f9fa;
         }
-        .container {
-            margin-top: 30px;
-            background-color: #ffffff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        .main-container {
+            margin-top: 20px;
             margin-bottom: 30px;
         }
-        .form-control, .form-select {
-            margin-bottom: 15px;
+        .content-card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        .header-section {
+            background: #ffffff;
+            color: #495057;
+            padding: 2rem;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .content-section {
+            position: relative;
+            overflow: hidden;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            margin: 1.5rem;
+            padding: 1.5rem;
+        }
+        .content-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(135deg, #6c757d, #495057);
+        }
+        .filter-section {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
         }
         .entry-item {
-            background-color: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 5px;
-            padding: 15px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s ease;
         }
-        .entry-item h3 {
-            margin-top: 0;
-            font-size: 1.3rem;
+        .entry-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
         }
-        .entry-item h3 a {
+        .entry-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        .entry-title a {
             text-decoration: none;
-            color: #0056b3;
+            color: #0d6efd;
         }
-        .entry-item h3 a:hover {
-            text-decoration: underline;
+        .entry-title a:hover {
+            color: #0a58ca;
         }
-        .entry-actions button {
-            margin-left: 5px; /* Adjust margin for actions */
+        .entry-meta {
+            font-size: 0.875rem;
+            color: #6c757d;
         }
-        /* Ensure modals are responsive */
-        @media (max-width: 576px) {
-            .modal-dialog {
-                margin: 0.5rem;
+        .entry-description {
+            color: #495057;
+            margin: 0.75rem 0;
+            line-height: 1.5;
+        }
+        .action-buttons {
+            gap: 0.5rem;
+        }
+        .btn-gray {
+            background: linear-gradient(135deg, #6c757d, #495057);
+            border: none;
+            color: white;
+        }
+        .btn-gray:hover {
+            background: linear-gradient(135deg, #5a6268, #343a40);
+            color: white;
+        }
+        .btn-spacing {
+            margin-left: 1rem;
+        }
+        .fab-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 1000;
+        }
+        .fab-main {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: all 0.3s ease;
+        }
+        .fab-main:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+        }
+        .mobile-actions {
+            display: none;
+        }
+        @media (max-width: 768px) {
+            .header-section {
+                padding: 1.5rem;
             }
+            .content-section {
+                margin: 1rem;
+                padding: 1rem;
+            }
+            .filter-section {
+                padding: 1rem;
+            }
+            .entry-item {
+                padding: 1rem;
+            }
+            .desktop-actions {
+                display: none;
+            }
+            .mobile-actions {
+                display: block;
+            }
+            .fab-container {
+                bottom: 1rem;
+                right: 1rem;
+            }
+            .header-actions {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+            }
+            .btn-spacing {
+                margin-left: 0;
+                margin-top: 0.5rem;
+            }
+        }
+        .filter-form {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .badge-status {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+        .created-date {
+            font-size: 0.875rem;
+            color: #6c757d;
+        }
+        .no-entries {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #6c757d;
+        }
+        .filter-summary {
+            background-color: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+        }
+                .alert-section {
+            background: #e7f3ff;
+            border: 1px solid #b3d7ff;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1 class="mb-4">{{ project_name }}</h1>
-
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div class="btn-group" role="group" aria-label="Entry View Toggle">
-                                <a href="{{ url_for('main.index', view='primary') }}" class="btn {% if current_view == 'primary' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                    Primary Items
-                </a>
-                <a href="{{ url_for('main.index', view='all') }}" class="btn {% if current_view == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+    <div class="container main-container">
+        <div class="content-card">
+            <!-- Header Section -->
+            <div class="header-section">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h1 class="mb-2">{{ project_name }}</h1>
+                        <p class="mb-0 text-muted">Manage your {{ entry_plural_label.lower() }}</p>
+                    </div>
+                    <div class="header-actions d-flex align-items-center desktop-actions">
+                        <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-cog me-2"></i>Settings
+                        </a>
+                        <button id="showAddEntryFormBtn" class="btn btn-gray btn-spacing">
+                            <i class="fas fa-plus me-1"></i>Add {{ entry_singular_label }}
+                        </button>
+                    </div>
+                </div>
             </div>
-            <div>
-                <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-secondary me-2">
-                    <i class="fas fa-tools me-1"></i> Maintenance Module
-                </a>
-                <button id="showAddEntryFormBtn" class="btn btn-success">
-                    <i class="fas fa-plus-circle me-1"></i> Add New {{ entry_singular_label }}
-                </button>
-            </div>
-        </div>
 
+            <!-- Filter Section -->
+            <div class="content-section">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0 text-muted">
+                        <i class="fas fa-filter me-2"></i>Filter {{ entry_plural_label }}
+                    </h5>
+                    <div class="mobile-actions">
+                        <button id="showAddEntryFormBtnMobile" class="btn btn-gray btn-sm">
+                            <i class="fas fa-plus me-1"></i>Add {{ entry_singular_label }}
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="filter-section">
+                    <form method="GET" id="filterForm" class="filter-form">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label for="view_type" class="form-label small">View</label>
+                                <select name="view_type" id="view_type" class="form-select form-select-sm">
+                                    <option value="primary" {{ 'selected' if current_view_type == 'primary' else '' }}>Primary Types Only</option>
+                                    <option value="all" {{ 'selected' if current_view_type == 'all' else '' }}>All Types</option>
+                                    <option value="type" {{ 'selected' if current_view_type == 'type' else '' }}>Specific Type</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="entry_type" class="form-label small">Entry Type</label>
+                                <select name="entry_type" id="entry_type" class="form-select form-select-sm">
+                                    <option value="">All Types</option>
+                                    {% for type in all_entry_types %}
+                                        <option value="{{ type.id }}" {{ 'selected' if current_entry_type == type.id|string else '' }}>
+                                            {{ type.singular_label }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="status" class="form-label small">Status</label>
+                                <select name="status" id="status" class="form-select form-select-sm">
+                                    <option value="active" {{ 'selected' if current_status == 'active' else '' }}>Active Only</option>
+                                    <option value="inactive" {{ 'selected' if current_status == 'inactive' else '' }}>Inactive Only</option>
+                                    <option value="all" {{ 'selected' if current_status == 'all' else '' }}>All Status</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end">
+                                <button type="submit" class="btn btn-gray btn-sm me-2">
+                                    <i class="fas fa-filter me-1"></i>Apply
+                            </button>
+                            <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-times me-1"></i> Clear
+                            </a>
+                        </div>
+                    </div>
+                </form>
 
-        <div class="card mb-4">
-            <div class="card-header">
-                <h2 class="h4 mb-0">
-                    {% if current_view == 'primary' %}
-                        Primary {{ entry_plural_label }}
-                    {% else %}
-                        All {{ entry_plural_label }}
-                    {% endif %}
-                </h2>
+                <!-- Filter Summary -->
+                {% if current_view_type != 'primary' or current_status != 'active' or current_entry_type %}
+                <div class="alert-section mt-3">
+                    <div class="d-flex align-items-start">
+                        <i class="fas fa-info-circle text-primary me-3 mt-1"></i>
+                        <div class="small">
+                            <strong>Active Filters:</strong>
+                            {% if current_view_type == 'all' %}
+                                All entry types,
+                            {% elif current_view_type == 'type' and current_entry_type %}
+                                Specific type only,
+                            {% else %}
+                                Primary types only,
+                            {% endif %}
+                            {% if current_status == 'active' %}
+                                Active entries only
+                            {% elif current_status == 'inactive' %}
+                                Inactive entries only
+                            {% else %}
+                                All statuses
+                            {% endif %}
+                            ({{ entries|length }} {{ 'entry' if entries|length == 1 else 'entries' }} found)
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
             </div>
-            <div class="card-body">
+
+            <!-- Entries List -->
+            <div class="content-section">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0 text-muted">
+                        <i class="fas fa-list me-2"></i>{{ entry_plural_label }}
+                        {% if entries %}
+                            <span class="badge bg-light text-dark ms-2">{{ entries|length }}</span>
+                        {% endif %}
+                    </h5>
+                </div>
+
                 <div id="entries-list">
-                    {% if entries %}
-                        {% for entry in entries %}
-                            <div class="entry-item">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h3 class="mb-0"><a href="{{ url_for('main.entry_detail_page', entry_id=entry.id) }}">{{ entry.title }}</a></h3>
-                                    <small class="text-muted">Type: {{ entry.entry_type_label }}</small>
-                                </div>
-                                <p class="mb-2">{{ entry.description | truncate(150) }}</p>
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <small class="text-muted">Created: {{ entry.created_at }}</small>
-                                    <div class="entry-actions">
-                                        <a href="{{ url_for('main.entry_detail_page', entry_id=entry.id) }}" class="btn btn-sm btn-outline-primary">
-                                            <i class="fas fa-info-circle me-1"></i> Details
+                {% if entries %}
+                    {% for entry in entries %}
+                        <div class="entry-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <div class="entry-title">
+                                        <a href="{{ url_for('main.entry_detail_page', entry_id=entry.id) }}">
+                                            {{ entry.title }}
                                         </a>
-                                        <button class="btn btn-sm btn-outline-danger delete-entry-btn" data-id="{{ entry.id }}">
-                                            <i class="fas fa-trash-alt me-1"></i> Delete
-                                        </button>
                                     </div>
+                                    <div class="entry-meta mb-2">
+                                        <span class="badge bg-secondary me-2">{{ entry.entry_type_label }}</span>
+                                        {% if entry.status %}
+                                            <span class="badge {% if entry.status == 'active' %}bg-success{% else %}bg-warning text-dark{% endif %} badge-status me-2">
+                                                {{ entry.status|title }}
+                                            </span>
+                                        {% endif %}
+                                        <span class="created-date">
+                                            <i class="fas fa-calendar-alt me-1"></i>
+                                            Created {{ entry.created_at.split('T')[0] if 'T' in entry.created_at else entry.created_at[:10] }}
+                                        </span>
+                                    </div>
+                                    {% if entry.description %}
+                                        <div class="entry-description">
+                                            {{ entry.description | truncate(150) }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="action-buttons d-flex">
+                                    <a href="{{ url_for('main.entry_detail_page', entry_id=entry.id) }}" 
+                                       class="btn btn-sm btn-outline-primary" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                        <span class="d-none d-lg-inline ms-1">Details</span>
+                                    </a>
+                                    <button class="btn btn-sm btn-outline-danger delete-entry-btn ms-1" 
+                                            data-id="{{ entry.id }}" title="Delete Entry">
+                                        <i class="fas fa-trash-alt"></i>
+                                        <span class="d-none d-lg-inline ms-1">Delete</span>
+                                    </button>
                                 </div>
                             </div>
-                        {% endfor %}
-                    {% else %}
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="no-entries">
+                        <i class="fas fa-inbox fa-3x mb-3 text-muted"></i>
+                        <h5 class="text-muted">No {{ entry_plural_label.lower() }} found</h5>
                         <p class="text-muted">
-                            {% if current_view == 'primary' %}
-                                No primary {{ entry_plural_label }} yet. Consider marking an Entry Type as primary in the Maintenance Module.
+                            {% if current_view_type == 'primary' and current_status == 'active' %}
+                                No active primary {{ entry_plural_label.lower() }} yet. Try adding one or adjusting your filters.
                             {% else %}
-                                No {{ entry_plural_label }} yet. Start by adding one!
+                                No {{ entry_plural_label.lower() }} match your current filters. Try adjusting the filters above.
                             {% endif %}
                         </p>
-                    {% endif %}
+                        <button id="showAddEntryFormBtn2" class="btn btn-gray">
+                            <i class="fas fa-plus me-1"></i> Add Your First {{ entry_singular_label }}
+                        </button>
+                    </div>
+                {% endif %}
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Mobile Floating Action Button -->
+    <div class="mobile-actions">
+        <div class="fab-container">
+            <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="fab-main btn btn-gray" title="Settings">
+                <i class="fas fa-cog"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- Add Entry Modal -->
     <div class="modal fade" id="addEntryModal" tabindex="-1" aria-labelledby="addEntryModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -160,13 +421,13 @@
                                     <h6 id="wikipediaModalTitle" class="card-title"></h6>
                                     <p id="wikipediaModalExtract" class="card-text" style="font-size: 0.9em; max-height: 100px; overflow-y: auto;"></p>
                                     <div class="d-flex gap-2">
-                                        <button type="button" class="btn btn-sm btn-primary" id="useWikipediaModalBtn">Use This Description</button>
+                                        <button type="button" class="btn btn-sm btn-gray" id="useWikipediaModalBtn">Use This Description</button>
                                         <a id="wikipediaModalLink" href="#" target="_blank" class="btn btn-sm btn-outline-secondary">View on Wikipedia</a>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-primary w-100">Create {{ entry_singular_label }}</button>
+                        <button type="submit" class="btn btn-gray w-100">Create {{ entry_singular_label }}</button>
                     </form>
                 </div>
             </div>
@@ -178,9 +439,27 @@
         document.addEventListener('DOMContentLoaded', function() {
             const addEntryModal = new bootstrap.Modal(document.getElementById('addEntryModal'));
 
-            // Show Add Entry Modal
+            // Show Add Entry Modal - multiple buttons
             document.getElementById('showAddEntryFormBtn').addEventListener('click', function() {
                 addEntryModal.show();
+            });
+            
+            // Check if second button exists (when no entries)
+            const addBtn2 = document.getElementById('showAddEntryFormBtn2');
+            if (addBtn2) {
+                addBtn2.addEventListener('click', function() {
+                    addEntryModal.show();
+                });
+            }
+
+            // Filter form handling
+            const viewTypeSelect = document.getElementById('view_type');
+            const entryTypeSelect = document.getElementById('entry_type');
+            
+            viewTypeSelect.addEventListener('change', function() {
+                if (this.value !== 'type') {
+                    entryTypeSelect.value = '';
+                }
             });
 
             // Wikipedia search functionality for modal
@@ -261,10 +540,8 @@
                     if (data.redirect) {
                         window.location.href = data.redirect;
                     } else if (data.error) {
-                        // Replaced alert with a simple console.error for better practice in dev
                         console.error('Error: ' + data.error);
-                        // You might want to display a more user-friendly message on the UI
-                        alert('Error: ' + data.error); // Keeping alert for now as per previous usage
+                        alert('Error: ' + data.error);
                     }
                 })
                 .catch(error => {
@@ -277,8 +554,6 @@
             document.querySelectorAll('.delete-entry-btn').forEach(button => {
                 button.addEventListener('click', function() {
                     const entryId = this.dataset.id;
-                    // Replaced confirm with a simple alert for consistency with previous alert usage.
-                    // For a production app, consider a custom modal for confirmation.
                     if (confirm(`Are you sure you want to delete this {{ entry_singular_label }}?`)) {
                         fetch(`/api/entries/${entryId}`, {
                             method: 'DELETE',

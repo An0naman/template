@@ -14,70 +14,139 @@
             margin-top: 30px;
             background-color: #ffffff;
             padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
             margin-bottom: 30px;
+        }
+        .content-section {
+            position: relative;
+            overflow: hidden;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .content-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(135deg, #198754, #20c997);
         }
         .sensor-type-item {
             background-color: #f8f9fa;
             border: 1px solid #e9ecef;
-            border-radius: 5px;
-            padding: 10px 15px;
+            border-radius: 8px;
+            padding: 12px 16px;
             margin: 5px;
             display: inline-flex;
             align-items: center;
             position: relative;
+            transition: all 0.2s ease;
+        }
+        .sensor-type-item:hover {
+            background-color: #e9ecef;
+            transform: translateY(-1px);
         }
         .sensor-type-item .btn-close {
             margin-left: 10px;
             font-size: 0.75rem;
         }
         .add-sensor-type-section {
-            margin-top: 20px;
-            padding: 20px;
-            background-color: #f8f9fa;
+            background: white;
+            border: 1px solid #dee2e6;
             border-radius: 8px;
-            border: 1px solid #e9ecef;
+            padding: 1.5rem;
+        }
+        .btn-green {
+            background: linear-gradient(135deg, #198754, #20c997);
+            border: none;
+            color: white;
+        }
+        .btn-green:hover {
+            background: linear-gradient(135deg, #157347, #1aa179);
+            color: white;
+        }
+        .btn-spacing {
+            margin-left: 1rem;
+        }
+        .alert-section {
+            background: #e8f5e8;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        @media (max-width: 768px) {
+            .container {
+                margin-top: 15px;
+                padding: 20px;
+            }
+            .header-actions {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+            }
+            .btn-spacing {
+                margin-left: 0;
+                margin-top: 0.5rem;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>Manage Sensor Types for {{ project_name }}</h1>
-            <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left me-1"></i> Back to Maintenance
-            </a>
-        </div>
-
-        <p class="lead mb-4">Configure the available sensor types for data collection across all {{ entry_plural_label }}.</p>
-
-        <div class="alert alert-info" role="alert">
-            <i class="fas fa-info-circle me-2"></i>
-            <strong>About Sensor Types:</strong> These are the standardized sensor types that can be selected when adding 
-            sensor data to entries. Having a predefined list ensures consistency and makes data analysis easier.
-        </div>
-
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title mb-0">Current Sensor Types</h3>
+        <div class="d-flex justify-content-between align-items-start mb-4">
+            <div>
+                <h1 class="mb-0">{{ project_name }} Sensor Types</h1>
             </div>
-            <div class="card-body">
-                <div id="sensorTypesContainer">
-                    <!-- Sensor types will be loaded here -->
+            <div class="header-actions d-flex align-items-center">
+                <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back
+                </a>
+            </div>
+        </div>
+
+        <div class="alert-section">
+            <div class="d-flex align-items-start">
+                <i class="fas fa-info-circle text-success me-3 mt-1"></i>
+                <div>
+                    <strong>About Sensor Types:</strong> These are the standardized sensor types that can be selected when adding 
+                    sensor data to entries. Having a predefined list ensures consistency and makes data analysis easier.
                 </div>
-                
-                <div class="add-sensor-type-section">
-                    <h5><i class="fas fa-plus-circle me-2"></i>Add New Sensor Type</h5>
-                    <div class="row">
-                        <div class="col-md-8">
-                            <input type="text" class="form-control" id="newSensorTypeInput" 
-                                   placeholder="Enter new sensor type (e.g., CO2, Oxygen, Flow Rate)" 
-                                   maxlength="50">
-                        </div>
-                        <div class="col-md-4">
-                            <button class="btn btn-primary" id="addSensorTypeBtn">
-                                <i class="fas fa-plus me-1"></i> Add Sensor Type
+            </div>
+        </div>
+
+        <div class="content-section">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0 text-success">
+                    <i class="fas fa-thermometer-half me-2"></i>Current Sensor Types
+                </h5>
+            </div>
+            <div id="sensorTypesContainer">
+                <!-- Sensor types will be loaded here -->
+            </div>
+        </div>
+        
+        <div class="content-section">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0 text-success">
+                    <i class="fas fa-plus-circle me-2"></i>Add New Sensor Type
+                </h5>
+            </div>
+            <div class="add-sensor-type-section">
+                <div class="row">
+                    <div class="col-md-8">
+                        <input type="text" class="form-control" id="newSensorTypeInput" 
+                               placeholder="Enter new sensor type (e.g., CO2, Oxygen, Flow Rate)" 
+                               maxlength="50">
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-green" id="addSensorTypeBtn">
+                            <i class="fas fa-plus me-1"></i> Add Sensor Type
                             </button>
                         </div>
                     </div>
