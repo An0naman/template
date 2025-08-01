@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ project_name }} - Settings</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='notifications_modern.css') }}">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            margin-top: 30px;
+            margin-bottom: 30px;
+        }
+        .settings-card {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .form-control, .form-select {
+            margin-bottom: 15px;
+        }
+        .preview-container {
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .logo-preview {
+            max-width: 150px;
+            max-height: 150px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('main.index') }}">
+                <i class="fas fa-home me-2"></i>{{ project_name }}
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.index') }}">
+                            <i class="fas fa-list me-1"></i>Entries
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('main.settings') }}">
+                            <i class="fas fa-cog me-1"></i>Settings
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}">Home</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Settings</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-cog me-2"></i>Settings</h1>
+        </div>
+
+        <!-- General Settings -->
+        <div class="settings-card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="fas fa-info-circle me-2"></i>General Settings</h4>
+            </div>
+            <div class="card-body">
+                <form id="generalSettingsForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="projectName" class="form-label">Project Name:</label>
+                                <input type="text" class="form-control" id="projectName" value="{{ params.project_name }}" placeholder="Enter project name">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="entrySingularLabel" class="form-label">Entry Singular Label:</label>
+                                <input type="text" class="form-control" id="entrySingularLabel" value="{{ params.entry_singular_label }}" placeholder="Entry">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="entryPluralLabel" class="form-label">Entry Plural Label:</label>
+                                <input type="text" class="form-control" id="entryPluralLabel" value="{{ params.entry_plural_label }}" placeholder="Entries">
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-1"></i>Save General Settings
+                    </button>
+                </form>
+                <div id="generalStatusMessage" class="mt-3 d-none"></div>
+            </div>
+        </div>
+
+        <!-- Label Printing Settings -->
+        <div class="settings-card">
+            <div class="card-header bg-info text-white">
+                <h4 class="mb-0"><i class="fas fa-print me-2"></i>Label Printing Settings</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <form id="labelSettingsForm">
+                            <div class="mb-3">
+                                <label for="labelFontSize" class="form-label">Label Font Size (pt):</label>
+                                <input type="number" class="form-control" id="labelFontSize" value="{{ params.label_font_size or '10' }}" min="6" max="20" step="1">
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="labelIncludeQr" {{ 'checked' if params.label_include_qr_code == 'true' else '' }}>
+                                    <label class="form-check-label" for="labelIncludeQr">
+                                        Include QR Code on labels
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="labelIncludeLogo" {{ 'checked' if params.label_include_logo == 'true' else '' }}>
+                                    <label class="form-check-label" for="labelIncludeLogo">
+                                        Include project logo on labels
+                                    </label>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save me-1"></i>Save Label Settings
+                            </button>
+                        </form>
+                        <div id="labelStatusMessage" class="mt-3 d-none"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Label Layout Reference</h5>
+                        <div class="mb-3">
+                            <strong>8 Labels (2x4):</strong> Standard shipping labels<br>
+                            <small class="text-muted">99.1mm x 67.7mm per label</small>
+                        </div>
+                        <div class="mb-3">
+                            <strong>14 Labels (2x7):</strong> Address labels<br>
+                            <small class="text-muted">99.1mm x 38.1mm per label</small>
+                        </div>
+                        <div class="preview-container">
+                            <div>
+                                <i class="fas fa-tags fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">Label previews will be shown here when generating labels</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Project Logo Settings -->
+        <div class="settings-card">
+            <div class="card-header bg-warning text-dark">
+                <h4 class="mb-0"><i class="fas fa-image me-2"></i>Project Logo</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <form id="logoUploadForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="logoFile" class="form-label">Upload Project Logo:</label>
+                                <input type="file" class="form-control" id="logoFile" accept="image/*">
+                                <small class="form-text text-muted">Supported formats: PNG, JPG, JPEG, GIF. Recommended size: 150x150px or smaller.</small>
+                            </div>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-upload me-1"></i>Upload Logo
+                            </button>
+                            {% if params.project_logo_path %}
+                            <button type="button" class="btn btn-outline-danger" id="removeLogo">
+                                <i class="fas fa-trash me-1"></i>Remove Logo
+                            </button>
+                            {% endif %}
+                        </form>
+                        <div id="logoStatusMessage" class="mt-3 d-none"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Current Logo</h5>
+                        <div class="preview-container" id="logoPreviewContainer">
+                            {% if params.project_logo_path %}
+                                <img src="{{ params.project_logo_path }}" alt="Project Logo" class="logo-preview">
+                            {% else %}
+                                <div>
+                                    <i class="fas fa-image fa-3x text-muted mb-3"></i>
+                                    <p class="text-muted">No logo uploaded</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // General Settings Form
+        document.getElementById('generalSettingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                project_name: document.getElementById('projectName').value,
+                entry_singular_label: document.getElementById('entrySingularLabel').value,
+                entry_plural_label: document.getElementById('entryPluralLabel').value
+            };
+            
+            try {
+                displayStatus('generalStatusMessage', 'Saving settings...', 'alert-info');
+                
+                const response = await fetch('/api/system_parameters', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (!response.ok) throw new Error('Failed to save settings');
+                
+                displayStatus('generalStatusMessage', 'Settings saved successfully!', 'alert-success');
+                
+                // Update page title and navbar
+                document.title = `${formData.project_name} - Settings`;
+                document.querySelector('.navbar-brand').innerHTML = `<i class="fas fa-home me-2"></i>${formData.project_name}`;
+                
+            } catch (error) {
+                displayStatus('generalStatusMessage', 'Failed to save settings: ' + error.message, 'alert-danger');
+            }
+        });
+
+        // Label Settings Form
+        document.getElementById('labelSettingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                label_font_size: document.getElementById('labelFontSize').value,
+                label_include_qr_code: document.getElementById('labelIncludeQr').checked ? 'true' : 'false',
+                label_include_logo: document.getElementById('labelIncludeLogo').checked ? 'true' : 'false'
+            };
+            
+            try {
+                displayStatus('labelStatusMessage', 'Saving label settings...', 'alert-info');
+                
+                const response = await fetch('/api/system_parameters', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (!response.ok) throw new Error('Failed to save label settings');
+                
+                displayStatus('labelStatusMessage', 'Label settings saved successfully!', 'alert-success');
+                
+            } catch (error) {
+                displayStatus('labelStatusMessage', 'Failed to save label settings: ' + error.message, 'alert-danger');
+            }
+        });
+
+        // Logo Upload Form
+        document.getElementById('logoUploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('logoFile');
+            if (!fileInput.files[0]) {
+                displayStatus('logoStatusMessage', 'Please select a logo file', 'alert-warning');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('logo', fileInput.files[0]);
+            
+            try {
+                displayStatus('logoStatusMessage', 'Uploading logo...', 'alert-info');
+                
+                const response = await fetch('/api/upload_logo', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) throw new Error('Failed to upload logo');
+                
+                const result = await response.json();
+                displayStatus('logoStatusMessage', 'Logo uploaded successfully!', 'alert-success');
+                
+                // Update logo preview
+                document.getElementById('logoPreviewContainer').innerHTML = 
+                    `<img src="${result.logo_path}" alt="Project Logo" class="logo-preview">`;
+                
+                // Add remove button if it doesn't exist
+                if (!document.getElementById('removeLogo')) {
+                    const removeBtn = document.createElement('button');
+                    removeBtn.type = 'button';
+                    removeBtn.className = 'btn btn-outline-danger ms-2';
+                    removeBtn.id = 'removeLogo';
+                    removeBtn.innerHTML = '<i class="fas fa-trash me-1"></i>Remove Logo';
+                    removeBtn.addEventListener('click', removeLogo);
+                    document.querySelector('#logoUploadForm button[type="submit"]').parentNode.appendChild(removeBtn);
+                }
+                
+                // Clear file input
+                fileInput.value = '';
+                
+            } catch (error) {
+                displayStatus('logoStatusMessage', 'Failed to upload logo: ' + error.message, 'alert-danger');
+            }
+        });
+
+        // Remove Logo Function
+        function removeLogo() {
+            if (!confirm('Are you sure you want to remove the current logo?')) return;
+            
+            fetch('/api/system_parameters', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ project_logo_path: '' })
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Failed to remove logo');
+                
+                document.getElementById('logoPreviewContainer').innerHTML = 
+                    `<div><i class="fas fa-image fa-3x text-muted mb-3"></i><p class="text-muted">No logo uploaded</p></div>`;
+                
+                const removeBtn = document.getElementById('removeLogo');
+                if (removeBtn) removeBtn.remove();
+                
+                displayStatus('logoStatusMessage', 'Logo removed successfully!', 'alert-success');
+            })
+            .catch(error => {
+                displayStatus('logoStatusMessage', 'Failed to remove logo: ' + error.message, 'alert-danger');
+            });
+        }
+
+        // Attach remove logo event if button exists
+        const removeLogoBtn = document.getElementById('removeLogo');
+        if (removeLogoBtn) {
+            removeLogoBtn.addEventListener('click', removeLogo);
+        }
+
+        // Status message helper
+        function displayStatus(elementId, message, alertClass) {
+            const statusElement = document.getElementById(elementId);
+            statusElement.className = `alert ${alertClass}`;
+            statusElement.textContent = message;
+            statusElement.classList.remove('d-none');
+            
+            if (alertClass === 'alert-success') {
+                setTimeout(() => {
+                    statusElement.classList.add('d-none');
+                }, 3000);
+            }
+        }
+    </script>
+    <script src="{{ url_for('static', filename='notifications.js') }}"></script>
+</body>
+</html>

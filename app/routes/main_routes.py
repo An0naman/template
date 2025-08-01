@@ -74,7 +74,8 @@ def entry_detail_page(entry_id):
 
     cursor.execute('''
         SELECT
-            e.id, e.title, e.description, e.entry_type_id,
+            e.id, e.title, e.description, e.entry_type_id, e.intended_end_date, 
+            e.actual_end_date, e.status,
             et.singular_label AS entry_type_label,
             et.name AS entry_type_name,
             et.note_types, et.has_sensors, et.enabled_sensor_types, e.created_at
@@ -97,6 +98,9 @@ def entry_detail_page(entry_id):
         'note_types': entry['note_types'],
         'has_sensors': bool(entry['has_sensors']) if entry['has_sensors'] is not None else False,
         'enabled_sensor_types': entry['enabled_sensor_types'] or '',
+        'intended_end_date': entry['intended_end_date'] if 'intended_end_date' in entry.keys() else None,
+        'actual_end_date': entry['actual_end_date'] if 'actual_end_date' in entry.keys() else None,
+        'status': entry['status'] if 'status' in entry.keys() else 'active',
         'created_at': entry['created_at']
     }
 
@@ -105,3 +109,12 @@ def entry_detail_page(entry_id):
                            entry=entry_data,
                            entry_singular_label=params.get('entry_singular_label'),
                            entry_plural_label=params.get('entry_plural_label'))
+
+@main_bp.route('/settings')
+def settings():
+    from ..db import get_system_parameters
+    params = get_system_parameters()
+    
+    return render_template('settings.html',
+                          project_name=params.get('project_name'),
+                          params=params)

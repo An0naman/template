@@ -11,6 +11,9 @@ def serialize_entry(entry):
         "description": entry['description'],
         "entry_type_label": entry['entry_type_label'],
         "entry_type_name": entry['entry_type_name'],
+        "intended_end_date": entry['intended_end_date'] if 'intended_end_date' in entry.keys() else None,
+        "actual_end_date": entry['actual_end_date'] if 'actual_end_date' in entry.keys() else None,
+        "status": entry['status'] if 'status' in entry.keys() else 'active',
         "created_at": entry['created_at']
     }
 

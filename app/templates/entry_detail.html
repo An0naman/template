@@ -161,6 +161,29 @@
                                 <label for="descriptionTextarea" class="form-label">Entry Description:</label>
                                 <textarea class="form-control" id="descriptionTextarea" rows="6" placeholder="Add a detailed description for this entry...">{{ entry.description if entry.description is not none else '' }}</textarea>
                             </div>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="statusSelect" class="form-label">Status:</label>
+                                        <select class="form-select" id="statusSelect">
+                                            <option value="active" {{ 'selected' if entry.status == 'active' else '' }}>Active</option>
+                                            <option value="inactive" {{ 'selected' if entry.status == 'inactive' else '' }}>Inactive</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="intendedEndDateInput" class="form-label">Intended End Date:</label>
+                                        <input type="date" class="form-control" id="intendedEndDateInput" value="{{ entry.intended_end_date[:10] if entry.intended_end_date else '' }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="actualEndDateInput" class="form-label">Actual End Date:</label>
+                                        <input type="date" class="form-control" id="actualEndDateInput" value="{{ entry.actual_end_date[:10] if entry.actual_end_date else '' }}">
+                                    </div>
+                                </div>
+                            </div>
                             <div class="d-flex gap-2">
                                 <button type="button" class="btn btn-success" id="saveDescriptionBtn"><i class="fas fa-save me-1"></i> Save Changes</button>
                                 <button type="button" class="btn btn-outline-primary" id="searchWikipediaBtn"><i class="fab fa-wikipedia-w me-1"></i> Search Wikipedia</button>
@@ -330,6 +353,51 @@
 
                 <div id="notesList" class="list-group mb-3">
                     <p class="text-muted" id="noNotesMessage">Loading notes...</p>
+                </div>
+
+                <hr class="my-4">
+
+                <!-- Label Printing Section -->
+                <h4>Label Printing</h4>
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="labelTypeSelect" class="form-label">Label Sheet Type:</label>
+                                    <select class="form-select" id="labelTypeSelect">
+                                        <option value="8_labels">8 Labels (2x4)</option>
+                                        <option value="14_labels">14 Labels (2x7)</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="labelPositionSelect" class="form-label">Label Position:</label>
+                                    <select class="form-select" id="labelPositionSelect">
+                                        <!-- Options will be populated dynamically -->
+                                    </select>
+                                </div>
+                                <div class="d-flex gap-2 mb-3">
+                                    <button type="button" class="btn btn-outline-primary" id="previewLabelBtn">
+                                        <i class="fas fa-eye me-1"></i> Preview Label
+                                    </button>
+                                    <button type="button" class="btn btn-success" id="printLabelBtn">
+                                        <i class="fas fa-print me-1"></i> Generate Print Page
+                                    </button>
+                                    <button type="button" class="btn btn-info" id="downloadLabelPdfBtn">
+                                        <i class="fas fa-download me-1"></i> Download PDF
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div id="labelPreviewContainer" class="text-center">
+                                    <div class="border rounded p-3 bg-light">
+                                        <p class="text-muted">Click "Preview Label" to see how your label will look</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="labelStatusMessage" class="mt-3 d-none"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -524,6 +592,9 @@
         const descriptionTextarea = document.getElementById('descriptionTextarea');
         const entryTitleInput = document.getElementById('entryTitleInput');
         const entryTypeSelect = document.getElementById('entryTypeSelect');
+        const statusSelect = document.getElementById('statusSelect');
+        const intendedEndDateInput = document.getElementById('intendedEndDateInput');
+        const actualEndDateInput = document.getElementById('actualEndDateInput');
         const saveDescriptionBtn = document.getElementById('saveDescriptionBtn');
         const editDescriptionBtn = document.getElementById('editDescriptionBtn');
         const cancelDescriptionBtn = document.getElementById('cancelDescriptionBtn');
@@ -892,6 +963,10 @@
             descriptionTextarea.value = '{{ entry.description|e if entry.description is not none else "" }}';
             // Reset entry type to original
             entryTypeSelect.value = originalEntryTypeId;
+            // Reset new fields
+            statusSelect.value = '{{ entry.status|e if entry.status else "active" }}';
+            intendedEndDateInput.value = '{{ entry.intended_end_date[:10] if entry.intended_end_date else "" }}';
+            actualEndDateInput.value = '{{ entry.actual_end_date[:10] if entry.actual_end_date else "" }}';
             // Clear any status messages
             descriptionStatusMessage.className = 'mt-3 d-none';
             // Clear Wikipedia results
@@ -907,6 +982,9 @@
             const title = entryTitleInput.value.trim();
             const description = descriptionTextarea.value;
             const entryTypeId = parseInt(entryTypeSelect.value);
+            const status = statusSelect.value;
+            const intendedEndDate = intendedEndDateInput.value;
+            const actualEndDate = actualEndDateInput.value;
             
             if (!title) {
                 displayStatus(descriptionStatusMessage, 'Entry title is required.', 'alert-danger');
@@ -924,7 +1002,10 @@
                     body: JSON.stringify({ 
                         title: title,
                         description: description,
-                        entry_type_id: entryTypeId
+                        entry_type_id: entryTypeId,
+                        status: status,
+                        intended_end_date: intendedEndDate,
+                        actual_end_date: actualEndDate
                     })
                 });
 
@@ -2025,7 +2106,9 @@
             });
         }
         {% endif %}
+
     </script>
+    <script src="{{ url_for('static', filename='label_printing.js') }}"></script>
     <script src="{{ url_for('static', filename='notifications.js') }}"></script>
 </body>
 </html>

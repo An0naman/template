@@ -67,6 +67,7 @@ def create_app():
     from .api.relationships_api import relationships_api_bp
     from .api.wikipedia_api import wikipedia_api_bp
     from .api.notifications_api import notifications_api_bp
+    from .api.labels_api import labels_api_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(maintenance_bp)
@@ -77,6 +78,7 @@ def create_app():
     app.register_blueprint(relationships_api_bp, url_prefix='/api')
     app.register_blueprint(wikipedia_api_bp, url_prefix='/api')
     app.register_blueprint(notifications_api_bp, url_prefix='/api')
+    app.register_blueprint(labels_api_bp, url_prefix='/api')
 
     app.logger.info("Blueprints registered.")
 

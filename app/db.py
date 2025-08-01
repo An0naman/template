@@ -109,6 +109,23 @@ def init_db():
             );
         ''')
 
+        # Migration: Add label printing columns to Entry table if they don't exist
+        try:
+            cursor.execute("PRAGMA table_info(Entry)")
+            columns = [col[1] for col in cursor.fetchall()]
+            
+            # Add missing label printing columns
+            for column_name, column_def in [
+                ('intended_end_date', 'TEXT'),
+                ('actual_end_date', 'TEXT'),
+                ('status', 'TEXT DEFAULT "active"')
+            ]:
+                if column_name not in columns:
+                    cursor.execute(f'ALTER TABLE Entry ADD COLUMN {column_name} {column_def}')
+                    logger.info(f"Added column '{column_name}' to Entry table")
+        except Exception as e:
+            logger.error(f"Error during Entry table migration: {e}")
+
         # Create EntryRelationship Table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS EntryRelationship (
@@ -188,7 +205,11 @@ def init_db():
             'project_name': 'My Awesome Project',
             'entry_singular_label': 'Entry',
             'entry_plural_label': 'Entries',
-            'sensor_types': 'Temperature,Humidity,Pressure,pH,Light,Motion,Sound,Vibration,Distance,Weight,Voltage,Current'
+            'sensor_types': 'Temperature,Humidity,Pressure,pH,Light,Motion,Sound,Vibration,Distance,Weight,Voltage,Current',
+            'project_logo_path': '',
+            'label_font_size': '10',
+            'label_include_qr_code': 'true',
+            'label_include_logo': 'true'
         }
         for name, value in default_params.items():
             cursor.execute("INSERT OR IGNORE INTO SystemParameters (parameter_name, parameter_value) VALUES (?, ?)", (name, value))

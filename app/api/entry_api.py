@@ -25,7 +25,8 @@ def get_all_entries():
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT e.id, e.title, e.description, e.created_at, et.singular_label AS entry_type_label
+            SELECT e.id, e.title, e.description, e.intended_end_date, e.actual_end_date, 
+                   e.status, e.created_at, et.singular_label AS entry_type_label
             FROM Entry e
             JOIN EntryType et ON e.entry_type_id = et.id
             ORDER BY e.created_at DESC
@@ -39,6 +40,9 @@ def get_all_entries():
                 'name': row['title'],  # Using 'name' for consistency with frontend expectations
                 'title': row['title'],
                 'description': row['description'],
+                'intended_end_date': row['intended_end_date'],
+                'actual_end_date': row['actual_end_date'],
+                'status': row['status'],
                 'created_at': row['created_at'],
                 'entry_type_label': row['entry_type_label']
             })
@@ -55,6 +59,8 @@ def add_entry():
     title = data.get('title')
     description = data.get('description')
     entry_type_id = data.get('entry_type_id')
+    intended_end_date = data.get('intended_end_date')
+    status = data.get('status', 'active')
 
     if not title or not entry_type_id:
         return jsonify({'error': 'Title and Entry Type are required.'}), 400
@@ -63,8 +69,8 @@ def add_entry():
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT INTO Entry (title, description, entry_type_id, created_at) VALUES (?, ?, ?, ?)",
-            (title, description, entry_type_id, datetime.now().isoformat())
+            "INSERT INTO Entry (title, description, entry_type_id, intended_end_date, status, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (title, description, entry_type_id, intended_end_date, status, datetime.now().isoformat())
         )
         conn.commit()
         # Use main_bp.entry_detail_page because it's in a different blueprint
@@ -92,6 +98,15 @@ def update_entry(entry_id):
     if 'entry_type_id' in data:
         set_clauses.append("entry_type_id = ?")
         params.append(data['entry_type_id'])
+    if 'intended_end_date' in data:
+        set_clauses.append("intended_end_date = ?")
+        params.append(data['intended_end_date'])
+    if 'actual_end_date' in data:
+        set_clauses.append("actual_end_date = ?")
+        params.append(data['actual_end_date'])
+    if 'status' in data:
+        set_clauses.append("status = ?")
+        params.append(data['status'])
 
     if not set_clauses:
         return jsonify({'message': 'No fields provided for update.'}), 200
