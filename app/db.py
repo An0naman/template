@@ -215,7 +215,9 @@ def init_db():
             'project_logo_path': '',
             'label_font_size': '10',
             'label_include_qr_code': 'true',
-            'label_include_logo': 'true'
+            'label_include_logo': 'true',
+            'overdue_check_enabled': 'true',
+            'overdue_check_schedule': '0 9 * * *'  # Daily at 9:00 AM by default
         }
         for name, value in default_params.items():
             cursor.execute("INSERT OR IGNORE INTO SystemParameters (parameter_name, parameter_value) VALUES (?, ?)", (name, value))

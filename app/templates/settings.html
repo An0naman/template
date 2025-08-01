@@ -185,6 +185,76 @@
             </div>
         </div>
 
+        <!-- Overdue Notification Settings -->
+        <div class="settings-section">
+            <div class="section-card">
+                <div class="section-title">
+                    <i class="fas fa-clock me-2"></i>Overdue Notification Settings
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <form id="overdueSettingsForm">
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="overdueCheckEnabled" {{ 'checked' if params.overdue_check_enabled == 'true' else '' }}>
+                                    <label class="form-check-label" for="overdueCheckEnabled">
+                                        Enable automatic overdue notifications
+                                    </label>
+                                </div>
+                                <small class="form-text text-muted">When enabled, the system will check for entries with overdue intended end dates and create notifications.</small>
+                            </div>
+                            <div class="mb-3">
+                                <label for="overdueCheckSchedule" class="form-label">Check Schedule (Cron Format):</label>
+                                <select class="form-select" id="overdueCheckSchedule">
+                                    <option value="0 9 * * *" {{ 'selected' if params.overdue_check_schedule == '0 9 * * *' else '' }}>Daily at 9:00 AM</option>
+                                    <option value="0 8 * * *" {{ 'selected' if params.overdue_check_schedule == '0 8 * * *' else '' }}>Daily at 8:00 AM</option>
+                                    <option value="0 10 * * *" {{ 'selected' if params.overdue_check_schedule == '0 10 * * *' else '' }}>Daily at 10:00 AM</option>
+                                    <option value="0 0 * * *" {{ 'selected' if params.overdue_check_schedule == '0 0 * * *' else '' }}>Daily at midnight</option>
+                                    <option value="0 */6 * * *" {{ 'selected' if params.overdue_check_schedule == '0 */6 * * *' else '' }}>Every 6 hours</option>
+                                    <option value="0 */3 * * *" {{ 'selected' if params.overdue_check_schedule == '0 */3 * * *' else '' }}>Every 3 hours</option>
+                                    <option value="0 * * * *" {{ 'selected' if params.overdue_check_schedule == '0 * * * *' else '' }}>Every hour</option>
+                                    <option value="0 8 * * 1-5" {{ 'selected' if params.overdue_check_schedule == '0 8 * * 1-5' else '' }}>Weekdays at 8:00 AM</option>
+                                </select>
+                                <small class="form-text text-muted">Choose how often the system should check for overdue entries. You'll need to set up the cron job using this schedule.</small>
+                            </div>
+                            <div class="mb-3">
+                                <button type="button" class="btn btn-outline-primary" id="testOverdueCheck">
+                                    <i class="fas fa-play me-1"></i>Test Overdue Check Now
+                                </button>
+                                <small class="form-text text-muted d-block mt-1">Manually trigger an overdue check to test the functionality.</small>
+                            </div>
+                            <button type="submit" class="btn btn-purple">
+                                <i class="fas fa-save me-1"></i>Save Overdue Settings
+                            </button>
+                        </form>
+                        <div id="overdueStatusMessage" class="mt-3 d-none"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Setup Instructions</h5>
+                        <div class="mb-3">
+                            <strong>Step 1:</strong> Configure settings here<br>
+                            <small class="text-muted">Enable notifications and set your preferred schedule</small>
+                        </div>
+                        <div class="mb-3">
+                            <strong>Step 2:</strong> Set up cron job<br>
+                            <small class="text-muted">Add the schedule to your system's crontab:</small><br>
+                            <code id="cronCommand" class="small">{{ params.overdue_check_schedule or '0 9 * * *' }} /path/to/project/cron_check_overdue.sh</code>
+                        </div>
+                        <div class="mb-3">
+                            <strong>Step 3:</strong> Configure entry types<br>
+                            <small class="text-muted">Enable "Show End Date fields" for entry types that should be monitored</small>
+                        </div>
+                        <div class="preview-container">
+                            <div>
+                                <i class="fas fa-bell fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">High-priority notifications will be created when intended end dates pass</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Project Logo Settings -->
         <div class="settings-section">
             <div class="section-card">
@@ -369,6 +439,67 @@
         if (removeLogoBtn) {
             removeLogoBtn.addEventListener('click', removeLogo);
         }
+
+        // Overdue Settings Form
+        document.getElementById('overdueSettingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                overdue_check_enabled: document.getElementById('overdueCheckEnabled').checked ? 'true' : 'false',
+                overdue_check_schedule: document.getElementById('overdueCheckSchedule').value
+            };
+            
+            try {
+                displayStatus('overdueStatusMessage', 'Saving overdue settings...', 'alert-info');
+                
+                const response = await fetch('/api/system_parameters', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (!response.ok) throw new Error('Failed to save overdue settings');
+                
+                displayStatus('overdueStatusMessage', 'Overdue settings saved successfully!', 'alert-success');
+                
+                // Update the cron command display
+                document.getElementById('cronCommand').textContent = 
+                    `${formData.overdue_check_schedule} /path/to/project/cron_check_overdue.sh`;
+                
+            } catch (error) {
+                displayStatus('overdueStatusMessage', 'Failed to save overdue settings: ' + error.message, 'alert-danger');
+            }
+        });
+
+        // Update cron command display when schedule changes
+        document.getElementById('overdueCheckSchedule').addEventListener('change', function() {
+            document.getElementById('cronCommand').textContent = 
+                `${this.value} /path/to/project/cron_check_overdue.sh`;
+        });
+
+        // Test Overdue Check Button
+        document.getElementById('testOverdueCheck').addEventListener('click', async () => {
+            try {
+                displayStatus('overdueStatusMessage', 'Running overdue check...', 'alert-info');
+                
+                const response = await fetch('/api/check_overdue_end_dates', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (!response.ok) throw new Error('Failed to run overdue check');
+                
+                const result = await response.json();
+                const message = result.notifications_created > 0 
+                    ? `Overdue check completed! Created ${result.notifications_created} notification(s).`
+                    : 'Overdue check completed. No overdue entries found.';
+                
+                displayStatus('overdueStatusMessage', message, 'alert-success');
+                
+            } catch (error) {
+                displayStatus('overdueStatusMessage', 'Failed to run overdue check: ' + error.message, 'alert-danger');
+            }
+        });
 
         // Status message helper
         function displayStatus(elementId, message, alertClass) {
