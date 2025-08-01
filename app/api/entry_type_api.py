@@ -20,7 +20,7 @@ def get_db():
 def get_entry_types_api():
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, singular_label, plural_label, description, note_types, is_primary, has_sensors, enabled_sensor_types FROM EntryType ORDER BY singular_label")
+    cursor.execute("SELECT id, name, singular_label, plural_label, description, note_types, is_primary, has_sensors, enabled_sensor_types, show_labels_section FROM EntryType ORDER BY singular_label")
     entry_types_rows = cursor.fetchall()
     entry_types_list = []
     for row in entry_types_rows:
@@ -37,6 +37,7 @@ def add_entry_type():
     note_types = data.get('note_types', 'General')
     is_primary = int(data.get('is_primary', 0))
     has_sensors = int(data.get('has_sensors', 0))
+    show_labels_section = int(data.get('show_labels_section', 1))
 
     if not all([name, singular_label, plural_label]):
         return jsonify({'error': 'Name, singular label, and plural label are required.'}), 400
@@ -49,8 +50,8 @@ def add_entry_type():
             cursor.execute("UPDATE EntryType SET is_primary = 0 WHERE is_primary = 1")
 
         cursor.execute(
-            "INSERT INTO EntryType (name, singular_label, plural_label, description, note_types, is_primary, has_sensors) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (name, singular_label, plural_label, description, note_types, is_primary, has_sensors)
+            "INSERT INTO EntryType (name, singular_label, plural_label, description, note_types, is_primary, has_sensors, show_labels_section) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (name, singular_label, plural_label, description, note_types, is_primary, has_sensors, show_labels_section)
         )
         conn.commit()
         return jsonify({'message': 'Entry type added successfully!', 'id': cursor.lastrowid}), 201
@@ -107,6 +108,10 @@ def update_entry_type(entry_type_id):
     if 'enabled_sensor_types' in data:
         set_clauses.append("enabled_sensor_types = ?")
         params.append(data['enabled_sensor_types'])
+    
+    if 'show_labels_section' in data:
+        set_clauses.append("show_labels_section = ?")
+        params.append(int(data['show_labels_section']))
 
     if not set_clauses:
         return jsonify({'message': 'No fields provided for update.'}), 200

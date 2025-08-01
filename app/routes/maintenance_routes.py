@@ -27,7 +27,7 @@ def manage_entry_types_page():
     params = get_system_parameters()
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, singular_label, plural_label, description, note_types, is_primary, has_sensors FROM EntryType ORDER BY singular_label")
+    cursor.execute("SELECT id, name, singular_label, plural_label, description, note_types, is_primary, has_sensors, show_labels_section FROM EntryType ORDER BY singular_label")
     entry_types = cursor.fetchall()
     return render_template('manage_entry_types.html',
                            project_name=params.get('project_name'),

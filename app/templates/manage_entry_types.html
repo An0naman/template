@@ -139,6 +139,7 @@
                             <th>Description</th>
                             <th>Note Types</th>
                             <th class="text-center">Primary</th>
+                            <th class="text-center">Labels</th>
                             <th class="text-center">Actions</th>
                         </tr>
                     </thead>
@@ -158,6 +159,13 @@
                                             <i class="far fa-star status-icon text-muted" title="Not Primary"></i>
                                         {% endif %}
                                     </td>
+                                    <td class="text-center">
+                                        {% if type.show_labels_section %}
+                                            <i class="fas fa-check-circle status-icon text-success" title="Shows Labels Section"></i>
+                                        {% else %}
+                                            <i class="fas fa-times-circle status-icon text-muted" title="No Labels Section"></i>
+                                        {% endif %}
+                                    </td>
                                     <td class="action-buttons text-center">
                                         <button class="btn btn-sm btn-outline-primary edit-entry-type-btn"
                                                 data-id="{{ type.id }}"
@@ -167,6 +175,7 @@
                                                 data-description="{{ type.description }}"
                                                 data-note-types="{{ type.note_types }}"
                                                 data-is-primary="{{ type.is_primary }}"
+                                                data-show-labels-section="{{ type.show_labels_section | default(1, true) }}"
                                                 title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </button>
@@ -180,7 +189,7 @@
                             {% endfor %}
                         {% else %}
                             <tr>
-                                <td colspan="7" class="text-center text-muted py-4">
+                                <td colspan="8" class="text-center text-muted py-4">
                                     <i class="fas fa-inbox fa-2x mb-2 d-block text-muted opacity-50"></i>
                                     No entry types defined yet.
                                 </td>
@@ -229,6 +238,12 @@
                                 Mark as Primary Entry Type (Only one can be primary)
                             </label>
                         </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="showLabelsSection" checked>
+                            <label class="form-check-label" for="showLabelsSection">
+                                Show Labels Section for entries of this type
+                            </label>
+                        </div>
                         <button type="submit" class="btn btn-blue w-100">Save Entry Type</button>
                     </form>
                 </div>
@@ -248,6 +263,7 @@
             const descriptionInput = document.getElementById('description');
             const noteTypesInput = document.getElementById('noteTypes');
             const isPrimaryInput = document.getElementById('isPrimary');
+            const showLabelsSectionInput = document.getElementById('showLabelsSection');
 
             // Show Add Modal
             document.getElementById('showAddEntryTypeModalBtn').addEventListener('click', function() {
@@ -270,6 +286,7 @@
                     descriptionInput.value = this.dataset.description;
                     noteTypesInput.value = this.dataset.noteTypes;
                     isPrimaryInput.checked = (this.dataset.isPrimary === '1');
+                    showLabelsSectionInput.checked = (this.dataset.showLabelsSection === '1');
                     nameInput.readOnly = true; // Name is not editable for existing entries
                     entryTypeModal.show();
                 });
@@ -289,7 +306,8 @@
                     plural_label: pluralLabelInput.value,
                     description: descriptionInput.value,
                     note_types: noteTypesInput.value,
-                    is_primary: isPrimaryInput.checked ? 1 : 0
+                    is_primary: isPrimaryInput.checked ? 1 : 0,
+                    show_labels_section: showLabelsSectionInput.checked ? 1 : 0
                 };
 
                 fetch(url, {

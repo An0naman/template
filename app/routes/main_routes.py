@@ -95,7 +95,7 @@ def entry_detail_page(entry_id):
             e.actual_end_date, e.status,
             et.singular_label AS entry_type_label,
             et.name AS entry_type_name,
-            et.note_types, et.has_sensors, et.enabled_sensor_types, e.created_at
+            et.note_types, et.has_sensors, et.enabled_sensor_types, et.show_labels_section, e.created_at
         FROM Entry e
         JOIN EntryType et ON e.entry_type_id = et.id
         WHERE e.id = ?
@@ -115,6 +115,7 @@ def entry_detail_page(entry_id):
         'note_types': entry['note_types'],
         'has_sensors': bool(entry['has_sensors']) if entry['has_sensors'] is not None else False,
         'enabled_sensor_types': entry['enabled_sensor_types'] or '',
+        'show_labels_section': bool(entry['show_labels_section']) if entry['show_labels_section'] is not None else True,
         'intended_end_date': entry['intended_end_date'] if 'intended_end_date' in entry.keys() else None,
         'actual_end_date': entry['actual_end_date'] if 'actual_end_date' in entry.keys() else None,
         'status': entry['status'] if 'status' in entry.keys() else 'active',

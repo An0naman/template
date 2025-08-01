@@ -40,7 +40,8 @@ def init_db():
                 note_types TEXT DEFAULT 'General', -- Comma-separated list of default note types
                 is_primary INTEGER DEFAULT 0, -- 1 for primary, 0 for secondary
                 has_sensors BOOLEAN NOT NULL DEFAULT 0, -- Whether this entry type supports sensor data
-                enabled_sensor_types TEXT DEFAULT '' -- Comma-separated list of enabled sensor types for this entry type
+                enabled_sensor_types TEXT DEFAULT '', -- Comma-separated list of enabled sensor types for this entry type
+                show_labels_section BOOLEAN NOT NULL DEFAULT 1 -- Whether to show the labels section for entries of this type
             );
         ''')
 
@@ -52,6 +53,8 @@ def init_db():
                 cursor.execute("ALTER TABLE EntryType ADD COLUMN has_sensors BOOLEAN NOT NULL DEFAULT 0")
             if 'enabled_sensor_types' not in columns:
                 cursor.execute("ALTER TABLE EntryType ADD COLUMN enabled_sensor_types TEXT DEFAULT ''")
+            if 'show_labels_section' not in columns:
+                cursor.execute("ALTER TABLE EntryType ADD COLUMN show_labels_section BOOLEAN NOT NULL DEFAULT 1")
         except Exception as e:
             # Columns might already exist, ignore error
             pass
