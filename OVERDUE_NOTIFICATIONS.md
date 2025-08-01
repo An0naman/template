@@ -4,34 +4,79 @@ This functionality automatically creates notifications when entries have intende
 
 ## Features
 
+- **Web-Based Configuration**: Configure all settings through the Settings page in the web interface
 - **Automatic Detection**: Monitors entries with intended end dates that have passed
 - **Smart Filtering**: Only creates notifications for:
   - Entries with entry types that have `show_end_dates` enabled
   - Active entries (not inactive)
-  - Entries that don't already have an overdue notification for the current day
+  - Entries that don't already have an overdue notification
 - **High Priority**: Overdue notifications are created with "high" priority to ensure visibility
 - **Detailed Messages**: Notifications include how many days overdue the entry is
+- **Flexible Scheduling**: Choose from multiple pre-configured schedules or set custom cron expressions
 
-## Implementation
+## Quick Setup
 
-### 1. Automated Checking (Recommended)
+### 1. Configure Settings (Web Interface)
+1. Go to **Settings** in your web application
+2. Scroll to **"Overdue Notification Settings"** section
+3. Check **"Enable automatic overdue notifications"**
+4. Select your preferred **check schedule** from the dropdown:
+   - Daily at 9:00 AM (recommended)
+   - Daily at 8:00 AM
+   - Every 6 hours
+   - Weekdays only
+   - And more options...
+5. Click **"Save Overdue Settings"**
 
-Set up a daily cron job to automatically check for overdue entries:
+### 2. Set Up Cron Job
+Copy the cron command shown in the settings and add it to your crontab:
 
 ```bash
-# Edit your crontab
+# Open crontab editor
 crontab -e
 
-# Add this line to run daily at 9:00 AM
-0 9 * * * /path/to/your/project/cron_check_overdue.sh
-
-# Or run hourly (if you need more frequent checks)
-0 * * * * /path/to/your/project/cron_check_overdue.sh
+# Add the line shown in settings (example for daily at 9 AM):
+0 9 * * * /home/an0naman/Documents/GitHub/template/cron_check_overdue.sh
 ```
 
-### 2. Manual Checking
+### 3. Configure Entry Types
+1. Go to **Maintenance > Manage Entry Types**
+2. Edit entry types that should be monitored
+3. Check **"Show End Date fields"**
+4. Save the entry type
+
+### 4. Test the Setup
+1. In Settings, click **"Test Overdue Check Now"** to verify it works
+2. Create test entries with overdue intended end dates
+3. Run the manual test again to see notifications created
+
+## Implementation Options
+
+## Available Schedules
+
+The settings page offers these pre-configured options:
+
+| Schedule | Description | Cron Expression |
+|----------|-------------|-----------------|
+| Daily at 9:00 AM | Recommended for most users | `0 9 * * *` |
+| Daily at 8:00 AM | Early morning check | `0 8 * * *` |
+| Daily at 10:00 AM | Mid-morning check | `0 10 * * *` |
+| Daily at midnight | Midnight daily check | `0 0 * * *` |
+| Every 6 hours | Four times per day | `0 */6 * * *` |
+| Every 3 hours | Eight times per day | `0 */3 * * *` |
+| Every hour | Frequent checking | `0 * * * *` |
+| Weekdays at 8:00 AM | Business days only | `0 8 * * 1-5` |
+
+## Advanced Configuration
+
+### Manual Checking Options
 
 You can manually trigger the overdue check in several ways:
+
+#### Settings Page (Recommended)
+1. Go to **Settings > Overdue Notification Settings**
+2. Click **"Test Overdue Check Now"**
+3. View results in the status message
 
 #### Command Line
 ```bash
@@ -55,7 +100,16 @@ with app.app_context():
     print(f"Created {notifications_created} notifications")
 ```
 
-## Configuration
+## System Parameters
+
+The following system parameters control overdue notifications:
+
+- **`overdue_check_enabled`**: `true` or `false` - Whether overdue checking is enabled
+- **`overdue_check_schedule`**: Cron expression - When to run the checks (e.g., `0 9 * * *`)
+
+These are configured through the Settings page and automatically applied to the cron script.
+
+## Configuration Details
 
 ### Entry Type Setup
 1. Go to **Maintenance > Manage Entry Types**

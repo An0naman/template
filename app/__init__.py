@@ -68,6 +68,7 @@ def create_app():
     from .api.wikipedia_api import wikipedia_api_bp
     from .api.notifications_api import notifications_api_bp
     from .api.labels_api import labels_api_bp
+    from .api.cron_api import cron_api_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(maintenance_bp)
@@ -79,7 +80,17 @@ def create_app():
     app.register_blueprint(wikipedia_api_bp, url_prefix='/api')
     app.register_blueprint(notifications_api_bp, url_prefix='/api')
     app.register_blueprint(labels_api_bp, url_prefix='/api')
+    app.register_blueprint(cron_api_bp, url_prefix='/api')
 
     app.logger.info("Blueprints registered.")
+
+    # Initialize and start the task scheduler
+    from .scheduler import scheduler
+    scheduler.init_app(app)
+    
+    # Start scheduler in production or when not in debug mode
+    if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        scheduler.start()
+        app.logger.info("Task scheduler started.")
 
     return app

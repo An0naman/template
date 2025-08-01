@@ -208,14 +208,19 @@ def init_db():
 
         # Insert default system parameters if they don't exist
         default_params = {
+            # General settings
             'project_name': 'My Awesome Project',
             'entry_singular_label': 'Entry',
             'entry_plural_label': 'Entries',
             'sensor_types': 'Temperature,Humidity,Pressure,pH,Light,Motion,Sound,Vibration,Distance,Weight,Voltage,Current',
             'project_logo_path': '',
+            
+            # Label printing settings
             'label_font_size': '10',
             'label_include_qr_code': 'true',
             'label_include_logo': 'true',
+            
+            # Notification settings
             'overdue_check_enabled': 'true',
             'overdue_check_schedule': '0 9 * * *'  # Daily at 9:00 AM by default
         }

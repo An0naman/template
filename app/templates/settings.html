@@ -185,11 +185,11 @@
             </div>
         </div>
 
-        <!-- Overdue Notification Settings -->
+        <!-- Scheduled Jobs Settings -->
         <div class="settings-section">
             <div class="section-card">
                 <div class="section-title">
-                    <i class="fas fa-clock me-2"></i>Overdue Notification Settings
+                    <i class="fas fa-clock me-2"></i>Scheduled Jobs Settings
                 </div>
                 <div class="row">
                     <div class="col-md-6">
@@ -198,13 +198,13 @@
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="overdueCheckEnabled" {{ 'checked' if params.overdue_check_enabled == 'true' else '' }}>
                                     <label class="form-check-label" for="overdueCheckEnabled">
-                                        Enable automatic overdue notifications
+                                        Enable automatic overdue checking
                                     </label>
                                 </div>
-                                <small class="form-text text-muted">When enabled, the system will check for entries with overdue intended end dates and create notifications.</small>
+                                <small class="form-text text-muted">When enabled, the system will automatically check for entries with overdue intended end dates and create notifications.</small>
                             </div>
                             <div class="mb-3">
-                                <label for="overdueCheckSchedule" class="form-label">Check Schedule (Cron Format):</label>
+                                <label for="overdueCheckSchedule" class="form-label">Check Schedule:</label>
                                 <select class="form-select" id="overdueCheckSchedule">
                                     <option value="0 9 * * *" {{ 'selected' if params.overdue_check_schedule == '0 9 * * *' else '' }}>Daily at 9:00 AM</option>
                                     <option value="0 8 * * *" {{ 'selected' if params.overdue_check_schedule == '0 8 * * *' else '' }}>Daily at 8:00 AM</option>
@@ -215,7 +215,7 @@
                                     <option value="0 * * * *" {{ 'selected' if params.overdue_check_schedule == '0 * * * *' else '' }}>Every hour</option>
                                     <option value="0 8 * * 1-5" {{ 'selected' if params.overdue_check_schedule == '0 8 * * 1-5' else '' }}>Weekdays at 8:00 AM</option>
                                 </select>
-                                <small class="form-text text-muted">Choose how often the system should check for overdue entries. You'll need to set up the cron job using this schedule.</small>
+                                <small class="form-text text-muted">Choose how often the system should check for overdue entries. The scheduled job will be managed automatically.</small>
                             </div>
                             <div class="mb-3">
                                 <button type="button" class="btn btn-outline-primary" id="testOverdueCheck">
@@ -224,30 +224,33 @@
                                 <small class="form-text text-muted d-block mt-1">Manually trigger an overdue check to test the functionality.</small>
                             </div>
                             <button type="submit" class="btn btn-purple">
-                                <i class="fas fa-save me-1"></i>Save Overdue Settings
+                                <i class="fas fa-save me-1"></i>Save Scheduled Job Settings
                             </button>
                         </form>
                         <div id="overdueStatusMessage" class="mt-3 d-none"></div>
                     </div>
                     <div class="col-md-6">
-                        <h5>Setup Instructions</h5>
+                        <h5>Scheduled Job Status</h5>
                         <div class="mb-3">
-                            <strong>Step 1:</strong> Configure settings here<br>
-                            <small class="text-muted">Enable notifications and set your preferred schedule</small>
+                            <div class="alert alert-secondary d-flex align-items-center">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <div>
+                                    <strong>Checking current status...</strong><br>
+                                    <small>Loading job configuration</small>
+                                </div>
+                            </div>
                         </div>
                         <div class="mb-3">
-                            <strong>Step 2:</strong> Set up cron job<br>
-                            <small class="text-muted">Add the schedule to your system's crontab:</small><br>
-                            <code id="cronCommand" class="small">{{ params.overdue_check_schedule or '0 9 * * *' }} /path/to/project/cron_check_overdue.sh</code>
-                        </div>
-                        <div class="mb-3">
-                            <strong>Step 3:</strong> Configure entry types<br>
-                            <small class="text-muted">Enable "Show End Date fields" for entry types that should be monitored</small>
+                            <strong>Available Jobs:</strong>
+                            <ul class="small text-muted mt-2">
+                                <li><strong>Overdue Check:</strong> Monitors entries with overdue intended end dates</li>
+                                <li><em>More scheduled jobs can be added in the future</em></li>
+                            </ul>
                         </div>
                         <div class="preview-container">
                             <div>
-                                <i class="fas fa-bell fa-3x text-muted mb-3"></i>
-                                <p class="text-muted">High-priority notifications will be created when intended end dates pass</p>
+                                <i class="fas fa-cogs fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">Configure scheduled jobs to run automatically</p>
                             </div>
                         </div>
                     </div>
@@ -444,38 +447,179 @@
         document.getElementById('overdueSettingsForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            const enabled = document.getElementById('overdueCheckEnabled').checked;
+            const schedule = document.getElementById('overdueCheckSchedule').value;
+            
             const formData = {
-                overdue_check_enabled: document.getElementById('overdueCheckEnabled').checked ? 'true' : 'false',
-                overdue_check_schedule: document.getElementById('overdueCheckSchedule').value
+                overdue_check_enabled: enabled ? 'true' : 'false',
+                overdue_check_schedule: schedule
             };
             
             try {
-                displayStatus('overdueStatusMessage', 'Saving overdue settings...', 'alert-info');
+                displayStatus('overdueStatusMessage', 'Saving scheduled job settings...', 'alert-info');
                 
-                const response = await fetch('/api/system_parameters', {
+                // Save settings to database
+                const settingsResponse = await fetch('/api/system_parameters', {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
                 });
                 
-                if (!response.ok) throw new Error('Failed to save overdue settings');
+                if (!settingsResponse.ok) throw new Error('Failed to save settings');
                 
-                displayStatus('overdueStatusMessage', 'Overdue settings saved successfully!', 'alert-success');
+                // Automatically manage cron job
+                const cronResponse = await fetch('/api/cron/overdue', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        enabled: enabled,
+                        schedule: schedule
+                    })
+                });
                 
-                // Update the cron command display
-                document.getElementById('cronCommand').textContent = 
-                    `${formData.overdue_check_schedule} /path/to/project/cron_check_overdue.sh`;
+                const cronResult = await cronResponse.json();
+                
+                if (!cronResponse.ok) {
+                    throw new Error('Settings saved but failed to manage scheduled job: ' + (cronResult.error || 'Unknown error'));
+                }
+                
+                const status = enabled ? 'enabled and scheduled' : 'disabled';
+                displayStatus('overdueStatusMessage', 
+                    `Settings saved successfully! Overdue check job ${status} automatically.`, 
+                    'alert-success');
+                
+                // Update the status display
+                updateJobStatus(enabled, schedule, cronResult);
                 
             } catch (error) {
-                displayStatus('overdueStatusMessage', 'Failed to save overdue settings: ' + error.message, 'alert-danger');
+                displayStatus('overdueStatusMessage', 'Error: ' + error.message, 'alert-danger');
             }
         });
 
-        // Update cron command display when schedule changes
+        // Update job status display
+        function updateJobStatus(enabled, schedule, cronResult = null) {
+            // Find the specific overdue notification status container
+            const overdueSection = document.querySelector('#overdueSettingsForm').closest('.section-card');
+            const statusContainer = overdueSection.querySelector('.col-md-6:nth-child(2)');
+            
+            if (enabled) {
+                // Show active job status
+                statusContainer.innerHTML = `
+                    <h5>Scheduled Job Status</h5>
+                    <div class="mb-3">
+                        <div class="alert alert-success d-flex align-items-center">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <div>
+                                <strong>Overdue Check: Active</strong><br>
+                                <small>Schedule: ${schedule} (${getScheduleDescription(schedule)})</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <strong>What happens automatically:</strong>
+                        <ul class="small text-muted mt-2">
+                            <li>System checks for entries with overdue intended end dates</li>
+                            <li>High-priority notifications are created for overdue items</li>
+                            <li>Only applies to entry types with "Show End Date fields" enabled</li>
+                            <li>Duplicate notifications are prevented automatically</li>
+                        </ul>
+                    </div>
+                    <div class="preview-container">
+                        <div>
+                            <i class="fas fa-cogs fa-3x text-success mb-3"></i>
+                            <p class="text-muted">Scheduled job is running automatically</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Show inactive job status
+                statusContainer.innerHTML = `
+                    <h5>Scheduled Job Status</h5>
+                    <div class="mb-3">
+                        <div class="alert alert-secondary d-flex align-items-center">
+                            <i class="fas fa-pause-circle me-2"></i>
+                            <div>
+                                <strong>Overdue Check: Inactive</strong><br>
+                                <small>Enable above to start automatic checking</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <strong>When enabled, the system will:</strong>
+                        <ul class="small text-muted mt-2">
+                            <li>Check for entries with overdue intended end dates</li>
+                            <li>Create high-priority notifications for overdue items</li>
+                            <li>Run according to your selected schedule</li>
+                            <li>Apply only to entry types with end date fields enabled</li>
+                        </ul>
+                    </div>
+                    <div class="preview-container">
+                        <div>
+                            <i class="fas fa-clock fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No scheduled jobs are currently active</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Get human-readable description of cron schedule
+        function getScheduleDescription(schedule) {
+            const scheduleMap = {
+                '0 9 * * *': 'Daily at 9:00 AM',
+                '0 8 * * *': 'Daily at 8:00 AM',
+                '0 10 * * *': 'Daily at 10:00 AM',
+                '0 0 * * *': 'Daily at midnight',
+                '0 */6 * * *': 'Every 6 hours',
+                '0 */3 * * *': 'Every 3 hours',
+                '0 * * * *': 'Every hour',
+                '0 8 * * 1-5': 'Weekdays at 8:00 AM'
+            };
+            return scheduleMap[schedule] || 'Custom schedule';
+        }
+
+        // Update display when schedule changes
         document.getElementById('overdueCheckSchedule').addEventListener('change', function() {
-            document.getElementById('cronCommand').textContent = 
-                `${this.value} /path/to/project/cron_check_overdue.sh`;
+            const enabled = document.getElementById('overdueCheckEnabled').checked;
+            updateJobStatus(enabled, this.value);
         });
+
+        // Update display when enabled/disabled
+        document.getElementById('overdueCheckEnabled').addEventListener('change', function() {
+            const schedule = document.getElementById('overdueCheckSchedule').value;
+            updateJobStatus(this.checked, schedule);
+        });
+
+        // Initialize page display
+        document.addEventListener('DOMContentLoaded', function() {
+            const enabled = document.getElementById('overdueCheckEnabled').checked;
+            const schedule = document.getElementById('overdueCheckSchedule').value;
+            updateJobStatus(enabled, schedule);
+            
+            // Load current cron status
+            loadCurrentJobStatus();
+        });
+
+        // Load current job status from server
+        async function loadCurrentJobStatus() {
+            try {
+                const response = await fetch('/api/cron/overdue/status');
+                if (response.ok) {
+                    const status = await response.json();
+                    const enabled = document.getElementById('overdueCheckEnabled').checked;
+                    const schedule = document.getElementById('overdueCheckSchedule').value;
+                    
+                    // Show warning if settings don't match actual cron job
+                    if (enabled !== status.enabled) {
+                        displayStatus('overdueStatusMessage', 
+                            `Warning: Settings (${enabled ? 'enabled' : 'disabled'}) don't match actual job status (${status.enabled ? 'enabled' : 'disabled'}). Save settings to synchronize.`, 
+                            'alert-warning');
+                    }
+                }
+            } catch (error) {
+                console.log('Could not load job status:', error.message);
+            }
+        }
 
         // Test Overdue Check Button
         document.getElementById('testOverdueCheck').addEventListener('click', async () => {
