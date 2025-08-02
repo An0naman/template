@@ -46,22 +46,35 @@
         }
         
         /* Data Structure Section - Blue */
+        /* Data Structure Section - Blue */
         .data-structure .setting-card::before {
             background: linear-gradient(135deg, #0d6efd, #6f42c1);
         }
         .data-structure .setting-card:hover {
-            background: #ffffff;
+            background: white;
             border-color: #0d6efd;
             transform: translateY(-2px);
             box-shadow: 0 4px 20px rgba(13, 110, 253, 0.15);
-            text-decoration: none;
-            color: inherit;
         }
         .data-structure .setting-card:hover::before {
-            width: 100%;
-            background: linear-gradient(135deg, #0d6efd, #6f42c1);
-            opacity: 0.05;
+            width: 8px;
         }
+
+        /* Notes Configuration Section - Orange */
+        .notes-section .setting-card::before {
+            background: linear-gradient(135deg, #fd7e14, #e5550e);
+        }
+        .notes-section .setting-card:hover {
+            background: white;
+            border-color: #fd7e14;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(253, 126, 20, 0.15);
+        }
+        .notes-section .setting-card:hover::before {
+            width: 8px;
+        }
+
+        /* Sensor Section - Green */
         
         /* Sensor Section - Green */
         .sensor-section .setting-card::before {
@@ -113,6 +126,9 @@
         }
         .setting-icon.bg-success {
             background: linear-gradient(135deg, #198754, #20c997);
+        }
+        .setting-icon.bg-orange {
+            background: linear-gradient(135deg, #fd7e14, #e5550e);
         }
         .setting-icon.bg-purple {
             background: linear-gradient(135deg, #6f42c1, #d63384);
@@ -194,6 +210,31 @@
                     </div>
                     <div class="setting-title">Relationships</div>
                     <p class="setting-description">Configure how different {{ entry_plural_label.lower() }} can be related to each other (e.g., "Parent of", "Authored by").</p>
+                </a>
+            </div>
+        </div>
+
+        <!-- Notes Configuration -->
+        <div class="mb-5 notes-section">
+            <h4 class="mb-3" style="color: #fd7e14;">
+                <i class="fas fa-sticky-note me-2"></i>Notes Configuration
+            </h4>
+            <p class="text-muted mb-3">Configure note types, colors, and file upload settings</p>
+            <div class="settings-grid">
+                <a href="{{ url_for('maintenance.manage_note_types_page') }}" class="setting-card">
+                    <div class="setting-icon bg-orange">
+                        <i class="fas fa-palette"></i>
+                    </div>
+                    <div class="setting-title">Note Types & Colors</div>
+                    <p class="setting-description">Define note types and their associated colors for visual organization (Important, General, Warning, etc.).</p>
+                </a>
+
+                <a href="{{ url_for('maintenance.manage_file_settings_page') }}" class="setting-card">
+                    <div class="setting-icon bg-orange">
+                        <i class="fas fa-file-upload"></i>
+                    </div>
+                    <div class="setting-title">File Upload Settings</div>
+                    <p class="setting-description">Configure allowed file types, size limits, and upload restrictions for note attachments.</p>
                 </a>
             </div>
         </div>

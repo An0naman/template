@@ -25,21 +25,31 @@
             margin-bottom: 15px;
         }
         .note-item {
-            background-color: #e9ecef;
-            border: 1px solid #dee2e6;
-            border-radius: 5px;
-            padding: 15px;
-            margin-bottom: 10px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            background-color: #ffffff;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.2s ease-in-out;
+        }
+        .note-item:hover {
+            border-color: #007bff;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            transform: translateY(-1px);
         }
         .note-item h5 {
             margin-top: 0;
             font-size: 1.1rem;
             color: #343a40;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
         }
         .note-item p {
             font-size: 0.9rem;
             color: #495057;
+            line-height: 1.4;
         }
         .note-actions button {
             margin-left: 5px;
@@ -565,7 +575,7 @@
                                     <div class="form-text">
                                         <i class="fas fa-info-circle me-1"></i> 
                                         A notification will appear at this exact date and time. 
-                                        <strong>Tip:</strong> If you only need a date reminder, it will alert you all day.
+                                        <strong>Note:</strong> If you select a date, you must also select a time (defaults to 1:00 AM if not specified).
                                     </div>
                                     <div class="mt-2">
                                         <button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="setReminderToToday()">
@@ -581,13 +591,15 @@
                                 </div>
                                 <hr>
                                 <div class="mb-3">
-                                    <label for="imageUploadInput" class="form-label">Upload Images (Optional)</label>
-                                    <input type="file" class="form-control" id="imageUploadInput" accept="image/*" multiple>
+                                    <label for="fileUploadInput" class="form-label">Upload Files (Optional)</label>
+                                    <input type="file" class="form-control" id="fileUploadInput" multiple>
                                     <div id="selectedFilesInfo" class="mt-2 small text-muted">No files selected.</div>
-                                    <p class="mt-2 text-info small">
-                                        <i class="fas fa-info-circle me-1"></i> Images will be saved to Immich on your server.
-                                        This feature is a placeholder and will be implemented in a future update.
-                                    </p>
+                                    <div class="form-text">
+                                        <i class="fas fa-info-circle me-1"></i> 
+                                        Supported file types: Images (JPG, PNG, GIF, WebP), Documents (PDF, DOC, DOCX, TXT), 
+                                        Archives (ZIP, RAR), Videos (MP4, AVI, MOV), and more.
+                                        <br><strong>Max file size:</strong> 50MB per file
+                                    </div>
                                 </div>
                                 <button type="button" class="btn btn-primary" id="addNoteBtn">
                                     <i class="fas fa-plus-circle me-1"></i>Save Note
@@ -617,18 +629,103 @@
                     <p><strong>Title:</strong> <span id="modalNoteTitle"></span></p>
                     <p><strong>Type:</strong> <span id="modalNoteType"></span></p>
                     <p><strong>Created On:</strong> <span id="modalNoteCreated"></span></p>
-                    <h6>Content:</h6>
-                    <p id="modalNoteContent"></p>
-                    <hr>
-                    <h6>Attached Images:</h6>
-                    <div id="modalNoteImages" class="row row-cols-1 row-cols-md-2 g-2">
-                        <div class="col">
-                            <div class="placeholder-section" style="min-height: 150px; display: flex; align-items: center; justify-content: center;">
-                                <p>No images attached yet.</p>
+                    
+                    <!-- Reminder Section -->
+                    <div id="modalNoteReminder" style="display: none;">
+                        <div id="reminderDisplayMode">
+                            <p><strong>Reminder:</strong> 
+                                <span id="modalReminderDate" class="text-info"></span>
+                                <span id="modalReminderStatus" class="badge ms-2"></span>
+                                <button type="button" class="btn btn-sm btn-outline-primary ms-2" id="editReminderBtn">
+                                    <i class="fas fa-edit me-1"></i>Edit
+                                </button>
+                            </p>
+                        </div>
+                        
+                        <!-- Edit Reminder Form -->
+                        <div id="reminderEditMode" style="display: none;">
+                            <div class="mb-3">
+                                <label for="editReminderDate" class="form-label">Reminder Date:</label>
+                                <input type="date" class="form-control" id="editReminderDate">
+                            </div>
+                            <div class="mb-3">
+                                <label for="editReminderTime" class="form-label">Reminder Time:</label>
+                                <input type="time" class="form-control" id="editReminderTime" value="01:00">
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-success" id="saveReminderBtn">
+                                    <i class="fas fa-save me-1"></i>Save
+                                </button>
+                                <button type="button" class="btn btn-sm btn-secondary" id="cancelReminderEditBtn">
+                                    Cancel
+                                </button>
+                                <button type="button" class="btn btn-sm btn-danger" id="deleteReminderBtn">
+                                    <i class="fas fa-trash me-1"></i>Remove Reminder
+                                </button>
                             </div>
                         </div>
                     </div>
-                    <p class="mt-2 text-muted small"><em>(Image display from Immich will be implemented in a future update)</em></p>
+                    
+                    <h6>Content:</h6>
+                    <div id="noteContentDisplay">
+                        <p id="modalNoteContent"></p>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="editNoteContentBtn">
+                            <i class="fas fa-edit me-1"></i>Edit Note
+                        </button>
+                    </div>
+                    
+                    <!-- Edit Note Content Form -->
+                    <div id="noteContentEditMode" style="display: none;">
+                        <div class="mb-3">
+                            <label for="editNoteTitle" class="form-label">Note Title:</label>
+                            <input type="text" class="form-control" id="editNoteTitle">
+                        </div>
+                        <div class="mb-3">
+                            <label for="editNoteText" class="form-label">Note Content:</label>
+                            <textarea class="form-control" id="editNoteText" rows="4"></textarea>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-success" id="saveNoteContentBtn">
+                                <i class="fas fa-save me-1"></i>Save Changes
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary" id="cancelNoteContentEditBtn">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0">Attached Files:</h6>
+                        <button type="button" class="btn btn-sm btn-outline-success" id="addAttachmentsBtn">
+                            <i class="fas fa-paperclip me-1"></i>Add Files
+                        </button>
+                    </div>
+                    
+                    <!-- Add Attachments Form -->
+                    <div id="addAttachmentsForm" style="display: none;" class="mb-3">
+                        <div class="mb-3">
+                            <label for="additionalFiles" class="form-label">Select files to attach:</label>
+                            <input type="file" class="form-control" id="additionalFiles" multiple>
+                            <div class="form-text">Maximum file size: 50MB per file</div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-success" id="uploadAdditionalFilesBtn">
+                                <i class="fas fa-upload me-1"></i>Upload Files
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary" id="cancelAddAttachmentsBtn">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="modalNoteFiles" class="row row-cols-1 row-cols-md-2 g-2">
+                        <div class="col" id="noAttachmentsPlaceholder">
+                            <div class="placeholder-section" style="min-height: 150px; display: flex; align-items: center; justify-content: center;">
+                                <p>No files attached yet.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -805,7 +902,7 @@
         const noteTitleInput = document.getElementById('noteTitleInput');
         const noteTypeSelect = document.getElementById('noteTypeSelect');
         const newNoteTextarea = document.getElementById('newNoteTextarea');
-        const imageUploadInput = document.getElementById('imageUploadInput');
+        const fileUploadInput = document.getElementById('fileUploadInput');
         const selectedFilesInfo = document.getElementById('selectedFilesInfo');
         const addNoteBtn = document.getElementById('addNoteBtn');
         const notesList = document.getElementById('notesList');
@@ -842,12 +939,83 @@
         const modalNoteType = document.getElementById('modalNoteType');
         const modalNoteCreated = document.getElementById('modalNoteCreated');
         const modalNoteContent = document.getElementById('modalNoteContent');
-        const modalNoteImages = document.getElementById('modalNoteImages');
+        const modalNoteFiles = document.getElementById('modalNoteFiles');
         const deleteNoteFromModalBtn = document.getElementById('deleteNoteFromModalBtn');
+
+        // Reminder editing elements
+        const editReminderBtn = document.getElementById('editReminderBtn');
+        const reminderDisplayMode = document.getElementById('reminderDisplayMode');
+        const reminderEditMode = document.getElementById('reminderEditMode');
+        const editReminderDate = document.getElementById('editReminderDate');
+        const editReminderTime = document.getElementById('editReminderTime');
+        const saveReminderBtn = document.getElementById('saveReminderBtn');
+        const cancelReminderEditBtn = document.getElementById('cancelReminderEditBtn');
+        const deleteReminderBtn = document.getElementById('deleteReminderBtn');
+
+        // Note content editing elements
+        const editNoteContentBtn = document.getElementById('editNoteContentBtn');
+        const noteContentDisplay = document.getElementById('noteContentDisplay');
+        const noteContentEditMode = document.getElementById('noteContentEditMode');
+        const editNoteTitle = document.getElementById('editNoteTitle');
+        const editNoteText = document.getElementById('editNoteText');
+        const saveNoteContentBtn = document.getElementById('saveNoteContentBtn');
+        const cancelNoteContentEditBtn = document.getElementById('cancelNoteContentEditBtn');
+
+        // Attachment management elements
+        const addAttachmentsBtn = document.getElementById('addAttachmentsBtn');
+        const addAttachmentsForm = document.getElementById('addAttachmentsForm');
+        const additionalFiles = document.getElementById('additionalFiles');
+        const uploadAdditionalFilesBtn = document.getElementById('uploadAdditionalFilesBtn');
+        const cancelAddAttachmentsBtn = document.getElementById('cancelAddAttachmentsBtn');
+        const noAttachmentsPlaceholder = document.getElementById('noAttachmentsPlaceholder');
 
         // Map to store fetched notes by ID for quick lookup
         let loadedNotes = new Map();
         let currentNoteIdInModal = null; // To keep track of which note is open in the modal
+        let noteTypeColors = null; // Cache for note type colors
+
+        // Function to get note type color
+        function getNoteTypeColor(noteType) {
+            // Default colors for standard note types
+            const defaultColors = {
+                'general': '#0dcaf0',
+                'info': '#0dcaf0',
+                'important': '#dc3545',
+                'critical': '#dc3545',
+                'warning': '#fd7e14',
+                'caution': '#fd7e14',
+                'success': '#198754',
+                'completed': '#198754'
+            };
+            
+            // Check if we have custom note types loaded
+            if (noteTypeColors && noteTypeColors[noteType.toLowerCase()]) {
+                return noteTypeColors[noteType.toLowerCase()];
+            }
+            
+            // Fall back to default colors
+            const lowerType = noteType.toLowerCase();
+            return defaultColors[lowerType] || '#6f42c1'; // Purple for unknown types
+        }
+
+        // Load custom note type colors from system parameters
+        async function loadNoteTypeColors() {
+            try {
+                const response = await fetch('/api/system_params');
+                const params = await response.json();
+                
+                if (params.custom_note_types) {
+                    const customTypes = JSON.parse(params.custom_note_types);
+                    noteTypeColors = {};
+                    
+                    customTypes.forEach(noteType => {
+                        noteTypeColors[noteType.name.toLowerCase()] = noteType.color;
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading note type colors:', error);
+            }
+        }
 
         // DOM elements for Related Records (new)
         const relatedRecordsContainer = document.getElementById('relatedRecordsContainer');
@@ -916,6 +1084,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             initializeNoteTypeDropdown();
+            loadNoteTypeColors(); // Load custom note type colors
             fetchNotes();
             loadRelatedRecords(); // Call the new function to load related records
             if (hasSensors) {
@@ -953,12 +1122,19 @@
         });
 
         // Handle file selection change
-        imageUploadInput.addEventListener('change', () => {
-            if (imageUploadInput.files.length > 0) {
-                let fileNames = Array.from(imageUploadInput.files).map(file => file.name).join(', ');
-                selectedFilesInfo.textContent = `Selected: ${fileNames}`;
+        fileUploadInput.addEventListener('change', () => {
+            if (fileUploadInput.files.length > 0) {
+                let fileList = Array.from(fileUploadInput.files).map(file => {
+                    const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+                    return `${file.name} (${sizeInMB} MB)`;
+                }).join(', ');
+                selectedFilesInfo.innerHTML = `<strong>Selected:</strong> ${fileList}`;
+                selectedFilesInfo.classList.remove('text-muted');
+                selectedFilesInfo.classList.add('text-info');
             } else {
                 selectedFilesInfo.textContent = 'No files selected.';
+                selectedFilesInfo.classList.remove('text-info');
+                selectedFilesInfo.classList.add('text-muted');
             }
         });
 
@@ -969,6 +1145,21 @@
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); // Adjust for timezone
         reminderDateInput.min = now.toISOString().slice(0, 16);
+        
+        // Add event listener to ensure time is set when date is selected
+        reminderDateInput.addEventListener('change', function() {
+            const value = this.value;
+            if (value) {
+                // Check if only date is provided (no time part)
+                if (value.length === 10) {
+                    // Date only, append default time of 01:00 (1 AM)
+                    this.value = value + 'T01:00';
+                } else if (value.includes('T') && value.split('T')[1] === '') {
+                    // Date with T but no time, append default time
+                    this.value = value + '01:00';
+                }
+            }
+        });
         
         // Helper functions for reminder date buttons
         function setReminderToToday() {
@@ -984,7 +1175,7 @@
         function setReminderToTomorrow() {
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
-            tomorrow.setHours(9); // Set to 9 AM tomorrow
+            tomorrow.setHours(1); // Set to 1 AM tomorrow (default time)
             tomorrow.setMinutes(0);
             tomorrow.setSeconds(0);
             tomorrow.setMilliseconds(0);
@@ -1005,38 +1196,71 @@
             const noteTitle = noteTitleInput.value.trim();
             const noteText = newNoteTextarea.value.trim();
             const noteType = noteTypeSelect.value;
-            const reminderDate = reminderDateInput.value;
-            const files = imageUploadInput.files;
+            let reminderDate = reminderDateInput.value;
+            const files = fileUploadInput.files;
 
             if (!noteText) {
                 displayStatus(noteStatusMessage, 'Note content cannot be empty.', 'alert-warning');
                 return;
             }
 
-            displayStatus(noteStatusMessage, 'Adding note...', 'alert-info');
-
-            if (files.length > 0) {
-                console.log("Files selected for upload (not yet sent to Immich):", files);
+            // Validate file sizes (50MB max per file)
+            const maxFileSize = 50 * 1024 * 1024; // 50MB in bytes
+            for (let file of files) {
+                if (file.size > maxFileSize) {
+                    displayStatus(noteStatusMessage, `File "${file.name}" is too large. Maximum file size is 50MB.`, 'alert-warning');
+                    return;
+                }
             }
 
+            // Validate reminder date if provided
+            if (reminderDate) {
+                // Ensure complete datetime format
+                if (reminderDate.length === 10) {
+                    // Only date provided, append default time of 01:00
+                    reminderDate = reminderDate + 'T01:00';
+                    reminderDateInput.value = reminderDate; // Update the input field
+                } else if (reminderDate.includes('T') && reminderDate.split('T')[1] === '') {
+                    // Date with T but no time
+                    reminderDate = reminderDate + '01:00';
+                    reminderDateInput.value = reminderDate; // Update the input field
+                } else if (reminderDate.length === 16 && !reminderDate.includes('T')) {
+                    // Invalid format - require proper datetime
+                    displayStatus(noteStatusMessage, 'Please select both date and time for the reminder.', 'alert-warning');
+                    return;
+                }
+                
+                // Validate that the reminder date is in the future
+                const reminderDateTime = new Date(reminderDate);
+                const now = new Date();
+                if (reminderDateTime <= now) {
+                    displayStatus(noteStatusMessage, 'Reminder date and time must be in the future.', 'alert-warning');
+                    return;
+                }
+            }
+
+            displayStatus(noteStatusMessage, 'Adding note...', 'alert-info');
+
             try {
-                const requestBody = { 
-                    note_title: noteTitle, 
-                    note_text: noteText, 
-                    note_type: noteType 
-                };
+                // Use FormData for file uploads
+                const formData = new FormData();
+                formData.append('note_title', noteTitle);
+                formData.append('note_text', noteText);
+                formData.append('note_type', noteType);
                 
                 // Add reminder date if provided
                 if (reminderDate) {
-                    requestBody.reminder_date = reminderDate;
+                    formData.append('reminder_date', reminderDate);
+                }
+                
+                // Add files if any
+                for (let file of files) {
+                    formData.append('files', file);
                 }
                 
                 const response = await fetch(`/api/entries/${entryId}/notes`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(requestBody)
+                    body: formData  // Don't set Content-Type header, let browser set it with boundary
                 });
 
                 const data = await response.json();
@@ -1047,8 +1271,10 @@
                     newNoteTextarea.value = '';
                     reminderDateInput.value = '';
                     noteTypeSelect.value = noteTypeSelect.options[0].value;
-                    imageUploadInput.value = '';
+                    fileUploadInput.value = '';
                     selectedFilesInfo.textContent = 'No files selected.';
+                    selectedFilesInfo.classList.remove('text-info');
+                    selectedFilesInfo.classList.add('text-muted');
 
                     const bsCollapse = new bootstrap.Collapse(newNoteFormCollapseElement, { toggle: false });
                     bsCollapse.hide(); // Hide the form after successful submission
@@ -1099,10 +1325,69 @@
 
             notes.forEach(note => {
                 const noteItem = document.createElement('div');
-                noteItem.classList.add('list-group-item', 'list-group-item-action', 'flex-column', 'align-items-start', 'mb-2');
+                noteItem.classList.add('list-group-item', 'list-group-item-action', 'flex-column', 'align-items-start', 'mb-3', 'border-2', 'rounded');
+                
+                // Color-code border based on note type
+                let borderColor = getNoteTypeColor(note.note_type);
+                
+                noteItem.style.cssText = `border-left: 4px solid ${borderColor} !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s ease; background-color: rgba(${borderColor === '#007bff' ? '0,123,255' : borderColor === '#dc3545' ? '220,53,69' : borderColor === '#fd7e14' ? '253,126,20' : borderColor === '#198754' ? '25,135,84' : borderColor === '#0dcaf0' ? '13,202,240' : '111,66,193'}, 0.02); padding: 1.25rem !important;`;
+                
+                // Add hover effect
+                noteItem.addEventListener('mouseenter', () => {
+                    noteItem.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+                    noteItem.style.transform = 'translateY(-1px)';
+                });
+                noteItem.addEventListener('mouseleave', () => {
+                    noteItem.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                    noteItem.style.transform = 'translateY(0)';
+                });
+                
+                // Create reminder indicator if present
+                let reminderIndicator = '';
+                if (note.reminder) {
+                    const reminderDate = new Date(note.reminder.scheduled_for);
+                    const now = new Date();
+                    const isPast = reminderDate <= now;
+                    const isRead = note.reminder.is_read;
+                    const isDismissed = note.reminder.is_dismissed;
+                    
+                    let iconClass = 'fas fa-bell';
+                    let colorClass = 'text-warning';
+                    let title = `Reminder set for ${reminderDate.toLocaleString()}`;
+                    
+                    if (isDismissed) {
+                        iconClass = 'fas fa-bell-slash';
+                        colorClass = 'text-muted';
+                        title = 'Reminder dismissed';
+                    } else if (isPast && !isRead) {
+                        iconClass = 'fas fa-bell';
+                        colorClass = 'text-danger';
+                        title = `Reminder was due ${reminderDate.toLocaleString()}`;
+                    } else if (isPast && isRead) {
+                        iconClass = 'fas fa-bell-slash';
+                        colorClass = 'text-success';
+                        title = 'Reminder completed';
+                    }
+                    
+                    reminderIndicator = `<i class="${iconClass} ${colorClass} ms-2" title="${title}"></i>`;
+                }
+                
+                // Create attachment indicator if present
+                let attachmentIndicator = '';
+                if (note.file_paths && note.file_paths.length > 0) {
+                    const fileCount = note.file_paths.length;
+                    const title = fileCount === 1 ? '1 file attached' : `${fileCount} files attached`;
+                    attachmentIndicator = `<i class="fas fa-paperclip text-info ms-2" title="${title}"></i>`;
+                }
+                
                 noteItem.innerHTML = `
                     <div class="d-flex w-100 justify-content-between">
-                        <h5 class="mb-1">${note.note_title ? note.note_title : 'No Title'} <small class="text-muted">(${note.note_type})</small></h5>
+                        <h5 class="mb-1">
+                            ${note.note_title ? note.note_title : 'No Title'} 
+                            <small class="text-muted">(${note.note_type})</small>
+                            ${reminderIndicator}
+                            ${attachmentIndicator}
+                        </h5>
                         <small>${new Date(note.created_at).toLocaleString()}</small>
                     </div>
                     <p class="mb-1">${note.note_text.substring(0, 100)}${note.note_text.length > 100 ? '...' : ''}</p>
@@ -1124,13 +1409,42 @@
                         modalNoteType.textContent = note.note_type || 'General';
                         modalNoteCreated.textContent = new Date(note.created_at).toLocaleString();
                         modalNoteContent.textContent = note.note_text;
-                        modalNoteImages.innerHTML = `
-                            <div class="col">
-                                <div class="placeholder-section" style="min-height: 150px; display: flex; align-items: center; justify-content: center;">
-                                    <p>No images attached yet.</p>
-                                </div>
-                            </div>
-                        `;
+                        
+                        // Handle reminder information
+                        const modalNoteReminder = document.getElementById('modalNoteReminder');
+                        const modalReminderDate = document.getElementById('modalReminderDate');
+                        const modalReminderStatus = document.getElementById('modalReminderStatus');
+                        
+                        if (note.reminder) {
+                            modalNoteReminder.style.display = 'block';
+                            const reminderDate = new Date(note.reminder.scheduled_for);
+                            modalReminderDate.textContent = reminderDate.toLocaleString();
+                            
+                            // Set status badge
+                            const now = new Date();
+                            const isPast = reminderDate <= now;
+                            const isRead = note.reminder.is_read;
+                            const isDismissed = note.reminder.is_dismissed;
+                            
+                            if (isDismissed) {
+                                modalReminderStatus.className = 'badge bg-secondary ms-2';
+                                modalReminderStatus.textContent = 'Dismissed';
+                            } else if (isPast && !isRead) {
+                                modalReminderStatus.className = 'badge bg-danger ms-2';
+                                modalReminderStatus.textContent = 'Overdue';
+                            } else if (isPast && isRead) {
+                                modalReminderStatus.className = 'badge bg-success ms-2';
+                                modalReminderStatus.textContent = 'Completed';
+                            } else {
+                                modalReminderStatus.className = 'badge bg-warning text-dark ms-2';
+                                modalReminderStatus.textContent = 'Scheduled';
+                            }
+                        } else {
+                            modalNoteReminder.style.display = 'none';
+                        }
+                        
+                        // Display attached files
+                        displayNoteFiles(note);
 
                         noteDetailModal.show();
                     } else {
@@ -1138,6 +1452,118 @@
                     }
                 });
             });
+        }
+
+        // Function to display note files in the modal
+        function displayNoteFiles(note) {
+            modalNoteFiles.innerHTML = '';
+            
+            if (note.file_paths && note.file_paths.length > 0) {
+                note.file_paths.forEach((filePath, index) => {
+                    const fileName = filePath.split('/').pop();
+                    const fileExtension = fileName.split('.').pop().toLowerCase();
+                    const fileDiv = document.createElement('div');
+                    fileDiv.classList.add('col');
+                    
+                    // Determine file type and icon
+                    let fileIcon = 'fas fa-file';
+                    let isImage = false;
+                    
+                    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(fileExtension)) {
+                        fileIcon = 'fas fa-image';
+                        isImage = true;
+                    } else if (['pdf'].includes(fileExtension)) {
+                        fileIcon = 'fas fa-file-pdf';
+                    } else if (['doc', 'docx'].includes(fileExtension)) {
+                        fileIcon = 'fas fa-file-word';
+                    } else if (['txt'].includes(fileExtension)) {
+                        fileIcon = 'fas fa-file-alt';
+                    } else if (['zip', 'rar', '7z'].includes(fileExtension)) {
+                        fileIcon = 'fas fa-file-archive';
+                    } else if (['mp4', 'avi', 'mov', 'mkv'].includes(fileExtension)) {
+                        fileIcon = 'fas fa-file-video';
+                    } else if (['mp3', 'wav', 'flac'].includes(fileExtension)) {
+                        fileIcon = 'fas fa-file-audio';
+                    }
+                    
+                    if (isImage) {
+                        fileDiv.innerHTML = `
+                            <div class="file-attachment position-relative">
+                                <img src="/static/uploads/${filePath.split('/').pop()}" alt="${fileName}" 
+                                     class="img-thumbnail mb-2" style="max-height: 150px; cursor: pointer;"
+                                     onclick="window.open('/static/uploads/${filePath.split('/').pop()}', '_blank')">
+                                <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 delete-file-btn" 
+                                        data-file-index="${index}" title="Delete file">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                                <p class="small text-center mb-0">${fileName}</p>
+                            </div>
+                        `;
+                    } else {
+                        fileDiv.innerHTML = `
+                            <div class="file-attachment text-center p-3 border rounded position-relative">
+                                <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 delete-file-btn" 
+                                        data-file-index="${index}" title="Delete file">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                                <i class="${fileIcon} fa-3x text-muted mb-2"></i>
+                                <p class="small mb-1">${fileName}</p>
+                                <a href="/static/uploads/${filePath.split('/').pop()}" 
+                                   class="btn btn-sm btn-outline-primary" download>
+                                    <i class="fas fa-download me-1"></i>Download
+                                </a>
+                            </div>
+                        `;
+                    }
+                    
+                    modalNoteFiles.appendChild(fileDiv);
+                });
+                
+                // Add event listeners for delete buttons
+                modalNoteFiles.querySelectorAll('.delete-file-btn').forEach(button => {
+                    button.addEventListener('click', async (event) => {
+                        const fileIndex = parseInt(event.currentTarget.dataset.fileIndex);
+                        const fileName = note.file_paths[fileIndex].split('/').pop();
+                        
+                        if (confirm(`Are you sure you want to delete "${fileName}"? This cannot be undone.`)) {
+                            try {
+                                const response = await fetch(`/api/notes/${currentNoteIdInModal}/attachments/${fileIndex}`, {
+                                    method: 'DELETE'
+                                });
+                                
+                                if (response.ok) {
+                                    const result = await response.json();
+                                    
+                                    // Update the stored note data
+                                    const updatedNote = loadedNotes.get(currentNoteIdInModal);
+                                    if (updatedNote) {
+                                        updatedNote.file_paths = result.file_paths;
+                                        loadedNotes.set(currentNoteIdInModal, updatedNote);
+                                        
+                                        // Refresh the file display and notes list
+                                        displayNoteFiles(updatedNote);
+                                        await fetchNotes();
+                                    }
+                                } else {
+                                    const data = await response.json();
+                                    alert('Error deleting file: ' + (data.error || 'Unknown error'));
+                                }
+                            } catch (error) {
+                                console.error('Error deleting file:', error);
+                                alert('An unexpected error occurred while deleting the file.');
+                            }
+                        }
+                    });
+                });
+                
+                // Hide no attachments placeholder
+                if (noAttachmentsPlaceholder) {
+                    noAttachmentsPlaceholder.style.display = 'none';
+                }
+            } else {
+                modalNoteFiles.appendChild(noAttachmentsPlaceholder);
+                noAttachmentsPlaceholder.style.display = 'block';
+            }
         }
 
         // Handle delete note from modal
@@ -1161,6 +1587,233 @@
                     console.error('Error deleting note:', error);
                     alert('An unexpected error occurred while deleting the note.');
                 }
+            }
+        });
+
+        // Handle reminder editing
+        editReminderBtn.addEventListener('click', () => {
+            const note = loadedNotes.get(currentNoteIdInModal);
+            if (note && note.reminder) {
+                const reminderDate = new Date(note.reminder.scheduled_for);
+                editReminderDate.value = reminderDate.toISOString().split('T')[0];
+                editReminderTime.value = reminderDate.toTimeString().slice(0, 5);
+                
+                reminderDisplayMode.style.display = 'none';
+                reminderEditMode.style.display = 'block';
+            }
+        });
+
+        cancelReminderEditBtn.addEventListener('click', () => {
+            reminderDisplayMode.style.display = 'block';
+            reminderEditMode.style.display = 'none';
+        });
+
+        saveReminderBtn.addEventListener('click', async () => {
+            if (!editReminderDate.value || !editReminderTime.value) {
+                alert('Please enter both date and time for the reminder.');
+                return;
+            }
+
+            const reminderDateTime = `${editReminderDate.value}T${editReminderTime.value}:00`;
+            
+            try {
+                const response = await fetch(`/api/notes/${currentNoteIdInModal}/reminder`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        scheduled_for: reminderDateTime
+                    }),
+                });
+
+                if (response.ok) {
+                    alert('Reminder updated successfully!');
+                    // Refresh the note data and modal display
+                    await fetchNotes();
+                    const updatedNote = loadedNotes.get(currentNoteIdInModal);
+                    if (updatedNote) {
+                        // Update the modal display
+                        const modalReminderDate = document.getElementById('modalReminderDate');
+                        const modalReminderStatus = document.getElementById('modalReminderStatus');
+                        
+                        if (updatedNote.reminder) {
+                            const reminderDate = new Date(updatedNote.reminder.scheduled_for);
+                            modalReminderDate.textContent = reminderDate.toLocaleString();
+                            
+                            // Update status badge
+                            const now = new Date();
+                            const isPast = reminderDate <= now;
+                            const isRead = updatedNote.reminder.is_read;
+                            const isDismissed = updatedNote.reminder.is_dismissed;
+                            
+                            if (isDismissed) {
+                                modalReminderStatus.className = 'badge bg-secondary ms-2';
+                                modalReminderStatus.textContent = 'Dismissed';
+                            } else if (isPast && !isRead) {
+                                modalReminderStatus.className = 'badge bg-danger ms-2';
+                                modalReminderStatus.textContent = 'Overdue';
+                            } else if (isPast && isRead) {
+                                modalReminderStatus.className = 'badge bg-success ms-2';
+                                modalReminderStatus.textContent = 'Completed';
+                            } else {
+                                modalReminderStatus.className = 'badge bg-warning text-dark ms-2';
+                                modalReminderStatus.textContent = 'Scheduled';
+                            }
+                        }
+                    }
+                    
+                    reminderDisplayMode.style.display = 'block';
+                    reminderEditMode.style.display = 'none';
+                } else {
+                    const data = await response.json();
+                    alert('Error updating reminder: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error updating reminder:', error);
+                alert('An unexpected error occurred while updating the reminder.');
+            }
+        });
+
+        deleteReminderBtn.addEventListener('click', async () => {
+            if (confirm('Are you sure you want to remove this reminder?')) {
+                try {
+                    const response = await fetch(`/api/notes/${currentNoteIdInModal}/reminder`, {
+                        method: 'DELETE',
+                    });
+
+                    if (response.ok) {
+                        alert('Reminder removed successfully!');
+                        // Refresh the note data and hide reminder section
+                        await fetchNotes();
+                        const modalNoteReminder = document.getElementById('modalNoteReminder');
+                        modalNoteReminder.style.display = 'none';
+                        
+                        reminderDisplayMode.style.display = 'block';
+                        reminderEditMode.style.display = 'none';
+                    } else {
+                        const data = await response.json();
+                        alert('Error removing reminder: ' + (data.error || 'Unknown error'));
+                    }
+                } catch (error) {
+                    console.error('Error removing reminder:', error);
+                    alert('An unexpected error occurred while removing the reminder.');
+                }
+            }
+        });
+
+        // Handle note content editing
+        editNoteContentBtn.addEventListener('click', () => {
+            const currentNote = loadedNotes.get(currentNoteIdInModal);
+            if (currentNote) {
+                editNoteTitle.value = currentNote.note_title || '';
+                editNoteText.value = currentNote.note_text || '';
+                noteContentDisplay.style.display = 'none';
+                noteContentEditMode.style.display = 'block';
+            }
+        });
+
+        cancelNoteContentEditBtn.addEventListener('click', () => {
+            noteContentDisplay.style.display = 'block';
+            noteContentEditMode.style.display = 'none';
+        });
+
+        saveNoteContentBtn.addEventListener('click', async () => {
+            try {
+                const formData = new FormData();
+                formData.append('note_title', editNoteTitle.value.trim());
+                formData.append('note_text', editNoteText.value.trim());
+
+                const response = await fetch(`/api/notes/${currentNoteIdInModal}`, {
+                    method: 'PUT',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    
+                    // Update the stored note data
+                    const updatedNote = loadedNotes.get(currentNoteIdInModal);
+                    if (updatedNote) {
+                        updatedNote.note_title = result.note_title;
+                        updatedNote.note_text = result.note_text;
+                        loadedNotes.set(currentNoteIdInModal, updatedNote);
+                        
+                        // Update modal display
+                        modalNoteTitle.textContent = result.note_title || 'No Title';
+                        modalNoteContent.textContent = result.note_text;
+                        
+                        // Refresh notes list to show updated content
+                        await fetchNotes();
+                    }
+                    
+                    noteContentDisplay.style.display = 'block';
+                    noteContentEditMode.style.display = 'none';
+                } else {
+                    const data = await response.json();
+                    alert('Error updating note: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error updating note:', error);
+                alert('An unexpected error occurred while updating the note.');
+            }
+        });
+
+        // Handle attachment management
+        addAttachmentsBtn.addEventListener('click', () => {
+            addAttachmentsForm.style.display = 'block';
+            addAttachmentsBtn.style.display = 'none';
+        });
+
+        cancelAddAttachmentsBtn.addEventListener('click', () => {
+            addAttachmentsForm.style.display = 'none';
+            addAttachmentsBtn.style.display = 'inline-block';
+            additionalFiles.value = '';
+        });
+
+        uploadAdditionalFilesBtn.addEventListener('click', async () => {
+            const files = additionalFiles.files;
+            if (files.length === 0) {
+                alert('Please select files to upload.');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                for (let i = 0; i < files.length; i++) {
+                    formData.append('files', files[i]);
+                }
+
+                const response = await fetch(`/api/notes/${currentNoteIdInModal}/attachments`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    
+                    // Update the stored note data
+                    const updatedNote = loadedNotes.get(currentNoteIdInModal);
+                    if (updatedNote) {
+                        updatedNote.file_paths = result.file_paths;
+                        loadedNotes.set(currentNoteIdInModal, updatedNote);
+                        
+                        // Refresh the file display and notes list
+                        displayNoteFiles(updatedNote);
+                        await fetchNotes();
+                    }
+                    
+                    // Reset form
+                    addAttachmentsForm.style.display = 'none';
+                    addAttachmentsBtn.style.display = 'inline-block';
+                    additionalFiles.value = '';
+                } else {
+                    const data = await response.json();
+                    alert('Error uploading files: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error uploading files:', error);
+                alert('An unexpected error occurred while uploading files.');
             }
         });
 

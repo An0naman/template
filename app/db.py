@@ -83,7 +83,7 @@ def init_db():
                 note_text TEXT NOT NULL,
                 type TEXT DEFAULT 'General',
                 created_at TEXT NOT NULL,
-                image_paths TEXT DEFAULT '[]', -- JSON string of image paths
+                file_paths TEXT DEFAULT '[]', -- JSON string of file paths
                 FOREIGN KEY (entry_id) REFERENCES Entry(id) ON DELETE CASCADE
             );
         ''')
@@ -131,6 +131,56 @@ def init_db():
                     logger.info(f"Added column '{column_name}' to Entry table")
         except Exception as e:
             logger.error(f"Error during Entry table migration: {e}")
+
+        # Migration: Rename image_paths to file_paths in Note table
+        try:
+            cursor.execute("PRAGMA table_info(Note)")
+            columns = [col[1] for col in cursor.fetchall()]
+            
+            if 'image_paths' in columns and 'file_paths' not in columns:
+                # SQLite doesn't support renaming columns directly, so we need to:
+                # 1. Add the new column
+                # 2. Copy data from old column to new column
+                # 3. Drop the old column (requires recreating the table)
+                
+                # Step 1: Add file_paths column
+                cursor.execute("ALTER TABLE Note ADD COLUMN file_paths TEXT DEFAULT '[]'")
+                
+                # Step 2: Copy data from image_paths to file_paths
+                cursor.execute("UPDATE Note SET file_paths = image_paths WHERE image_paths IS NOT NULL")
+                
+                # Step 3: Create new table without image_paths and copy data
+                cursor.execute('''
+                    CREATE TABLE Note_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        entry_id INTEGER NOT NULL,
+                        note_title TEXT,
+                        note_text TEXT NOT NULL,
+                        type TEXT DEFAULT 'General',
+                        created_at TEXT NOT NULL,
+                        file_paths TEXT DEFAULT '[]',
+                        FOREIGN KEY (entry_id) REFERENCES Entry(id) ON DELETE CASCADE
+                    )
+                ''')
+                
+                # Copy all data to new table
+                cursor.execute('''
+                    INSERT INTO Note_new (id, entry_id, note_title, note_text, type, created_at, file_paths)
+                    SELECT id, entry_id, note_title, note_text, type, created_at, file_paths FROM Note
+                ''')
+                
+                # Drop old table and rename new table
+                cursor.execute("DROP TABLE Note")
+                cursor.execute("ALTER TABLE Note_new RENAME TO Note")
+                
+                logger.info("Migrated Note table: renamed image_paths to file_paths")
+            elif 'file_paths' not in columns:
+                # Add file_paths column if it doesn't exist
+                cursor.execute("ALTER TABLE Note ADD COLUMN file_paths TEXT DEFAULT '[]'")
+                logger.info("Added file_paths column to Note table")
+                
+        except Exception as e:
+            logger.error(f"Error during Note table migration: {e}")
 
         # Create EntryRelationship Table
         cursor.execute('''
@@ -259,7 +309,10 @@ def get_system_parameters():
                 'project_name': 'My Awesome Project',
                 'entry_singular_label': 'Entry',
                 'entry_plural_label': 'Entries',
-                'sensor_types': 'Temperature,Humidity,Pressure,pH,Light,Motion,Sound,Vibration,Distance,Weight,Voltage,Current'
+                'sensor_types': 'Temperature,Humidity,Pressure,pH,Light,Motion,Sound,Vibration,Distance,Weight,Voltage,Current',
+                'allowed_file_types': 'txt,pdf,png,jpg,jpeg,gif,webp,svg,doc,docx,xls,xlsx,ppt,pptx,mp4,avi,mov,wmv,flv,webm,mkv,mp3,wav,flac,aac,ogg,zip,rar,7z,tar,gz',
+                'max_file_size': '50',
+                'custom_note_types': '[]'
             }
             for name, value in default_params.items():
                 try:

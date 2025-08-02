@@ -35,7 +35,9 @@ app.logger.setLevel(logging.INFO) # Set default level for Flask's logger (e.g., 
 
 # --- Register API Blueprints ---
 from app.api.notifications_api import notifications_api_bp
+from app.api.system_params_api import system_params_api_bp
 app.register_blueprint(notifications_api_bp, url_prefix='/api')
+app.register_blueprint(system_params_api_bp, url_prefix='/api')
 
 
 # --- Database Connection Management ---

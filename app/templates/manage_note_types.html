@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ project_name }} - Note Types & Colors</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            margin-top: 30px;
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+        }
+        .note-type-item {
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background: #f8f9fa;
+            position: relative;
+        }
+        .note-type-item.unsaved {
+            border-color: #ffc107;
+            background: #fff3cd;
+        }
+        .color-preview {
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+            border: 2px solid #dee2e6;
+            display: inline-block;
+            margin-right: 10px;
+        }
+        .color-input {
+            width: 60px;
+            height: 40px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .remove-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .default-types {
+            background: #e8f5e8;
+            border-color: #c3e6c3;
+        }
+        .breadcrumb {
+            background: none;
+            padding: 0;
+            margin-bottom: 1rem;
+        }
+        .breadcrumb-item a {
+            color: #6c757d;
+            text-decoration: none;
+        }
+        .breadcrumb-item a:hover {
+            color: #0d6efd;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('maintenance.maintenance_module_page') }}">Maintenance</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Note Types & Colors</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-0">
+                    <i class="fas fa-palette me-2" style="color: #fd7e14;"></i>
+                    Note Types & Colors
+                </h2>
+                <p class="text-muted mb-0">Configure note types and their visual appearance</p>
+            </div>
+            <div>
+                <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back
+                </a>
+            </div>
+        </div>
+
+        <!-- Status Messages -->
+        <div id="statusMessage" class="alert d-none" role="alert"></div>
+
+        <!-- Default Note Types -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="fas fa-check-circle text-success me-2"></i>
+                    Default Note Types
+                </h5>
+                <small class="text-muted">These are the recommended core note types with optimized colors</small>
+            </div>
+            <div class="card-body">
+                <div id="defaultNoteTypes">
+                    <div class="note-type-item default-types">
+                        <div class="row align-items-center">
+                            <div class="col-md-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="color-preview" style="background-color: #0dcaf0;"></div>
+                                    <span class="fw-bold">General</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">Standard notes and general information</small>
+                            </div>
+                            <div class="col-md-3 text-end">
+                                <span class="badge bg-success">Default</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="note-type-item default-types">
+                        <div class="row align-items-center">
+                            <div class="col-md-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="color-preview" style="background-color: #dc3545;"></div>
+                                    <span class="fw-bold">Important</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">High priority notes requiring attention</small>
+                            </div>
+                            <div class="col-md-3 text-end">
+                                <span class="badge bg-success">Default</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="note-type-item default-types">
+                        <div class="row align-items-center">
+                            <div class="col-md-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="color-preview" style="background-color: #fd7e14;"></div>
+                                    <span class="fw-bold">Warning</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">Caution notes and warnings</small>
+                            </div>
+                            <div class="col-md-3 text-end">
+                                <span class="badge bg-success">Default</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="note-type-item default-types">
+                        <div class="row align-items-center">
+                            <div class="col-md-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="color-preview" style="background-color: #198754;"></div>
+                                    <span class="fw-bold">Success</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">Completed tasks and positive outcomes</small>
+                            </div>
+                            <div class="col-md-3 text-end">
+                                <span class="badge bg-success">Default</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Note Types -->
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-0">
+                            <i class="fas fa-paint-brush text-primary me-2"></i>
+                            Custom Note Types
+                        </h5>
+                        <small class="text-muted">Add your own note types with custom colors</small>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="addNoteType()">
+                        <i class="fas fa-plus me-1"></i>Add Note Type
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="customNoteTypes">
+                    <p class="text-muted text-center">No custom note types defined yet. Click "Add Note Type" to create one.</p>
+                </div>
+                
+                <div class="mt-3 text-end">
+                    <button type="button" class="btn btn-success" onclick="saveNoteTypes()">
+                        <i class="fas fa-save me-2"></i>Save All Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Color Guide -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle text-info me-2"></i>
+                    Color Usage Guide
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Recommended Colors:</h6>
+                        <ul class="list-unstyled">
+                            <li><span class="color-preview me-2" style="background-color: #dc3545;"></span>Red: Critical, Important, Urgent</li>
+                            <li><span class="color-preview me-2" style="background-color: #fd7e14;"></span>Orange: Warning, Caution, Review</li>
+                            <li><span class="color-preview me-2" style="background-color: #ffc107;"></span>Yellow: Pending, In Progress</li>
+                            <li><span class="color-preview me-2" style="background-color: #198754;"></span>Green: Success, Completed, Approved</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Additional Options:</h6>
+                        <ul class="list-unstyled">
+                            <li><span class="color-preview me-2" style="background-color: #0dcaf0;"></span>Cyan: Information, General</li>
+                            <li><span class="color-preview me-2" style="background-color: #0d6efd;"></span>Blue: Reference, Documentation</li>
+                            <li><span class="color-preview me-2" style="background-color: #6f42c1;"></span>Purple: Special, Custom</li>
+                            <li><span class="color-preview me-2" style="background-color: #6c757d;"></span>Gray: Archive, Inactive</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let customNoteTypes = [];
+        let nextId = 1;
+
+        function addNoteType() {
+            const container = document.getElementById('customNoteTypes');
+            
+            // Clear placeholder text if this is the first note type
+            if (customNoteTypes.length === 0) {
+                container.innerHTML = '';
+            }
+            
+            const id = nextId++;
+            const noteTypeItem = document.createElement('div');
+            noteTypeItem.className = 'note-type-item unsaved';
+            noteTypeItem.id = `noteType_${id}`;
+            
+            noteTypeItem.innerHTML = `
+                <button type="button" class="remove-btn" onclick="removeNoteType(${id})" title="Remove">
+                    <i class="fas fa-times"></i>
+                </button>
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        <label class="form-label">Note Type Name</label>
+                        <input type="text" class="form-control" placeholder="e.g., Research, Meeting" data-field="name">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Color</label>
+                        <div class="d-flex align-items-center">
+                            <input type="color" class="color-input me-2" value="#6f42c1" data-field="color">
+                            <span class="small text-muted">Choose color</span>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label">Description (Optional)</label>
+                        <input type="text" class="form-control" placeholder="Brief description of this note type" data-field="description">
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(noteTypeItem);
+            customNoteTypes.push({ id: id, name: '', color: '#6f42c1', description: '' });
+        }
+
+        function removeNoteType(id) {
+            const element = document.getElementById(`noteType_${id}`);
+            if (element) {
+                element.remove();
+                customNoteTypes = customNoteTypes.filter(nt => nt.id !== id);
+                
+                // Show placeholder if no custom types remain
+                const container = document.getElementById('customNoteTypes');
+                if (customNoteTypes.length === 0) {
+                    container.innerHTML = '<p class="text-muted text-center">No custom note types defined yet. Click "Add Note Type" to create one.</p>';
+                }
+            }
+        }
+
+        async function saveNoteTypes() {
+            // Collect data from all custom note types
+            const noteTypesData = [];
+            
+            customNoteTypes.forEach(noteType => {
+                const element = document.getElementById(`noteType_${noteType.id}`);
+                const name = element.querySelector('[data-field="name"]').value.trim();
+                const color = element.querySelector('[data-field="color"]').value;
+                const description = element.querySelector('[data-field="description"]').value.trim();
+                
+                if (name) {
+                    noteTypesData.push({
+                        name: name,
+                        color: color,
+                        description: description
+                    });
+                }
+            });
+
+            if (noteTypesData.length === 0) {
+                displayStatus('Please add at least one note type or remove empty entries.', 'alert-warning');
+                return;
+            }
+
+            try {
+                displayStatus('Saving note types...', 'alert-info');
+                
+                const response = await fetch('/api/system_params', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        custom_note_types: JSON.stringify(noteTypesData)
+                    })
+                });
+
+                if (response.ok) {
+                    displayStatus('Note types saved successfully!', 'alert-success');
+                    
+                    // Remove unsaved styling
+                    document.querySelectorAll('.note-type-item.unsaved').forEach(item => {
+                        item.classList.remove('unsaved');
+                    });
+                } else {
+                    const errorData = await response.json();
+                    displayStatus('Failed to save note types: ' + (errorData.error || 'Unknown error'), 'alert-danger');
+                }
+            } catch (error) {
+                displayStatus('Failed to save note types: ' + error.message, 'alert-danger');
+            }
+        }
+
+        function displayStatus(message, type) {
+            const statusElement = document.getElementById('statusMessage');
+            statusElement.className = `alert ${type}`;
+            statusElement.textContent = message;
+            statusElement.classList.remove('d-none');
+            
+            if (type === 'alert-success') {
+                setTimeout(() => {
+                    statusElement.classList.add('d-none');
+                }, 3000);
+            }
+        }
+
+        // Load existing custom note types on page load
+        async function loadCustomNoteTypes() {
+            try {
+                const response = await fetch('/api/system_params');
+                const params = await response.json();
+                
+                if (params.custom_note_types) {
+                    const customTypes = JSON.parse(params.custom_note_types);
+                    customTypes.forEach(noteType => {
+                        addNoteType();
+                        const latestId = Math.max(...customNoteTypes.map(nt => nt.id));
+                        const element = document.getElementById(`noteType_${latestId}`);
+                        
+                        element.querySelector('[data-field="name"]').value = noteType.name;
+                        element.querySelector('[data-field="color"]').value = noteType.color;
+                        element.querySelector('[data-field="description"]').value = noteType.description || '';
+                        element.classList.remove('unsaved');
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading custom note types:', error);
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', loadCustomNoteTypes);
+    </script>
+</body>
+</html>

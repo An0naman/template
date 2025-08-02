@@ -17,12 +17,12 @@ def get_db():
         g.db.row_factory = sqlite3.Row
     return g.db
 
-@system_params_api_bp.route('/system_parameters', methods=['GET'])
-def api_get_system_parameters():
+@system_params_api_bp.route('/system_params', methods=['GET'])
+def api_get_system_params():
     return jsonify(get_system_parameters())
 
-@system_params_api_bp.route('/system_parameters', methods=['PATCH'])
-def api_update_system_parameters():
+@system_params_api_bp.route('/system_params', methods=['POST'])
+def api_update_system_params():
     data = request.json
     conn = get_db()
     cursor = conn.cursor()
@@ -31,7 +31,7 @@ def api_update_system_parameters():
         for param_name, param_value in data.items():
             if param_name in ['project_name', 'entry_singular_label', 'entry_plural_label', 'sensor_types', 
                              'project_logo_path', 'label_font_size', 'label_include_qr_code', 'label_include_logo',
-                             'label_qr_code_prefix']:
+                             'label_qr_code_prefix', 'allowed_file_types', 'max_file_size', 'custom_note_types']:
                 cursor.execute(
                     "UPDATE SystemParameters SET parameter_value = ? WHERE parameter_name = ?",
                     (param_value, param_name)

@@ -92,3 +92,23 @@ def manage_sensor_alarms_page():
                            entry_types=[dict(row) for row in entry_types],
                            entries=[dict(row) for row in entries],
                            sensor_types=params.get('sensor_types', 'Temperature,Humidity,Pressure').split(','))
+
+@maintenance_bp.route('/manage_note_types')
+def manage_note_types_page():
+    from ..db import get_system_parameters
+    params = get_system_parameters()
+    return render_template('manage_note_types.html',
+                           project_name=params.get('project_name'),
+                           entry_singular_label=params.get('entry_singular_label'),
+                           entry_plural_label=params.get('entry_plural_label'))
+
+@maintenance_bp.route('/manage_file_settings')
+def manage_file_settings_page():
+    from ..db import get_system_parameters
+    params = get_system_parameters()
+    return render_template('manage_file_settings.html',
+                           project_name=params.get('project_name'),
+                           entry_singular_label=params.get('entry_singular_label'),
+                           entry_plural_label=params.get('entry_plural_label'),
+                           allowed_file_types=params.get('allowed_file_types', ''),
+                           max_file_size=params.get('max_file_size', '50'))

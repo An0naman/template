@@ -237,8 +237,21 @@
                             <textarea class="form-control" id="description" rows="3"></textarea>
                         </div>
                         <div class="mb-3">
-                            <label for="noteTypes" class="form-label">Default Note Types (comma-separated):</label>
-                            <input type="text" class="form-control" id="noteTypes" value="General">
+                            <label for="noteTypes" class="form-label">Default Note Types:</label>
+                            <div id="noteTypesContainer">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <small class="text-muted">Select from available note types</small>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" id="refreshNoteTypesBtn">
+                                        <i class="fas fa-sync-alt"></i> Refresh Types
+                                    </button>
+                                </div>
+                                <div id="noteTypesCheckboxes" class="border rounded p-3" style="max-height: 200px; overflow-y: auto;">
+                                    <div class="text-center text-muted py-3">
+                                        <i class="fas fa-spinner fa-spin"></i> Loading note types...
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="noteTypes" value="General">
                         </div>
                         <div class="form-check mb-3">
                             <input class="form-check-input" type="checkbox" id="isPrimary">
@@ -276,9 +289,95 @@
             const pluralLabelInput = document.getElementById('pluralLabel');
             const descriptionInput = document.getElementById('description');
             const noteTypesInput = document.getElementById('noteTypes');
+            const noteTypesCheckboxes = document.getElementById('noteTypesCheckboxes');
+            const refreshNoteTypesBtn = document.getElementById('refreshNoteTypesBtn');
             const isPrimaryInput = document.getElementById('isPrimary');
             const showLabelsSectionInput = document.getElementById('showLabelsSection');
             const showEndDatesInput = document.getElementById('showEndDates');
+
+            let availableNoteTypes = [];
+
+            // Load available note types from system parameters
+            async function loadNoteTypes() {
+                try {
+                    noteTypesCheckboxes.innerHTML = '<div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin"></i> Loading note types...</div>';
+                    
+                    const response = await fetch('/api/system_params');
+                    const params = await response.json();
+                    
+                    // Default note types
+                    const defaultTypes = ['General', 'Info', 'Important', 'Critical', 'Warning', 'Caution', 'Success', 'Completed'];
+                    
+                    // Custom note types from system parameters
+                    let customTypes = [];
+                    if (params.custom_note_types) {
+                        const customTypesData = JSON.parse(params.custom_note_types);
+                        customTypes = customTypesData.map(type => type.name);
+                    }
+                    
+                    // Combine and deduplicate
+                    availableNoteTypes = [...new Set([...defaultTypes, ...customTypes])];
+                    
+                    renderNoteTypesCheckboxes();
+                } catch (error) {
+                    console.error('Error loading note types:', error);
+                    noteTypesCheckboxes.innerHTML = '<div class="text-danger text-center py-3"><i class="fas fa-exclamation-triangle"></i> Error loading note types</div>';
+                }
+            }
+
+            // Render note types as checkboxes
+            function renderNoteTypesCheckboxes() {
+                if (availableNoteTypes.length === 0) {
+                    noteTypesCheckboxes.innerHTML = '<div class="text-muted text-center py-3">No note types available. Create some in Notes Configuration.</div>';
+                    return;
+                }
+
+                let checkboxesHtml = '';
+                availableNoteTypes.forEach((noteType, index) => {
+                    checkboxesHtml += `
+                        <div class="form-check mb-2">
+                            <input class="form-check-input note-type-checkbox" type="checkbox" 
+                                   value="${noteType}" id="noteType_${index}">
+                            <label class="form-check-label" for="noteType_${index}">
+                                ${noteType}
+                            </label>
+                        </div>
+                    `;
+                });
+
+                noteTypesCheckboxes.innerHTML = checkboxesHtml;
+                
+                // Add event listeners to update hidden input
+                document.querySelectorAll('.note-type-checkbox').forEach(checkbox => {
+                    checkbox.addEventListener('change', updateNoteTypesHiddenInput);
+                });
+            }
+
+            // Update the hidden input with selected note types
+            function updateNoteTypesHiddenInput() {
+                const selectedTypes = [];
+                document.querySelectorAll('.note-type-checkbox:checked').forEach(checkbox => {
+                    selectedTypes.push(checkbox.value);
+                });
+                noteTypesInput.value = selectedTypes.join(', ');
+            }
+
+            // Set selected note types from comma-separated string
+            function setSelectedNoteTypes(noteTypesString) {
+                const selectedTypes = noteTypesString ? noteTypesString.split(',').map(type => type.trim()) : [];
+                
+                document.querySelectorAll('.note-type-checkbox').forEach(checkbox => {
+                    checkbox.checked = selectedTypes.includes(checkbox.value);
+                });
+                
+                updateNoteTypesHiddenInput();
+            }
+
+            // Refresh note types button
+            refreshNoteTypesBtn.addEventListener('click', loadNoteTypes);
+
+            // Load note types on page load
+            loadNoteTypes();
 
             // Show Add Modal
             document.getElementById('showAddEntryTypeModalBtn').addEventListener('click', function() {
@@ -287,6 +386,12 @@
                 entryTypeForm.reset();
                 nameInput.readOnly = false; // Name is editable for new entries
                 document.getElementById('entryTypeModalLabel').textContent = 'Add New Entry Type';
+                
+                // Set default note type selection (General)
+                setTimeout(() => {
+                    setSelectedNoteTypes('General');
+                }, 100);
+                
                 entryTypeModal.show();
             });
 
@@ -299,11 +404,16 @@
                     singularLabelInput.value = this.dataset.singular;
                     pluralLabelInput.value = this.dataset.plural;
                     descriptionInput.value = this.dataset.description;
-                    noteTypesInput.value = this.dataset.noteTypes;
                     isPrimaryInput.checked = (this.dataset.isPrimary === '1');
                     showLabelsSectionInput.checked = (this.dataset.showLabelsSection === '1');
                     showEndDatesInput.checked = (this.dataset.showEndDates === '1');
                     nameInput.readOnly = true; // Name is not editable for existing entries
+                    
+                    // Set note types selection
+                    setTimeout(() => {
+                        setSelectedNoteTypes(this.dataset.noteTypes);
+                    }, 100);
+                    
                     entryTypeModal.show();
                 });
             });
