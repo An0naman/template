@@ -75,23 +75,17 @@
         }
 
         /* Sensor Section - Green */
-        
-        /* Sensor Section - Green */
         .sensor-section .setting-card::before {
             background: linear-gradient(135deg, #198754, #20c997);
         }
         .sensor-section .setting-card:hover {
-            background: #ffffff;
+            background: white;
             border-color: #198754;
             transform: translateY(-2px);
             box-shadow: 0 4px 20px rgba(25, 135, 84, 0.15);
-            text-decoration: none;
-            color: inherit;
         }
         .sensor-section .setting-card:hover::before {
-            width: 100%;
-            background: linear-gradient(135deg, #198754, #20c997);
-            opacity: 0.05;
+            width: 8px;
         }
         
         /* System Section - Purple */
@@ -99,17 +93,13 @@
             background: linear-gradient(135deg, #6f42c1, #d63384);
         }
         .system-section .setting-card:hover {
-            background: #ffffff;
+            background: white;
             border-color: #6f42c1;
             transform: translateY(-2px);
             box-shadow: 0 4px 20px rgba(111, 66, 193, 0.15);
-            text-decoration: none;
-            color: inherit;
         }
         .system-section .setting-card:hover::before {
-            width: 100%;
-            background: linear-gradient(135deg, #6f42c1, #d63384);
-            opacity: 0.05;
+            width: 8px;
         }
         
         .setting-icon {
@@ -285,6 +275,14 @@
                     </div>
                     <div class="setting-title">System Parameters</div>
                     <p class="setting-description">Configure global application settings, labels, and system-wide preferences.</p>
+                </a>
+
+                <a href="{{ url_for('maintenance.manage_theme_settings_page') }}" class="setting-card">
+                    <div class="setting-icon bg-purple">
+                        <i class="fas fa-palette"></i>
+                    </div>
+                    <div class="setting-title">System Theme</div>
+                    <p class="setting-description">Configure application theme, dark mode, and visual appearance for the main interface.</p>
                 </a>
             </div>
         </div>

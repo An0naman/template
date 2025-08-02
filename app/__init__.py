@@ -69,6 +69,7 @@ def create_app():
     from .api.notifications_api import notifications_api_bp
     from .api.labels_api import labels_api_bp
     from .api.cron_api import cron_api_bp
+    from .api.theme_api import theme_api
 
     app.register_blueprint(main_bp)
     app.register_blueprint(maintenance_bp)
@@ -81,8 +82,31 @@ def create_app():
     app.register_blueprint(notifications_api_bp, url_prefix='/api')
     app.register_blueprint(labels_api_bp, url_prefix='/api')
     app.register_blueprint(cron_api_bp, url_prefix='/api')
+    app.register_blueprint(theme_api, url_prefix='/api')
 
     app.logger.info("Blueprints registered.")
+
+    # Add theme context processor
+    @app.context_processor
+    def inject_theme():
+        try:
+            from .api.theme_api import get_current_theme_settings, generate_theme_css
+            theme_settings = get_current_theme_settings()
+            theme_css = generate_theme_css(theme_settings)
+            return {
+                'theme_css': theme_css,
+                'theme_settings': theme_settings
+            }
+        except Exception as e:
+            app.logger.error(f"Error injecting theme context: {e}")
+            return {
+                'theme_css': '',
+                'theme_settings': {
+                    'primary_color': '#0d6efd',
+                    'accent_color': '#6c757d',
+                    'theme_mode': 'light'
+                }
+            }
 
     # Initialize and start the task scheduler
     from .scheduler import scheduler

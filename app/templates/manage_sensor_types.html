@@ -104,8 +104,8 @@
                 <h1 class="mb-0">{{ project_name }} Sensor Types</h1>
             </div>
             <div class="header-actions d-flex align-items-center">
-                <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary">
-                    <i class="fas fa-arrow-left me-2"></i>Back
+                                <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Settings
                 </a>
             </div>
         </div>
@@ -185,7 +185,7 @@
         // Load current sensor types
         async function loadSensorTypes() {
             try {
-                const response = await fetch('/api/system_parameters');
+                const response = await fetch('/api/system_params');
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -255,7 +255,7 @@
         // Save sensor types to database
         async function saveSensorTypes() {
             try {
-                const response = await fetch('/api/system_parameters', {
+                const response = await fetch('/api/system_params', {
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',

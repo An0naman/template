@@ -112,3 +112,17 @@ def manage_file_settings_page():
                            entry_plural_label=params.get('entry_plural_label'),
                            allowed_file_types=params.get('allowed_file_types', ''),
                            max_file_size=params.get('max_file_size', '50'))
+
+@maintenance_bp.route('/manage_theme_settings')
+def manage_theme_settings_page():
+    from ..db import get_system_parameters
+    from ..api.theme_api import get_current_theme_settings
+    
+    params = get_system_parameters()
+    theme_settings = get_current_theme_settings()
+    
+    return render_template('manage_theme_settings.html',
+                           project_name=params.get('project_name'),
+                           entry_singular_label=params.get('entry_singular_label'),
+                           entry_plural_label=params.get('entry_plural_label'),
+                           **theme_settings)

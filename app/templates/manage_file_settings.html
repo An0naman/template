@@ -18,6 +18,33 @@
             box-shadow: 0 2px 12px rgba(0,0,0,0.08);
             margin-bottom: 30px;
         }
+        .content-section {
+            position: relative;
+            overflow: hidden;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .content-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(135deg, #fd7e14, #e5550e);
+        }
+        .btn-orange {
+            background: linear-gradient(135deg, #fd7e14, #e5550e);
+            border: none;
+            color: white;
+        }
+        .btn-orange:hover {
+            background: linear-gradient(135deg, #e5550e, #cc4500);
+            color: white;
+        }
         .file-type-tag {
             display: inline-block;
             background: #e9ecef;
@@ -73,31 +100,20 @@
         }
         .current-size {
             font-weight: bold;
-            color: #0d6efd;
+            color: #fd7e14;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}">Home</a></li>
-                <li class="breadcrumb-item"><a href="{{ url_for('maintenance.maintenance_module_page') }}">Maintenance</a></li>
-                <li class="breadcrumb-item active" aria-current="page">File Upload Settings</li>
-            </ol>
-        </nav>
-
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <h2 class="mb-0">
-                    <i class="fas fa-file-upload me-2" style="color: #fd7e14;"></i>
-                    File Upload Settings
-                </h2>
+                <h1 class="mb-0">File Upload Settings</h1>
                 <p class="text-muted mb-0">Configure allowed file types and upload restrictions</p>
             </div>
             <div>
-                <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary">
-                    <i class="fas fa-arrow-left me-2"></i>Back
+                                <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Settings
                 </a>
             </div>
         </div>
@@ -106,132 +122,117 @@
         <div id="statusMessage" class="alert d-none" role="alert"></div>
 
         <!-- File Size Settings -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-weight-hanging text-warning me-2"></i>
-                    File Size Limits
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <label for="maxFileSize" class="form-label">Maximum File Size per Upload</label>
-                        <div class="input-group">
-                            <input type="number" class="form-control" id="maxFileSize" value="{{ max_file_size or '50' }}" min="1" max="100">
-                            <span class="input-group-text">MB</span>
-                        </div>
-                        <div class="form-text">Current limit: <span class="current-size">{{ max_file_size or '50' }} MB</span></div>
+        <div class="content-section">
+            <h5 class="mb-3" style="color: #fd7e14;">
+                <i class="fas fa-weight-hanging me-2"></i>File Size Limits
+            </h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <label for="maxFileSize" class="form-label">Maximum File Size per Upload</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" id="maxFileSize" value="{{ max_file_size or '50' }}" min="1" max="100">
+                        <span class="input-group-text">MB</span>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Quick Size Presets</label>
-                        <div>
-                            <button type="button" class="btn btn-outline-secondary btn-sm preset-button" onclick="setFileSize(10)">10 MB</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm preset-button" onclick="setFileSize(25)">25 MB</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm preset-button" onclick="setFileSize(50)">50 MB</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm preset-button" onclick="setFileSize(100)">100 MB</button>
-                        </div>
-                        <div class="form-text text-info mt-2">
-                            <i class="fas fa-info-circle me-1"></i>
-                            Larger files take longer to upload and use more server storage
-                        </div>
+                    <div class="form-text">Current limit: <span class="current-size">{{ max_file_size or '50' }} MB</span></div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Quick Size Presets</label>
+                    <div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm preset-button" onclick="setFileSize(10)">10 MB</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm preset-button" onclick="setFileSize(25)">25 MB</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm preset-button" onclick="setFileSize(50)">50 MB</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm preset-button" onclick="setFileSize(100)">100 MB</button>
+                    </div>
+                    <div class="form-text mt-2" style="color: #fd7e14;">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Larger files take longer to upload and use more server storage
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Allowed File Types -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-file-alt text-primary me-2"></i>
-                    Allowed File Types
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-8">
-                        <label for="allowedFileTypes" class="form-label">File Extensions (comma-separated)</label>
-                        <textarea class="form-control" id="allowedFileTypes" rows="4" placeholder="jpg,png,pdf,docx,txt,mp4">{{ allowed_file_types or 'jpg,jpeg,png,gif,webp,svg,pdf,doc,docx,txt,zip,rar,7z,mp4,avi,mov,mkv,mp3,wav,flac' }}</textarea>
-                        <div class="form-text">Enter file extensions without dots, separated by commas</div>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Quick Add Presets</label>
-                        <div class="d-grid gap-2">
-                            <button type="button" class="btn btn-outline-success btn-sm" onclick="addFileTypes('jpg,jpeg,png,gif,webp,svg')">
-                                <i class="fas fa-image me-1"></i>Common Images
-                            </button>
-                            <button type="button" class="btn btn-outline-info btn-sm" onclick="addFileTypes('pdf,doc,docx,txt,rtf,odt')">
-                                <i class="fas fa-file-alt me-1"></i>Documents
-                            </button>
-                            <button type="button" class="btn btn-outline-warning btn-sm" onclick="addFileTypes('zip,rar,7z,tar,gz')">
-                                <i class="fas fa-file-archive me-1"></i>Archives
-                            </button>
-                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="addFileTypes('mp4,avi,mov,mkv,wmv')">
-                                <i class="fas fa-video me-1"></i>Videos
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addFileTypes('mp3,wav,flac,aac,ogg')">
-                                <i class="fas fa-music me-1"></i>Audio
-                            </button>
-                        </div>
+        <div class="content-section">
+            <h5 class="mb-3" style="color: #fd7e14;">
+                <i class="fas fa-file-alt me-2"></i>Allowed File Types
+            </h5>
+            <div class="row">
+                <div class="col-md-8">
+                    <label for="allowedFileTypes" class="form-label">File Extensions (comma-separated)</label>
+                    <textarea class="form-control" id="allowedFileTypes" rows="4" placeholder="jpg,png,pdf,docx,txt,mp4">{{ allowed_file_types or 'jpg,jpeg,png,gif,webp,svg,pdf,doc,docx,txt,zip,rar,7z,mp4,avi,mov,mkv,mp3,wav,flac' }}</textarea>
+                    <div class="form-text">Enter file extensions without dots, separated by commas</div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Quick Add Presets</label>
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-outline-success btn-sm" onclick="addFileTypes('jpg,jpeg,png,gif,webp,svg')">
+                            <i class="fas fa-image me-1"></i>Common Images
+                        </button>
+                        <button type="button" class="btn btn-outline-info btn-sm" onclick="addFileTypes('pdf,doc,docx,txt,rtf,odt')">
+                            <i class="fas fa-file-alt me-1"></i>Documents
+                        </button>
+                        <button type="button" class="btn btn-outline-warning btn-sm" onclick="addFileTypes('zip,rar,7z,tar,gz')">
+                            <i class="fas fa-file-archive me-1"></i>Archives
+                        </button>
+                        <button type="button" class="btn btn-outline-danger btn-sm" onclick="addFileTypes('mp4,avi,mov,mkv,wmv')">
+                            <i class="fas fa-video me-1"></i>Videos
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addFileTypes('mp3,wav,flac,aac,ogg')">
+                            <i class="fas fa-music me-1"></i>Audio
+                        </button>
                     </div>
                 </div>
-                
-                <!-- File Type Preview -->
-                <div class="mt-3">
-                    <label class="form-label">Current Allowed Types:</label>
-                    <div id="fileTypePreview" class="border rounded p-3 bg-light">
-                        <!-- Populated by JavaScript -->
-                    </div>
+            </div>
+            
+            <!-- File Type Preview -->
+            <div class="mt-3">
+                <label class="form-label">Current Allowed Types:</label>
+                <div id="fileTypePreview" class="border rounded p-3 bg-light">
+                    <!-- Populated by JavaScript -->
                 </div>
             </div>
         </div>
 
         <!-- Security Settings -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-shield-alt text-danger me-2"></i>
-                    Security Guidelines
-                </h5>
+        <div class="content-section">
+            <h5 class="mb-3" style="color: #fd7e14;">
+                <i class="fas fa-shield-alt me-2"></i>Security Guidelines
+            </h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="text-orange">
+                        <i class="fas fa-check-circle me-1"></i>
+                        Recommended Safe Types:
+                    </h6>
+                    <ul class="list-unstyled">
+                        <li><strong>Images:</strong> jpg, jpeg, png, gif, webp, svg</li>
+                        <li><strong>Documents:</strong> pdf, txt, docx, xlsx, pptx</li>
+                        <li><strong>Archives:</strong> zip, rar, 7z</li>
+                        <li><strong>Media:</strong> mp4, mp3, wav</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6 class="text-danger">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        Potentially Risky Types:
+                    </h6>
+                    <ul class="list-unstyled">
+                        <li><strong>Executables:</strong> exe, bat, sh, cmd</li>
+                        <li><strong>Scripts:</strong> js, php, py, pl</li>
+                        <li><strong>System:</strong> dll, sys, com</li>
+                        <li><strong>Web:</strong> html, htm (can contain scripts)</li>
+                    </ul>
+                </div>
             </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6 class="text-success">
-                            <i class="fas fa-check-circle me-1"></i>
-                            Recommended Safe Types:
-                        </h6>
-                        <ul class="list-unstyled">
-                            <li><strong>Images:</strong> jpg, jpeg, png, gif, webp, svg</li>
-                            <li><strong>Documents:</strong> pdf, txt, docx, xlsx, pptx</li>
-                            <li><strong>Archives:</strong> zip, rar, 7z</li>
-                            <li><strong>Media:</strong> mp4, mp3, wav</li>
-                        </ul>
-                    </div>
-                    <div class="col-md-6">
-                        <h6 class="text-danger">
-                            <i class="fas fa-exclamation-triangle me-1"></i>
-                            Potentially Risky Types:
-                        </h6>
-                        <ul class="list-unstyled">
-                            <li><strong>Executables:</strong> exe, bat, sh, cmd</li>
-                            <li><strong>Scripts:</strong> js, php, py, pl</li>
-                            <li><strong>System:</strong> dll, sys, com</li>
-                            <li><strong>Web:</strong> html, htm (can contain scripts)</li>
-                        </ul>
-                    </div>
-                </div>
-                <div class="alert alert-warning mt-3">
-                    <i class="fas fa-info-circle me-2"></i>
-                    <strong>Security Note:</strong> Only allow file types you trust. Executable files and scripts can pose security risks.
-                </div>
+            <div class="alert alert-warning mt-3">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Security Note:</strong> Only allow file types you trust. Executable files and scripts can pose security risks.
             </div>
         </div>
 
         <!-- Save Button -->
         <div class="text-end">
-            <button type="button" class="btn btn-success btn-lg" onclick="saveFileSettings()">
+            <button type="button" class="btn btn-orange btn-lg" onclick="saveFileSettings()">
                 <i class="fas fa-save me-2"></i>Save File Settings
             </button>
         </div>
@@ -291,7 +292,7 @@
                     cssClass += ' common';
                 }
                 
-                html += `<span class="${cssClass}">${type}<span class="remove-tag" onclick="removeFileType('${type}')" title="Remove">&times;</span></span>`;
+                html += '<span class="' + cssClass + '">' + type + '<span class="remove-tag" onclick="removeFileType(\'' + type + '\')" title="Remove">&times;</span></span>';
             });
             
             preview.innerHTML = html;

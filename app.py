@@ -36,8 +36,10 @@ app.logger.setLevel(logging.INFO) # Set default level for Flask's logger (e.g., 
 # --- Register API Blueprints ---
 from app.api.notifications_api import notifications_api_bp
 from app.api.system_params_api import system_params_api_bp
+from app.api.theme_api import theme_api
 app.register_blueprint(notifications_api_bp, url_prefix='/api')
 app.register_blueprint(system_params_api_bp, url_prefix='/api')
+app.register_blueprint(theme_api, url_prefix='/api')
 
 
 # --- Database Connection Management ---
@@ -90,6 +92,30 @@ def get_system_parameters():
                 conn.rollback() # Rollback if insert fails
 
     return params
+
+# --- Theme Context Processor ---
+@app.context_processor
+def inject_theme():
+    """Inject theme CSS and settings into all templates"""
+    try:
+        from app.api.theme_api import get_current_theme_settings, generate_theme_css
+        theme_settings = get_current_theme_settings()
+        theme_css = generate_theme_css(theme_settings)
+        return {
+            'theme_css': theme_css,
+            'theme_settings': theme_settings
+        }
+    except Exception as e:
+        app.logger.error(f"Error injecting theme context: {e}")
+        return {
+            'theme_css': '',
+            'theme_settings': {
+                'current_theme': 'default',
+                'dark_mode_enabled': False,
+                'font_size': 'normal',
+                'high_contrast_enabled': False
+            }
+        }
 
 def _serialize_entry(entry):
     """Helper to serialize entry rows into dictionaries."""
@@ -236,6 +262,84 @@ def manage_relationships_page():
     return render_template('relationship_definitions.html', # This is the new template name
                            project_name=params.get('project_name'),
                            entry_types=[dict(row) for row in entry_types],
+                           entry_singular_label=params.get('entry_singular_label'),
+                           entry_plural_label=params.get('entry_plural_label'))
+
+@app.route('/manage_theme_settings')
+def manage_theme_settings_page():
+    from app.api.theme_api import get_current_theme_settings
+    
+    params = get_system_parameters()
+    theme_settings = get_current_theme_settings()
+    
+    return render_template('manage_theme_settings.html',
+                           project_name=params.get('project_name'),
+                           entry_singular_label=params.get('entry_singular_label'),
+                           entry_plural_label=params.get('entry_plural_label'),
+                           **theme_settings)
+
+@app.route('/manage_note_types')
+def manage_note_types_page():
+    params = get_system_parameters()
+    return render_template('manage_note_types.html',
+                           project_name=params.get('project_name'),
+                           entry_singular_label=params.get('entry_singular_label'),
+                           entry_plural_label=params.get('entry_plural_label'))
+
+@app.route('/manage_file_settings')
+def manage_file_settings_page():
+    params = get_system_parameters()
+    return render_template('manage_file_settings.html',
+                           project_name=params.get('project_name'),
+                           entry_singular_label=params.get('entry_singular_label'),
+                           entry_plural_label=params.get('entry_plural_label'),
+                           allowed_file_types=params.get('allowed_file_types', ''),
+                           max_file_size=params.get('max_file_size', '50'))
+
+@app.route('/manage_sensors')
+def manage_sensors_page():
+    params = get_system_parameters()
+    return render_template('manage_sensors.html',
+                           project_name=params.get('project_name'),
+                           entry_singular_label=params.get('entry_singular_label'),
+                           entry_plural_label=params.get('entry_plural_label'))
+
+@app.route('/manage_sensor_types')
+def manage_sensor_types_page():
+    params = get_system_parameters()
+    return render_template('manage_sensor_types.html',
+                           project_name=params.get('project_name'),
+                           entry_singular_label=params.get('entry_singular_label'),
+                           entry_plural_label=params.get('entry_plural_label'),
+                           sensor_types=params.get('sensor_types', 'Temperature,Humidity,Pressure'))
+
+@app.route('/manage_sensor_alarms')
+def manage_sensor_alarms_page():
+    params = get_system_parameters()
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Get entry types for dropdown
+    cursor.execute("SELECT id, singular_label FROM EntryType ORDER BY singular_label")
+    entry_types = cursor.fetchall()
+    
+    # Get all entries for dropdown
+    cursor.execute("SELECT id, title FROM Entry ORDER BY title")
+    entries = cursor.fetchall()
+    
+    return render_template('manage_sensor_alarms.html',
+                           project_name=params.get('project_name'),
+                           entry_singular_label=params.get('entry_singular_label'),
+                           entry_plural_label=params.get('entry_plural_label'),
+                           entry_types=[dict(row) for row in entry_types],
+                           entries=[dict(row) for row in entries],
+                           sensor_types=params.get('sensor_types', 'Temperature,Humidity,Pressure').split(','))
+
+@app.route('/settings')
+def settings():
+    params = get_system_parameters()
+    return render_template('settings.html',
+                           project_name=params.get('project_name'),
                            entry_singular_label=params.get('entry_singular_label'),
                            entry_plural_label=params.get('entry_plural_label'))
 
@@ -1034,4 +1138,4 @@ if __name__ == '__main__':
     # In a production or Docker setup, a separate entrypoint (like run.py) typically handles this.
     with app.app_context():
         init_db() # Call init_db to set up the database
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    app.run(debug=True, host='0.0.0.0', port=5002)

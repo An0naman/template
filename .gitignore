@@ -57,9 +57,3 @@ instance/
 # Environment variables
 .env
 .flaskenv
-
-# Test files
-test_*.py
-
-# Uploads directory (contains user-uploaded files)
-app/static/uploads/

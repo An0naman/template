@@ -52,6 +52,12 @@
             background: linear-gradient(135deg, #0a58ca, #5a359a);
             color: white;
         }
+        .bg-blue {
+            background-color: #0d6efd !important;
+        }
+        .text-blue {
+            color: #0d6efd !important;
+        }
         .table-container {
             background: white;
             border-radius: 8px;
@@ -112,8 +118,8 @@
                 <h1 class="mb-0">{{ project_name }} {{ entry_plural_label }} Types</h1>
             </div>
             <div class="header-actions d-flex align-items-center">
-                <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary">
-                    <i class="fas fa-arrow-left me-2"></i>Back
+                                <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Settings
                 </a>
                 <button id="showAddEntryTypeModalBtn" class="btn btn-blue btn-spacing">
                     <i class="fas fa-plus me-1"></i>Add Type
@@ -161,14 +167,14 @@
                                     </td>
                                     <td class="text-center">
                                         {% if type.show_labels_section %}
-                                            <i class="fas fa-check-circle status-icon text-success" title="Shows Labels Section"></i>
+                                            <i class="fas fa-check-circle status-icon text-blue" title="Shows Labels Section"></i>
                                         {% else %}
                                             <i class="fas fa-times-circle status-icon text-muted" title="No Labels Section"></i>
                                         {% endif %}
                                     </td>
                                     <td class="text-center">
                                         {% if type.show_end_dates %}
-                                            <i class="fas fa-check-circle status-icon text-success" title="Shows End Date Fields"></i>
+                                            <i class="fas fa-check-circle status-icon text-blue" title="Shows End Date Fields"></i>
                                         {% else %}
                                             <i class="fas fa-times-circle status-icon text-muted" title="No End Date Fields"></i>
                                         {% endif %}

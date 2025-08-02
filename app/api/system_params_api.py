@@ -21,7 +21,7 @@ def get_db():
 def api_get_system_params():
     return jsonify(get_system_parameters())
 
-@system_params_api_bp.route('/system_params', methods=['POST'])
+@system_params_api_bp.route('/system_params', methods=['POST', 'PATCH'])
 def api_update_system_params():
     data = request.json
     conn = get_db()
