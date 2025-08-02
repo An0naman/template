@@ -178,6 +178,56 @@
                 justify-content: center;
             }
         }
+
+        /* Label Grid Styles */
+        .label-grid-container {
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 10px;
+            background: #f8f9fa;
+            max-width: 200px;
+        }
+
+        .label-row {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 5px;
+        }
+
+        .label-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .label-position {
+            width: 80px;
+            height: 40px;
+            border: 2px solid #dee2e6;
+            border-radius: 4px;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            font-size: 12px;
+        }
+
+        .label-position:hover {
+            border-color: #007bff;
+            background: #e3f2fd;
+            transform: translateY(-1px);
+        }
+
+        .label-position.selected {
+            background: #007bff;
+            color: white;
+            border-color: #0056b3;
+        }
+
+        .label-position.selected:hover {
+            background: #0056b3;
+        }
     </style>
 </head>
 <body>
@@ -265,15 +315,21 @@
                             <div class="mb-3">
                                 <label for="labelTypeSelect" class="form-label">Label Sheet Type</label>
                                 <select class="form-select" id="labelTypeSelect">
-                                    <option value="8_labels">8 Labels (2x4)</option>
-                                    <option value="14_labels">14 Labels (2x7)</option>
+                                    <option value="8_labels">8 Labels (2x4) - Larger</option>
+                                    <option value="14_labels">14 Labels (2x7) - Smaller</option>
                                 </select>
                             </div>
                             <div class="mb-3">
-                                <label for="labelPositionSelect" class="form-label">Label Position</label>
-                                <select class="form-select" id="labelPositionSelect">
-                                    <!-- Options will be populated dynamically -->
+                                <label for="labelRotationSelect" class="form-label">Label Orientation</label>
+                                <select class="form-select" id="labelRotationSelect">
+                                    <option value="0">Normal (0°)</option>
+                                    <option value="90">Rotated (90°)</option>
                                 </select>
+                            </div>
+                            <div class="mb-3">
+                                <div id="labelPositionContainer">
+                                    <!-- Position grid will be populated dynamically -->
+                                </div>
                             </div>
                             <div class="d-flex flex-wrap gap-2 mb-3">
                                 <button type="button" class="btn btn-outline-primary" id="previewLabelBtn">

@@ -151,6 +151,11 @@
                                 </div>
                             </div>
                             <div class="mb-3">
+                                <label for="labelQrPrefix" class="form-label">QR Code Prefix (URL/Text):</label>
+                                <input type="text" class="form-control" id="labelQrPrefix" value="{{ params.label_qr_code_prefix or 'https://example.com' }}" placeholder="https://example.com">
+                                <div class="form-text">This prefix will be combined with "/entry/ID" for QR codes</div>
+                            </div>
+                            <div class="mb-3">
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="labelIncludeLogo" {{ 'checked' if params.label_include_logo == 'true' else '' }}>
                                     <label class="form-check-label" for="labelIncludeLogo">
@@ -342,6 +347,7 @@
             const formData = {
                 label_font_size: document.getElementById('labelFontSize').value,
                 label_include_qr_code: document.getElementById('labelIncludeQr').checked ? 'true' : 'false',
+                label_qr_code_prefix: document.getElementById('labelQrPrefix').value,
                 label_include_logo: document.getElementById('labelIncludeLogo').checked ? 'true' : 'false'
             };
             

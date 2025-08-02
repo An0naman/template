@@ -30,7 +30,8 @@ def api_update_system_parameters():
     try:
         for param_name, param_value in data.items():
             if param_name in ['project_name', 'entry_singular_label', 'entry_plural_label', 'sensor_types', 
-                             'project_logo_path', 'label_font_size', 'label_include_qr_code', 'label_include_logo']:
+                             'project_logo_path', 'label_font_size', 'label_include_qr_code', 'label_include_logo',
+                             'label_qr_code_prefix']:
                 cursor.execute(
                     "UPDATE SystemParameters SET parameter_value = ? WHERE parameter_name = ?",
                     (param_value, param_name)

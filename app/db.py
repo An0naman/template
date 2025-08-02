@@ -219,6 +219,7 @@ def init_db():
             'label_font_size': '10',
             'label_include_qr_code': 'true',
             'label_include_logo': 'true',
+            'label_qr_code_prefix': 'https://example.com',
             
             # Notification settings
             'overdue_check_enabled': 'true',

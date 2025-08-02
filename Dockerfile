@@ -3,6 +3,12 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Install system packages including fonts for label generation
+RUN apt-get update && apt-get install -y \
+    fonts-dejavu-core \
+    fonts-dejavu-extra \
+    && rm -rf /var/lib/apt/lists/*
+
 # Ensure the data directory exists for the volume mount (if needed)
 # This is where your template.db will reside on the host, mapped into the container
 RUN mkdir -p /app/data
