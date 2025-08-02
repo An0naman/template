@@ -169,19 +169,18 @@ def get_current_theme_settings():
 
 
 def generate_theme_css(settings=None):
-    """Generate CSS variables based on theme settings"""
+    """Generate clean CSS variables based on theme settings"""
     if settings is None:
         settings = get_current_theme_settings()
     
     theme = settings.get('current_theme', 'default')
     dark_mode = settings.get('dark_mode_enabled', False)
-    font_size = settings.get('font_size', 'normal')
-    high_contrast = settings.get('high_contrast_enabled', False)
     
-    # Color schemes
+    # Define color schemes
     color_schemes = {
         'default': {
             'primary': '#0d6efd',
+            'primary_hover': '#0b5ed7',
             'secondary': '#6c757d',
             'success': '#198754',
             'danger': '#dc3545',
@@ -190,6 +189,7 @@ def generate_theme_css(settings=None):
         },
         'emerald': {
             'primary': '#10b981',
+            'primary_hover': '#059669',
             'secondary': '#6b7280',
             'success': '#059669',
             'danger': '#ef4444',
@@ -198,6 +198,7 @@ def generate_theme_css(settings=None):
         },
         'purple': {
             'primary': '#8b5cf6',
+            'primary_hover': '#7c3aed',
             'secondary': '#6b7280',
             'success': '#10b981',
             'danger': '#ef4444',
@@ -206,79 +207,121 @@ def generate_theme_css(settings=None):
         },
         'amber': {
             'primary': '#f59e0b',
+            'primary_hover': '#d97706',
             'secondary': '#6b7280',
             'success': '#10b981',
             'danger': '#ef4444',
-            'warning': '#d97706',
+            'warning': '#f97316',
             'info': '#06b6d4'
         }
     }
     
-    # Font sizes
-    font_sizes = {
-        'small': '14px',
-        'normal': '16px',
-        'large': '18px',
-        'extra-large': '20px'
-    }
-    
-    # Background colors for dark mode
-    bg_colors = {
-        'body': '#ffffff' if not dark_mode else '#121212',
-        'surface': '#f8f9fa' if not dark_mode else '#1e1e1e',
-        'card': '#ffffff' if not dark_mode else '#2d2d2d',
-        'text': '#212529' if not dark_mode else '#ffffff',
-        'text-muted': '#6c757d' if not dark_mode else '#b0b0b0'
-    }
-    
+    # Get colors for selected theme
     colors = color_schemes.get(theme, color_schemes['default'])
-    base_font_size = font_sizes.get(font_size, font_sizes['normal'])
     
+    # Base CSS with theme variables
     css = f"""
-    :root {{
-        --bs-primary: {colors['primary']};
-        --bs-secondary: {colors['secondary']};
-        --bs-success: {colors['success']};
-        --bs-danger: {colors['danger']};
-        --bs-warning: {colors['warning']};
-        --bs-info: {colors['info']};
-        
-        --theme-bg-body: {bg_colors['body']};
-        --theme-bg-surface: {bg_colors['surface']};
-        --theme-bg-card: {bg_colors['card']};
-        --theme-text: {bg_colors['text']};
-        --theme-text-muted: {bg_colors['text-muted']};
-        
-        --theme-font-size: {base_font_size};
-        
-        {'--theme-contrast: 1.5;' if high_contrast else '--theme-contrast: 1;'}
-    }}
-    
-    body {{
-        background-color: var(--theme-bg-body) !important;
-        color: var(--theme-text) !important;
-        font-size: var(--theme-font-size) !important;
-        filter: contrast(var(--theme-contrast));
-    }}
-    
-    .card, .bg-white {{
-        background-color: var(--theme-bg-card) !important;
-        color: var(--theme-text) !important;
-    }}
-    
-    .bg-light {{
-        background-color: var(--theme-bg-surface) !important;
-    }}
-    
-    .text-muted {{
-        color: var(--theme-text-muted) !important;
-    }}
-    
-    /* Maintain maintenance module colors */
-    .maintenance-module,
-    .maintenance-module * {{
-        filter: none !important;
-    }}
+        :root {{
+            /* Theme Colors */
+            --theme-primary: {colors['primary']};
+            --theme-primary-hover: {colors['primary_hover']};
+            --theme-secondary: {colors['secondary']};
+            --theme-success: {colors['success']};
+            --theme-danger: {colors['danger']};
+            --theme-warning: {colors['warning']};
+            --theme-info: {colors['info']};
+            
+            /* Primary text color for buttons */
+            --theme-primary-text: white;
     """
+    
+    # Add dark mode or light mode specific variables
+    if dark_mode:
+        # Calculate theme-appropriate dark mode info colors based on selected theme
+        if theme == 'emerald':
+            info_bg = "#0a2f23"
+            info_border = "#059669" 
+            info_text = "#6ee7b7"
+        elif theme == 'purple':
+            info_bg = "#2d1b3d"
+            info_border = "#7c3aed"
+            info_text = "#c4b5fd"
+        elif theme == 'amber':
+            info_bg = "#3d2f1a"
+            info_border = "#d97706"
+            info_text = "#fbbf24"
+        else:  # default
+            info_bg = "#0c2d48"
+            info_border = "#1f6feb"
+            info_text = "#79c0ff"
+            
+        css += f"""
+            /* Dark Mode Colors */
+            --theme-bg-body: #0d1117;
+            --theme-bg-card: #161b22;
+            --theme-bg-surface: #21262d;
+            --theme-text: #f0f6fc;
+            --theme-text-muted: #8b949e;
+            --theme-border: #30363d;
+            --theme-bg-info: {info_bg};
+            --theme-border-info: {info_border};
+            --theme-text-info: {info_text};
+            
+            /* Bootstrap CSS Variable Overrides */
+            --bs-info: {colors['info']};
+            --bs-info-rgb: 6, 182, 212;
+            --bs-info-bg-subtle: {info_bg};
+            --bs-info-border-subtle: {info_border};
+            --bs-info-text-emphasis: {info_text};
+        }}
+        
+        /* Set dark mode for Bootstrap */
+        html {{
+            color-scheme: dark;
+        }}
+        
+        [data-bs-theme="dark"] {{
+            color-scheme: dark;
+        }}
+        """
+    else:
+        # Calculate theme-appropriate light mode info colors based on selected theme
+        if theme == 'emerald':
+            info_bg = "#d1fae5"
+            info_border = "#a7f3d0"
+            info_text = "#064e3b"
+        elif theme == 'purple':
+            info_bg = "#ede9fe"
+            info_border = "#c4b5fd"
+            info_text = "#581c87"
+        elif theme == 'amber':
+            info_bg = "#fef3c7"
+            info_border = "#fde68a"
+            info_text = "#92400e"
+        else:  # default
+            info_bg = "#cff4fc"
+            info_border = "#b6effb"
+            info_text = "#055160"
+            
+        css += f"""
+            /* Light Mode Colors */
+            --theme-bg-body: #ffffff;
+            --theme-bg-card: #ffffff;
+            --theme-bg-surface: #f8f9fa;
+            --theme-text: #212529;
+            --theme-text-muted: #6c757d;
+            --theme-border: #dee2e6;
+            --theme-bg-info: {info_bg};
+            --theme-border-info: {info_border};
+            --theme-text-info: {info_text};
+            
+            /* Bootstrap CSS Variable Overrides */
+            --bs-info: {colors['info']};
+            --bs-info-rgb: 6, 182, 212;
+            --bs-info-bg-subtle: {info_bg};
+            --bs-info-border-subtle: {info_border};
+            --bs-info-text-emphasis: {info_text};
+        }}
+        """
     
     return css

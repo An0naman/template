@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="{{ 'dark' if theme_settings.dark_mode_enabled else 'light' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,82 +10,328 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     
-    <!-- Theme CSS -->
-    <style>
+    <!-- Dynamic Theme CSS -->
+    <style id="theme-styles">
         {{ theme_css|safe }}
     </style>
     
+    <!-- Clean Base Styles -->
     <style>
+        :root {
+            --content-spacing: 1.5rem;
+            --border-radius: 0.5rem;
+            --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
         body {
-            background-color: #f8f9fa;
+            background-color: var(--theme-bg-body, var(--bs-body-bg));
+            color: var(--theme-text, var(--bs-body-color));
+            font-family: var(--bs-font-sans-serif);
         }
+
+        .main-container {
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+
         .container {
-            margin-top: 30px;
-            background-color: #ffffff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
+            background-color: var(--theme-bg-card, var(--bs-body-bg));
+            color: var(--theme-text, var(--bs-body-color));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-md);
+            padding: var(--content-spacing);
+            margin-bottom: 2rem;
         }
+
+        .content-section {
+            background: var(--theme-bg-surface, var(--bs-secondary-bg));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            padding: var(--content-spacing);
+            margin-bottom: var(--content-spacing);
+        }
+
+        .section-header {
+            border-bottom: 1px solid var(--theme-border, var(--bs-border-color));
+            margin-bottom: var(--content-spacing);
+            padding-bottom: 1rem;
+        }
+
+        .section-title {
+            color: var(--theme-text, var(--bs-body-color));
+            margin: 0;
+            font-weight: 600;
+        }
+
         .form-control, .form-select {
             margin-bottom: 15px;
+            background-color: var(--theme-bg-card, var(--bs-body-bg));
+            border-color: var(--theme-border, var(--bs-border-color));
+            color: var(--theme-text, var(--bs-body-color));
         }
+
+        .form-control:focus, .form-select:focus {
+            background-color: var(--theme-bg-card, var(--bs-body-bg));
+            border-color: var(--theme-primary, var(--bs-primary));
+            color: var(--theme-text, var(--bs-body-color));
+            box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb, 13, 110, 253), 0.25);
+        }
+
+        /* Enhanced form-select theming with !important for override */
+        .form-select {
+            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
+            border-color: var(--theme-border, var(--bs-border-color)) !important;
+            color: var(--theme-text, var(--bs-body-color)) !important;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e") !important;
+            background-repeat: no-repeat !important;
+            background-position: right 0.75rem center !important;
+            background-size: 16px 12px !important;
+        }
+
+        .form-select:focus {
+            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
+            border-color: var(--theme-primary, var(--bs-primary)) !important;
+            color: var(--theme-text, var(--bs-body-color)) !important;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23495057' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e") !important;
+            box-shadow: 0 0 0 0.25rem rgba(var(--theme-primary-rgb, 13, 110, 253), 0.25) !important;
+            outline: none !important;
+        }
+
+        /* Form-select option theming */
+        .form-select option {
+            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
+            color: var(--theme-text, var(--bs-body-color)) !important;
+        }
+
+        .form-select option:checked {
+            background-color: var(--theme-primary, var(--bs-primary)) !important;
+            color: var(--theme-primary-text, white) !important;
+        }
+
+        /* Override Bootstrap's select focus ring */
+        select.form-select:focus {
+            border-color: var(--theme-primary, var(--bs-primary)) !important;
+            outline: 0 !important;
+            box-shadow: 0 0 0 0.25rem rgba(var(--theme-primary-rgb, 13, 110, 253), 0.25) !important;
+        }
+
+        /* Specific targeting for label printing form selects - COMPREHENSIVE THEMING */
+        #labelTypeSelect, #labelRotationSelect {
+            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
+            border-color: var(--theme-border, var(--bs-border-color)) !important;
+            color: var(--theme-text, var(--bs-body-color)) !important;
+            -webkit-appearance: none !important;
+            -moz-appearance: none !important;
+            appearance: none !important;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23495057' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e") !important;
+            background-repeat: no-repeat !important;
+            background-position: right 0.75rem center !important;
+            background-size: 16px 12px !important;
+        }
+
+        /* Force override any Bootstrap/browser defaults */
+        select#labelTypeSelect, select#labelRotationSelect,
+        .form-select#labelTypeSelect, .form-select#labelRotationSelect {
+            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
+            border-color: var(--theme-border, var(--bs-border-color)) !important;
+            color: var(--theme-text, var(--bs-body-color)) !important;
+            -webkit-text-fill-color: var(--theme-text, var(--bs-body-color)) !important;
+        }
+
+        /* Focus state - highlight around the box */
+        #labelTypeSelect:focus, #labelRotationSelect:focus,
+        select#labelTypeSelect:focus, select#labelRotationSelect:focus {
+            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
+            border-color: var(--theme-primary, var(--bs-primary)) !important;
+            color: var(--theme-text, var(--bs-body-color)) !important;
+            -webkit-text-fill-color: var(--theme-text, var(--bs-body-color)) !important;
+            box-shadow: 0 0 0 0.25rem rgba(var(--theme-primary-rgb, 13, 110, 253), 0.25) !important;
+            outline: none !important;
+        }
+
+        /* Hover state */
+        #labelTypeSelect:hover, #labelRotationSelect:hover {
+            border-color: var(--theme-primary, var(--bs-primary)) !important;
+            background-color: var(--theme-bg-surface, var(--theme-bg-card, var(--bs-body-bg))) !important;
+            color: var(--theme-text, var(--bs-body-color)) !important;
+            -webkit-text-fill-color: var(--theme-text, var(--bs-body-color)) !important;
+        }
+
+        /* All options in dropdown */
+        #labelTypeSelect option, #labelRotationSelect option {
+            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
+            color: var(--theme-text, var(--bs-body-color)) !important;
+            -webkit-text-fill-color: var(--theme-text, var(--bs-body-color)) !important;
+        }
+
+        /* Selected option in dropdown */
+        #labelTypeSelect option:checked, #labelRotationSelect option:checked {
+            background-color: var(--theme-primary, var(--bs-primary)) !important;
+            color: var(--theme-primary-text, white) !important;
+            -webkit-text-fill-color: var(--theme-primary-text, white) !important;
+        }
+
+        /* Hover over options in dropdown */
+        #labelTypeSelect option:hover, #labelRotationSelect option:hover {
+            background-color: var(--theme-primary-hover, var(--theme-primary, var(--bs-primary))) !important;
+            color: var(--theme-primary-text, white) !important;
+            -webkit-text-fill-color: var(--theme-primary-text, white) !important;
+        }
+
+        /* Additional hover targeting for different browsers */
+        select#labelTypeSelect option:hover, select#labelRotationSelect option:hover {
+            background-color: var(--theme-primary-hover, var(--theme-primary, var(--bs-primary))) !important;
+            color: var(--theme-primary-text, white) !important;
+            -webkit-text-fill-color: var(--theme-primary-text, white) !important;
+        }
+
+        /* Focus on options (for keyboard navigation) */
+        #labelTypeSelect option:focus, #labelRotationSelect option:focus {
+            background-color: var(--theme-primary-hover, var(--theme-primary, var(--bs-primary))) !important;
+            color: var(--theme-primary-text, white) !important;
+            -webkit-text-fill-color: var(--theme-primary-text, white) !important;
+        }
+
+        /* Override any webkit/browser defaults */
+        select#labelTypeSelect::-webkit-scrollbar, select#labelRotationSelect::-webkit-scrollbar {
+            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
+        }
+
+        select#labelTypeSelect::-webkit-scrollbar-thumb, select#labelRotationSelect::-webkit-scrollbar-thumb {
+            background-color: var(--theme-border, var(--bs-border-color)) !important;
+        }
+
+        /* Force remove any blue default values */
+        #labelTypeSelect:invalid, #labelRotationSelect:invalid,
+        #labelTypeSelect:valid, #labelRotationSelect:valid {
+            color: var(--theme-text, var(--bs-body-color)) !important;
+            -webkit-text-fill-color: var(--theme-text, var(--bs-body-color)) !important;
+        }
+
         .note-item {
-            background-color: #ffffff;
-            border: 2px solid #dee2e6;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            transition: all 0.2s ease-in-out;
+            background-color: var(--theme-bg-card, var(--bs-body-bg));
+            color: var(--theme-text, var(--bs-body-color));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s ease;
         }
+
         .note-item:hover {
-            border-color: #007bff;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+            border-color: var(--theme-primary, var(--bs-primary));
+        .note-item:hover {
+            box-shadow: var(--shadow-md);
+            border-color: var(--theme-primary, var(--bs-primary));
         }
+
         .note-item h5 {
             margin-top: 0;
             font-size: 1.1rem;
-            color: #343a40;
-            border-bottom: 1px solid #dee2e6;
+            color: var(--theme-text, var(--bs-body-color));
+            border-bottom: 1px solid var(--theme-border, var(--bs-border-color));
             padding-bottom: 8px;
             margin-bottom: 12px;
         }
+
         .note-item p {
             font-size: 0.9rem;
-            color: #495057;
+            color: var(--theme-text, var(--bs-body-color));
             line-height: 1.4;
         }
+
         .note-actions button {
             margin-left: 5px;
         }
         .relationship-item {
-            background-color: #f0f8ff; /* Light blue background for relationships */
-            border: 1px solid #cceeff;
+            background: var(--theme-bg-card, var(--bs-body-bg));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            transition: all 0.2s ease;
+        }
+
+        .relationship-item:hover {
+            box-shadow: var(--shadow-sm);
+            border-color: var(--theme-primary, var(--bs-primary));
+        }
+        
+        .section-header {
+            border-bottom: 1px solid var(--theme-border, var(--bs-border-color));
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+        }
+        
+        .section-title {
+            color: var(--theme-text, var(--bs-body-color));
+            font-weight: 600;
+            margin: 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .content-subsection {
+            background: var(--theme-bg-surface, var(--bs-secondary-bg));
+            color: var(--theme-text, var(--bs-body-color));
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+        }
+        
+        .info-card {
+            background: var(--theme-bg-surface, var(--bs-secondary-bg));
+            color: var(--theme-text, var(--bs-body-color));
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            height: 100%;
+        }
+        
+        .info-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--theme-text-muted, var(--bs-secondary-color));
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+        }
+        
+        .info-value {
+            font-size: 1rem;
+            color: var(--theme-text, var(--bs-body-color));
+            font-weight: 500;
+        }
+            background-color: var(--theme-bg-surface, #f0f8ff); /* Light blue background for relationships */
+            border: 1px solid var(--bs-border-color, #cceeff);
             border-radius: 5px;
             padding: 15px;
             margin-bottom: 10px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            color: var(--theme-text, #212529);
         }
         .relationship-item h5 {
             margin-top: 0;
             font-size: 1.1rem;
-            color: #0056b3;
+            color: var(--bs-primary, #0056b3);
         }
         .relationship-item p {
             font-size: 0.9rem;
-            color: #495057;
+            color: var(--theme-text, #495057);
         }
         .relationship-actions button {
             margin-left: 5px;
         }
         /* New styles for inline note form */
         .placeholder-section {
-            border: 1px dashed #ced4da;
+            border: 1px dashed var(--bs-border-color, #ced4da);
             padding: 20px;
             text-align: center;
-            color: #6c757d;
+            color: var(--theme-text-muted, #6c757d);
+            background-color: var(--theme-bg-surface, #f8f9fa);
             border-radius: 5px;
             margin-bottom: 20px;
         }
@@ -121,9 +367,10 @@
         
         /* Content section styling */
         .content-section {
-            background: white;
+            background: var(--theme-bg-card, white);
+            color: var(--theme-text, #212529);
             border-radius: 12px;
-            border-left: 4px solid #6c757d;
+            border-left: 4px solid var(--bs-secondary, #6c757d);
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
             overflow: hidden;
         }
@@ -134,14 +381,14 @@
         
         .section-header {
             display: flex;
-            justify-content-between;
+            justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
             gap: 1rem;
         }
         
         .section-title {
-            color: #495057;
+            color: var(--theme-text, #495057);
             font-weight: 600;
             margin: 0;
             display: flex;
@@ -149,24 +396,26 @@
         }
         
         .content-subsection {
-            background: #f8f9fa;
+            background: var(--theme-bg-surface, #f8f9fa);
+            color: var(--theme-text, #212529);
             border-radius: 8px;
             padding: 1rem;
-            border: 1px solid #e9ecef;
+            border: 1px solid var(--bs-border-color, #e9ecef);
         }
         
         .info-card {
-            background: #f8f9fa;
+            background: var(--theme-bg-surface, #f8f9fa);
+            color: var(--theme-text, #212529);
             border-radius: 8px;
             padding: 1rem;
-            border: 1px solid #e9ecef;
+            border: 1px solid var(--bs-border-color, #e9ecef);
             height: 100%;
         }
         
         .info-label {
             font-size: 0.85rem;
             font-weight: 600;
-            color: #6c757d;
+            color: var(--theme-text-muted, #6c757d);
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: 0.5rem;
@@ -174,12 +423,22 @@
         
         .info-value {
             font-size: 1rem;
-            color: #212529;
+            color: var(--theme-text, #212529);
             font-weight: 500;
         }
         
         /* Mobile responsiveness */
         @media (max-width: 768px) {
+            .main-container {
+                margin-top: 1rem;
+                margin-bottom: 1rem;
+            }
+            
+            .container {
+                margin: 0.5rem;
+                padding: 1rem;
+            }
+            
             .section-content {
                 padding: 1rem;
             }
@@ -195,12 +454,160 @@
             }
         }
 
+        /* Modal theme support */
+        .modal-content {
+            background-color: var(--theme-bg-card, var(--bs-body-bg));
+            color: var(--theme-text, var(--bs-body-color));
+            border-color: var(--theme-border, var(--bs-border-color));
+        }
+        
+        .modal-header {
+            border-bottom-color: var(--theme-border, var(--bs-border-color));
+            background-color: var(--theme-bg-surface, var(--bs-secondary-bg));
+        }
+        
+        .modal-footer {
+            border-top-color: var(--theme-border, var(--bs-border-color));
+            background-color: var(--theme-bg-surface, var(--bs-secondary-bg));
+        }
+
+        /* Table theme support */
+        .table {
+            color: var(--theme-text, var(--bs-body-color));
+            border-color: var(--theme-border, var(--bs-border-color));
+        }
+
+        .table th {
+            background-color: var(--theme-bg-surface, var(--bs-secondary-bg));
+            border-color: var(--theme-border, var(--bs-border-color));
+            color: var(--theme-text, var(--bs-body-color));
+        }
+
+        .table td {
+            border-color: var(--theme-border, var(--bs-border-color));
+        }
+        
+        /* Card and badge theme support */
+        .card {
+            background-color: var(--theme-bg-card, var(--bs-body-bg));
+            border-color: var(--theme-border, var(--bs-border-color));
+            color: var(--theme-text, var(--bs-body-color));
+        }
+
+        .card-header {
+            background-color: var(--theme-bg-surface, var(--bs-secondary-bg));
+            border-bottom-color: var(--theme-border, var(--bs-border-color));
+            color: var(--theme-text, var(--bs-body-color));
+        }
+
+        .card-body {
+            background-color: var(--theme-bg-card, var(--bs-body-bg));
+            color: var(--theme-text, var(--bs-body-color));
+        }
+
+        .border-theme {
+            border-color: var(--theme-primary, var(--bs-primary)) !important;
+        }
+
+        .text-theme-info {
+            color: var(--theme-primary, var(--bs-primary)) !important;
+        }
+
+        /* Breadcrumb theming */
+        .breadcrumb-item a {
+            color: var(--theme-primary, var(--bs-primary));
+            text-decoration: none;
+        }
+
+        .breadcrumb-item a:hover {
+            color: var(--theme-primary-hover, var(--bs-primary));
+            opacity: 0.8;
+        }
+
+        .breadcrumb-item.active {
+            color: var(--theme-text-muted, var(--bs-secondary-color));
+        }
+        
+        /* Button theme support */
+        .btn-outline-secondary {
+            color: var(--bs-secondary, #6c757d);
+            border-color: var(--bs-secondary, #6c757d);
+        }
+        
+        .btn-outline-secondary:hover {
+            background-color: var(--bs-secondary, #6c757d);
+            border-color: var(--bs-secondary, #6c757d);
+        }
+        
+        .btn-outline-primary {
+            color: var(--bs-primary, #0d6efd);
+            border-color: var(--bs-primary, #0d6efd);
+        }
+        
+        .btn-outline-primary:hover {
+            background-color: var(--bs-primary, #0d6efd);
+            border-color: var(--bs-primary, #0d6efd);
+        }
+        
+        .btn-outline-danger {
+            color: var(--bs-danger, #dc3545);
+            border-color: var(--bs-danger, #dc3545);
+        }
+        
+        .btn-outline-danger:hover {
+            background-color: var(--bs-danger, #dc3545);
+            border-color: var(--bs-danger, #dc3545);
+        }
+        
+        /* Text color overrides for theme support */
+        .text-muted {
+            color: var(--theme-text-muted, #6c757d) !important;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            color: var(--theme-text, #212529);
+        }
+        
+        /* Dropdown and select theme support */
+        .dropdown-menu {
+            background-color: var(--theme-bg-card, #fff);
+            border-color: var(--bs-border-color, #dee2e6);
+        }
+        
+        .dropdown-item {
+            color: var(--theme-text, #212529);
+        }
+        
+        .dropdown-item:hover, .dropdown-item:focus {
+            background-color: var(--theme-bg-surface, #f8f9fa);
+            color: var(--theme-text, #212529);
+        }
+        
+        /* Card and badge theme support */
+        .card {
+            background-color: var(--theme-bg-card, #fff);
+            border-color: var(--bs-border-color, #dee2e6);
+            color: var(--theme-text, #212529);
+        }
+        
+        .badge {
+            color: white;
+        }
+
         /* Label Grid Styles */
+        .label-grid {
+            background: var(--theme-bg-surface, var(--bs-secondary-bg));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
         .label-grid-container {
-            border: 2px solid #dee2e6;
-            border-radius: 8px;
+            border: 2px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
             padding: 10px;
-            background: #f8f9fa;
+            background: var(--theme-bg-card, var(--bs-body-bg));
             max-width: 200px;
         }
 
@@ -217,9 +624,10 @@
         .label-position {
             width: 80px;
             height: 40px;
-            border: 2px solid #dee2e6;
-            border-radius: 4px;
-            background: white;
+            border: 2px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            background: var(--theme-bg-card, var(--bs-body-bg));
+            color: var(--theme-text, var(--bs-body-color));
             display: flex;
             align-items: center;
             justify-content: center;
@@ -230,19 +638,388 @@
         }
 
         .label-position:hover {
-            border-color: #007bff;
-            background: #e3f2fd;
+            border-color: var(--theme-primary, var(--bs-primary));
+            background: var(--theme-bg-info, var(--bs-info-bg-subtle, rgba(13, 202, 240, 0.1)));
+            color: var(--theme-primary, var(--bs-primary));
             transform: translateY(-1px);
         }
 
         .label-position.selected {
-            background: #007bff;
-            color: white;
-            border-color: #0056b3;
+            background: var(--theme-primary, var(--bs-primary));
+            color: var(--theme-primary-text, white);
+            border-color: var(--theme-primary, var(--bs-primary));
         }
 
         .label-position.selected:hover {
-            background: #0056b3;
+            background: var(--theme-primary-hover, var(--bs-primary));
+            color: var(--theme-primary-text, white);
+        }
+        
+        /* Bootstrap CSS variables override for theme integration */
+        :root {
+            --bs-info-bg-subtle: var(--theme-alert-info-bg, rgba(13, 202, 240, 0.1));
+            --bs-info-border-subtle: var(--theme-alert-info-border, rgba(13, 202, 240, 0.2));
+            --bs-info-text-emphasis: var(--theme-alert-info-text, #0c5460);
+            
+            /* Form control variables for theming */
+            --bs-form-select-bg-img: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e");
+            --bs-border-color: var(--theme-border, #dee2e6);
+            --bs-body-bg: var(--theme-bg-card, #fff);
+            --bs-body-color: var(--theme-text, #212529);
+            --bs-focus-ring-color: rgba(var(--theme-primary-rgb, 13, 110, 253), 0.25);
+        }
+
+        /* Alert and status message theme support */
+        .alert {
+            border-color: var(--bs-border-color, #dee2e6);
+        }
+        
+        .alert-info {
+            background-color: var(--theme-alert-info-bg, var(--bs-info-bg-subtle, rgba(13, 202, 240, 0.1))) !important;
+            border-color: var(--theme-alert-info-border, var(--bs-info-border-subtle, rgba(13, 202, 240, 0.2))) !important;
+            color: var(--theme-alert-info-text, var(--bs-info-text-emphasis, #0c5460)) !important;
+        }
+        
+        .alert-success {
+            background-color: rgba(var(--bs-success-rgb, 25, 135, 84), 0.1);
+            border-color: rgba(var(--bs-success-rgb, 25, 135, 84), 0.2);
+            color: var(--theme-text, #212529);
+        }
+        
+        .alert-warning {
+            background-color: rgba(var(--bs-warning-rgb, 255, 193, 7), 0.1);
+            border-color: rgba(var(--bs-warning-rgb, 255, 193, 7), 0.2);
+            color: var(--theme-text, #212529);
+        }
+        
+        .alert-danger {
+            background-color: rgba(var(--bs-danger-rgb, 220, 53, 69), 0.1);
+            border-color: rgba(var(--bs-danger-rgb, 220, 53, 69), 0.2);
+            color: var(--theme-text, #212529);
+        }
+        
+        /* Enhanced button theme support */
+        .btn-primary {
+            background-color: var(--bs-primary, #0d6efd);
+            border-color: var(--bs-primary, #0d6efd);
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--bs-primary, #0b5ed7);
+            border-color: var(--bs-primary, #0a58ca);
+        }
+
+        /* Custom theme buttons */
+        .btn-theme-primary {
+            background-color: var(--theme-primary, #0d6efd);
+            border-color: var(--theme-primary, #0d6efd);
+            color: white;
+        }
+
+        .btn-theme-primary:hover {
+            background-color: var(--theme-primary-hover, #0b5ed7);
+            border-color: var(--theme-primary-hover, #0a58ca);
+            color: white;
+        }
+
+        .btn-outline-theme {
+            color: var(--theme-primary, #0d6efd);
+            border-color: var(--theme-primary, #0d6efd);
+            background-color: transparent;
+        }
+
+        .btn-outline-theme:hover {
+            background-color: var(--theme-primary, #0d6efd);
+            border-color: var(--theme-primary, #0d6efd);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background-color: var(--bs-secondary, #6c757d);
+            border-color: var(--bs-secondary, #6c757d);
+        }
+        
+        .btn-secondary:hover {
+            background-color: var(--bs-secondary, #5c636a);
+            border-color: var(--bs-secondary, #565e64);
+        }
+        
+        .btn-success {
+            background-color: var(--bs-success, #198754);
+            border-color: var(--bs-success, #198754);
+        }
+        
+        .btn-success:hover {
+            background-color: var(--bs-success, #157347);
+            border-color: var(--bs-success, #146c43);
+        }
+        
+        .btn-danger {
+            background-color: var(--bs-danger, #dc3545);
+            border-color: var(--bs-danger, #dc3545);
+        }
+        
+        .btn-danger:hover {
+            background-color: var(--bs-danger, #bb2d3b);
+            border-color: var(--bs-danger, #b02a37);
+        }
+        
+        .btn-warning {
+            background-color: var(--bs-warning, #ffc107);
+            border-color: var(--bs-warning, #ffc107);
+            color: var(--bs-dark, #000);
+        }
+        
+        .btn-warning:hover {
+            background-color: var(--bs-warning, #e0a800);
+            border-color: var(--bs-warning, #d39e00);
+            color: var(--bs-dark, #000);
+        }
+        
+        .btn-info {
+            background-color: var(--bs-info, #0dcaf0);
+            border-color: var(--bs-info, #0dcaf0);
+        }
+        
+        .btn-info:hover {
+            background-color: var(--bs-info, #31d2f2);
+            border-color: var(--bs-info, #25cff2);
+        }
+        
+        .btn-light {
+            background-color: var(--theme-bg-surface, #f8f9fa);
+            border-color: var(--bs-border-color, #f8f9fa);
+            color: var(--theme-text, #212529);
+        }
+        
+        .btn-light:hover {
+            background-color: var(--theme-bg-surface, #e2e6ea);
+            border-color: var(--bs-border-color, #dae0e5);
+            color: var(--theme-text, #212529);
+        }
+        
+        .btn-dark {
+            background-color: var(--theme-text, #212529);
+            border-color: var(--theme-text, #212529);
+            color: var(--theme-bg-card, #fff);
+        }
+        
+        .btn-dark:hover {
+            background-color: var(--theme-text, #1c1f23);
+            border-color: var(--theme-text, #1a1e21);
+            color: var(--theme-bg-card, #fff);
+        }
+        
+        /* Table theme support */
+        .table {
+            color: var(--theme-text, #212529);
+        }
+        
+        .table > :not(caption) > * > * {
+            border-bottom-color: var(--bs-border-color, #dee2e6);
+        }
+        
+        .table-striped > tbody > tr:nth-of-type(odd) > td,
+        .table-striped > tbody > tr:nth-of-type(odd) > th {
+            background-color: var(--theme-bg-surface, rgba(0, 0, 0, 0.05));
+        }
+        
+        .table th {
+            color: var(--theme-text, #212529);
+            border-bottom-color: var(--bs-border-color, #dee2e6);
+        }
+        
+        /* List group theme support */
+        .list-group-item {
+            background-color: var(--theme-bg-card, #fff);
+            border-color: var(--bs-border-color, #dee2e6);
+            color: var(--theme-text, #212529);
+        }
+        
+        .list-group-item:hover {
+            background-color: var(--theme-bg-surface, #f8f9fa);
+        }
+        
+        .list-group-item.active {
+            background-color: var(--bs-primary, #0d6efd);
+            border-color: var(--bs-primary, #0d6efd);
+        }
+        
+        /* Input group theme support */
+        .input-group-text {
+            background-color: var(--theme-bg-surface, #e9ecef);
+            border-color: var(--bs-border-color, #ced4da);
+            color: var(--theme-text, #495057);
+        }
+        
+        /* Progress bar theme support */
+        .progress {
+            background-color: var(--theme-bg-surface, #e9ecef);
+        }
+        
+        .progress-bar {
+            background-color: var(--bs-primary, #0d6efd);
+        }
+        
+        /* Tab theme support */
+        .nav-tabs {
+            border-bottom-color: var(--bs-border-color, #dee2e6);
+        }
+        
+        .nav-tabs .nav-link {
+            color: var(--theme-text, #495057);
+            border-color: transparent;
+        }
+        
+        .nav-tabs .nav-link:hover {
+            border-color: var(--theme-bg-surface, #e9ecef) var(--theme-bg-surface, #e9ecef) var(--bs-border-color, #dee2e6);
+            isolation: isolate;
+        }
+        
+        .nav-tabs .nav-link.active {
+            color: var(--theme-text, #495057);
+            background-color: var(--theme-bg-card, #fff);
+            border-color: var(--bs-border-color, #dee2e6) var(--bs-border-color, #dee2e6) var(--theme-bg-card, #fff);
+        }
+        
+        .tab-content > .tab-pane {
+            background-color: var(--theme-bg-card, #fff);
+            color: var(--theme-text, #212529);
+        }
+        
+        /* Accordion theme support */
+        .accordion-item {
+            background-color: var(--theme-bg-card, #fff);
+            border-color: var(--bs-border-color, #dee2e6);
+        }
+        
+        .accordion-button {
+            background-color: var(--theme-bg-card, #fff);
+            color: var(--theme-text, #212529);
+        }
+        
+        .accordion-button:not(.collapsed) {
+            background-color: var(--theme-bg-surface, #e7f1ff);
+            color: var(--bs-primary, #0c63e4);
+        }
+        
+        /* Breadcrumb theme support */
+        .breadcrumb {
+            background-color: var(--theme-bg-surface, #e9ecef);
+        }
+        
+        .breadcrumb-item a {
+            color: var(--bs-primary, #0d6efd);
+        }
+        
+        .breadcrumb-item.active {
+            color: var(--theme-text-muted, #6c757d);
+        }
+        
+        /* Pagination theme support */
+        .page-item .page-link {
+            background-color: var(--theme-bg-card, #fff);
+            border-color: var(--bs-border-color, #dee2e6);
+            color: var(--bs-primary, #0d6efd);
+        }
+        
+        .page-item:hover .page-link {
+            background-color: var(--theme-bg-surface, #e9ecef);
+            border-color: var(--bs-border-color, #adb5bd);
+        }
+        
+        .page-item.active .page-link {
+            background-color: var(--bs-primary, #0d6efd);
+            border-color: var(--bs-primary, #0d6efd);
+        }
+        
+        /* Spinner theme support */
+        .spinner-border {
+            color: var(--bs-primary, #0d6efd);
+        }
+        
+        /* Close button theme support */
+        .btn-close {
+            filter: var(--theme-text, invert(1)) grayscale(100%) brightness(200%);
+        }
+        
+        /* Tooltip theme support */
+        .tooltip .tooltip-inner {
+            background-color: var(--theme-text, #212529);
+            color: var(--theme-bg-card, #fff);
+        }
+        
+        /* Popover theme support */
+        .popover {
+            background-color: var(--theme-bg-card, #fff);
+            border-color: var(--bs-border-color, #dee2e6);
+        }
+        
+        .popover-body {
+            color: var(--theme-text, #212529);
+        }
+        
+        .popover-header {
+            background-color: var(--theme-bg-surface, #f8f9fa);
+            border-bottom-color: var(--bs-border-color, #dee2e6);
+            color: var(--theme-text, #212529);
+        }
+        
+        /* Toast theme support */
+        .toast {
+            background-color: var(--theme-bg-card, #fff);
+            border-color: var(--bs-border-color, #dee2e6);
+            color: var(--theme-text, #212529);
+        }
+        
+        .toast-header {
+            background-color: var(--theme-bg-surface, #f8f9fa);
+            border-bottom-color: var(--bs-border-color, #dee2e6);
+            color: var(--theme-text, #212529);
+        }
+        
+        /* Status indicators */
+        .badge-status {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+        
+        /* Custom component themes */
+        .status-message {
+            padding: 0.75rem;
+            border-radius: 0.375rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--bs-border-color, #dee2e6);
+            background-color: var(--theme-bg-surface, #f8f9fa);
+            color: var(--theme-text, #212529);
+        }
+        
+        .loading-indicator {
+            color: var(--theme-text-muted, #6c757d);
+        }
+        
+        .error-message {
+            color: var(--bs-danger, #dc3545);
+            background-color: rgba(var(--bs-danger-rgb, 220, 53, 69), 0.1);
+            border-color: rgba(var(--bs-danger-rgb, 220, 53, 69), 0.2);
+        }
+        
+        .success-message {
+            color: var(--bs-success, #198754);
+            background-color: rgba(var(--bs-success-rgb, 25, 135, 84), 0.1);
+            border-color: rgba(var(--bs-success-rgb, 25, 135, 84), 0.2);
+        }
+        
+        .warning-message {
+            color: var(--bs-warning, #ffc107);
+            background-color: rgba(var(--bs-warning-rgb, 255, 193, 7), 0.1);
+            border-color: rgba(var(--bs-warning-rgb, 255, 193, 7), 0.2);
+        }
+        
+        .info-message {
+            color: var(--bs-info, #0dcaf0);
+            background-color: rgba(var(--bs-info-rgb, 13, 202, 240), 0.1);
+            border-color: rgba(var(--bs-info-rgb, 13, 202, 240), 0.2);
         }
     </style>
 </head>
@@ -253,7 +1030,7 @@
             <div class="section-content">
                 <nav aria-label="breadcrumb" class="mb-3">
                     <ol class="breadcrumb">
-                        <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}" class="text-decoration-none">
+                        <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}" class="text-decoration-none text-theme-info">
                             <i class="fas fa-home me-1"></i>Home</a></li>
                         <li class="breadcrumb-item active" aria-current="page">{{ entry.title }}</li>
                     </ol>
@@ -262,13 +1039,13 @@
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3">
                     <h1 class="h3 mb-2 mb-md-0" id="entryTitle">{{ entry.title }}</h1>
                     <div class="entry-actions d-flex flex-wrap gap-2">
-                        <button class="btn btn-sm btn-outline-secondary" id="editDescriptionBtn" type="button"
+                        <button class="btn btn-sm btn-outline-theme" id="editDescriptionBtn" type="button"
                                 data-bs-toggle="collapse" data-bs-target="#descriptionEditor" 
                                 aria-expanded="false" aria-controls="descriptionEditor">
                             <i class="fas fa-edit me-1"></i>Edit Entry
                         </button>
                         {% if entry.show_labels_section %}
-                        <button class="btn btn-sm btn-outline-primary" id="manageLabelBtn" type="button" 
+                        <button class="btn btn-sm btn-outline-theme" id="manageLabelBtn" type="button" 
                                 data-bs-toggle="collapse" data-bs-target="#labelPrintingSection" 
                                 aria-expanded="false" aria-controls="labelPrintingSection">
                             <i class="fas fa-tags me-1"></i>Labels
@@ -348,20 +1125,20 @@
                                 </div>
                             </div>
                             <div class="d-flex flex-wrap gap-2 mb-3">
-                                <button type="button" class="btn btn-outline-primary" id="previewLabelBtn">
+                                <button type="button" class="btn btn-outline-theme" id="previewLabelBtn">
                                     <i class="fas fa-eye me-1"></i>Preview
                                 </button>
-                                <button type="button" class="btn btn-success" id="printLabelBtn">
+                                <button type="button" class="btn btn-theme-primary" id="printLabelBtn">
                                     <i class="fas fa-print me-1"></i>Print Page
                                 </button>
-                                <button type="button" class="btn btn-info" id="downloadLabelPdfBtn">
+                                <button type="button" class="btn btn-outline-theme" id="downloadLabelPdfBtn">
                                     <i class="fas fa-download me-1"></i>Download PDF
                                 </button>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div id="labelPreviewContainer" class="text-center">
-                                <div class="border rounded p-3 bg-light">
+                                <div class="border rounded p-3" style="background-color: var(--theme-bg-surface, #f8f9fa);">
                                     <p class="text-muted">Click "Preview" to see how your label will look</p>
                                 </div>
                             </div>
@@ -425,13 +1202,13 @@
                                 {% endif %}
                             </div>
                             <div class="d-flex flex-wrap gap-2 mb-3">
-                                <button type="button" class="btn btn-success" id="saveDescriptionBtn">
+                                <button type="button" class="btn btn-theme-primary" id="saveDescriptionBtn">
                                     <i class="fas fa-save me-1"></i>Save Changes
                                 </button>
-                                <button type="button" class="btn btn-outline-primary" id="searchWikipediaBtn">
+                                <button type="button" class="btn btn-outline-theme" id="searchWikipediaBtn">
                                     <i class="fab fa-wikipedia-w me-1"></i>Search Wikipedia
                                 </button>
-                                <button type="button" class="btn btn-secondary" id="cancelDescriptionBtn">
+                                <button type="button" class="btn btn-outline-theme" id="cancelDescriptionBtn">
                                     <i class="fas fa-times me-1"></i>Cancel
                                 </button>
                             </div>
@@ -448,8 +1225,8 @@
                                     <h6 id="wikipediaTitle" class="fw-bold"></h6>
                                     <p id="wikipediaExtract" class="text-muted"></p>
                                     <div class="d-flex flex-wrap gap-2">
-                                        <button type="button" class="btn btn-sm btn-primary" id="useWikipediaBtn">Use This Description</button>
-                                        <a id="wikipediaLink" href="#" target="_blank" class="btn btn-sm btn-outline-secondary">View on Wikipedia</a>
+                                        <button type="button" class="btn btn-sm btn-theme-primary" id="useWikipediaBtn">Use This Description</button>
+                                        <a id="wikipediaLink" href="#" target="_blank" class="btn btn-sm btn-outline-theme">View on Wikipedia</a>
                                     </div>
                                 </div>
                             </div>
@@ -471,12 +1248,12 @@
                         <!-- Chart/Table Toggle Buttons -->
                         <div class="btn-group mb-3" role="group" aria-label="Data view options">
                             <input type="radio" class="btn-check" name="viewOptions" id="tableView">
-                            <label class="btn btn-outline-primary" for="tableView">
+                            <label class="btn btn-outline-theme" for="tableView">
                                 <i class="fas fa-table me-1"></i>Table View
                             </label>
                             
                             <input type="radio" class="btn-check" name="viewOptions" id="chartView" checked>
-                            <label class="btn btn-outline-primary" for="chartView">
+                            <label class="btn btn-outline-theme" for="chartView">
                                 <i class="fas fa-chart-line me-1"></i>Chart View
                             </label>
                         </div>
@@ -523,7 +1300,7 @@
                             </div>
                         </div>
                         
-                        <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#addSensorDataModal">
+                        <button class="btn btn-theme-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#addSensorDataModal">
                             <i class="fas fa-plus-circle me-2"></i>Add Sensor Reading
                         </button>
                     </div>
@@ -551,7 +1328,7 @@
                             <h4 class="section-title">
                                 <i class="fas fa-sticky-note me-2"></i>Notes
                             </h4>
-                            <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#newNoteForm" aria-expanded="false" aria-controls="newNoteForm">
+                            <button class="btn btn-theme-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#newNoteForm" aria-expanded="false" aria-controls="newNoteForm">
                                 <i class="fas fa-plus-circle me-2"></i><span id="toggleNewNoteText">Add New Note</span>
                             </button>
                         </div>
@@ -584,13 +1361,13 @@
                                         <strong>Note:</strong> If you select a date, you must also select a time (defaults to 1:00 AM if not specified).
                                     </div>
                                     <div class="mt-2">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="setReminderToToday()">
+                                        <button type="button" class="btn btn-sm btn-outline-theme me-2" onclick="setReminderToToday()">
                                             <i class="fas fa-calendar-day me-1"></i>Today
                                         </button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="setReminderToTomorrow()">
+                                        <button type="button" class="btn btn-sm btn-outline-theme me-2" onclick="setReminderToTomorrow()">
                                             <i class="fas fa-calendar-plus me-1"></i>Tomorrow
                                         </button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearReminder()">
+                                        <button type="button" class="btn btn-sm btn-outline-theme" onclick="clearReminder()">
                                             <i class="fas fa-times me-1"></i>Clear
                                         </button>
                                     </div>
@@ -607,7 +1384,7 @@
                                         <br><strong>Max file size:</strong> 50MB per file
                                     </div>
                                 </div>
-                                <button type="button" class="btn btn-primary" id="addNoteBtn">
+                                <button type="button" class="btn btn-theme-primary" id="addNoteBtn">
                                     <i class="fas fa-plus-circle me-1"></i>Save Note
                                 </button>
                                 <div id="noteStatusMessage" class="mt-3 d-none"></div>
@@ -734,7 +1511,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-outline-theme" data-bs-dismiss="modal">Close</button>
                     <button type="button" class="btn btn-danger" id="deleteNoteFromModalBtn">
                         <i class="fas fa-trash-alt me-1"></i> Delete Note
                     </button>
@@ -783,7 +1560,7 @@
                                 <input type="text" class="form-control" id="relatedUnit">
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-primary">Add Relationship</button>
+                        <button type="submit" class="btn btn-theme-primary">Add Relationship</button>
                     </form>
                 </div>
             </div>
@@ -815,7 +1592,7 @@
                         </div>
                         <div id="wikipediaNewRelationResults" class="mb-3 d-none">
                             <div class="card border-info">
-                                <div class="card-header bg-light">
+                                <div class="card-header" style="background-color: var(--theme-bg-surface, #f8f9fa); border-bottom: 1px solid var(--bs-border-color, #dee2e6);">
                                     <h6 class="mb-0"><i class="fab fa-wikipedia-w me-1"></i> Wikipedia Result</h6>
                                 </div>
                                 <div class="card-body">
@@ -828,7 +1605,7 @@
                                 </div>
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-primary">Add</button>
+                        <button type="submit" class="btn btn-theme-primary">Add</button>
                     </form>
                 </div>
             </div>
@@ -852,7 +1629,7 @@
                                 <!-- Options will be dynamically populated -->
                             </select>
                         </div>
-                        <button type="submit" class="btn btn-primary">Add</button>
+                        <button type="submit" class="btn btn-theme-primary">Add</button>
                     </form>
                 </div>
             </div>
@@ -885,7 +1662,7 @@
                             <label for="sensorRecordedAt" class="form-label">Recorded At:</label>
                             <input type="datetime-local" class="form-control" id="sensorRecordedAt">
                         </div>
-                        <button type="submit" class="btn btn-primary">Add Reading</button>
+                        <button type="submit" class="btn btn-theme-primary">Add Reading</button>
                     </form>
                 </div>
             </div>
@@ -1397,7 +2174,7 @@
                         <small>${new Date(note.created_at).toLocaleString()}</small>
                     </div>
                     <p class="mb-1">${note.note_text.substring(0, 100)}${note.note_text.length > 100 ? '...' : ''}</p>
-                    <button type="button" class="btn btn-outline-secondary btn-sm mt-2 open-note-details-btn" data-note-id="${note.id}">
+                    <button type="button" class="btn btn-outline-theme btn-sm mt-2 open-note-details-btn" data-note-id="${note.id}">
                         Open Details <i class="fas fa-external-link-alt ms-1"></i>
                     </button>
                 `;
@@ -1433,16 +2210,24 @@
                             const isDismissed = note.reminder.is_dismissed;
                             
                             if (isDismissed) {
-                                modalReminderStatus.className = 'badge bg-secondary ms-2';
+                                modalReminderStatus.className = 'badge ms-2';
+                                modalReminderStatus.style.backgroundColor = 'var(--theme-secondary, #6c757d)';
+                                modalReminderStatus.style.color = 'white';
                                 modalReminderStatus.textContent = 'Dismissed';
                             } else if (isPast && !isRead) {
-                                modalReminderStatus.className = 'badge bg-danger ms-2';
+                                modalReminderStatus.className = 'badge ms-2';
+                                modalReminderStatus.style.backgroundColor = 'var(--theme-danger, #dc3545)';
+                                modalReminderStatus.style.color = 'white';
                                 modalReminderStatus.textContent = 'Overdue';
                             } else if (isPast && isRead) {
-                                modalReminderStatus.className = 'badge bg-success ms-2';
+                                modalReminderStatus.className = 'badge ms-2';
+                                modalReminderStatus.style.backgroundColor = 'var(--theme-success, #198754)';
+                                modalReminderStatus.style.color = 'white';
                                 modalReminderStatus.textContent = 'Completed';
                             } else {
-                                modalReminderStatus.className = 'badge bg-warning text-dark ms-2';
+                                modalReminderStatus.className = 'badge ms-2';
+                                modalReminderStatus.style.backgroundColor = 'var(--theme-warning, #ffc107)';
+                                modalReminderStatus.style.color = 'var(--theme-text-dark, #000)';
                                 modalReminderStatus.textContent = 'Scheduled';
                             }
                         } else {
@@ -1654,16 +2439,24 @@
                             const isDismissed = updatedNote.reminder.is_dismissed;
                             
                             if (isDismissed) {
-                                modalReminderStatus.className = 'badge bg-secondary ms-2';
+                                modalReminderStatus.className = 'badge ms-2';
+                                modalReminderStatus.style.backgroundColor = 'var(--theme-secondary, #6c757d)';
+                                modalReminderStatus.style.color = 'white';
                                 modalReminderStatus.textContent = 'Dismissed';
                             } else if (isPast && !isRead) {
-                                modalReminderStatus.className = 'badge bg-danger ms-2';
+                                modalReminderStatus.className = 'badge ms-2';
+                                modalReminderStatus.style.backgroundColor = 'var(--theme-danger, #dc3545)';
+                                modalReminderStatus.style.color = 'white';
                                 modalReminderStatus.textContent = 'Overdue';
                             } else if (isPast && isRead) {
-                                modalReminderStatus.className = 'badge bg-success ms-2';
+                                modalReminderStatus.className = 'badge ms-2';
+                                modalReminderStatus.style.backgroundColor = 'var(--theme-success, #198754)';
+                                modalReminderStatus.style.color = 'white';
                                 modalReminderStatus.textContent = 'Completed';
                             } else {
-                                modalReminderStatus.className = 'badge bg-warning text-dark ms-2';
+                                modalReminderStatus.className = 'badge ms-2';
+                                modalReminderStatus.style.backgroundColor = 'var(--theme-warning, #ffc107)';
+                                modalReminderStatus.style.color = 'var(--theme-text-dark, #000)';
                                 modalReminderStatus.textContent = 'Scheduled';
                             }
                         }
@@ -2170,7 +2963,7 @@
                                             </div>
                                             <div id="wikipediaDynamicResults" class="mb-3 d-none">
                                                 <div class="card border-info">
-                                                    <div class="card-header bg-light">
+                                                    <div class="card-header" style="background-color: var(--theme-bg-surface, #f8f9fa); border-bottom: 1px solid var(--bs-border-color, #dee2e6);">
                                                         <h6 class="mb-0"><i class="fab fa-wikipedia-w me-1"></i> Wikipedia Result</h6>
                                                     </div>
                                                     <div class="card-body">
@@ -2183,7 +2976,7 @@
                                                     </div>
                                                 </div>
                                             </div>
-                                            <button type="submit" class="btn btn-primary w-100">Add</button>
+                                            <button type="submit" class="btn btn-theme-primary w-100">Add</button>
                                         </form>
                                     </div>
                                 </div>
@@ -2341,13 +3134,13 @@
                                                     <!-- Search results will appear here -->
                                                 </div>
                                                 <input type="hidden" id="selectedEntryId" required>
-                                                <div id="selectedEntryDisplay" class="mt-2 p-2 bg-light rounded" style="display: none;">
+                                                <div id="selectedEntryDisplay" class="mt-2 p-2 rounded" style="display: none; background-color: var(--theme-bg-surface, #f8f9fa);">
                                                     <small class="text-muted">Selected:</small>
                                                     <div id="selectedEntryName" class="fw-bold"></div>
                                                     <button type="button" class="btn btn-sm btn-outline-secondary mt-1" id="clearSelection">Clear Selection</button>
                                                 </div>
                                             </div>
-                                            <button type="submit" class="btn btn-primary w-100" id="addExistingSubmitBtn" disabled>Add Relationship</button>
+                                            <button type="submit" class="btn btn-theme-primary w-100" id="addExistingSubmitBtn" disabled>Add Relationship</button>
                                         </form>
                                     </div>
                                 </div>

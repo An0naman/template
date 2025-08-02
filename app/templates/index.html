@@ -1,201 +1,166 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="{{ 'dark' if theme_settings.dark_mode_enabled else 'light' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ project_name }} - {{ entry_plural_label }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='notifications_modern.css') }}">
     
-    <!-- Theme CSS -->
-    <style>
+    <!-- Dynamic Theme CSS -->
+    <style id="theme-styles">
         {{ theme_css|safe }}
     </style>
     
+    <!-- Clean Base Styles -->
     <style>
+        :root {
+            --content-spacing: 1.5rem;
+            --border-radius: 0.5rem;
+            --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
         body {
-            background-color: #f8f9fa;
+            background-color: var(--theme-bg-body, var(--bs-body-bg));
+            color: var(--theme-text, var(--bs-body-color));
+            font-family: var(--bs-font-sans-serif);
         }
+
         .main-container {
-            margin-top: 20px;
-            margin-bottom: 30px;
+            margin-top: 2rem;
+            margin-bottom: 2rem;
         }
+
         .content-card {
-            background-color: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-            overflow: hidden;
+            background: var(--theme-bg-card, var(--bs-body-bg));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-md);
+            padding: var(--content-spacing);
         }
-        .header-section {
-            background: #ffffff;
-            color: #495057;
-            padding: 2rem;
-            border-bottom: 1px solid #dee2e6;
+
+        .section-header {
+            border-bottom: 1px solid var(--theme-border, var(--bs-border-color));
+            margin-bottom: var(--content-spacing);
+            padding-bottom: 1rem;
         }
-        .content-section {
-            position: relative;
-            overflow: hidden;
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 12px;
-            margin: 1.5rem;
-            padding: 1.5rem;
+
+        .section-title {
+            color: var(--theme-text, var(--bs-body-color));
+            margin: 0;
+            font-weight: 600;
         }
-        .content-section::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 4px;
-            height: 100%;
-            background: linear-gradient(135deg, #6c757d, #495057);
-        }
+
         .filter-section {
-            background: white;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
+            background: var(--theme-bg-surface, var(--bs-secondary-bg));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            padding: var(--content-spacing);
+            margin-bottom: var(--content-spacing);
         }
+
         .entry-item {
-            background: white;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            padding: 1.5rem;
+            background: var(--theme-bg-card, var(--bs-body-bg));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            padding: var(--content-spacing);
             margin-bottom: 1rem;
             transition: all 0.2s ease;
         }
+
         .entry-item:hover {
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: var(--shadow-md);
             transform: translateY(-1px);
+            border-color: var(--theme-primary, var(--bs-primary));
         }
-        .entry-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
+
         .entry-title a {
+            color: var(--theme-primary, var(--bs-primary));
             text-decoration: none;
-            color: #0d6efd;
+            font-weight: 600;
         }
+
         .entry-title a:hover {
-            color: #0a58ca;
+            color: var(--theme-primary-hover, var(--bs-primary));
+            opacity: 0.8;
         }
-        .entry-meta {
-            font-size: 0.875rem;
-            color: #6c757d;
-        }
-        .entry-description {
-            color: #495057;
-            margin: 0.75rem 0;
-            line-height: 1.5;
-        }
-        .action-buttons {
-            gap: 0.5rem;
-        }
-        .btn-gray {
-            background: linear-gradient(135deg, #6c757d, #495057);
-            border: none;
-            color: white;
-        }
-        .btn-gray:hover {
-            background: linear-gradient(135deg, #5a6268, #343a40);
-            color: white;
-        }
-        .btn-spacing {
-            margin-left: 1rem;
-        }
-        .fab-container {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            z-index: 1000;
-        }
-        .fab-main {
-            width: 56px;
-            height: 56px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            transition: all 0.3s ease;
-        }
-        .fab-main:hover {
-            transform: scale(1.1);
-            box-shadow: 0 6px 16px rgba(0,0,0,0.2);
-        }
-        .mobile-actions {
-            display: none;
-        }
-        @media (max-width: 768px) {
-            .header-section {
-                padding: 1.5rem;
-            }
-            .content-section {
-                margin: 1rem;
-                padding: 1rem;
-            }
-            .filter-section {
-                padding: 1rem;
-            }
-            .entry-item {
-                padding: 1rem;
-            }
-            .desktop-actions {
-                display: none;
-            }
-            .mobile-actions {
-                display: block;
-            }
-            .fab-container {
-                bottom: 1rem;
-                right: 1rem;
-            }
-            .header-actions {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 0.75rem;
-            }
-            .btn-spacing {
-                margin-left: 0;
-                margin-top: 0.5rem;
-            }
-        }
-        .filter-form {
-            background: white;
-            border-radius: 8px;
-            padding: 1rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .badge-status {
-            font-size: 0.75rem;
-            padding: 0.25rem 0.5rem;
-        }
-        .created-date {
-            font-size: 0.875rem;
-            color: #6c757d;
-        }
+
         .no-entries {
             text-align: center;
             padding: 3rem 1rem;
-            color: #6c757d;
+            color: var(--theme-text-muted, var(--bs-secondary-color));
         }
-        .filter-summary {
-            background-color: #e3f2fd;
-            border: 1px solid #bbdefb;
-            border-radius: 6px;
-            padding: 0.75rem;
-            margin-bottom: 1rem;
-            font-size: 0.875rem;
+
+        .alert.alert-info {
+            background-color: var(--theme-bg-info, #cff4fc) !important;
+            border-color: var(--theme-border-info, #b6effb) !important;
+            color: var(--theme-text-info, #055160) !important;
         }
-                .alert-section {
-            background: #e7f3ff;
-            border: 1px solid #b3d7ff;
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
+
+        /* Direct override for alert-info with higher specificity */
+        .alert-info,
+        .alert.alert-info,
+        .filter-section .alert.alert-info,
+        .alert.alert-info.themed-alert-info {
+            background-color: var(--theme-bg-info, var(--bs-info-bg-subtle, #cff4fc)) !important;
+            border-color: var(--theme-border-info, var(--bs-info-border-subtle, #b6effb)) !important; 
+            color: var(--theme-text-info, var(--bs-info-text-emphasis, #055160)) !important;
+            border-width: 1px !important;
+            border-style: solid !important;
+        }
+
+        .border-theme {
+            border-color: var(--theme-primary, var(--bs-primary)) !important;
+        }
+
+        .text-theme-info {
+            color: var(--theme-info, var(--bs-info)) !important;
+        }
+
+        /* Button theme overrides */
+        .btn-theme-primary {
+            background-color: var(--theme-primary, var(--bs-primary));
+            border-color: var(--theme-primary, var(--bs-primary));
+            color: var(--theme-primary-text, white);
+        }
+
+        .btn-theme-primary:hover {
+            background-color: var(--theme-primary-hover, var(--bs-primary));
+            border-color: var(--theme-primary-hover, var(--bs-primary));
+            opacity: 0.9;
+        }
+
+        .btn-outline-theme {
+            border-color: var(--theme-primary, var(--bs-primary));
+            color: var(--theme-primary, var(--bs-primary));
+        }
+
+        .btn-outline-theme:hover {
+            background-color: var(--theme-primary, var(--bs-primary));
+            border-color: var(--theme-primary, var(--bs-primary));
+            color: var(--theme-primary-text, white);
+        }
+
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .main-container {
+                margin-top: 1rem;
+                margin-bottom: 1rem;
+            }
+            
+            .content-card {
+                margin: 0.5rem;
+                padding: 1rem;
+            }
+            
+            .filter-section {
+                padding: 1rem;
+            }
+            
+            .entry-item {
+                padding: 1rem;
+            }
         }
     </style>
 </head>
@@ -203,50 +168,43 @@
     <div class="container main-container">
         <div class="content-card">
             <!-- Header Section -->
-            <div class="header-section">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <h1 class="mb-2">{{ project_name }}</h1>
-                        <p class="mb-0 text-muted">Manage your {{ entry_plural_label.lower() }}</p>
-                    </div>
-                    <div class="header-actions d-flex align-items-center desktop-actions">
-                        <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary">
-                            <i class="fas fa-cog me-2"></i>Settings
-                        </a>
-                        <button id="showAddEntryFormBtn" class="btn btn-gray btn-spacing">
-                            <i class="fas fa-plus me-1"></i>Add {{ entry_singular_label }}
-                        </button>
-                    </div>
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+                <div>
+                    <h1 class="h2 mb-2">{{ project_name }}</h1>
+                    <p class="text-muted mb-0">Manage your {{ entry_plural_label.lower() }}</p>
+                </div>
+                <div class="d-flex gap-2 mt-3 mt-md-0">
+                    <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-theme">
+                        <i class="fas fa-cog me-2"></i>Settings
+                    </a>
+                    <button id="showAddEntryFormBtn" class="btn btn-theme-primary">
+                        <i class="fas fa-plus me-1"></i>Add {{ entry_singular_label }}
+                    </button>
                 </div>
             </div>
 
             <!-- Filter Section -->
-            <div class="content-section">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="mb-0 text-muted">
+            <div class="mb-4">
+                <div class="section-header">
+                    <h5 class="section-title">
                         <i class="fas fa-filter me-2"></i>Filter {{ entry_plural_label }}
                     </h5>
-                    <div class="mobile-actions">
-                        <button id="showAddEntryFormBtnMobile" class="btn btn-gray btn-sm">
-                            <i class="fas fa-plus me-1"></i>Add {{ entry_singular_label }}
-                        </button>
-                    </div>
                 </div>
                 
                 <div class="filter-section">
-                    <form method="GET" id="filterForm" class="filter-form">
+                    <form method="GET" id="filterForm">
                         <div class="row g-3">
                             <div class="col-md-3">
-                                <label for="view_type" class="form-label small">View</label>
-                                <select name="view_type" id="view_type" class="form-select form-select-sm">
+                                <label for="view_type" class="form-label">View</label>
+                                <select name="view_type" id="view_type" class="form-select">
                                     <option value="primary" {{ 'selected' if current_view_type == 'primary' else '' }}>Primary Types Only</option>
                                     <option value="all" {{ 'selected' if current_view_type == 'all' else '' }}>All Types</option>
                                     <option value="type" {{ 'selected' if current_view_type == 'type' else '' }}>Specific Type</option>
                                 </select>
                             </div>
                             <div class="col-md-3">
-                                <label for="entry_type" class="form-label small">Entry Type</label>
-                                <select name="entry_type" id="entry_type" class="form-select form-select-sm">
+                                <label for="entry_type" class="form-label">Entry Type</label>
+                                <select name="entry_type" id="entry_type" class="form-select">
                                     <option value="">All Types</option>
                                     {% for type in all_entry_types %}
                                         <option value="{{ type.id }}" {{ 'selected' if current_entry_type == type.id|string else '' }}>
@@ -256,61 +214,64 @@
                                 </select>
                             </div>
                             <div class="col-md-3">
-                                <label for="status" class="form-label small">Status</label>
-                                <select name="status" id="status" class="form-select form-select-sm">
+                                <label for="status" class="form-label">Status</label>
+                                <select name="status" id="status" class="form-select">
                                     <option value="active" {{ 'selected' if current_status == 'active' else '' }}>Active Only</option>
                                     <option value="inactive" {{ 'selected' if current_status == 'inactive' else '' }}>Inactive Only</option>
                                     <option value="all" {{ 'selected' if current_status == 'all' else '' }}>All Status</option>
                                 </select>
                             </div>
-                            <div class="col-md-3 d-flex align-items-end">
-                                <button type="submit" class="btn btn-gray btn-sm me-2">
+                            <div class="col-md-3 d-flex align-items-end gap-2">
+                                <button type="submit" class="btn btn-theme-primary flex-fill">
                                     <i class="fas fa-filter me-1"></i>Apply
-                            </button>
-                            <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary btn-sm">
-                                <i class="fas fa-times me-1"></i> Clear
-                            </a>
+                                </button>
+                                <a href="{{ url_for('main.index') }}" class="btn btn-outline-theme">
+                                    <i class="fas fa-times me-1"></i>Clear
+                                </a>
+                            </div>
                         </div>
-                    </div>
-                </form>
+                    </form>
 
-                <!-- Filter Summary -->
-                {% if current_view_type != 'primary' or current_status != 'active' or current_entry_type %}
-                <div class="alert-section mt-3">
-                    <div class="d-flex align-items-start">
-                        <i class="fas fa-info-circle text-primary me-3 mt-1"></i>
-                        <div class="small">
-                            <strong>Active Filters:</strong>
-                            {% if current_view_type == 'all' %}
-                                All entry types,
-                            {% elif current_view_type == 'type' and current_entry_type %}
-                                Specific type only,
-                            {% else %}
-                                Primary types only,
-                            {% endif %}
-                            {% if current_status == 'active' %}
-                                Active entries only
-                            {% elif current_status == 'inactive' %}
-                                Inactive entries only
-                            {% else %}
-                                All statuses
-                            {% endif %}
-                            ({{ entries|length }} {{ 'entry' if entries|length == 1 else 'entries' }} found)
+                    <!-- Filter Summary -->
+                    {% if current_view_type != 'primary' or current_status != 'active' or current_entry_type %}
+                    <div class="alert alert-info themed-alert-info mt-3 mb-0">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-info-circle me-3 mt-1 text-theme-info"></i>
+                            <div class="small">
+                                <strong>Active Filters:</strong>
+                                {% if current_view_type == 'all' %}
+                                    All entry types,
+                                {% elif current_view_type == 'type' and current_entry_type %}
+                                    Specific type only,
+                                {% else %}
+                                    Primary types only,
+                                {% endif %}
+                                {% if current_status == 'active' %}
+                                    Active entries only
+                                {% elif current_status == 'inactive' %}
+                                    Inactive entries only
+                                {% else %}
+                                    All statuses
+                                {% endif %}
+                                ({{ entries|length }} {{ 'entry' if entries|length == 1 else 'entries' }} found)
+                            </div>
                         </div>
                     </div>
+                    {% endif %}
                 </div>
-                {% endif %}
             </div>
 
             <!-- Entries List -->
-            <div class="content-section">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="mb-0 text-muted">
-                        <i class="fas fa-list me-2"></i>{{ entry_plural_label }}
+            <div class="mb-4">
+                <div class="section-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="section-title mb-0">
+                            <i class="fas fa-list me-2"></i>{{ entry_plural_label }}
+                        </h5>
                         {% if entries %}
-                            <span class="badge bg-light text-dark ms-2">{{ entries|length }}</span>
+                            <span class="badge bg-secondary">{{ entries|length }}</span>
                         {% endif %}
-                    </h5>
+                    </div>
                 </div>
 
                 <div id="entries-list">
@@ -327,11 +288,11 @@
                                     <div class="entry-meta mb-2">
                                         <span class="badge bg-secondary me-2">{{ entry.entry_type_label }}</span>
                                         {% if entry.status %}
-                                            <span class="badge {% if entry.status == 'active' %}bg-success{% else %}bg-warning text-dark{% endif %} badge-status me-2">
+                                            <span class="badge {{ 'bg-success' if entry.status == 'active' else 'bg-warning text-dark' }} me-2">
                                                 {{ entry.status|title }}
                                             </span>
                                         {% endif %}
-                                        <span class="created-date">
+                                        <span class="text-muted">
                                             <i class="fas fa-calendar-alt me-1"></i>
                                             Created {{ entry.created_at.split('T')[0] if 'T' in entry.created_at else entry.created_at[:10] }}
                                         </span>
@@ -342,13 +303,13 @@
                                         </div>
                                     {% endif %}
                                 </div>
-                                <div class="action-buttons d-flex">
+                                <div class="d-flex gap-2">
                                     <a href="{{ url_for('main.entry_detail_page', entry_id=entry.id) }}" 
-                                       class="btn btn-sm btn-outline-primary" title="View Details">
+                                       class="btn btn-sm btn-outline-theme" title="View Details">
                                         <i class="fas fa-eye"></i>
                                         <span class="d-none d-lg-inline ms-1">Details</span>
                                     </a>
-                                    <button class="btn btn-sm btn-outline-danger delete-entry-btn ms-1" 
+                                    <button class="btn btn-sm btn-outline-danger delete-entry-btn" 
                                             data-id="{{ entry.id }}" title="Delete Entry">
                                         <i class="fas fa-trash-alt"></i>
                                         <span class="d-none d-lg-inline ms-1">Delete</span>
@@ -359,31 +320,22 @@
                     {% endfor %}
                 {% else %}
                     <div class="no-entries">
-                        <i class="fas fa-inbox fa-3x mb-3 text-muted"></i>
-                        <h5 class="text-muted">No {{ entry_plural_label.lower() }} found</h5>
-                        <p class="text-muted">
+                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                        <h5>No {{ entry_plural_label.lower() }} found</h5>
+                        <p class="mb-3">
                             {% if current_view_type == 'primary' and current_status == 'active' %}
                                 No active primary {{ entry_plural_label.lower() }} yet. Try adding one or adjusting your filters.
                             {% else %}
                                 No {{ entry_plural_label.lower() }} match your current filters. Try adjusting the filters above.
                             {% endif %}
                         </p>
-                        <button id="showAddEntryFormBtn2" class="btn btn-gray">
+                        <button id="showAddEntryFormBtn2" class="btn btn-theme-primary">
                             <i class="fas fa-plus me-1"></i> Add Your First {{ entry_singular_label }}
                         </button>
                     </div>
                 {% endif %}
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- Mobile Floating Action Button -->
-    <div class="mobile-actions">
-        <div class="fab-container">
-            <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="fab-main btn btn-gray" title="Settings">
-                <i class="fas fa-cog"></i>
-            </a>
         </div>
     </div>
 
@@ -396,45 +348,51 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="newEntryForm">
+                    <form id="addEntryForm">
                         <div class="mb-3">
-                            <label for="newEntryTitle" class="form-label">Title:</label>
+                            <label for="newEntryTitle" class="form-label">{{ entry_singular_label }} Title</label>
                             <input type="text" class="form-control" id="newEntryTitle" name="title" required>
                         </div>
                         <div class="mb-3">
-                            <label for="newEntryType" class="form-label">Type:</label>
+                            <label for="newEntryType" class="form-label">Type</label>
                             <select class="form-select" id="newEntryType" name="entry_type_id" required>
-                                {% for type_option in all_entry_types %}
-                                    <option value="{{ type_option.id }}">{{ type_option.singular_label }}</option>
+                                <option value="">Select a type</option>
+                                {% for type in all_entry_types %}
+                                    <option value="{{ type.id }}">{{ type.singular_label }}</option>
                                 {% endfor %}
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label for="newEntryDescription" class="form-label">Description:</label>
+                            <label for="newEntryDescription" class="form-label">Description</label>
                             <textarea class="form-control" id="newEntryDescription" name="description" rows="3"></textarea>
                             <div class="mt-2">
-                                <button type="button" class="btn btn-sm btn-outline-primary" id="searchWikipediaModalBtn">
+                                <button type="button" class="btn btn-sm btn-outline-theme" id="searchWikipediaModalBtn">
                                     <i class="fab fa-wikipedia-w me-1"></i> Search Wikipedia
                                 </button>
                             </div>
                         </div>
                         <div id="wikipediaModalResults" class="mb-3 d-none">
-                            <div class="card border-info">
-                                <div class="card-header bg-light">
+                            <div class="card border-theme">
+                                <div class="card-header" style="background-color: var(--theme-bg-surface); border-bottom: 1px solid var(--theme-border);">
                                     <h6 class="mb-0"><i class="fab fa-wikipedia-w me-1"></i> Wikipedia Result</h6>
                                 </div>
                                 <div class="card-body">
                                     <h6 id="wikipediaModalTitle" class="card-title"></h6>
                                     <p id="wikipediaModalExtract" class="card-text" style="font-size: 0.9em; max-height: 100px; overflow-y: auto;"></p>
                                     <div class="d-flex gap-2">
-                                        <button type="button" class="btn btn-sm btn-gray" id="useWikipediaModalBtn">Use This Description</button>
-                                        <a id="wikipediaModalLink" href="#" target="_blank" class="btn btn-sm btn-outline-secondary">View on Wikipedia</a>
+                                        <button type="button" class="btn btn-sm btn-theme-primary" id="useWikipediaModalBtn">Use This Description</button>
+                                        <a id="wikipediaModalLink" href="#" target="_blank" class="btn btn-sm btn-outline-theme">View on Wikipedia</a>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-gray w-100">Create {{ entry_singular_label }}</button>
                     </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-theme" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" form="addEntryForm" class="btn btn-theme-primary">
+                        <i class="fas fa-plus me-1"></i>Add {{ entry_singular_label }}
+                    </button>
                 </div>
             </div>
         </div>
@@ -442,32 +400,76 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Initialize modals and event listeners
         document.addEventListener('DOMContentLoaded', function() {
             const addEntryModal = new bootstrap.Modal(document.getElementById('addEntryModal'));
-
-            // Show Add Entry Modal - multiple buttons
+            
+            // Add entry button handlers
             document.getElementById('showAddEntryFormBtn').addEventListener('click', function() {
                 addEntryModal.show();
             });
             
-            // Check if second button exists (when no entries)
-            const addBtn2 = document.getElementById('showAddEntryFormBtn2');
-            if (addBtn2) {
-                addBtn2.addEventListener('click', function() {
+            const showAddEntryFormBtn2 = document.getElementById('showAddEntryFormBtn2');
+            if (showAddEntryFormBtn2) {
+                showAddEntryFormBtn2.addEventListener('click', function() {
                     addEntryModal.show();
                 });
             }
-
-            // Filter form handling
-            const viewTypeSelect = document.getElementById('view_type');
-            const entryTypeSelect = document.getElementById('entry_type');
             
-            viewTypeSelect.addEventListener('change', function() {
-                if (this.value !== 'type') {
-                    entryTypeSelect.value = '';
+            // Form submission handler
+            document.getElementById('addEntryForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(this);
+                const data = {
+                    title: formData.get('title'),
+                    entry_type_id: formData.get('entry_type_id'),
+                    description: formData.get('description')
+                };
+                
+                try {
+                    const response = await fetch('/api/entries', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    if (response.ok) {
+                        location.reload(); // Refresh the page to show the new entry
+                    } else {
+                        const error = await response.json();
+                        alert('Error adding entry: ' + (error.message || 'Unknown error'));
+                    }
+                } catch (error) {
+                    alert('Error adding entry: ' + error.message);
                 }
             });
-
+            
+            // Delete entry handlers
+            document.querySelectorAll('.delete-entry-btn').forEach(button => {
+                button.addEventListener('click', async function() {
+                    const entryId = this.dataset.id;
+                    if (confirm('Are you sure you want to delete this entry?')) {
+                        try {
+                            const response = await fetch(`/api/entries/${entryId}`, {
+                                method: 'DELETE'
+                            });
+                            
+                            if (response.ok) {
+                                location.reload(); // Refresh the page to update the list
+                            } else {
+                                const error = await response.json();
+                                alert('Error deleting entry: ' + (error.message || 'Unknown error'));
+                            }
+                        } catch (error) {
+                            alert('Error deleting entry: ' + error.message);
+                        }
+                    }
+                });
+            });
+            
             // Wikipedia search functionality for modal
             document.getElementById('searchWikipediaModalBtn').addEventListener('click', async function() {
                 const titleInput = document.getElementById('newEntryTitle');
@@ -526,62 +528,7 @@
                     wikipediaResults.classList.add('d-none');
                 }
             });
-
-            // Handle new entry form submission
-            document.getElementById('newEntryForm').addEventListener('submit', function(event) {
-                event.preventDefault();
-                const title = document.getElementById('newEntryTitle').value;
-                const description = document.getElementById('newEntryDescription').value;
-                const entry_type_id = document.getElementById('newEntryType').value;
-
-                fetch('/api/entries', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ title, description, entry_type_id }),
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.redirect) {
-                        window.location.href = data.redirect;
-                    } else if (data.error) {
-                        console.error('Error: ' + data.error);
-                        alert('Error: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error creating entry:', error);
-                    alert('An unexpected error occurred while creating the entry.');
-                });
-            });
-
-            // Handle delete entry buttons
-            document.querySelectorAll('.delete-entry-btn').forEach(button => {
-                button.addEventListener('click', function() {
-                    const entryId = this.dataset.id;
-                    if (confirm(`Are you sure you want to delete this {{ entry_singular_label }}?`)) {
-                        fetch(`/api/entries/${entryId}`, {
-                            method: 'DELETE',
-                        })
-                        .then(response => {
-                            if (response.ok) {
-                                window.location.reload();
-                            } else {
-                                response.json().then(data => {
-                                    alert('Error deleting {{ entry_singular_label }}: ' + (data.error || 'Unknown error'));
-                                });
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            alert('An unexpected error occurred during deletion.');
-                        });
-                    }
-                });
-            });
         });
     </script>
-    <script src="{{ url_for('static', filename='notifications.js') }}"></script>
 </body>
 </html>

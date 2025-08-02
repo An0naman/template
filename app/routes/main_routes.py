@@ -15,6 +15,7 @@ def get_db():
 @main_bp.route('/')
 def index():
     from ..db import get_system_parameters # Import locally for function use
+    from ..api.theme_api import generate_theme_css, get_current_theme_settings
 
     params = get_system_parameters()
     conn = get_db()
@@ -79,11 +80,14 @@ def index():
                            all_entry_types=entry_types,
                            current_view_type=view_type,
                            current_entry_type=entry_type_filter,
-                           current_status=status_filter)
+                           current_status=status_filter,
+                           theme_css=generate_theme_css(),
+                           theme_settings=get_current_theme_settings())
 
 @main_bp.route('/entry/<int:entry_id>')
 def entry_detail_page(entry_id):
     from ..db import get_system_parameters # Import locally for function use
+    from ..api.theme_api import generate_theme_css
 
     params = get_system_parameters()
     conn = get_db()
@@ -128,7 +132,8 @@ def entry_detail_page(entry_id):
                            project_name=params.get('project_name'),
                            entry=entry_data,
                            entry_singular_label=params.get('entry_singular_label'),
-                           entry_plural_label=params.get('entry_plural_label'))
+                           entry_plural_label=params.get('entry_plural_label'),
+                           theme_css=generate_theme_css())
 
 @main_bp.route('/settings')
 def settings():
