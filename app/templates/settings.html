@@ -304,6 +304,73 @@
                 </div>
             </div>
         </div>
+
+        <!-- File Upload Settings -->
+        <div class="settings-section">
+            <div class="section-card">
+                <div class="section-title">
+                    <i class="fas fa-file-upload me-2"></i>File Upload Settings
+                </div>
+                <div class="row">
+                    <div class="col-md-8">
+                        <form id="fileTypesForm">
+                            <div class="mb-3">
+                                <label for="allowedFileTypes" class="form-label">Allowed File Types:</label>
+                                <textarea class="form-control" id="allowedFileTypes" rows="3" placeholder="txt,pdf,png,jpg,jpeg,gif,webp,svg,doc,docx,xls,xlsx">{{ params.allowed_file_types or 'txt,pdf,png,jpg,jpeg,gif,webp,svg,doc,docx,xls,xlsx,ppt,pptx,mp4,avi,mov,wmv,flv,webm,mkv,mp3,wav,flac,aac,ogg,zip,rar,7z,tar,gz' }}</textarea>
+                                <small class="form-text text-muted">Enter file extensions separated by commas. These file types will be allowed for note attachments and uploads.</small>
+                            </div>
+                            <div class="mb-3">
+                                <strong>Common File Types:</strong>
+                                <div class="row mt-2">
+                                    <div class="col-sm-6">
+                                        <small class="text-muted">
+                                            <strong>Images:</strong> png, jpg, jpeg, gif, webp, svg<br>
+                                            <strong>Documents:</strong> pdf, doc, docx, txt, rtf, odt<br>
+                                            <strong>Spreadsheets:</strong> xls, xlsx, csv
+                                        </small>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <small class="text-muted">
+                                            <strong>Archives:</strong> zip, rar, 7z, tar, gz<br>
+                                            <strong>Media:</strong> mp4, avi, mov, mp3, wav, flac<br>
+                                            <strong>Presentations:</strong> ppt, pptx
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-purple">
+                                <i class="fas fa-save me-1"></i>Save File Type Settings
+                            </button>
+                        </form>
+                        <div id="fileTypesStatusMessage" class="mt-3 d-none"></div>
+                    </div>
+                    <div class="col-md-4">
+                        <h5>File Upload Guidelines</h5>
+                        <div class="mb-3">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>File Size Limit:</strong> 50MB per file
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <strong>Security Notes:</strong>
+                            <ul class="small text-muted mt-2">
+                                <li>Only listed file types will be accepted</li>
+                                <li>Files are scanned before upload</li>
+                                <li>Executable files are blocked by default</li>
+                                <li>Changes apply immediately after saving</li>
+                            </ul>
+                        </div>
+                        <div class="preview-container">
+                            <div>
+                                <i class="fas fa-shield-alt fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">Configure file upload security settings</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -648,6 +715,42 @@
                 
             } catch (error) {
                 displayStatus('overdueStatusMessage', 'Failed to run overdue check: ' + error.message, 'alert-danger');
+            }
+        });
+
+        // File types form handler
+        document.getElementById('fileTypesForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const fileTypes = document.getElementById('allowed_file_types').value.trim();
+            
+            // Validate that file types are provided
+            if (!fileTypes) {
+                displayStatus('fileTypesStatusMessage', 'Please enter at least one file type', 'alert-warning');
+                return;
+            }
+            
+            try {
+                displayStatus('fileTypesStatusMessage', 'Saving file type settings...', 'alert-info');
+                
+                const response = await fetch('/api/system_params', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        allowed_file_types: fileTypes
+                    })
+                });
+                
+                if (response.ok) {
+                    displayStatus('fileTypesStatusMessage', 'File type settings saved successfully!', 'alert-success');
+                } else {
+                    const errorData = await response.json();
+                    displayStatus('fileTypesStatusMessage', 'Failed to save file types: ' + (errorData.error || 'Unknown error'), 'alert-danger');
+                }
+            } catch (error) {
+                displayStatus('fileTypesStatusMessage', 'Failed to save file types: ' + error.message, 'alert-danger');
             }
         });
 
