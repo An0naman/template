@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="{{ 'dark' if theme_settings.dark_mode_enabled else 'light' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,15 +8,18 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         body {
-            background-color: #f8f9fa;
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
         }
         .container {
             margin-top: 30px;
-            background-color: #ffffff;
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
             padding: 30px;
             border-radius: 12px;
             box-shadow: 0 2px 12px rgba(0,0,0,0.08);
             margin-bottom: 30px;
+            border: 1px solid var(--bs-border-color);
         }
         .settings-grid {
             display: grid;
@@ -24,12 +27,12 @@
             gap: 1.25rem;
         }
         .setting-card {
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
+            background: var(--bs-secondary-bg);
+            border: 1px solid var(--bs-border-color);
             border-radius: 12px;
             padding: 1.5rem;
             text-decoration: none;
-            color: inherit;
+            color: var(--bs-body-color);
             transition: all 0.3s ease;
             position: relative;
             overflow: hidden;
@@ -51,7 +54,7 @@
             background: linear-gradient(135deg, #0d6efd, #6f42c1);
         }
         .data-structure .setting-card:hover {
-            background: white;
+            background: var(--bs-body-bg);
             border-color: #0d6efd;
             transform: translateY(-2px);
             box-shadow: 0 4px 20px rgba(13, 110, 253, 0.15);
@@ -65,7 +68,7 @@
             background: linear-gradient(135deg, #fd7e14, #e5550e);
         }
         .notes-section .setting-card:hover {
-            background: white;
+            background: var(--bs-body-bg);
             border-color: #fd7e14;
             transform: translateY(-2px);
             box-shadow: 0 4px 20px rgba(253, 126, 20, 0.15);
@@ -79,7 +82,7 @@
             background: linear-gradient(135deg, #198754, #20c997);
         }
         .sensor-section .setting-card:hover {
-            background: white;
+            background: var(--bs-body-bg);
             border-color: #198754;
             transform: translateY(-2px);
             box-shadow: 0 4px 20px rgba(25, 135, 84, 0.15);
@@ -93,7 +96,7 @@
             background: linear-gradient(135deg, #6f42c1, #d63384);
         }
         .system-section .setting-card:hover {
-            background: white;
+            background: var(--bs-body-bg);
             border-color: #6f42c1;
             transform: translateY(-2px);
             box-shadow: 0 4px 20px rgba(111, 66, 193, 0.15);
@@ -127,16 +130,16 @@
             font-size: 1.1rem;
             font-weight: 600;
             margin-bottom: 0.5rem;
-            color: #212529;
+            color: var(--bs-body-color);
         }
         .setting-description {
             font-size: 0.9rem;
-            color: #6c757d;
+            color: var(--bs-secondary-color);
             line-height: 1.4;
             margin: 0;
         }
         .section-divider {
-            border-bottom: 2px solid #f1f3f4;
+            border-bottom: 2px solid var(--bs-border-color);
             margin: 2rem 0;
         }
         .breadcrumb {
@@ -145,11 +148,11 @@
             margin-bottom: 1rem;
         }
         .breadcrumb-item a {
-            color: #6c757d;
+            color: var(--bs-secondary-color);
             text-decoration: none;
         }
         .breadcrumb-item a:hover {
-            color: #0d6efd;
+            color: var(--bs-primary);
         }
         @media (max-width: 768px) {
             .container {

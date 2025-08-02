@@ -22,8 +22,8 @@
         }
 
         body {
-            background-color: var(--theme-bg-body, var(--bs-body-bg));
-            color: var(--theme-text, var(--bs-body-color));
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
             font-family: var(--bs-font-sans-serif);
         }
 
@@ -33,8 +33,8 @@
         }
 
         .content-card {
-            background: var(--theme-bg-card, var(--bs-body-bg));
-            border: 1px solid var(--theme-border, var(--bs-border-color));
+            background: var(--bs-body-bg);
+            border: 1px solid var(--bs-border-color);
             border-radius: var(--border-radius);
             box-shadow: var(--shadow-md);
             padding: var(--content-spacing);
@@ -46,23 +46,21 @@
             padding-bottom: 1rem;
         }
 
-        .section-title {
-            color: var(--theme-text, var(--bs-body-color));
+        h1 {
+            color: var(--bs-body-color);
             margin: 0;
             font-weight: 600;
-        }
-
-        .filter-section {
-            background: var(--theme-bg-surface, var(--bs-secondary-bg));
-            border: 1px solid var(--theme-border, var(--bs-border-color));
+        }        .filter-section {
+            background: var(--bs-secondary-bg);
+            border: 1px solid var(--bs-border-color);
             border-radius: var(--border-radius);
             padding: var(--content-spacing);
             margin-bottom: var(--content-spacing);
         }
 
         .entry-item {
-            background: var(--theme-bg-card, var(--bs-body-bg));
-            border: 1px solid var(--theme-border, var(--bs-border-color));
+            background: var(--bs-body-bg);
+            border: 1px solid var(--bs-border-color);
             border-radius: var(--border-radius);
             padding: var(--content-spacing);
             margin-bottom: 1rem;
@@ -72,30 +70,30 @@
         .entry-item:hover {
             box-shadow: var(--shadow-md);
             transform: translateY(-1px);
-            border-color: var(--theme-primary, var(--bs-primary));
+            border-color: var(--theme-primary, #0d6efd);
         }
 
         .entry-title a {
-            color: var(--theme-primary, var(--bs-primary));
+            color: var(--theme-primary, #0d6efd);
             text-decoration: none;
             font-weight: 600;
         }
 
         .entry-title a:hover {
-            color: var(--theme-primary-hover, var(--bs-primary));
+            color: var(--theme-primary-hover, var(--theme-primary, #0d6efd));
             opacity: 0.8;
         }
 
         .no-entries {
             text-align: center;
             padding: 3rem 1rem;
-            color: var(--theme-text-muted, var(--bs-secondary-color));
+            color: var(--bs-secondary-color);
         }
 
         .alert.alert-info {
-            background-color: var(--theme-bg-info, #cff4fc) !important;
-            border-color: var(--theme-border-info, #b6effb) !important;
-            color: var(--theme-text-info, #055160) !important;
+            background-color: var(--theme-info-bg, rgba(13, 110, 253, 0.1)) !important;
+            border-color: var(--theme-info-border, rgba(13, 110, 253, 0.2)) !important;
+            color: var(--bs-info-text-emphasis) !important;
         }
 
         /* Direct override for alert-info with higher specificity */
@@ -103,43 +101,43 @@
         .alert.alert-info,
         .filter-section .alert.alert-info,
         .alert.alert-info.themed-alert-info {
-            background-color: var(--theme-bg-info, var(--bs-info-bg-subtle, #cff4fc)) !important;
-            border-color: var(--theme-border-info, var(--bs-info-border-subtle, #b6effb)) !important; 
-            color: var(--theme-text-info, var(--bs-info-text-emphasis, #055160)) !important;
+            background-color: var(--theme-info-bg, rgba(13, 110, 253, 0.1)) !important;
+            border-color: var(--theme-info-border, rgba(13, 110, 253, 0.2)) !important; 
+            color: var(--bs-info-text-emphasis) !important;
             border-width: 1px !important;
             border-style: solid !important;
         }
 
         .border-theme {
-            border-color: var(--theme-primary, var(--bs-primary)) !important;
+            border-color: var(--theme-primary, #0d6efd) !important;
         }
 
         .text-theme-info {
-            color: var(--theme-info, var(--bs-info)) !important;
+            color: var(--theme-primary, #0d6efd) !important;
         }
 
         /* Button theme overrides */
         .btn-theme-primary {
-            background-color: var(--theme-primary, var(--bs-primary));
-            border-color: var(--theme-primary, var(--bs-primary));
-            color: var(--theme-primary-text, white);
+            background-color: var(--theme-primary, #0d6efd);
+            border-color: var(--theme-primary, #0d6efd);
+            color: white;
         }
 
         .btn-theme-primary:hover {
-            background-color: var(--theme-primary-hover, var(--bs-primary));
-            border-color: var(--theme-primary-hover, var(--bs-primary));
+            background-color: var(--theme-primary-hover, var(--theme-primary, #0d6efd));
+            border-color: var(--theme-primary-hover, var(--theme-primary, #0d6efd));
             opacity: 0.9;
         }
 
         .btn-outline-theme {
-            border-color: var(--theme-primary, var(--bs-primary));
-            color: var(--theme-primary, var(--bs-primary));
+            border-color: var(--theme-primary, #0d6efd);
+            color: var(--theme-primary, #0d6efd);
         }
 
         .btn-outline-theme:hover {
-            background-color: var(--theme-primary, var(--bs-primary));
-            border-color: var(--theme-primary, var(--bs-primary));
-            color: var(--theme-primary-text, white);
+            background-color: var(--theme-primary, #0d6efd);
+            border-color: var(--theme-primary, #0d6efd);
+            color: white;
         }
 
         /* Mobile responsiveness */
@@ -161,6 +159,53 @@
             .entry-item {
                 padding: 1rem;
             }
+        }
+
+        /* ====== SIMPLE DIRECT OPTION STYLING ====== */
+        
+        /* Direct option hover styling */
+        select option:hover {
+            background-color: var(--theme-primary, #0d6efd) !important;
+            color: white !important;
+        }
+        
+        /* Direct option selection styling */
+        select option:checked {
+            background-color: var(--theme-primary, #0d6efd) !important;
+            color: white !important;
+        }
+        
+        /* All options default styling */
+        select option {
+            background-color: var(--bs-body-bg) !important;
+            color: var(--bs-body-color) !important;
+        }
+        
+        /* Base form-select styling */
+        .form-select {
+            background-color: var(--bs-body-bg) !important;
+            border-color: var(--bs-border-color) !important;
+            color: var(--bs-body-color) !important;
+            -webkit-appearance: none !important;
+            -moz-appearance: none !important;
+            appearance: none !important;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23495057' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e") !important;
+            background-repeat: no-repeat !important;
+            background-position: right 0.75rem center !important;
+            background-size: 16px 12px !important;
+        }
+
+        /* Focus state */
+        .form-select:focus {
+            border-color: var(--theme-primary, #0d6efd) !important;
+            color: var(--bs-body-color) !important;
+            box-shadow: 0 0 0 0.25rem var(--theme-primary-shadow, rgba(13, 110, 253, 0.25)) !important;
+            outline: none !important;
+        }
+
+        /* Hover state */
+        .form-select:hover:not(:focus) {
+            border-color: var(--theme-primary, #0d6efd) !important;
         }
     </style>
 </head>

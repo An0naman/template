@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="{{ 'dark' if theme_settings.dark_mode_enabled else 'light' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,21 +8,24 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         body {
-            background-color: #f8f9fa;
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
         }
         .container {
             margin-top: 30px;
-            background-color: #ffffff;
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
             padding: 30px;
             border-radius: 12px;
             box-shadow: 0 2px 12px rgba(0,0,0,0.08);
             margin-bottom: 30px;
+            border: 1px solid var(--bs-border-color);
         }
         .content-section {
             position: relative;
             overflow: hidden;
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
+            background: var(--bs-secondary-bg);
+            border: 1px solid var(--bs-border-color);
             border-radius: 12px;
             padding: 1.5rem;
             margin-bottom: 1.5rem;
@@ -46,11 +49,11 @@
             color: white;
         }
         .theme-preview {
-            border: 2px solid #e9ecef;
+            border: 2px solid var(--bs-border-color);
             border-radius: 8px;
             padding: 1rem;
             margin-bottom: 1rem;
-            background: white;
+            background: var(--bs-body-bg);
             cursor: pointer;
             transition: all 0.3s ease;
         }
@@ -60,7 +63,7 @@
         }
         .theme-preview.selected {
             border-color: #6f42c1;
-            background: #f8f7ff;
+            background: rgba(111, 66, 193, 0.1);
         }
         .theme-preview.dark-theme {
             background: #212529;
@@ -70,13 +73,13 @@
             border-color: #6f42c1;
         }
         .theme-preview.dark-theme.selected {
-            background: #2d1b3d;
+            background: rgba(111, 66, 193, 0.2);
         }
         .color-swatch {
             width: 30px;
             height: 30px;
             border-radius: 6px;
-            border: 2px solid #dee2e6;
+            border: 2px solid var(--bs-border-color);
             display: inline-block;
             margin-right: 8px;
         }
@@ -109,7 +112,7 @@
             width: 26px;
             left: 4px;
             bottom: 4px;
-            background-color: white;
+            background-color: var(--bs-body-bg);
             transition: .4s;
             border-radius: 50%;
         }
@@ -120,11 +123,11 @@
             transform: translateX(26px);
         }
         .preview-card {
-            border: 1px solid #e9ecef;
+            border: 1px solid var(--bs-border-color);
             border-radius: 8px;
             padding: 1rem;
             margin: 0.5rem 0;
-            background: white;
+            background: var(--bs-body-bg);
         }
         .dark-preview .preview-card {
             background: #343a40;
@@ -258,7 +261,7 @@
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Preview</label>
-                    <div class="border rounded p-3 bg-light" id="fontPreview">
+                    <div class="border rounded p-3" id="fontPreview" style="background: rgba(111, 66, 193, 0.1); border-color: rgba(111, 66, 193, 0.3) !important;">
                         <p class="mb-0">This is how text will appear with your selected font size.</p>
                     </div>
                 </div>

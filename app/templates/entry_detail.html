@@ -25,8 +25,8 @@
         }
 
         body {
-            background-color: var(--theme-bg-body, var(--bs-body-bg));
-            color: var(--theme-text, var(--bs-body-color));
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
             font-family: var(--bs-font-sans-serif);
         }
 
@@ -36,9 +36,9 @@
         }
 
         .container {
-            background-color: var(--theme-bg-card, var(--bs-body-bg));
-            color: var(--theme-text, var(--bs-body-color));
-            border: 1px solid var(--theme-border, var(--bs-border-color));
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
+            border: 1px solid var(--bs-border-color);
             border-radius: var(--border-radius);
             box-shadow: var(--shadow-md);
             padding: var(--content-spacing);
@@ -46,44 +46,44 @@
         }
 
         .content-section {
-            background: var(--theme-bg-surface, var(--bs-secondary-bg));
-            border: 1px solid var(--theme-border, var(--bs-border-color));
+            background: var(--bs-secondary-bg);
+            border: 1px solid var(--bs-border-color);
             border-radius: var(--border-radius);
             padding: var(--content-spacing);
             margin-bottom: var(--content-spacing);
         }
 
         .section-header {
-            border-bottom: 1px solid var(--theme-border, var(--bs-border-color));
+            border-bottom: 1px solid var(--bs-border-color);
             margin-bottom: var(--content-spacing);
             padding-bottom: 1rem;
         }
 
         .section-title {
-            color: var(--theme-text, var(--bs-body-color));
+            color: var(--bs-body-color);
             margin: 0;
             font-weight: 600;
         }
 
         .form-control, .form-select {
             margin-bottom: 15px;
-            background-color: var(--theme-bg-card, var(--bs-body-bg));
-            border-color: var(--theme-border, var(--bs-border-color));
-            color: var(--theme-text, var(--bs-body-color));
+            background-color: var(--bs-body-bg);
+            border-color: var(--bs-border-color);
+            color: var(--bs-body-color);
         }
 
         .form-control:focus, .form-select:focus {
-            background-color: var(--theme-bg-card, var(--bs-body-bg));
-            border-color: var(--theme-primary, var(--bs-primary));
-            color: var(--theme-text, var(--bs-body-color));
-            box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb, 13, 110, 253), 0.25);
+            background-color: var(--bs-body-bg);
+            border-color: var(--bs-primary);
+            color: var(--bs-body-color);
+            box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
         }
 
         /* Enhanced form-select theming with !important for override */
         .form-select {
-            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
-            border-color: var(--theme-border, var(--bs-border-color)) !important;
-            color: var(--theme-text, var(--bs-body-color)) !important;
+            background-color: var(--bs-body-bg) !important;
+            border-color: var(--bs-border-color) !important;
+            color: var(--bs-body-color) !important;
             background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e") !important;
             background-repeat: no-repeat !important;
             background-position: right 0.75rem center !important;
@@ -91,37 +91,37 @@
         }
 
         .form-select:focus {
-            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
-            border-color: var(--theme-primary, var(--bs-primary)) !important;
-            color: var(--theme-text, var(--bs-body-color)) !important;
+            background-color: var(--bs-body-bg) !important;
+            border-color: var(--bs-primary) !important;
+            color: var(--bs-body-color) !important;
             background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23495057' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e") !important;
-            box-shadow: 0 0 0 0.25rem rgba(var(--theme-primary-rgb, 13, 110, 253), 0.25) !important;
+            box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25) !important;
             outline: none !important;
         }
 
         /* Form-select option theming */
         .form-select option {
-            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
-            color: var(--theme-text, var(--bs-body-color)) !important;
+            background-color: var(--bs-body-bg) !important;
+            color: var(--bs-body-color) !important;
         }
 
         .form-select option:checked {
-            background-color: var(--theme-primary, var(--bs-primary)) !important;
-            color: var(--theme-primary-text, white) !important;
+            background-color: var(--bs-primary) !important;
+            color: white !important;
         }
 
         /* Override Bootstrap's select focus ring */
         select.form-select:focus {
-            border-color: var(--theme-primary, var(--bs-primary)) !important;
+            border-color: var(--bs-primary) !important;
             outline: 0 !important;
-            box-shadow: 0 0 0 0.25rem rgba(var(--theme-primary-rgb, 13, 110, 253), 0.25) !important;
+            box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25) !important;
         }
 
         /* Specific targeting for label printing form selects - COMPREHENSIVE THEMING */
         #labelTypeSelect, #labelRotationSelect {
-            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
-            border-color: var(--theme-border, var(--bs-border-color)) !important;
-            color: var(--theme-text, var(--bs-body-color)) !important;
+            background-color: var(--bs-body-bg) !important;
+            border-color: var(--bs-border-color) !important;
+            color: var(--bs-body-color) !important;
             -webkit-appearance: none !important;
             -moz-appearance: none !important;
             appearance: none !important;
@@ -134,86 +134,107 @@
         /* Force override any Bootstrap/browser defaults */
         select#labelTypeSelect, select#labelRotationSelect,
         .form-select#labelTypeSelect, .form-select#labelRotationSelect {
-            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
-            border-color: var(--theme-border, var(--bs-border-color)) !important;
-            color: var(--theme-text, var(--bs-body-color)) !important;
-            -webkit-text-fill-color: var(--theme-text, var(--bs-body-color)) !important;
+            background-color: var(--bs-body-bg) !important;
+            border-color: var(--bs-border-color) !important;
+            color: var(--bs-body-color) !important;
+            -webkit-text-fill-color: var(--bs-body-color) !important;
         }
 
         /* Focus state - highlight around the box */
         #labelTypeSelect:focus, #labelRotationSelect:focus,
         select#labelTypeSelect:focus, select#labelRotationSelect:focus {
-            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
-            border-color: var(--theme-primary, var(--bs-primary)) !important;
-            color: var(--theme-text, var(--bs-body-color)) !important;
-            -webkit-text-fill-color: var(--theme-text, var(--bs-body-color)) !important;
-            box-shadow: 0 0 0 0.25rem rgba(var(--theme-primary-rgb, 13, 110, 253), 0.25) !important;
+            background-color: var(--bs-body-bg) !important;
+            border-color: var(--bs-primary) !important;
+            color: var(--bs-body-color) !important;
+            -webkit-text-fill-color: var(--bs-body-color) !important;
+            box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25) !important;
             outline: none !important;
         }
 
         /* Hover state */
         #labelTypeSelect:hover, #labelRotationSelect:hover {
-            border-color: var(--theme-primary, var(--bs-primary)) !important;
-            background-color: var(--theme-bg-surface, var(--theme-bg-card, var(--bs-body-bg))) !important;
-            color: var(--theme-text, var(--bs-body-color)) !important;
-            -webkit-text-fill-color: var(--theme-text, var(--bs-body-color)) !important;
+            border-color: var(--bs-primary) !important;
+            background-color: var(--bs-body-bg) !important;
+            color: var(--bs-body-color) !important;
+            -webkit-text-fill-color: var(--bs-body-color) !important;
         }
 
-        /* All options in dropdown */
-        #labelTypeSelect option, #labelRotationSelect option {
-            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
-            color: var(--theme-text, var(--bs-body-color)) !important;
-            -webkit-text-fill-color: var(--theme-text, var(--bs-body-color)) !important;
+        /* ====== SIMPLE DIRECT OPTION STYLING ====== */
+        
+        /* Direct option hover styling */
+        select option:hover {
+            background-color: var(--bs-primary) !important;
+            color: white !important;
         }
-
-        /* Selected option in dropdown */
-        #labelTypeSelect option:checked, #labelRotationSelect option:checked {
-            background-color: var(--theme-primary, var(--bs-primary)) !important;
-            color: var(--theme-primary-text, white) !important;
-            -webkit-text-fill-color: var(--theme-primary-text, white) !important;
+        
+        /* Direct option selection styling */
+        select option:checked {
+            background-color: var(--bs-primary) !important;
+            color: white !important;
         }
-
-        /* Hover over options in dropdown */
-        #labelTypeSelect option:hover, #labelRotationSelect option:hover {
-            background-color: var(--theme-primary-hover, var(--theme-primary, var(--bs-primary))) !important;
-            color: var(--theme-primary-text, white) !important;
-            -webkit-text-fill-color: var(--theme-primary-text, white) !important;
-        }
-
-        /* Additional hover targeting for different browsers */
-        select#labelTypeSelect option:hover, select#labelRotationSelect option:hover {
-            background-color: var(--theme-primary-hover, var(--theme-primary, var(--bs-primary))) !important;
-            color: var(--theme-primary-text, white) !important;
-            -webkit-text-fill-color: var(--theme-primary-text, white) !important;
-        }
-
-        /* Focus on options (for keyboard navigation) */
-        #labelTypeSelect option:focus, #labelRotationSelect option:focus {
-            background-color: var(--theme-primary-hover, var(--theme-primary, var(--bs-primary))) !important;
-            color: var(--theme-primary-text, white) !important;
-            -webkit-text-fill-color: var(--theme-primary-text, white) !important;
+        
+        /* All options default styling */
+        select option {
+            background-color: var(--bs-body-bg) !important;
+            color: var(--bs-body-color) !important;
         }
 
         /* Override any webkit/browser defaults */
         select#labelTypeSelect::-webkit-scrollbar, select#labelRotationSelect::-webkit-scrollbar {
-            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
+            background-color: var(--bs-body-bg) !important;
         }
 
         select#labelTypeSelect::-webkit-scrollbar-thumb, select#labelRotationSelect::-webkit-scrollbar-thumb {
-            background-color: var(--theme-border, var(--bs-border-color)) !important;
+            background-color: var(--bs-border-color) !important;
         }
 
         /* Force remove any blue default values */
         #labelTypeSelect:invalid, #labelRotationSelect:invalid,
         #labelTypeSelect:valid, #labelRotationSelect:valid {
-            color: var(--theme-text, var(--bs-body-color)) !important;
-            -webkit-text-fill-color: var(--theme-text, var(--bs-body-color)) !important;
+            color: var(--bs-body-color) !important;
+            -webkit-text-fill-color: var(--bs-body-color) !important;
         }
 
+        /* ====== ADDITIONAL FORM-SELECT ELEMENTS THEMING ====== */
+        
+        /* Target all other form-select elements */
+        #entryTypeSelect, #statusSelect, #chartTypeSelect, #sensorTypeFilter {
+            background-color: var(--bs-body-bg) !important;
+            border-color: var(--bs-border-color) !important;
+            color: var(--bs-body-color) !important;
+            -webkit-appearance: none !important;
+            -moz-appearance: none !important;
+            appearance: none !important;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23495057' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e") !important;
+            background-repeat: no-repeat !important;
+            background-position: right 0.75rem center !important;
+            background-size: 16px 12px !important;
+            -webkit-text-fill-color: var(--bs-body-color) !important;
+        }
+
+        /* Focus states for additional selects */
+        #entryTypeSelect:focus, #statusSelect:focus, #chartTypeSelect:focus, #sensorTypeFilter:focus {
+            background-color: var(--bs-body-bg) !important;
+            border-color: var(--bs-primary) !important;
+            color: var(--bs-body-color) !important;
+            box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25) !important;
+            outline: none !important;
+            -webkit-text-fill-color: var(--bs-body-color) !important;
+        }
+
+        /* Hover states for additional selects */
+        #entryTypeSelect:hover, #statusSelect:hover, #chartTypeSelect:hover, #sensorTypeFilter:hover {
+            border-color: var(--bs-primary) !important;
+            background-color: var(--bs-body-bg) !important;
+            -webkit-text-fill-color: var(--bs-body-color) !important;
+        }
+
+        /* Remove the complex additional selects styling - using simple global approach now */
+
         .note-item {
-            background-color: var(--theme-bg-card, var(--bs-body-bg));
-            color: var(--theme-text, var(--bs-body-color));
-            border: 1px solid var(--theme-border, var(--bs-border-color));
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
+            border: 1px solid var(--bs-border-color);
             border-radius: var(--border-radius);
             padding: 1.25rem;
             margin-bottom: 1rem;
@@ -222,24 +243,21 @@
 
         .note-item:hover {
             box-shadow: var(--shadow-md);
-            border-color: var(--theme-primary, var(--bs-primary));
-        .note-item:hover {
-            box-shadow: var(--shadow-md);
-            border-color: var(--theme-primary, var(--bs-primary));
+            border-color: var(--bs-primary);
         }
 
         .note-item h5 {
             margin-top: 0;
             font-size: 1.1rem;
-            color: var(--theme-text, var(--bs-body-color));
-            border-bottom: 1px solid var(--theme-border, var(--bs-border-color));
+            color: var(--bs-body-color);
+            border-bottom: 1px solid var(--bs-border-color);
             padding-bottom: 8px;
             margin-bottom: 12px;
         }
 
         .note-item p {
             font-size: 0.9rem;
-            color: var(--theme-text, var(--bs-body-color));
+            color: var(--bs-body-color);
             line-height: 1.4;
         }
 
@@ -247,8 +265,8 @@
             margin-left: 5px;
         }
         .relationship-item {
-            background: var(--theme-bg-card, var(--bs-body-bg));
-            border: 1px solid var(--theme-border, var(--bs-border-color));
+            background: var(--bs-body-bg);
+            border: 1px solid var(--bs-border-color);
             border-radius: var(--border-radius);
             padding: 1rem;
             margin-bottom: 0.75rem;
@@ -257,17 +275,17 @@
 
         .relationship-item:hover {
             box-shadow: var(--shadow-sm);
-            border-color: var(--theme-primary, var(--bs-primary));
+            border-color: var(--bs-primary);
         }
         
         .section-header {
-            border-bottom: 1px solid var(--theme-border, var(--bs-border-color));
+            border-bottom: 1px solid var(--bs-border-color);
             margin-bottom: 1.5rem;
             padding-bottom: 1rem;
         }
         
         .section-title {
-            color: var(--theme-text, var(--bs-body-color));
+            color: var(--bs-body-color);
             font-weight: 600;
             margin: 0;
             display: flex;
@@ -275,26 +293,26 @@
         }
         
         .content-subsection {
-            background: var(--theme-bg-surface, var(--bs-secondary-bg));
-            color: var(--theme-text, var(--bs-body-color));
+            background: var(--bs-secondary-bg);
+            color: var(--bs-body-color);
             border-radius: var(--border-radius);
             padding: 1rem;
-            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border: 1px solid var(--bs-border-color);
         }
         
         .info-card {
-            background: var(--theme-bg-surface, var(--bs-secondary-bg));
-            color: var(--theme-text, var(--bs-body-color));
+            background: var(--bs-secondary-bg);
+            color: var(--bs-body-color);
             border-radius: var(--border-radius);
             padding: 1rem;
-            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border: 1px solid var(--bs-border-color);
             height: 100%;
         }
         
         .info-label {
             font-size: 0.85rem;
             font-weight: 600;
-            color: var(--theme-text-muted, var(--bs-secondary-color));
+            color: var(--bs-secondary-color);
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: 0.5rem;
@@ -302,16 +320,8 @@
         
         .info-value {
             font-size: 1rem;
-            color: var(--theme-text, var(--bs-body-color));
+            color: var(--bs-body-color);
             font-weight: 500;
-        }
-            background-color: var(--theme-bg-surface, #f0f8ff); /* Light blue background for relationships */
-            border: 1px solid var(--bs-border-color, #cceeff);
-            border-radius: 5px;
-            padding: 15px;
-            margin-bottom: 10px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-            color: var(--theme-text, #212529);
         }
         .relationship-item h5 {
             margin-top: 0;
@@ -320,18 +330,18 @@
         }
         .relationship-item p {
             font-size: 0.9rem;
-            color: var(--theme-text, #495057);
+            color: var(--bs-body-color);
         }
         .relationship-actions button {
             margin-left: 5px;
         }
         /* New styles for inline note form */
         .placeholder-section {
-            border: 1px dashed var(--bs-border-color, #ced4da);
+            border: 1px dashed var(--bs-border-color);
             padding: 20px;
             text-align: center;
-            color: var(--theme-text-muted, #6c757d);
-            background-color: var(--theme-bg-surface, #f8f9fa);
+            color: var(--bs-secondary-color);
+            background-color: var(--bs-secondary-bg);
             border-radius: 5px;
             margin-bottom: 20px;
         }
@@ -367,10 +377,10 @@
         
         /* Content section styling */
         .content-section {
-            background: var(--theme-bg-card, white);
-            color: var(--theme-text, #212529);
+            background: var(--bs-body-bg);
+            color: var(--bs-body-color);
             border-radius: 12px;
-            border-left: 4px solid var(--bs-secondary, #6c757d);
+            border-left: 4px solid var(--bs-secondary);
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
             overflow: hidden;
         }
@@ -388,7 +398,7 @@
         }
         
         .section-title {
-            color: var(--theme-text, #495057);
+            color: var(--bs-body-color);
             font-weight: 600;
             margin: 0;
             display: flex;
@@ -396,26 +406,26 @@
         }
         
         .content-subsection {
-            background: var(--theme-bg-surface, #f8f9fa);
-            color: var(--theme-text, #212529);
+            background: var(--bs-secondary-bg);
+            color: var(--bs-body-color);
             border-radius: 8px;
             padding: 1rem;
-            border: 1px solid var(--bs-border-color, #e9ecef);
+            border: 1px solid var(--bs-border-color);
         }
         
         .info-card {
-            background: var(--theme-bg-surface, #f8f9fa);
-            color: var(--theme-text, #212529);
+            background: var(--bs-secondary-bg);
+            color: var(--bs-body-color);
             border-radius: 8px;
             padding: 1rem;
-            border: 1px solid var(--bs-border-color, #e9ecef);
+            border: 1px solid var(--bs-border-color);
             height: 100%;
         }
         
         .info-label {
             font-size: 0.85rem;
             font-weight: 600;
-            color: var(--theme-text-muted, #6c757d);
+            color: var(--bs-secondary-color);
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: 0.5rem;
@@ -423,7 +433,7 @@
         
         .info-value {
             font-size: 1rem;
-            color: var(--theme-text, #212529);
+            color: var(--bs-body-color);
             font-weight: 500;
         }
         
@@ -456,87 +466,87 @@
 
         /* Modal theme support */
         .modal-content {
-            background-color: var(--theme-bg-card, var(--bs-body-bg));
-            color: var(--theme-text, var(--bs-body-color));
-            border-color: var(--theme-border, var(--bs-border-color));
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
+            border-color: var(--bs-border-color);
         }
         
         .modal-header {
-            border-bottom-color: var(--theme-border, var(--bs-border-color));
-            background-color: var(--theme-bg-surface, var(--bs-secondary-bg));
+            border-bottom-color: var(--bs-border-color);
+            background-color: var(--bs-secondary-bg);
         }
         
         .modal-footer {
-            border-top-color: var(--theme-border, var(--bs-border-color));
-            background-color: var(--theme-bg-surface, var(--bs-secondary-bg));
+            border-top-color: var(--bs-border-color);
+            background-color: var(--bs-secondary-bg);
         }
 
         /* Table theme support */
         .table {
-            color: var(--theme-text, var(--bs-body-color));
-            border-color: var(--theme-border, var(--bs-border-color));
+            color: var(--bs-body-color);
+            border-color: var(--bs-border-color);
         }
 
         .table th {
-            background-color: var(--theme-bg-surface, var(--bs-secondary-bg));
-            border-color: var(--theme-border, var(--bs-border-color));
-            color: var(--theme-text, var(--bs-body-color));
+            background-color: var(--bs-secondary-bg);
+            border-color: var(--bs-border-color);
+            color: var(--bs-body-color);
         }
 
         .table td {
-            border-color: var(--theme-border, var(--bs-border-color));
+            border-color: var(--bs-border-color);
         }
         
         /* Card and badge theme support */
         .card {
-            background-color: var(--theme-bg-card, var(--bs-body-bg));
-            border-color: var(--theme-border, var(--bs-border-color));
-            color: var(--theme-text, var(--bs-body-color));
+            background-color: var(--bs-body-bg);
+            border-color: var(--bs-border-color);
+            color: var(--bs-body-color);
         }
 
         .card-header {
-            background-color: var(--theme-bg-surface, var(--bs-secondary-bg));
-            border-bottom-color: var(--theme-border, var(--bs-border-color));
-            color: var(--theme-text, var(--bs-body-color));
+            background-color: var(--bs-secondary-bg);
+            border-bottom-color: var(--bs-border-color);
+            color: var(--bs-body-color);
         }
 
         .card-body {
-            background-color: var(--theme-bg-card, var(--bs-body-bg));
-            color: var(--theme-text, var(--bs-body-color));
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
         }
 
         .border-theme {
-            border-color: var(--theme-primary, var(--bs-primary)) !important;
+            border-color: var(--bs-primary) !important;
         }
 
         .text-theme-info {
-            color: var(--theme-primary, var(--bs-primary)) !important;
+            color: var(--bs-primary) !important;
         }
 
         /* Breadcrumb theming */
         .breadcrumb-item a {
-            color: var(--theme-primary, var(--bs-primary));
+            color: var(--bs-primary);
             text-decoration: none;
         }
 
         .breadcrumb-item a:hover {
-            color: var(--theme-primary-hover, var(--bs-primary));
+            color: var(--bs-primary);
             opacity: 0.8;
         }
 
         .breadcrumb-item.active {
-            color: var(--theme-text-muted, var(--bs-secondary-color));
+            color: var(--bs-secondary-color);
         }
         
         /* Button theme support */
         .btn-outline-secondary {
-            color: var(--bs-secondary, #6c757d);
-            border-color: var(--bs-secondary, #6c757d);
+            color: var(--bs-secondary);
+            border-color: var(--bs-secondary);
         }
         
         .btn-outline-secondary:hover {
-            background-color: var(--bs-secondary, #6c757d);
-            border-color: var(--bs-secondary, #6c757d);
+            background-color: var(--bs-secondary);
+            border-color: var(--bs-secondary);
         }
         
         .btn-outline-primary {
