@@ -241,6 +241,98 @@
                         </div>
                     </div>
                 </div>
+                
+                <div class="col-md-6">
+                    <div class="theme-preview" data-theme="custom" onclick="selectTheme('custom')">
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="color-swatch" id="customPreviewPrimary" style="background: #0d6efd;"></div>
+                            <div class="color-swatch" id="customPreviewSecondary" style="background: #6c757d;"></div>
+                            <div class="color-swatch" id="customPreviewSuccess" style="background: #198754;"></div>
+                            <h6 class="mb-0 ms-2">Custom</h6>
+                        </div>
+                        <div class="preview-card">
+                            <small>Create your own color scheme</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Colors Section -->
+        <div class="content-section" id="customColorsSection" style="display: none;">
+            <h5 class="mb-3" style="color: #6f42c1;">
+                <i class="fas fa-paint-brush me-2"></i>Custom Colors
+            </h5>
+            <p class="text-muted mb-3">Create your own color scheme by defining custom colors</p>
+            
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="customPrimary" class="form-label">Primary Color</label>
+                    <div class="input-group">
+                        <input type="color" class="form-control form-control-color" id="customPrimary" value="#0d6efd">
+                        <input type="text" class="form-control" id="customPrimaryText" value="#0d6efd" placeholder="#000000">
+                    </div>
+                    <small class="text-muted">Main action buttons and links</small>
+                </div>
+                <div class="col-md-6">
+                    <label for="customPrimaryHover" class="form-label">Primary Hover Color</label>
+                    <div class="input-group">
+                        <input type="color" class="form-control form-control-color" id="customPrimaryHover" value="#0b5ed7">
+                        <input type="text" class="form-control" id="customPrimaryHoverText" value="#0b5ed7" placeholder="#000000">
+                    </div>
+                    <small class="text-muted">Hover state for primary elements</small>
+                </div>
+                <div class="col-md-6">
+                    <label for="customSecondary" class="form-label">Secondary Color</label>
+                    <div class="input-group">
+                        <input type="color" class="form-control form-control-color" id="customSecondary" value="#6c757d">
+                        <input type="text" class="form-control" id="customSecondaryText" value="#6c757d" placeholder="#000000">
+                    </div>
+                    <small class="text-muted">Secondary buttons and muted text</small>
+                </div>
+                <div class="col-md-6">
+                    <label for="customSuccess" class="form-label">Success Color</label>
+                    <div class="input-group">
+                        <input type="color" class="form-control form-control-color" id="customSuccess" value="#198754">
+                        <input type="text" class="form-control" id="customSuccessText" value="#198754" placeholder="#000000">
+                    </div>
+                    <small class="text-muted">Success messages and confirmations</small>
+                </div>
+                <div class="col-md-6">
+                    <label for="customDanger" class="form-label">Danger Color</label>
+                    <div class="input-group">
+                        <input type="color" class="form-control form-control-color" id="customDanger" value="#dc3545">
+                        <input type="text" class="form-control" id="customDangerText" value="#dc3545" placeholder="#000000">
+                    </div>
+                    <small class="text-muted">Error messages and delete buttons</small>
+                </div>
+                <div class="col-md-6">
+                    <label for="customWarning" class="form-label">Warning Color</label>
+                    <div class="input-group">
+                        <input type="color" class="form-control form-control-color" id="customWarning" value="#ffc107">
+                        <input type="text" class="form-control" id="customWarningText" value="#ffc107" placeholder="#000000">
+                    </div>
+                    <small class="text-muted">Warning messages and caution alerts</small>
+                </div>
+                <div class="col-md-6">
+                    <label for="customInfo" class="form-label">Info Color</label>
+                    <div class="input-group">
+                        <input type="color" class="form-control form-control-color" id="customInfo" value="#0dcaf0">
+                        <input type="text" class="form-control" id="customInfoText" value="#0dcaf0" placeholder="#000000">
+                    </div>
+                    <small class="text-muted">Information messages and highlights</small>
+                </div>
+            </div>
+            
+            <div class="mt-3">
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-theme btn-sm" onclick="resetCustomColors()">
+                        <i class="fas fa-undo me-1"></i>Reset to Defaults
+                    </button>
+                    <button type="button" class="btn btn-outline-theme btn-sm" onclick="generateRandomColors()">
+                        <i class="fas fa-random me-1"></i>Generate Random
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -318,12 +410,20 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         let selectedTheme = '{{ current_theme or "default" }}';
+        let customColors = {};
+        
+        // Load custom colors if available
+        {% if custom_colors %}
+        customColors = {{ custom_colors|tojson }};
+        {% endif %}
         
         document.addEventListener('DOMContentLoaded', () => {
             // Initialize theme selection
             selectTheme(selectedTheme);
             updateFontPreview();
             updateLivePreview();
+            loadCustomColors();
+            setupCustomColorEventListeners();
             
             // Add event listeners
             document.getElementById('darkModeToggle').addEventListener('change', updateLivePreview);
@@ -341,7 +441,122 @@
             });
             document.querySelector(`[data-theme="${theme}"]`).classList.add('selected');
             
+            // Show/hide custom colors section
+            const customSection = document.getElementById('customColorsSection');
+            if (theme === 'custom') {
+                customSection.style.display = 'block';
+            } else {
+                customSection.style.display = 'none';
+            }
+            
             updateLivePreview();
+        }
+        
+        function loadCustomColors() {
+            if (Object.keys(customColors).length > 0) {
+                // Load existing custom colors
+                Object.entries(customColors).forEach(([key, value]) => {
+                    const colorInput = document.getElementById('custom' + key.charAt(0).toUpperCase() + key.slice(1).replace('_', ''));
+                    const textInput = document.getElementById('custom' + key.charAt(0).toUpperCase() + key.slice(1).replace('_', '') + 'Text');
+                    if (colorInput && textInput) {
+                        colorInput.value = value;
+                        textInput.value = value;
+                    }
+                });
+                updateCustomPreview();
+            }
+        }
+        
+        function setupCustomColorEventListeners() {
+            const colorInputs = ['Primary', 'PrimaryHover', 'Secondary', 'Success', 'Danger', 'Warning', 'Info'];
+            
+            colorInputs.forEach(color => {
+                const colorInput = document.getElementById('custom' + color);
+                const textInput = document.getElementById('custom' + color + 'Text');
+                
+                if (colorInput && textInput) {
+                    // Sync color picker with text input
+                    colorInput.addEventListener('input', (e) => {
+                        textInput.value = e.target.value;
+                        updateCustomPreview();
+                    });
+                    
+                    // Sync text input with color picker
+                    textInput.addEventListener('input', (e) => {
+                        if (isValidHexColor(e.target.value)) {
+                            colorInput.value = e.target.value;
+                            updateCustomPreview();
+                        }
+                    });
+                }
+            });
+        }
+        
+        function isValidHexColor(hex) {
+            return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(hex);
+        }
+        
+        function updateCustomPreview() {
+            const primary = document.getElementById('customPrimary').value;
+            const secondary = document.getElementById('customSecondary').value;
+            const success = document.getElementById('customSuccess').value;
+            
+            document.getElementById('customPreviewPrimary').style.background = primary;
+            document.getElementById('customPreviewSecondary').style.background = secondary;
+            document.getElementById('customPreviewSuccess').style.background = success;
+        }
+        
+        function resetCustomColors() {
+            const defaults = {
+                'customPrimary': '#0d6efd',
+                'customPrimaryHover': '#0b5ed7',
+                'customSecondary': '#6c757d',
+                'customSuccess': '#198754',
+                'customDanger': '#dc3545',
+                'customWarning': '#ffc107',
+                'customInfo': '#0dcaf0'
+            };
+            
+            Object.entries(defaults).forEach(([id, value]) => {
+                document.getElementById(id).value = value;
+                document.getElementById(id + 'Text').value = value;
+            });
+            
+            updateCustomPreview();
+        }
+        
+        function generateRandomColors() {
+            function getRandomColor() {
+                return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+            }
+            
+            function darkenColor(hex, amount = 0.2) {
+                const num = parseInt(hex.replace('#', ''), 16);
+                const amt = Math.round(2.55 * amount * 100);
+                const R = (num >> 16) - amt;
+                const G = (num >> 8 & 0x00FF) - amt;
+                const B = (num & 0x0000FF) - amt;
+                return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+                    (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+                    (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+            }
+            
+            const primary = getRandomColor();
+            document.getElementById('customPrimary').value = primary;
+            document.getElementById('customPrimaryText').value = primary;
+            
+            const primaryHover = darkenColor(primary);
+            document.getElementById('customPrimaryHover').value = primaryHover;
+            document.getElementById('customPrimaryHoverText').value = primaryHover;
+            
+            const colors = ['Secondary', 'Success', 'Danger', 'Warning', 'Info'];
+            colors.forEach(color => {
+                const randomColor = getRandomColor();
+                document.getElementById('custom' + color).value = randomColor;
+                document.getElementById('custom' + color + 'Text').value = randomColor;
+            });
+            
+            updateCustomPreview();
         }
         
         function updateFontPreview() {
@@ -388,6 +603,20 @@
             }
         }
         
+        function getCustomColors() {
+            if (selectedTheme !== 'custom') return {};
+            
+            return {
+                primary: document.getElementById('customPrimary').value,
+                primary_hover: document.getElementById('customPrimaryHover').value,
+                secondary: document.getElementById('customSecondary').value,
+                success: document.getElementById('customSuccess').value,
+                danger: document.getElementById('customDanger').value,
+                warning: document.getElementById('customWarning').value,
+                info: document.getElementById('customInfo').value
+            };
+        }
+        
         async function saveThemeSettings() {
             const darkMode = document.getElementById('darkModeToggle').checked;
             const fontSize = document.getElementById('fontSize').value;
@@ -397,7 +626,8 @@
                 theme: selectedTheme,
                 dark_mode: darkMode,
                 font_size: fontSize,
-                high_contrast: highContrast
+                high_contrast: highContrast,
+                custom_colors: getCustomColors()
             };
             
             try {

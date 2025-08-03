@@ -4,6 +4,37 @@ import json
 
 theme_api = Blueprint('theme_api', __name__)
 
+def _hex_to_rgb(hex_color):
+    """Convert hex color to RGB tuple"""
+    hex_color = hex_color.lstrip('#')
+    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+def _rgb_to_hex(rgb):
+    """Convert RGB tuple to hex color"""
+    return f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
+
+def _lighten_color(hex_color, factor):
+    """Lighten a hex color by a factor (0.0 = no change, 1.0 = white)"""
+    try:
+        r, g, b = _hex_to_rgb(hex_color)
+        r = int(r + (255 - r) * factor)
+        g = int(g + (255 - g) * factor)
+        b = int(b + (255 - b) * factor)
+        return _rgb_to_hex((min(255, r), min(255, g), min(255, b)))
+    except:
+        return hex_color  # Return original on error
+
+def _darken_color(hex_color, factor):
+    """Darken a hex color by a factor (0.0 = no change, 1.0 = black)"""
+    try:
+        r, g, b = _hex_to_rgb(hex_color)
+        r = int(r * (1 - factor))
+        g = int(g * (1 - factor))
+        b = int(b * (1 - factor))
+        return _rgb_to_hex((max(0, r), max(0, g), max(0, b)))
+    except:
+        return hex_color  # Return original on error
+
 def get_db():
     """Get database connection using flexible configuration approach"""
     if 'db' not in g:
@@ -34,9 +65,10 @@ def handle_theme_settings():
                 dark_mode = bool(data.get('dark_mode', False))
                 font_size = data.get('font_size', 'normal')
                 high_contrast = bool(data.get('high_contrast', False))
+                custom_colors = data.get('custom_colors', {})
                 
                 # Valid options validation
-                valid_themes = ['default', 'emerald', 'purple', 'amber']
+                valid_themes = ['default', 'emerald', 'purple', 'amber', 'custom']
                 valid_font_sizes = ['small', 'normal', 'large', 'extra-large']
                 
                 if theme not in valid_themes:
@@ -44,6 +76,16 @@ def handle_theme_settings():
                 
                 if font_size not in valid_font_sizes:
                     return jsonify({'error': 'Invalid font size selected'}), 400
+                
+                # Validate custom colors if theme is custom
+                if theme == 'custom' and custom_colors:
+                    valid_color_keys = ['primary', 'primary_hover', 'secondary', 'success', 'danger', 'warning', 'info']
+                    for key, value in custom_colors.items():
+                        if key not in valid_color_keys:
+                            return jsonify({'error': f'Invalid custom color key: {key}'}), 400
+                        # Basic hex color validation
+                        if not value.startswith('#') or len(value) != 7:
+                            return jsonify({'error': f'Invalid color format for {key}. Use hex format like #000000'}), 400
                 
                 # Store theme settings in database
                 cursor = db.cursor()
@@ -60,6 +102,13 @@ def handle_theme_settings():
                     ('theme_high_contrast', str(high_contrast))
                 ]
                 
+                # Add custom colors if theme is custom
+                if theme == 'custom' and custom_colors:
+                    theme_settings.append(('theme_custom_colors', json.dumps(custom_colors)))
+                elif theme != 'custom':
+                    # Clear custom colors if switching away from custom theme
+                    cursor.execute("DELETE FROM SystemParameters WHERE parameter_name = 'theme_custom_colors'")
+                
                 for param_name, param_value in theme_settings:
                     cursor.execute("""
                         INSERT OR REPLACE INTO SystemParameters (parameter_name, parameter_value)
@@ -73,7 +122,8 @@ def handle_theme_settings():
                     'theme': theme,
                     'dark_mode': dark_mode,
                     'font_size': font_size,
-                    'high_contrast': high_contrast
+                    'high_contrast': high_contrast,
+                    'custom_colors': custom_colors if theme == 'custom' else {}
                 }
                 
                 return jsonify({
@@ -96,6 +146,7 @@ def handle_theme_settings():
                 """)
                 
                 settings = {}
+                custom_colors = {}
                 for parameter_name, parameter_value in cursor.fetchall():
                     if parameter_name == 'theme_color_scheme':
                         settings['theme'] = parameter_value
@@ -105,12 +156,18 @@ def handle_theme_settings():
                         settings['font_size'] = parameter_value
                     elif parameter_name == 'theme_high_contrast':
                         settings['high_contrast'] = parameter_value.lower() == 'true'
+                    elif parameter_name == 'theme_custom_colors':
+                        try:
+                            custom_colors = json.loads(parameter_value)
+                        except (json.JSONDecodeError, TypeError):
+                            custom_colors = {}
                 
                 # Set defaults if not found
                 settings.setdefault('theme', 'default')
                 settings.setdefault('dark_mode', False)
                 settings.setdefault('font_size', 'normal')
                 settings.setdefault('high_contrast', False)
+                settings['custom_colors'] = custom_colors
                 
                 return jsonify(settings)
                 
@@ -139,6 +196,7 @@ def get_current_theme_settings():
         """)
         
         settings = {}
+        custom_colors = {}
         for parameter_name, parameter_value in cursor.fetchall():
             if parameter_name == 'theme_color_scheme':
                 settings['current_theme'] = parameter_value
@@ -148,12 +206,18 @@ def get_current_theme_settings():
                 settings['font_size'] = parameter_value
             elif parameter_name == 'theme_high_contrast':
                 settings['high_contrast_enabled'] = parameter_value.lower() == 'true'
+            elif parameter_name == 'theme_custom_colors':
+                try:
+                    custom_colors = json.loads(parameter_value)
+                except (json.JSONDecodeError, TypeError):
+                    custom_colors = {}
         
         # Set defaults
         settings.setdefault('current_theme', 'default')
         settings.setdefault('dark_mode_enabled', False)
         settings.setdefault('font_size', 'normal')
         settings.setdefault('high_contrast_enabled', False)
+        settings['custom_colors'] = custom_colors
         
         conn.close()
         return settings
@@ -164,7 +228,8 @@ def get_current_theme_settings():
             'current_theme': 'default',
             'dark_mode_enabled': False,
             'font_size': 'normal',
-            'high_contrast_enabled': False
+            'high_contrast_enabled': False,
+            'custom_colors': {}
         }
 
 
@@ -175,6 +240,7 @@ def generate_theme_css(settings=None):
     
     theme = settings.get('current_theme', 'default')
     dark_mode = settings.get('dark_mode_enabled', False)
+    custom_colors = settings.get('custom_colors', {})
     
     # Define color schemes
     color_schemes = {
@@ -213,11 +279,24 @@ def generate_theme_css(settings=None):
             'danger': '#ef4444',
             'warning': '#f97316',
             'info': '#06b6d4'
+        },
+        'custom': {
+            'primary': '#0d6efd',
+            'primary_hover': '#0b5ed7',
+            'secondary': '#6c757d',
+            'success': '#198754',
+            'danger': '#dc3545',
+            'warning': '#ffc107',
+            'info': '#0dcaf0'
         }
     }
     
     # Get colors for selected theme
     colors = color_schemes.get(theme, color_schemes['default'])
+    
+    # Override with custom colors if using custom theme
+    if theme == 'custom' and custom_colors:
+        colors.update(custom_colors)
     
     # Base CSS with theme variables
     css = f"""
@@ -250,6 +329,12 @@ def generate_theme_css(settings=None):
             info_bg = "#3d2f1a"
             info_border = "#d97706"
             info_text = "#fbbf24"
+        elif theme == 'custom':
+            # Generate appropriate dark mode colors for custom theme
+            primary_color = colors['primary']
+            info_bg = _darken_color(primary_color, 0.8)
+            info_border = colors['primary']
+            info_text = _lighten_color(primary_color, 0.3)
         else:  # default
             info_bg = "#0c2d48"
             info_border = "#1f6feb"
@@ -298,6 +383,12 @@ def generate_theme_css(settings=None):
             info_bg = "#fef3c7"
             info_border = "#fde68a"
             info_text = "#92400e"
+        elif theme == 'custom':
+            # Generate appropriate light mode colors for custom theme
+            primary_color = colors['primary']
+            info_bg = _lighten_color(primary_color, 0.85)
+            info_border = _lighten_color(primary_color, 0.5)
+            info_text = _darken_color(primary_color, 0.6)
         else:  # default
             info_bg = "#cff4fc"
             info_border = "#b6effb"
