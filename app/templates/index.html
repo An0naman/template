@@ -482,7 +482,14 @@
                     });
                     
                     if (response.ok) {
-                        location.reload(); // Refresh the page to show the new entry
+                        const result = await response.json();
+                        if (result.redirect) {
+                            // Redirect to the newly created entry
+                            window.location.href = result.redirect;
+                        } else {
+                            // Fallback to page reload if no redirect provided
+                            location.reload();
+                        }
                     } else {
                         const error = await response.json();
                         alert('Error adding entry: ' + (error.message || 'Unknown error'));
