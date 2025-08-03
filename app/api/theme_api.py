@@ -66,6 +66,8 @@ def handle_theme_settings():
                 font_size = data.get('font_size', 'normal')
                 high_contrast = bool(data.get('high_contrast', False))
                 custom_colors = data.get('custom_colors', {})
+                custom_light_mode = data.get('custom_light_mode', {})
+                custom_dark_mode = data.get('custom_dark_mode', {})
                 
                 # Valid options validation
                 valid_themes = ['default', 'emerald', 'purple', 'amber', 'custom']
@@ -86,6 +88,15 @@ def handle_theme_settings():
                         # Basic hex color validation
                         if not value.startswith('#') or len(value) != 7:
                             return jsonify({'error': f'Invalid color format for {key}. Use hex format like #000000'}), 400
+                
+                # Validate custom light/dark mode colors
+                valid_mode_keys = ['bg_body', 'bg_card', 'bg_surface', 'text', 'text_muted', 'border']
+                for mode_name, mode_colors in [('light', custom_light_mode), ('dark', custom_dark_mode)]:
+                    for key, value in mode_colors.items():
+                        if key not in valid_mode_keys:
+                            return jsonify({'error': f'Invalid custom {mode_name} mode color key: {key}'}), 400
+                        if not value.startswith('#') or len(value) != 7:
+                            return jsonify({'error': f'Invalid {mode_name} mode color format for {key}. Use hex format like #000000'}), 400
                 
                 # Store theme settings in database
                 cursor = db.cursor()
@@ -109,6 +120,17 @@ def handle_theme_settings():
                     # Clear custom colors if switching away from custom theme
                     cursor.execute("DELETE FROM SystemParameters WHERE parameter_name = 'theme_custom_colors'")
                 
+                # Add custom light/dark mode colors
+                if custom_light_mode:
+                    theme_settings.append(('theme_custom_light_mode', json.dumps(custom_light_mode)))
+                else:
+                    cursor.execute("DELETE FROM SystemParameters WHERE parameter_name = 'theme_custom_light_mode'")
+                    
+                if custom_dark_mode:
+                    theme_settings.append(('theme_custom_dark_mode', json.dumps(custom_dark_mode)))
+                else:
+                    cursor.execute("DELETE FROM SystemParameters WHERE parameter_name = 'theme_custom_dark_mode'")
+                
                 for param_name, param_value in theme_settings:
                     cursor.execute("""
                         INSERT OR REPLACE INTO SystemParameters (parameter_name, parameter_value)
@@ -123,7 +145,9 @@ def handle_theme_settings():
                     'dark_mode': dark_mode,
                     'font_size': font_size,
                     'high_contrast': high_contrast,
-                    'custom_colors': custom_colors if theme == 'custom' else {}
+                    'custom_colors': custom_colors if theme == 'custom' else {},
+                    'custom_light_mode': custom_light_mode,
+                    'custom_dark_mode': custom_dark_mode
                 }
                 
                 return jsonify({
@@ -147,6 +171,9 @@ def handle_theme_settings():
                 
                 settings = {}
                 custom_colors = {}
+                custom_light_mode = {}
+                custom_dark_mode = {}
+                
                 for parameter_name, parameter_value in cursor.fetchall():
                     if parameter_name == 'theme_color_scheme':
                         settings['theme'] = parameter_value
@@ -161,6 +188,16 @@ def handle_theme_settings():
                             custom_colors = json.loads(parameter_value)
                         except (json.JSONDecodeError, TypeError):
                             custom_colors = {}
+                    elif parameter_name == 'theme_custom_light_mode':
+                        try:
+                            custom_light_mode = json.loads(parameter_value)
+                        except (json.JSONDecodeError, TypeError):
+                            custom_light_mode = {}
+                    elif parameter_name == 'theme_custom_dark_mode':
+                        try:
+                            custom_dark_mode = json.loads(parameter_value)
+                        except (json.JSONDecodeError, TypeError):
+                            custom_dark_mode = {}
                 
                 # Set defaults if not found
                 settings.setdefault('theme', 'default')
@@ -168,6 +205,8 @@ def handle_theme_settings():
                 settings.setdefault('font_size', 'normal')
                 settings.setdefault('high_contrast', False)
                 settings['custom_colors'] = custom_colors
+                settings['custom_light_mode'] = custom_light_mode
+                settings['custom_dark_mode'] = custom_dark_mode
                 
                 return jsonify(settings)
                 
@@ -197,6 +236,9 @@ def get_current_theme_settings():
         
         settings = {}
         custom_colors = {}
+        custom_light_mode = {}
+        custom_dark_mode = {}
+        
         for parameter_name, parameter_value in cursor.fetchall():
             if parameter_name == 'theme_color_scheme':
                 settings['current_theme'] = parameter_value
@@ -211,6 +253,16 @@ def get_current_theme_settings():
                     custom_colors = json.loads(parameter_value)
                 except (json.JSONDecodeError, TypeError):
                     custom_colors = {}
+            elif parameter_name == 'theme_custom_light_mode':
+                try:
+                    custom_light_mode = json.loads(parameter_value)
+                except (json.JSONDecodeError, TypeError):
+                    custom_light_mode = {}
+            elif parameter_name == 'theme_custom_dark_mode':
+                try:
+                    custom_dark_mode = json.loads(parameter_value)
+                except (json.JSONDecodeError, TypeError):
+                    custom_dark_mode = {}
         
         # Set defaults
         settings.setdefault('current_theme', 'default')
@@ -218,6 +270,8 @@ def get_current_theme_settings():
         settings.setdefault('font_size', 'normal')
         settings.setdefault('high_contrast_enabled', False)
         settings['custom_colors'] = custom_colors
+        settings['custom_light_mode'] = custom_light_mode
+        settings['custom_dark_mode'] = custom_dark_mode
         
         conn.close()
         return settings
@@ -229,7 +283,9 @@ def get_current_theme_settings():
             'dark_mode_enabled': False,
             'font_size': 'normal',
             'high_contrast_enabled': False,
-            'custom_colors': {}
+            'custom_colors': {},
+            'custom_light_mode': {},
+            'custom_dark_mode': {}
         }
 
 
@@ -241,6 +297,8 @@ def generate_theme_css(settings=None):
     theme = settings.get('current_theme', 'default')
     dark_mode = settings.get('dark_mode_enabled', False)
     custom_colors = settings.get('custom_colors', {})
+    custom_light_mode = settings.get('custom_light_mode', {})
+    custom_dark_mode = settings.get('custom_dark_mode', {})
     
     # Define color schemes
     color_schemes = {
@@ -298,6 +356,25 @@ def generate_theme_css(settings=None):
     if theme == 'custom' and custom_colors:
         colors.update(custom_colors)
     
+    # Define default light/dark mode colors
+    default_light_mode = {
+        'bg_body': '#ffffff',
+        'bg_card': '#ffffff', 
+        'bg_surface': '#f8f9fa',
+        'text': '#212529',
+        'text_muted': '#6c757d',
+        'border': '#dee2e6'
+    }
+    
+    default_dark_mode = {
+        'bg_body': '#0d1117',
+        'bg_card': '#161b22',
+        'bg_surface': '#21262d', 
+        'text': '#f0f6fc',
+        'text_muted': '#8b949e',
+        'border': '#30363d'
+    }
+    
     # Base CSS with theme variables
     css = f"""
         :root {{
@@ -316,6 +393,11 @@ def generate_theme_css(settings=None):
     
     # Add dark mode or light mode specific variables
     if dark_mode:
+        # Use custom dark mode colors or defaults
+        dark_colors = default_dark_mode.copy()
+        if custom_dark_mode:
+            dark_colors.update(custom_dark_mode)
+            
         # Calculate theme-appropriate dark mode info colors based on selected theme
         if theme == 'emerald':
             info_bg = "#0a2f23"
@@ -342,12 +424,12 @@ def generate_theme_css(settings=None):
             
         css += f"""
             /* Dark Mode Colors */
-            --theme-bg-body: #0d1117;
-            --theme-bg-card: #161b22;
-            --theme-bg-surface: #21262d;
-            --theme-text: #f0f6fc;
-            --theme-text-muted: #8b949e;
-            --theme-border: #30363d;
+            --theme-bg-body: {dark_colors['bg_body']};
+            --theme-bg-card: {dark_colors['bg_card']};
+            --theme-bg-surface: {dark_colors['bg_surface']};
+            --theme-text: {dark_colors['text']};
+            --theme-text-muted: {dark_colors['text_muted']};
+            --theme-border: {dark_colors['border']};
             --theme-bg-info: {info_bg};
             --theme-border-info: {info_border};
             --theme-text-info: {info_text};
@@ -370,6 +452,11 @@ def generate_theme_css(settings=None):
         }}
         """
     else:
+        # Use custom light mode colors or defaults
+        light_colors = default_light_mode.copy()
+        if custom_light_mode:
+            light_colors.update(custom_light_mode)
+            
         # Calculate theme-appropriate light mode info colors based on selected theme
         if theme == 'emerald':
             info_bg = "#d1fae5"
@@ -396,12 +483,12 @@ def generate_theme_css(settings=None):
             
         css += f"""
             /* Light Mode Colors */
-            --theme-bg-body: #ffffff;
-            --theme-bg-card: #ffffff;
-            --theme-bg-surface: #f8f9fa;
-            --theme-text: #212529;
-            --theme-text-muted: #6c757d;
-            --theme-border: #dee2e6;
+            --theme-bg-body: {light_colors['bg_body']};
+            --theme-bg-card: {light_colors['bg_card']};
+            --theme-bg-surface: {light_colors['bg_surface']};
+            --theme-text: {light_colors['text']};
+            --theme-text-muted: {light_colors['text_muted']};
+            --theme-border: {light_colors['border']};
             --theme-bg-info: {info_bg};
             --theme-border-info: {info_border};
             --theme-text-info: {info_text};
