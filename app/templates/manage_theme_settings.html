@@ -515,16 +515,277 @@
             <h5 class="mb-3" style="color: #6f42c1;">
                 <i class="fas fa-eye me-2"></i>Live Preview
             </h5>
-            <p class="text-muted mb-3">Preview how your theme settings will look</p>
+            <p class="text-muted mb-3">Preview how your theme settings will look across different UI elements</p>
             
             <div class="preview-container" id="previewContainer">
-                <div class="preview-card">
-                    <h6>Sample Entry Title</h6>
-                    <p>This is a sample entry showing how your content will appear with the selected theme settings.</p>
-                    <div class="d-flex gap-2">
-                        <span class="badge bg-primary">Tag 1</span>
-                        <span class="badge bg-success">Tag 2</span>
-                        <span class="badge bg-warning">Tag 3</span>
+                <!-- Main Content Card -->
+                <div class="preview-card mb-4" style="border: 1px solid var(--bs-border-color); border-radius: 8px; padding: 1.5rem; background: var(--bs-body-bg);">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <h4 class="mb-1" style="color: var(--bs-body-color);">Sample Entry Title</h4>
+                            <p class="text-muted mb-2">This demonstrates how content will appear with your theme settings</p>
+                            <small class="text-muted">Created: January 15, 2025 | Updated: 2 hours ago</small>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#"><i class="fas fa-edit me-2"></i>Edit</a></li>
+                                <li><a class="dropdown-item" href="#"><i class="fas fa-copy me-2"></i>Duplicate</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="#"><i class="fas fa-trash me-2"></i>Delete</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- Status Badges -->
+                    <div class="d-flex gap-2 mb-3">
+                        <span class="badge bg-primary">Primary</span>
+                        <span class="badge bg-success">Success</span>
+                        <span class="badge bg-warning text-dark">Warning</span>
+                        <span class="badge bg-danger">Danger</span>
+                        <span class="badge bg-info text-dark">Info</span>
+                        <span class="badge bg-secondary">Secondary</span>
+                    </div>
+                    
+                    <!-- Sample Content -->
+                    <div class="mb-3">
+                        <p style="color: var(--bs-body-color);">This is sample content that shows how regular text appears with your chosen theme. The text should be clearly readable and provide good contrast against the background.</p>
+                        <blockquote class="blockquote text-muted ps-3" style="border-left: 3px solid var(--bs-primary);">
+                            "This is a sample quote demonstrating how highlighted content appears in your theme."
+                        </blockquote>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="d-flex gap-2 mb-3">
+                        <button class="btn btn-primary">Primary Action</button>
+                        <button class="btn btn-outline-primary">Secondary Action</button>
+                        <button class="btn btn-success">Save</button>
+                        <button class="btn btn-outline-danger">Cancel</button>
+                    </div>
+                </div>
+                
+                <!-- Form Elements Preview -->
+                <div class="preview-card mb-4" style="border: 1px solid var(--bs-border-color); border-radius: 8px; padding: 1.5rem; background: var(--bs-body-bg);">
+                    <h5 class="mb-3" style="color: var(--bs-body-color);">Form Elements</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="previewInput" class="form-label">Text Input</label>
+                                <input type="text" class="form-control" id="previewInput" placeholder="Enter text here..." value="Sample input text">
+                            </div>
+                            <div class="mb-3">
+                                <label for="previewSelect" class="form-label">Select Dropdown</label>
+                                <select class="form-select" id="previewSelect">
+                                    <option selected>Choose an option...</option>
+                                    <option value="1">Option One</option>
+                                    <option value="2">Option Two</option>
+                                    <option value="3">Option Three</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="previewTextarea" class="form-label">Textarea</label>
+                                <textarea class="form-control" id="previewTextarea" rows="3" placeholder="Enter multiple lines of text...">This is sample textarea content showing how multi-line input fields appear with your theme.</textarea>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Checkboxes and Radio Buttons -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Checkbox Options</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="check1" checked>
+                                <label class="form-check-label" for="check1">Option 1 (checked)</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="check2">
+                                <label class="form-check-label" for="check2">Option 2</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Radio Button Options</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="radioPreview" id="radio1" checked>
+                                <label class="form-check-label" for="radio1">Radio Option 1</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="radioPreview" id="radio2">
+                                <label class="form-check-label" for="radio2">Radio Option 2</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tables Preview -->
+                <div class="preview-card mb-4" style="border: 1px solid var(--bs-border-color); border-radius: 8px; padding: 1.5rem; background: var(--bs-body-bg);">
+                    <h5 class="mb-3" style="color: var(--bs-body-color);">Data Tables</h5>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th scope="col">#</th>
+                                    <th scope="col">Name</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col">Date</th>
+                                    <th scope="col">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <th scope="row">1</th>
+                                    <td>Sample Entry One</td>
+                                    <td><span class="badge bg-success">Active</span></td>
+                                    <td>2025-01-15</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary">View</button>
+                                        <button class="btn btn-sm btn-outline-secondary">Edit</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">2</th>
+                                    <td>Sample Entry Two</td>
+                                    <td><span class="badge bg-warning text-dark">Pending</span></td>
+                                    <td>2025-01-14</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary">View</button>
+                                        <button class="btn btn-sm btn-outline-secondary">Edit</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">3</th>
+                                    <td>Sample Entry Three</td>
+                                    <td><span class="badge bg-danger">Inactive</span></td>
+                                    <td>2025-01-13</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary">View</button>
+                                        <button class="btn btn-sm btn-outline-secondary">Edit</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Alerts and Messages -->
+                <div class="preview-card mb-4" style="border: 1px solid var(--bs-border-color); border-radius: 8px; padding: 1.5rem; background: var(--bs-body-bg);">
+                    <h5 class="mb-3" style="color: var(--bs-body-color);">Alerts & Messages</h5>
+                    <div class="alert alert-primary" role="alert">
+                        <i class="fas fa-info-circle me-2"></i>This is a primary alert with some sample text.
+                    </div>
+                    <div class="alert alert-success" role="alert">
+                        <i class="fas fa-check-circle me-2"></i>This is a success alert indicating something good happened.
+                    </div>
+                    <div class="alert alert-warning" role="alert">
+                        <i class="fas fa-exclamation-triangle me-2"></i>This is a warning alert that needs attention.
+                    </div>
+                    <div class="alert alert-danger" role="alert">
+                        <i class="fas fa-times-circle me-2"></i>This is a danger alert indicating an error occurred.
+                    </div>
+                </div>
+                
+                <!-- Navigation and Tabs -->
+                <div class="preview-card mb-4" style="border: 1px solid var(--bs-border-color); border-radius: 8px; padding: 1.5rem; background: var(--bs-body-bg);">
+                    <h5 class="mb-3" style="color: var(--bs-body-color);">Navigation Elements</h5>
+                    
+                    <!-- Navigation Pills -->
+                    <div class="mb-3">
+                        <h6 class="mb-2">Navigation Pills</h6>
+                        <ul class="nav nav-pills">
+                            <li class="nav-item">
+                                <a class="nav-link active" href="#">Active</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#">Link</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#">Another Link</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link disabled" href="#" tabindex="-1">Disabled</a>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Tab Navigation -->
+                    <div class="mb-3">
+                        <h6 class="mb-2">Tab Navigation</h6>
+                        <ul class="nav nav-tabs">
+                            <li class="nav-item">
+                                <a class="nav-link active" href="#">Home</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#">Profile</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#">Messages</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link disabled" href="#" tabindex="-1">Disabled</a>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    <div>
+                        <h6 class="mb-2">Pagination</h6>
+                        <nav aria-label="Page navigation example">
+                            <ul class="pagination">
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Previous</a>
+                                </li>
+                                <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                                <li class="page-item"><a class="page-link" href="#">2</a></li>
+                                <li class="page-item"><a class="page-link" href="#">3</a></li>
+                                <li class="page-item">
+                                    <a class="page-link" href="#">Next</a>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+                
+                <!-- Progress and Loading Elements -->
+                <div class="preview-card" style="border: 1px solid var(--bs-border-color); border-radius: 8px; padding: 1.5rem; background: var(--bs-body-bg);">
+                    <h5 class="mb-3" style="color: var(--bs-body-color);">Progress & Loading</h5>
+                    
+                    <!-- Progress Bars -->
+                    <div class="mb-3">
+                        <h6 class="mb-2">Progress Indicators</h6>
+                        <div class="progress mb-2">
+                            <div class="progress-bar" role="progressbar" style="width: 25%" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">25%</div>
+                        </div>
+                        <div class="progress mb-2">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: 50%" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100">50%</div>
+                        </div>
+                        <div class="progress mb-2">
+                            <div class="progress-bar bg-warning" role="progressbar" style="width: 75%" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100">75%</div>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar bg-danger" role="progressbar" style="width: 90%" aria-valuenow="90" aria-valuemin="0" aria-valuemax="100">90%</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Spinners -->
+                    <div>
+                        <h6 class="mb-2">Loading Spinners</h6>
+                        <div class="d-flex gap-3 align-items-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <div class="spinner-border text-success" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <div class="spinner-grow text-warning" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <div class="spinner-grow text-danger" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -667,6 +928,7 @@
                     colorInput.addEventListener('input', (e) => {
                         textInput.value = e.target.value;
                         updateCustomPreview();
+                        updateLivePreview(); // Update live preview
                     });
                     
                     // Sync text input with color picker
@@ -674,6 +936,7 @@
                         if (isValidHexColor(e.target.value)) {
                             colorInput.value = e.target.value;
                             updateCustomPreview();
+                            updateLivePreview(); // Update live preview
                         }
                     });
                 }
@@ -772,8 +1035,10 @@
             // Apply dark mode
             if (darkMode) {
                 container.classList.add('dark-preview');
+                document.documentElement.setAttribute('data-bs-theme', 'dark');
             } else {
                 container.classList.remove('dark-preview');
+                document.documentElement.setAttribute('data-bs-theme', 'light');
             }
             
             // Apply font size
@@ -791,6 +1056,330 @@
             } else {
                 container.style.filter = 'none';
             }
+            
+            // Apply theme colors dynamically
+            applyThemeColors();
+        }
+        
+        function applyThemeColors() {
+            const container = document.getElementById('previewContainer');
+            
+            // Get current theme colors
+            let primaryColor = '#0d6efd';
+            let secondaryColor = '#6c757d';
+            let successColor = '#198754';
+            let dangerColor = '#dc3545';
+            let warningColor = '#ffc107';
+            let infoColor = '#0dcaf0';
+            
+            // Theme color schemes
+            const themeColors = {
+                'default': {
+                    primary: '#0d6efd',
+                    secondary: '#6c757d',
+                    success: '#198754',
+                    danger: '#dc3545',
+                    warning: '#ffc107',
+                    info: '#0dcaf0'
+                },
+                'emerald': {
+                    primary: '#10b981',
+                    secondary: '#059669',
+                    success: '#22c55e',
+                    danger: '#ef4444',
+                    warning: '#f59e0b',
+                    info: '#06b6d4'
+                },
+                'purple': {
+                    primary: '#8b5cf6',
+                    secondary: '#7c3aed',
+                    success: '#22c55e',
+                    danger: '#ef4444',
+                    warning: '#f59e0b',
+                    info: '#06b6d4'
+                },
+                'amber': {
+                    primary: '#f59e0b',
+                    secondary: '#d97706',
+                    success: '#22c55e',
+                    danger: '#ef4444',
+                    warning: '#eab308',
+                    info: '#06b6d4'
+                }
+            };
+            
+            // Apply theme colors
+            if (selectedTheme === 'custom') {
+                // Use custom colors if available
+                primaryColor = document.getElementById('customPrimary')?.value || primaryColor;
+                secondaryColor = document.getElementById('customSecondary')?.value || secondaryColor;
+                successColor = document.getElementById('customSuccess')?.value || successColor;
+                dangerColor = document.getElementById('customDanger')?.value || dangerColor;
+                warningColor = document.getElementById('customWarning')?.value || warningColor;
+                infoColor = document.getElementById('customInfo')?.value || infoColor;
+            } else if (themeColors[selectedTheme]) {
+                const colors = themeColors[selectedTheme];
+                primaryColor = colors.primary;
+                secondaryColor = colors.secondary;
+                successColor = colors.success;
+                dangerColor = colors.danger;
+                warningColor = colors.warning;
+                infoColor = colors.info;
+            }
+            
+            // Apply colors to CSS custom properties in the preview container
+            const style = document.createElement('style');
+            style.id = 'preview-theme-style';
+            
+            // Remove existing preview style if it exists
+            const existingStyle = document.getElementById('preview-theme-style');
+            if (existingStyle) {
+                existingStyle.remove();
+            }
+            
+            // Create dynamic CSS for preview
+            style.textContent = `
+                #previewContainer {
+                    --bs-primary: ${primaryColor};
+                    --bs-secondary: ${secondaryColor};
+                    --bs-success: ${successColor};
+                    --bs-danger: ${dangerColor};
+                    --bs-warning: ${warningColor};
+                    --bs-info: ${infoColor};
+                }
+                
+                #previewContainer .btn-primary {
+                    background-color: ${primaryColor};
+                    border-color: ${primaryColor};
+                }
+                
+                #previewContainer .btn-outline-primary {
+                    color: ${primaryColor};
+                    border-color: ${primaryColor};
+                }
+                
+                #previewContainer .btn-outline-primary:hover {
+                    background-color: ${primaryColor};
+                    border-color: ${primaryColor};
+                    color: white;
+                }
+                
+                #previewContainer .btn-success {
+                    background-color: ${successColor};
+                    border-color: ${successColor};
+                }
+                
+                #previewContainer .btn-outline-danger {
+                    color: ${dangerColor};
+                    border-color: ${dangerColor};
+                }
+                
+                #previewContainer .btn-outline-danger:hover {
+                    background-color: ${dangerColor};
+                    border-color: ${dangerColor};
+                    color: white;
+                }
+                
+                #previewContainer .badge.bg-primary {
+                    background-color: ${primaryColor} !important;
+                }
+                
+                #previewContainer .badge.bg-success {
+                    background-color: ${successColor} !important;
+                }
+                
+                #previewContainer .badge.bg-danger {
+                    background-color: ${dangerColor} !important;
+                }
+                
+                #previewContainer .badge.bg-warning {
+                    background-color: ${warningColor} !important;
+                }
+                
+                #previewContainer .badge.bg-info {
+                    background-color: ${infoColor} !important;
+                }
+                
+                #previewContainer .badge.bg-secondary {
+                    background-color: ${secondaryColor} !important;
+                }
+                
+                #previewContainer .alert-primary {
+                    color: ${primaryColor};
+                    background-color: ${primaryColor}20;
+                    border-color: ${primaryColor}40;
+                }
+                
+                #previewContainer .alert-success {
+                    color: ${successColor};
+                    background-color: ${successColor}20;
+                    border-color: ${successColor}40;
+                }
+                
+                #previewContainer .alert-warning {
+                    color: ${warningColor};
+                    background-color: ${warningColor}20;
+                    border-color: ${warningColor}40;
+                }
+                
+                #previewContainer .alert-danger {
+                    color: ${dangerColor};
+                    background-color: ${dangerColor}20;
+                    border-color: ${dangerColor}40;
+                }
+                
+                #previewContainer .nav-pills .nav-link.active {
+                    background-color: ${primaryColor};
+                    border-color: ${primaryColor};
+                }
+                
+                #previewContainer .nav-tabs .nav-link.active {
+                    color: ${primaryColor};
+                    border-bottom-color: ${primaryColor};
+                }
+                
+                #previewContainer .page-item.active .page-link {
+                    background-color: ${primaryColor};
+                    border-color: ${primaryColor};
+                }
+                
+                #previewContainer .progress-bar {
+                    background-color: ${primaryColor};
+                }
+                
+                #previewContainer .progress-bar.bg-success {
+                    background-color: ${successColor} !important;
+                }
+                
+                #previewContainer .progress-bar.bg-warning {
+                    background-color: ${warningColor} !important;
+                }
+                
+                #previewContainer .progress-bar.bg-danger {
+                    background-color: ${dangerColor} !important;
+                }
+                
+                #previewContainer .spinner-border.text-primary {
+                    color: ${primaryColor} !important;
+                }
+                
+                #previewContainer .spinner-border.text-success {
+                    color: ${successColor} !important;
+                }
+                
+                #previewContainer .spinner-grow.text-warning {
+                    color: ${warningColor} !important;
+                }
+                
+                #previewContainer .spinner-grow.text-danger {
+                    color: ${dangerColor} !important;
+                }
+                
+                #previewContainer .form-control:focus,
+                #previewContainer .form-select:focus {
+                    border-color: ${primaryColor};
+                    box-shadow: 0 0 0 0.2rem ${primaryColor}40;
+                }
+                
+                #previewContainer .form-check-input:checked {
+                    background-color: ${primaryColor};
+                    border-color: ${primaryColor};
+                }
+                
+                #previewContainer blockquote {
+                    border-left-color: ${primaryColor} !important;
+                }
+            `;
+            
+            document.head.appendChild(style);
+            
+            // Apply custom light/dark mode colors if custom theme is selected
+            if (selectedTheme === 'custom') {
+                applyCustomModeColors();
+            }
+        }
+        
+        function applyCustomModeColors() {
+            const darkMode = document.getElementById('darkModeToggle').checked;
+            const container = document.getElementById('previewContainer');
+            
+            let bgBody, bgCard, bgSurface, textColor, textMuted, borderColor;
+            
+            if (darkMode) {
+                // Get custom dark mode colors
+                bgBody = document.getElementById('darkModeBgBody')?.value || '#0d1117';
+                bgCard = document.getElementById('darkModeBgCard')?.value || '#161b22';
+                bgSurface = document.getElementById('darkModeBgSurface')?.value || '#21262d';
+                textColor = document.getElementById('darkModeText')?.value || '#f0f6fc';
+                textMuted = document.getElementById('darkModeTextMuted')?.value || '#8b949e';
+                borderColor = document.getElementById('darkModeBorder')?.value || '#30363d';
+            } else {
+                // Get custom light mode colors
+                bgBody = document.getElementById('lightModeBgBody')?.value || '#ffffff';
+                bgCard = document.getElementById('lightModeBgCard')?.value || '#ffffff';
+                bgSurface = document.getElementById('lightModeBgSurface')?.value || '#f8f9fa';
+                textColor = document.getElementById('lightModeText')?.value || '#212529';
+                textMuted = document.getElementById('lightModeTextMuted')?.value || '#6c757d';
+                borderColor = document.getElementById('lightModeBorder')?.value || '#dee2e6';
+            }
+            
+            // Apply custom mode colors
+            const customModeStyle = document.createElement('style');
+            customModeStyle.id = 'preview-custom-mode-style';
+            
+            // Remove existing custom mode style if it exists
+            const existingCustomModeStyle = document.getElementById('preview-custom-mode-style');
+            if (existingCustomModeStyle) {
+                existingCustomModeStyle.remove();
+            }
+            
+            customModeStyle.textContent = `
+                #previewContainer {
+                    background-color: ${bgBody} !important;
+                    color: ${textColor} !important;
+                }
+                
+                #previewContainer .preview-card {
+                    background-color: ${bgCard} !important;
+                    border-color: ${borderColor} !important;
+                    color: ${textColor} !important;
+                }
+                
+                #previewContainer .text-muted {
+                    color: ${textMuted} !important;
+                }
+                
+                #previewContainer .form-control,
+                #previewContainer .form-select {
+                    background-color: ${bgSurface} !important;
+                    border-color: ${borderColor} !important;
+                    color: ${textColor} !important;
+                }
+                
+                #previewContainer .table {
+                    color: ${textColor} !important;
+                }
+                
+                #previewContainer .table th,
+                #previewContainer .table td {
+                    border-color: ${borderColor} !important;
+                }
+                
+                #previewContainer .dropdown-menu {
+                    background-color: ${bgCard} !important;
+                    border-color: ${borderColor} !important;
+                }
+                
+                #previewContainer .dropdown-item {
+                    color: ${textColor} !important;
+                }
+                
+                #previewContainer .dropdown-item:hover {
+                    background-color: ${bgSurface} !important;
+                }
+            `;
+            
+            document.head.appendChild(customModeStyle);
         }
         
         function getCustomColors() {
@@ -819,6 +1408,7 @@
                     colorInput.addEventListener('input', (e) => {
                         textInput.value = e.target.value;
                         updateLightModePreview();
+                        updateLivePreview(); // Update live preview
                     });
                     
                     // Sync text input with color picker
@@ -826,6 +1416,7 @@
                         if (isValidHexColor(e.target.value)) {
                             colorInput.value = e.target.value;
                             updateLightModePreview();
+                            updateLivePreview(); // Update live preview
                         }
                     });
                 }
@@ -844,6 +1435,7 @@
                     colorInput.addEventListener('input', (e) => {
                         textInput.value = e.target.value;
                         updateDarkModePreview();
+                        updateLivePreview(); // Update live preview
                     });
                     
                     // Sync text input with color picker
@@ -851,6 +1443,7 @@
                         if (isValidHexColor(e.target.value)) {
                             colorInput.value = e.target.value;
                             updateDarkModePreview();
+                            updateLivePreview(); // Update live preview
                         }
                     });
                 }
