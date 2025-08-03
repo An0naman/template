@@ -39,10 +39,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 ${generateLabelGrid(config.rows, config.cols)}
             </div>
             <div class="mt-2">
-                <button type="button" class="btn btn-sm btn-outline-secondary me-2" id="selectAllLabels">
+                <button type="button" class="btn btn-sm btn-theme-secondary me-2" id="selectAllLabels">
                     Select All
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="clearAllLabels">
+                <button type="button" class="btn btn-sm btn-theme-secondary" id="clearAllLabels">
                     Clear All
                 </button>
                 <small class="text-muted ms-3">Selected: <span id="selectedCount">0</span></small>

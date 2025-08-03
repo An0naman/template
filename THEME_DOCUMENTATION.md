@@ -45,6 +45,7 @@ The System Theme feature provides comprehensive theming and dark mode support fo
 | **Emerald Green** | `#10b981` | `#059669` | Fresh, nature-inspired palette |
 | **Purple** | `#8b5cf6` | `#7c3aed` | Modern purple/violet scheme |
 | **Amber** | `#f59e0b` | `#d97706` | Warm, golden amber theme |
+| **Custom** | User-defined | User-defined | Fully customizable colors with light/dark mode support |
 
 ### **📝 Typography Options**
 | Size | Base Font | Line Height | Use Case |
@@ -60,6 +61,42 @@ The System Theme feature provides comprehensive theming and dark mode support fo
 - **Keyboard Navigation**: Full keyboard support for theme controls
 - **Screen Reader Support**: Compatible with assistive technologies
 - **Focus Indicators**: Clear focus states for interactive elements
+
+### **🎨 Custom Theme Colors**
+The **Custom** theme option provides complete control over both light and dark mode appearances:
+
+#### **🎯 Custom Color Palette**
+When selecting the "Custom" theme, you can customize:
+- **Primary Color**: Main action buttons and links
+- **Primary Hover Color**: Hover state for primary elements
+- **Secondary Color**: Secondary buttons and muted text
+- **Success Color**: Success messages and confirmations
+- **Danger Color**: Error messages and delete buttons
+- **Warning Color**: Warning messages and caution alerts
+- **Info Color**: Information messages and highlights
+
+#### **☀️ Light Mode Customization**
+- **Background Color**: Main page background
+- **Card Background**: Content cards and containers
+- **Surface Background**: Secondary surfaces and form elements
+- **Text Color**: Primary text and headings
+- **Muted Text Color**: Secondary text and descriptions
+- **Border Color**: Borders and dividers
+
+#### **🌙 Dark Mode Customization**
+- **Background Color**: Dark theme main background
+- **Card Background**: Dark theme content cards
+- **Surface Background**: Dark theme secondary surfaces
+- **Text Color**: Dark theme primary text
+- **Muted Text Color**: Dark theme secondary text
+- **Border Color**: Dark theme borders and dividers
+
+#### **✨ Advanced Features**
+- **Real-time Preview**: See changes as you make them
+- **Color Synchronization**: Color picker and hex input stay in sync
+- **Reset Options**: Restore default values with one click
+- **Persistence**: Custom colors saved across sessions
+- **Automatic Application**: Page reloads automatically to apply changes
 
 ---
 
@@ -118,7 +155,47 @@ THEME_COLOR_SCHEMES = {
         'primary': '#f59e0b',
         'secondary': '#d97706',
         'name': 'Amber'
+    },
+    'custom': {
+        'primary': 'user-defined',
+        'secondary': 'user-defined',
+        'name': 'Custom',
+        'supports_full_customization': True
     }
+}
+```
+
+#### **Custom Theme Configuration**
+```python
+# Custom color palette (when theme = 'custom')
+CUSTOM_COLORS = {
+    'primary': '#0d6efd',
+    'primary_hover': '#0b5ed7', 
+    'secondary': '#6c757d',
+    'success': '#198754',
+    'danger': '#dc3545',
+    'warning': '#ffc107',
+    'info': '#0dcaf0'
+}
+
+# Custom light mode colors
+CUSTOM_LIGHT_MODE = {
+    'bg_body': '#ffffff',
+    'bg_card': '#ffffff',
+    'bg_surface': '#f8f9fa',
+    'text': '#212529',
+    'text_muted': '#6c757d',
+    'border': '#dee2e6'
+}
+
+# Custom dark mode colors  
+CUSTOM_DARK_MODE = {
+    'bg_body': '#0d1117',
+    'bg_card': '#161b22',
+    'bg_surface': '#21262d',
+    'text': '#f0f6fc',
+    'text_muted': '#8b949e',
+    'border': '#30363d'
 }
 ```
 
@@ -133,22 +210,63 @@ FONT_SIZE_MAP = {
 ```
 
 #### **Configuration via Web Interface**
-1. **Theme Selection**: Choose from 4 pre-built color schemes
+1. **Theme Selection**: Choose from 5 color schemes (4 pre-built + 1 custom)
 2. **Dark Mode Toggle**: Enable/disable dark mode
 3. **Font Size**: Select from 4 typography options
 4. **High Contrast**: Toggle high contrast mode
-5. **Live Preview**: See changes instantly
+5. **Custom Colors** (when Custom theme selected):
+   - **Color Palette**: 7 customizable theme colors
+   - **Light Mode**: 6 customizable light mode interface elements
+   - **Dark Mode**: 6 customizable dark mode interface elements
+   - **Reset Options**: Restore defaults for any section
+6. **Live Preview**: See changes instantly
+7. **Auto-Reload**: Page automatically refreshes to apply custom colors
 
 #### **Configuration via API**
 ```bash
-# Update theme settings
+# Update basic theme settings
 curl -X POST http://localhost:5000/api/theme_settings \
   -H "Content-Type: application/json" \
   -d '{
-    "theme_color_scheme": "purple",
-    "theme_dark_mode": true,
-    "theme_font_size": "large",
-    "theme_high_contrast": false
+    "theme": "purple",
+    "dark_mode": true,
+    "font_size": "large",
+    "high_contrast": false
+  }'
+
+# Update with custom colors
+curl -X POST http://localhost:5000/api/theme_settings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "theme": "custom",
+    "dark_mode": true,
+    "font_size": "normal",
+    "high_contrast": false,
+    "custom_colors": {
+      "primary": "#ff6b35",
+      "primary_hover": "#e55a2e",
+      "secondary": "#6c757d",
+      "success": "#28a745",
+      "danger": "#dc3545",
+      "warning": "#ffc107",
+      "info": "#17a2b8"
+    },
+    "custom_light_mode": {
+      "bg_body": "#f8f9fa",
+      "bg_card": "#ffffff",
+      "bg_surface": "#e9ecef",
+      "text": "#212529",
+      "text_muted": "#6c757d",
+      "border": "#dee2e6"
+    },
+    "custom_dark_mode": {
+      "bg_body": "#1a1a1a",
+      "bg_card": "#2d2d2d",
+      "bg_surface": "#404040",
+      "text": "#ffffff",
+      "text_muted": "#adb5bd",
+      "border": "#495057"
+    }
   }'
 ```
 
@@ -196,26 +314,101 @@ curl -X POST http://localhost:5000/api/theme_settings \
 ```
 **Best For**: Warm, inviting interfaces, educational platforms
 
+### **Custom Theme**
+```css
+:root {
+    /* User-defined color palette */
+    --theme-primary: var(--custom-primary, #0d6efd);
+    --theme-primary-hover: var(--custom-primary-hover, #0b5ed7);
+    --theme-secondary: var(--custom-secondary, #6c757d);
+    --theme-success: var(--custom-success, #198754);
+    --theme-danger: var(--custom-danger, #dc3545);
+    --theme-warning: var(--custom-warning, #ffc107);
+    --theme-info: var(--custom-info, #0dcaf0);
+    
+    /* Dynamic light/dark mode colors */
+    --theme-bg-body: var(--mode-bg-body);
+    --theme-bg-card: var(--mode-bg-card);
+    --theme-bg-surface: var(--mode-bg-surface);
+    --theme-text: var(--mode-text);
+    --theme-text-muted: var(--mode-text-muted);
+    --theme-border: var(--mode-border);
+}
+```
+**Best For**: Brand-specific applications, unique visual identities, complete design control
+
+**Features**:
+- 🎨 **7 Customizable Theme Colors**: Full control over primary, secondary, success, danger, warning, info, and hover colors
+- ☀️ **6 Light Mode Elements**: Background, cards, surfaces, text, muted text, and borders
+- 🌙 **6 Dark Mode Elements**: Complete dark theme customization
+- 🔄 **Real-time Updates**: See changes instantly with live preview
+- 💾 **Persistent Storage**: Custom colors saved across sessions
+- ↩️ **Reset Options**: Restore defaults for any color category
+
 ---
 
 Theme parameters:
-- `theme_color_scheme`: Color theme (default, emerald, purple, amber)
-- `theme_dark_mode`: Dark mode enabled (true/false)
-- `theme_font_size`: Base font size (small, normal, large, extra-large)
-- `theme_high_contrast`: High contrast mode (true/false)
+- `theme`: Color theme (default, emerald, purple, amber, custom)
+- `dark_mode`: Dark mode enabled (true/false)
+- `font_size`: Base font size (small, normal, large, extra-large)
+- `high_contrast`: High contrast mode (true/false)
+- `custom_colors`: Custom color palette (when theme = 'custom')
+  - `primary`, `primary_hover`, `secondary`, `success`, `danger`, `warning`, `info`
+- `custom_light_mode`: Light mode interface colors
+  - `bg_body`, `bg_card`, `bg_surface`, `text`, `text_muted`, `border`
+- `custom_dark_mode`: Dark mode interface colors
+  - `bg_body`, `bg_card`, `bg_surface`, `text`, `text_muted`, `border`
 
 ### API Endpoints
 
 #### GET `/api/theme_settings`
 Retrieve current theme settings.
 
-**Response:**
+**Response (Basic Theme):**
 ```json
 {
     "theme": "default",
     "dark_mode": false,
     "font_size": "normal",
-    "high_contrast": false
+    "high_contrast": false,
+    "custom_colors": {},
+    "custom_light_mode": {},
+    "custom_dark_mode": {}
+}
+```
+
+**Response (Custom Theme):**
+```json
+{
+    "theme": "custom",
+    "dark_mode": true,
+    "font_size": "large",
+    "high_contrast": false,
+    "custom_colors": {
+        "primary": "#ff6b35",
+        "primary_hover": "#e55a2e",
+        "secondary": "#6c757d",
+        "success": "#28a745",
+        "danger": "#dc3545",
+        "warning": "#ffc107",
+        "info": "#17a2b8"
+    },
+    "custom_light_mode": {
+        "bg_body": "#f8f9fa",
+        "bg_card": "#ffffff",
+        "bg_surface": "#e9ecef",
+        "text": "#212529",
+        "text_muted": "#6c757d",
+        "border": "#dee2e6"
+    },
+    "custom_dark_mode": {
+        "bg_body": "#1a1a1a",
+        "bg_card": "#2d2d2d",
+        "bg_surface": "#404040",
+        "text": "#ffffff",
+        "text_muted": "#adb5bd",
+        "border": "#495057"
+    }
 }
 ```
 
@@ -347,8 +540,11 @@ app/
 
 ## Future Enhancements
 
-- Custom color picker for advanced users
-- Theme scheduling (auto dark mode at sunset)
-- Additional font family options
-- Import/export theme configurations
-- Theme preview without saving
+- ✅ **Custom color picker for advanced users** - *Implemented with full light/dark mode customization*
+- 🔮 **Theme scheduling** (auto dark mode at sunset)
+- 🔤 **Additional font family options**
+- 📦 **Import/export theme configurations**
+- 👁️ **Enhanced preview modes** (mobile, tablet views)
+- 🎨 **Color palette suggestions** based on brand colors
+- 🔗 **Theme sharing** via URL parameters
+- 📊 **Accessibility scoring** for custom color combinations

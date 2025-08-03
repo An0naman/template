@@ -22,8 +22,8 @@
         }
 
         body {
-            background-color: var(--bs-body-bg);
-            color: var(--bs-body-color);
+            background-color: var(--theme-bg-body, var(--bs-body-bg));
+            color: var(--theme-text, var(--bs-body-color));
             font-family: var(--bs-font-sans-serif);
         }
 
@@ -33,8 +33,8 @@
         }
 
         .content-card {
-            background: var(--bs-body-bg);
-            border: 1px solid var(--bs-border-color);
+            background: var(--theme-bg-card, var(--bs-body-bg));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
             border-radius: var(--border-radius);
             box-shadow: var(--shadow-md);
             padding: var(--content-spacing);
@@ -47,20 +47,20 @@
         }
 
         h1 {
-            color: var(--bs-body-color);
+            color: var(--theme-text, var(--bs-body-color));
             margin: 0;
             font-weight: 600;
         }        .filter-section {
-            background: var(--bs-secondary-bg);
-            border: 1px solid var(--bs-border-color);
+            background: var(--theme-bg-surface, var(--bs-secondary-bg));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
             border-radius: var(--border-radius);
             padding: var(--content-spacing);
             margin-bottom: var(--content-spacing);
         }
 
         .entry-item {
-            background: var(--bs-body-bg);
-            border: 1px solid var(--bs-border-color);
+            background: var(--theme-bg-card, var(--bs-body-bg));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
             border-radius: var(--border-radius);
             padding: var(--content-spacing);
             margin-bottom: 1rem;
@@ -87,13 +87,13 @@
         .no-entries {
             text-align: center;
             padding: 3rem 1rem;
-            color: var(--bs-secondary-color);
+            color: var(--theme-text-muted, var(--bs-secondary-color));
         }
 
         .alert.alert-info {
-            background-color: var(--theme-info-bg, rgba(13, 110, 253, 0.1)) !important;
-            border-color: var(--theme-info-border, rgba(13, 110, 253, 0.2)) !important;
-            color: var(--bs-info-text-emphasis) !important;
+            background-color: var(--theme-bg-info, rgba(13, 110, 253, 0.1)) !important;
+            border-color: var(--theme-border-info, rgba(13, 110, 253, 0.2)) !important;
+            color: var(--theme-text-info, var(--bs-info-text-emphasis)) !important;
         }
 
         /* Direct override for alert-info with higher specificity */
@@ -101,9 +101,9 @@
         .alert.alert-info,
         .filter-section .alert.alert-info,
         .alert.alert-info.themed-alert-info {
-            background-color: var(--theme-info-bg, rgba(13, 110, 253, 0.1)) !important;
-            border-color: var(--theme-info-border, rgba(13, 110, 253, 0.2)) !important; 
-            color: var(--bs-info-text-emphasis) !important;
+            background-color: var(--theme-bg-info, rgba(13, 110, 253, 0.1)) !important;
+            border-color: var(--theme-border-info, rgba(13, 110, 253, 0.2)) !important; 
+            color: var(--theme-text-info, var(--bs-info-text-emphasis)) !important;
             border-width: 1px !important;
             border-style: solid !important;
         }
@@ -207,6 +207,60 @@
         .form-select:hover:not(:focus) {
             border-color: var(--theme-primary, #0d6efd) !important;
         }
+
+        /* Modal theming support */
+        .modal-content {
+            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
+            color: var(--theme-text, var(--bs-body-color)) !important;
+            border-color: var(--theme-border, var(--bs-border-color)) !important;
+            border-radius: var(--bs-border-radius, 0.375rem) !important;
+        }
+        
+        .modal-header {
+            border-bottom-color: var(--theme-border, var(--bs-border-color)) !important;
+            background-color: var(--theme-bg-surface, var(--bs-secondary-bg)) !important;
+            color: var(--theme-text, var(--bs-body-color)) !important;
+        }
+        
+        .modal-title {
+            color: var(--theme-text, var(--bs-body-color)) !important;
+        }
+        
+        .modal-body {
+            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
+            color: var(--theme-text, var(--bs-body-color)) !important;
+        }
+        
+        .modal-footer {
+            border-top-color: var(--theme-border, var(--bs-border-color)) !important;
+            background-color: var(--theme-bg-surface, var(--bs-secondary-bg)) !important;
+        }
+
+        /* Modal form controls theme support */
+        .modal .form-control,
+        .modal .form-select {
+            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
+            border-color: var(--theme-border, var(--bs-border-color)) !important;
+            color: var(--theme-text, var(--bs-body-color)) !important;
+        }
+
+        .modal .form-control:focus,
+        .modal .form-select:focus {
+            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
+            border-color: var(--theme-primary, var(--bs-primary)) !important;
+            color: var(--theme-text, var(--bs-body-color)) !important;
+            box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb, 13, 110, 253), 0.25) !important;
+        }
+
+        /* Modal form labels theme support */
+        .modal .form-label {
+            color: var(--theme-text, var(--bs-body-color)) !important;
+        }
+
+        /* Modal form text and help text theme support */
+        .modal .form-text {
+            color: var(--theme-text-muted, var(--bs-secondary-color)) !important;
+        }
     </style>
 </head>
 <body>
@@ -219,11 +273,11 @@
                     <p class="text-muted mb-0">Manage your {{ entry_plural_label.lower() }}</p>
                 </div>
                 <div class="d-flex gap-2 mt-3 mt-md-0">
-                    <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-theme">
-                        <i class="fas fa-cog me-2"></i>Settings
+                    <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-theme-secondary">
+                        <i class="fas fa-wrench me-2"></i>Maintenance Module
                     </a>
                     <button id="showAddEntryFormBtn" class="btn btn-theme-primary">
-                        <i class="fas fa-plus me-1"></i>Add {{ entry_singular_label }}
+                        <i class="fas fa-plus me-1"></i> Add New {{ entry_singular_label }}
                     </button>
                 </div>
             </div>
@@ -270,7 +324,7 @@
                                 <button type="submit" class="btn btn-theme-primary flex-fill">
                                     <i class="fas fa-filter me-1"></i>Apply
                                 </button>
-                                <a href="{{ url_for('main.index') }}" class="btn btn-outline-theme">
+                                <a href="{{ url_for('main.index') }}" class="btn btn-theme-secondary">
                                     <i class="fas fa-times me-1"></i>Clear
                                 </a>
                             </div>
@@ -350,11 +404,11 @@
                                 </div>
                                 <div class="d-flex gap-2">
                                     <a href="{{ url_for('main.entry_detail_page', entry_id=entry.id) }}" 
-                                       class="btn btn-sm btn-outline-theme" title="View Details">
+                                       class="btn btn-sm btn-theme-primary" title="View Details">
                                         <i class="fas fa-eye"></i>
                                         <span class="d-none d-lg-inline ms-1">Details</span>
                                     </a>
-                                    <button class="btn btn-sm btn-outline-danger delete-entry-btn" 
+                                    <button class="btn btn-sm btn-danger delete-entry-btn" 
                                             data-id="{{ entry.id }}" title="Delete Entry">
                                         <i class="fas fa-trash-alt"></i>
                                         <span class="d-none d-lg-inline ms-1">Delete</span>
@@ -411,7 +465,7 @@
                             <label for="newEntryDescription" class="form-label">Description</label>
                             <textarea class="form-control" id="newEntryDescription" name="description" rows="3"></textarea>
                             <div class="mt-2">
-                                <button type="button" class="btn btn-sm btn-outline-theme" id="searchWikipediaModalBtn">
+                                <button type="button" class="btn btn-sm btn-theme-secondary" id="searchWikipediaModalBtn">
                                     <i class="fab fa-wikipedia-w me-1"></i> Search Wikipedia
                                 </button>
                             </div>
@@ -426,7 +480,7 @@
                                     <p id="wikipediaModalExtract" class="card-text" style="font-size: 0.9em; max-height: 100px; overflow-y: auto;"></p>
                                     <div class="d-flex gap-2">
                                         <button type="button" class="btn btn-sm btn-theme-primary" id="useWikipediaModalBtn">Use This Description</button>
-                                        <a id="wikipediaModalLink" href="#" target="_blank" class="btn btn-sm btn-outline-theme">View on Wikipedia</a>
+                                        <a id="wikipediaModalLink" href="#" target="_blank" class="btn btn-sm btn-theme-secondary">View on Wikipedia</a>
                                     </div>
                                 </div>
                             </div>
@@ -434,7 +488,7 @@
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-theme" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-theme-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" form="addEntryForm" class="btn btn-theme-primary">
                         <i class="fas fa-plus me-1"></i>Add {{ entry_singular_label }}
                     </button>

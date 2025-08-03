@@ -44,13 +44,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     const editBtn = document.createElement('button');
                     editBtn.innerHTML = '<i class="fas fa-edit"></i> Edit';
-                    editBtn.classList.add('btn', 'btn-sm', 'btn-outline-primary', 'me-1');
+                    editBtn.classList.add('btn', 'btn-sm', 'btn-primary', 'me-1');
                     editBtn.onclick = () => editEntryType(type);
                     actionsCell.appendChild(editBtn);
 
                     const deleteBtn = document.createElement('button');
                     deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i> Delete';
-                    deleteBtn.classList.add('btn', 'btn-sm', 'btn-outline-danger');
+                    deleteBtn.classList.add('btn', 'btn-sm', 'btn-danger');
                     deleteBtn.onclick = () => deleteEntryType(type.id, type.name);
                     actionsCell.appendChild(deleteBtn);
                 });
@@ -229,14 +229,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     const editBtn = document.createElement('button');
                     editBtn.innerHTML = '<i class="fas fa-edit"></i>';
-                    editBtn.classList.add('btn', 'btn-sm', 'btn-outline-primary', 'btn-action');
+                    editBtn.classList.add('btn', 'btn-sm', 'btn-primary', 'btn-action');
                     editBtn.title = 'Edit Relationship Definition';
                     editBtn.onclick = () => editRelationshipDefinition(def);
                     actionsCell.appendChild(editBtn);
 
                     const deleteBtn = document.createElement('button');
                     deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
-                    deleteBtn.classList.add('btn', 'btn-sm', 'btn-outline-danger', 'btn-action');
+                    deleteBtn.classList.add('btn', 'btn-sm', 'btn-danger', 'btn-action');
                     deleteBtn.title = 'Delete Relationship Definition';
                     deleteBtn.onclick = () => deleteRelationshipDefinition(def.id, def.name);
                     actionsCell.appendChild(deleteBtn);

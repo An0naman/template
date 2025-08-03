@@ -435,6 +435,11 @@ def generate_theme_css(settings=None):
             --theme-text-info: {info_text};
             
             /* Bootstrap CSS Variable Overrides */
+            --bs-primary: {colors['primary']};
+            --bs-secondary: {colors['secondary']};
+            --bs-success: {colors['success']};
+            --bs-danger: {colors['danger']};
+            --bs-warning: {colors['warning']};
             --bs-info: {colors['info']};
             --bs-info-rgb: 6, 182, 212;
             --bs-info-bg-subtle: {info_bg};
@@ -494,6 +499,11 @@ def generate_theme_css(settings=None):
             --theme-text-info: {info_text};
             
             /* Bootstrap CSS Variable Overrides */
+            --bs-primary: {colors['primary']};
+            --bs-secondary: {colors['secondary']};
+            --bs-success: {colors['success']};
+            --bs-danger: {colors['danger']};
+            --bs-warning: {colors['warning']};
             --bs-info: {colors['info']};
             --bs-info-rgb: 6, 182, 212;
             --bs-info-bg-subtle: {info_bg};

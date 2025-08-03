@@ -329,15 +329,12 @@
                     <button type="button" class="btn btn-outline-theme btn-sm" onclick="resetCustomColors()">
                         <i class="fas fa-undo me-1"></i>Reset to Defaults
                     </button>
-                    <button type="button" class="btn btn-outline-theme btn-sm" onclick="generateRandomColors()">
-                        <i class="fas fa-random me-1"></i>Generate Random
-                    </button>
                 </div>
             </div>
         </div>
 
         <!-- Custom Light Mode Colors Section -->
-        <div class="content-section" id="customLightModeSection">
+        <div class="content-section" id="customLightModeSection" style="display: none;">
             <h5 class="mb-3" style="color: #6f42c1;">
                 <i class="fas fa-sun me-2"></i>Light Mode Customization
             </h5>
@@ -399,15 +396,12 @@
                     <button type="button" class="btn btn-outline-theme btn-sm" onclick="resetLightModeColors()">
                         <i class="fas fa-undo me-1"></i>Reset to Defaults
                     </button>
-                    <button type="button" class="btn btn-outline-theme btn-sm" onclick="generateLightModeColors()">
-                        <i class="fas fa-magic me-1"></i>Auto-Generate
-                    </button>
                 </div>
             </div>
         </div>
 
         <!-- Custom Dark Mode Colors Section -->
-        <div class="content-section" id="customDarkModeSection">
+        <div class="content-section" id="customDarkModeSection" style="display: none;">
             <h5 class="mb-3" style="color: #6f42c1;">
                 <i class="fas fa-moon me-2"></i>Dark Mode Customization
             </h5>
@@ -468,9 +462,6 @@
                 <div class="d-flex gap-2">
                     <button type="button" class="btn btn-outline-theme btn-sm" onclick="resetDarkModeColors()">
                         <i class="fas fa-undo me-1"></i>Reset to Defaults
-                    </button>
-                    <button type="button" class="btn btn-outline-theme btn-sm" onclick="generateDarkModeColors()">
-                        <i class="fas fa-magic me-1"></i>Auto-Generate
                     </button>
                 </div>
             </div>
@@ -597,12 +588,19 @@
             });
             document.querySelector(`[data-theme="${theme}"]`).classList.add('selected');
             
-            // Show/hide custom colors section
+            // Show/hide custom sections
             const customSection = document.getElementById('customColorsSection');
+            const lightModeSection = document.getElementById('customLightModeSection');
+            const darkModeSection = document.getElementById('customDarkModeSection');
+            
             if (theme === 'custom') {
                 customSection.style.display = 'block';
+                lightModeSection.style.display = 'block';
+                darkModeSection.style.display = 'block';
             } else {
                 customSection.style.display = 'none';
+                lightModeSection.style.display = 'none';
+                darkModeSection.style.display = 'none';
             }
             
             updateLivePreview();
@@ -624,11 +622,13 @@
         }
 
         function loadCustomLightModeColors() {
-            if (Object.keys(customLightModeColors).length > 0) {
+            if (Object.keys(customLightMode).length > 0) {
                 // Load existing custom light mode colors
-                Object.entries(customLightModeColors).forEach(([key, value]) => {
-                    const colorInput = document.getElementById('light' + key.charAt(0).toUpperCase() + key.slice(1).replace('_', ''));
-                    const textInput = document.getElementById('light' + key.charAt(0).toUpperCase() + key.slice(1).replace('_', '') + 'Text');
+                Object.entries(customLightMode).forEach(([key, value]) => {
+                    // Convert snake_case to proper ID format (e.g., 'bg_body' -> 'lightModeBgBody')
+                    const elementName = key.charAt(0).toUpperCase() + key.slice(1).replace(/_([a-z])/g, (match, letter) => letter.toUpperCase());
+                    const colorInput = document.getElementById('lightMode' + elementName);
+                    const textInput = document.getElementById('lightMode' + elementName + 'Text');
                     if (colorInput && textInput) {
                         colorInput.value = value;
                         textInput.value = value;
@@ -639,11 +639,13 @@
         }
 
         function loadCustomDarkModeColors() {
-            if (Object.keys(customDarkModeColors).length > 0) {
+            if (Object.keys(customDarkMode).length > 0) {
                 // Load existing custom dark mode colors
-                Object.entries(customDarkModeColors).forEach(([key, value]) => {
-                    const colorInput = document.getElementById('dark' + key.charAt(0).toUpperCase() + key.slice(1).replace('_', ''));
-                    const textInput = document.getElementById('dark' + key.charAt(0).toUpperCase() + key.slice(1).replace('_', '') + 'Text');
+                Object.entries(customDarkMode).forEach(([key, value]) => {
+                    // Convert snake_case to proper ID format (e.g., 'bg_body' -> 'darkModeBgBody')
+                    const elementName = key.charAt(0).toUpperCase() + key.slice(1).replace(/_([a-z])/g, (match, letter) => letter.toUpperCase());
+                    const colorInput = document.getElementById('darkMode' + elementName);
+                    const textInput = document.getElementById('darkMode' + elementName + 'Text');
                     if (colorInput && textInput) {
                         colorInput.value = value;
                         textInput.value = value;
@@ -710,40 +712,6 @@
             
             updateCustomPreview();
         }
-        
-        function generateRandomColors() {
-            function getRandomColor() {
-                return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
-            }
-            
-            function darkenColor(hex, amount = 0.2) {
-                const num = parseInt(hex.replace('#', ''), 16);
-                const amt = Math.round(2.55 * amount * 100);
-                const R = (num >> 16) - amt;
-                const G = (num >> 8 & 0x00FF) - amt;
-                const B = (num & 0x0000FF) - amt;
-                return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
-                    (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
-                    (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
-            }
-            
-            const primary = getRandomColor();
-            document.getElementById('customPrimary').value = primary;
-            document.getElementById('customPrimaryText').value = primary;
-            
-            const primaryHover = darkenColor(primary);
-            document.getElementById('customPrimaryHover').value = primaryHover;
-            document.getElementById('customPrimaryHoverText').value = primaryHover;
-            
-            const colors = ['Secondary', 'Success', 'Danger', 'Warning', 'Info'];
-            colors.forEach(color => {
-                const randomColor = getRandomColor();
-                document.getElementById('custom' + color).value = randomColor;
-                document.getElementById('custom' + color + 'Text').value = randomColor;
-            });
-            
-            updateCustomPreview();
-        }
 
         function resetLightModeColors() {
             const defaults = {
@@ -780,68 +748,6 @@
             
             updateDarkModePreview();
         }
-
-        function generateLightModeColors() {
-            function getRandomColor() {
-                return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
-            }
-
-            function lightenColor(hex, amount = 0.9) {
-                const num = parseInt(hex.replace('#', ''), 16);
-                const r = Math.min(255, Math.floor((num >> 16) + (255 - (num >> 16)) * amount));
-                const g = Math.min(255, Math.floor(((num >> 8) & 0x00FF) + (255 - ((num >> 8) & 0x00FF)) * amount));
-                const b = Math.min(255, Math.floor((num & 0x0000FF) + (255 - (num & 0x0000FF)) * amount));
-                return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
-            }
-
-            const baseColor = getRandomColor();
-            const colors = {
-                'lightBgbody': lightenColor(baseColor, 0.95),
-                'lightBgcard': lightenColor(baseColor, 0.98),
-                'lightBgsurface': lightenColor(baseColor, 0.85),
-                'lightText': '#212529',
-                'lightTextmuted': '#6c757d',
-                'lightBorder': lightenColor(baseColor, 0.7)
-            };
-
-            Object.entries(colors).forEach(([id, value]) => {
-                document.getElementById(id).value = value;
-                document.getElementById(id + 'Text').value = value;
-            });
-            
-            updateLightModePreview();
-        }
-
-        function generateDarkModeColors() {
-            function getRandomColor() {
-                return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
-            }
-
-            function darkenColor(hex, amount = 0.8) {
-                const num = parseInt(hex.replace('#', ''), 16);
-                const r = Math.floor((num >> 16) * amount);
-                const g = Math.floor(((num >> 8) & 0x00FF) * amount);
-                const b = Math.floor((num & 0x0000FF) * amount);
-                return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
-            }
-
-            const baseColor = getRandomColor();
-            const colors = {
-                'darkBgbody': darkenColor(baseColor, 0.15),
-                'darkBgcard': darkenColor(baseColor, 0.25),
-                'darkBgsurface': darkenColor(baseColor, 0.35),
-                'darkText': '#ffffff',
-                'darkTextmuted': '#adb5bd',
-                'darkBorder': darkenColor(baseColor, 0.45)
-            };
-
-            Object.entries(colors).forEach(([id, value]) => {
-                document.getElementById(id).value = value;
-                document.getElementById(id + 'Text').value = value;
-            });
-            
-            updateDarkModePreview();
-        }
         
         function updateFontPreview() {
             const fontSize = document.getElementById('fontSize').value;
@@ -857,66 +763,6 @@
             preview.style.fontSize = fontSizes[fontSize];
         }
         
-        function setupLightModeEventListeners() {
-            const lightModeInputs = ['Bgbody', 'Bgcard', 'Bgsurface', 'Text', 'Textmuted', 'Border'];
-            
-            lightModeInputs.forEach(color => {
-                const colorInput = document.getElementById('light' + color);
-                const textInput = document.getElementById('light' + color + 'Text');
-                
-                if (colorInput && textInput) {
-                    // Sync color picker with text input
-                    colorInput.addEventListener('input', (e) => {
-                        textInput.value = e.target.value;
-                        updateLightModePreview();
-                    });
-                    
-                    // Sync text input with color picker
-                    textInput.addEventListener('input', (e) => {
-                        if (isValidHexColor(e.target.value)) {
-                            colorInput.value = e.target.value;
-                            updateLightModePreview();
-                        }
-                    });
-                }
-            });
-        }
-
-        function setupDarkModeEventListeners() {
-            const darkModeInputs = ['Bgbody', 'Bgcard', 'Bgsurface', 'Text', 'Textmuted', 'Border'];
-            
-            darkModeInputs.forEach(color => {
-                const colorInput = document.getElementById('dark' + color);
-                const textInput = document.getElementById('dark' + color + 'Text');
-                
-                if (colorInput && textInput) {
-                    // Sync color picker with text input
-                    colorInput.addEventListener('input', (e) => {
-                        textInput.value = e.target.value;
-                        updateDarkModePreview();
-                    });
-                    
-                    // Sync text input with color picker
-                    textInput.addEventListener('input', (e) => {
-                        if (isValidHexColor(e.target.value)) {
-                            colorInput.value = e.target.value;
-                            updateDarkModePreview();
-                        }
-                    });
-                }
-            });
-        }
-
-        function updateLightModePreview() {
-            // Update light mode preview if needed
-            updateLivePreview();
-        }
-
-        function updateDarkModePreview() {
-            // Update dark mode preview if needed
-            updateLivePreview();
-        }
-
         function updateLivePreview() {
             const darkMode = document.getElementById('darkModeToggle').checked;
             const highContrast = document.getElementById('highContrastToggle').checked;
@@ -961,34 +807,12 @@
             };
         }
 
-        function getCustomLightModeColors() {
-            return {
-                bg_body: document.getElementById('lightBgbody').value,
-                bg_card: document.getElementById('lightBgcard').value,
-                bg_surface: document.getElementById('lightBgsurface').value,
-                text: document.getElementById('lightText').value,
-                text_muted: document.getElementById('lightTextmuted').value,
-                border: document.getElementById('lightBorder').value
-            };
-        }
-
-        function getCustomDarkModeColors() {
-            return {
-                bg_body: document.getElementById('darkBgbody').value,
-                bg_card: document.getElementById('darkBgcard').value,
-                bg_surface: document.getElementById('darkBgsurface').value,
-                text: document.getElementById('darkText').value,
-                text_muted: document.getElementById('darkTextmuted').value,
-                border: document.getElementById('darkBorder').value
-            };
-        }
-
         function setupLightModeEventListeners() {
             const lightModeInputs = ['BgBody', 'BgCard', 'BgSurface', 'Text', 'TextMuted', 'Border'];
             
             lightModeInputs.forEach(element => {
-                const colorInput = document.getElementById('light' + element);
-                const textInput = document.getElementById('light' + element + 'Text');
+                const colorInput = document.getElementById('lightMode' + element);
+                const textInput = document.getElementById('lightMode' + element + 'Text');
                 
                 if (colorInput && textInput) {
                     // Sync color picker with text input
@@ -1012,8 +836,8 @@
             const darkModeInputs = ['BgBody', 'BgCard', 'BgSurface', 'Text', 'TextMuted', 'Border'];
             
             darkModeInputs.forEach(element => {
-                const colorInput = document.getElementById('dark' + element);
-                const textInput = document.getElementById('dark' + element + 'Text');
+                const colorInput = document.getElementById('darkMode' + element);
+                const textInput = document.getElementById('darkMode' + element + 'Text');
                 
                 if (colorInput && textInput) {
                     // Sync color picker with text input
@@ -1045,12 +869,12 @@
 
         function resetLightModeColors() {
             const defaults = {
-                'lightBgBody': '#ffffff',
-                'lightBgCard': '#ffffff',
-                'lightBgSurface': '#f8f9fa',
-                'lightText': '#212529',
-                'lightTextMuted': '#6c757d',
-                'lightBorder': '#dee2e6'
+                'lightModeBgBody': '#ffffff',
+                'lightModeBgCard': '#ffffff',
+                'lightModeBgSurface': '#f8f9fa',
+                'lightModeText': '#212529',
+                'lightModeTextMuted': '#6c757d',
+                'lightModeBorder': '#dee2e6'
             };
             
             Object.entries(defaults).forEach(([id, value]) => {
@@ -1063,12 +887,12 @@
 
         function resetDarkModeColors() {
             const defaults = {
-                'darkBgBody': '#121212',
-                'darkBgCard': '#1e1e1e',
-                'darkBgSurface': '#2a2a2a',
-                'darkText': '#ffffff',
-                'darkTextMuted': '#adb5bd',
-                'darkBorder': '#495057'
+                'darkModeBgBody': '#0d1117',
+                'darkModeBgCard': '#161b22',
+                'darkModeBgSurface': '#21262d',
+                'darkModeText': '#f0f6fc',
+                'darkModeTextMuted': '#8b949e',
+                'darkModeBorder': '#30363d'
             };
             
             Object.entries(defaults).forEach(([id, value]) => {
@@ -1079,72 +903,59 @@
             updateDarkModePreview();
         }
 
-        function generateLightModeColors() {
-            function getRandomColor() {
-                return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
-            }
-
-            const lightColors = ['lightBgBody', 'lightBgCard', 'lightBgSurface', 'lightText', 'lightTextMuted', 'lightBorder'];
-            lightColors.forEach(colorId => {
-                const randomColor = getRandomColor();
-                document.getElementById(colorId).value = randomColor;
-                document.getElementById(colorId + 'Text').value = randomColor;
-            });
-            
-            updateLightModePreview();
-        }
-
-        function generateDarkModeColors() {
-            function getRandomColor() {
-                return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
-            }
-
-            const darkColors = ['darkBgBody', 'darkBgCard', 'darkBgSurface', 'darkText', 'darkTextMuted', 'darkBorder'];
-            darkColors.forEach(colorId => {
-                const randomColor = getRandomColor();
-                document.getElementById(colorId).value = randomColor;
-                document.getElementById(colorId + 'Text').value = randomColor;
-            });
-            
-            updateDarkModePreview();
-        }
-
         function getCustomLightModeColors() {
-            return {
-                bg_body: document.getElementById('lightBgBody').value,
-                bg_card: document.getElementById('lightBgCard').value,
-                bg_surface: document.getElementById('lightBgSurface').value,
-                text: document.getElementById('lightText').value,
-                text_muted: document.getElementById('lightTextMuted').value,
-                border: document.getElementById('lightBorder').value
+            console.log('Getting light mode colors...'); // Debug
+            const colors = {
+                bg_body: document.getElementById('lightModeBgBody')?.value || '',
+                bg_card: document.getElementById('lightModeBgCard')?.value || '',
+                bg_surface: document.getElementById('lightModeBgSurface')?.value || '',
+                text: document.getElementById('lightModeText')?.value || '',
+                text_muted: document.getElementById('lightModeTextMuted')?.value || '',
+                border: document.getElementById('lightModeBorder')?.value || ''
             };
+            console.log('Light mode colors found:', colors); // Debug
+            return colors;
         }
 
         function getCustomDarkModeColors() {
-            return {
-                bg_body: document.getElementById('darkBgBody').value,
-                bg_card: document.getElementById('darkBgCard').value,
-                bg_surface: document.getElementById('darkBgSurface').value,
-                text: document.getElementById('darkText').value,
-                text_muted: document.getElementById('darkTextMuted').value,
-                border: document.getElementById('darkBorder').value
+            console.log('Getting dark mode colors...'); // Debug
+            const colors = {
+                bg_body: document.getElementById('darkModeBgBody')?.value || '',
+                bg_card: document.getElementById('darkModeBgCard')?.value || '',
+                bg_surface: document.getElementById('darkModeBgSurface')?.value || '',
+                text: document.getElementById('darkModeText')?.value || '',
+                text_muted: document.getElementById('darkModeTextMuted')?.value || '',
+                border: document.getElementById('darkModeBorder')?.value || ''
             };
+            console.log('Dark mode colors found:', colors); // Debug
+            return colors;
         }
         
         async function saveThemeSettings() {
+            console.log('Save button clicked!'); // Debug
             const darkMode = document.getElementById('darkModeToggle').checked;
             const fontSize = document.getElementById('fontSize').value;
             const highContrast = document.getElementById('highContrastToggle').checked;
+            
+            const customColors = getCustomColors();
+            const customLightMode = getCustomLightModeColors();
+            const customDarkMode = getCustomDarkModeColors();
+            
+            console.log('Custom colors:', customColors); // Debug
+            console.log('Custom light mode:', customLightMode); // Debug  
+            console.log('Custom dark mode:', customDarkMode); // Debug
             
             const settings = {
                 theme: selectedTheme,
                 dark_mode: darkMode,
                 font_size: fontSize,
                 high_contrast: highContrast,
-                custom_colors: getCustomColors(),
-                custom_light_mode: getCustomLightModeColors(),
-                custom_dark_mode: getCustomDarkModeColors()
+                custom_colors: customColors,
+                custom_light_mode: customLightMode,
+                custom_dark_mode: customDarkMode
             };
+            
+            console.log('Sending settings:', settings); // Debug
             
             try {
                 displayStatus('Saving theme settings...', 'alert-info');
@@ -1158,7 +969,11 @@
                 });
                 
                 if (response.ok) {
-                    displayStatus('Theme settings saved successfully! Changes will take effect on next page load.', 'alert-success');
+                    displayStatus('Theme settings saved successfully! Reloading page to apply changes...', 'alert-success');
+                    // Reload the page after a short delay to apply the new theme
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
                 } else {
                     const errorData = await response.json();
                     displayStatus('Failed to save theme settings: ' + (errorData.error || 'Unknown error'), 'alert-danger');
