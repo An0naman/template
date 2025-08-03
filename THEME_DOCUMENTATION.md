@@ -1,42 +1,202 @@
 # 🎨 System Theme Documentation
 
-## Overview
+A comprehensive guide to the Template Flask application's dynamic theme system with dark mode support and customizable color schemes.
+
+## 📋 **Table of Contents**
+
+- [Overview](#overview)
+- [Features](#features)
+- [Installation & Setup](#installation--setup)
+- [Theme Configuration](#theme-configuration)
+- [Color Schemes](#color-schemes)
+- [Implementation Details](#implementation-details)
+- [API Reference](#api-reference)
+- [Frontend Integration](#frontend-integration)
+- [Customization Guide](#customization-guide)
+- [Troubleshooting](#troubleshooting)
+
+---
+
+## 🌟 **Overview**
+
 The System Theme feature provides comprehensive theming and dark mode support for the application. It allows users to customize the visual appearance of the main interface while preserving the distinct styling of maintenance modules.
 
-## Features
+### **Key Benefits**
+- 🎯 **User-Centric**: Personalized visual experience
+- ♿ **Accessible**: High contrast and typography options
+- 🌙 **Modern**: Native dark mode support
+- 🔄 **Dynamic**: Real-time theme switching
+- 📱 **Responsive**: Consistent across all devices
 
-### 🌙 Dark Mode
-- Toggle between light and dark themes
-- Affects main interface, entries, and content areas
-- Maintains readability with appropriate color contrast
+---
 
-### 🎨 Color Themes
-- **Default Blue**: Classic Bootstrap-inspired blue theme
-- **Emerald Green**: Fresh, nature-inspired green palette
-- **Purple**: Modern purple/violet color scheme
-- **Amber**: Warm, golden amber theme
+## 🌟 **Features**
 
-### 📝 Typography
-- **Font Size Options**: Small (14px), Normal (16px), Large (18px), Extra Large (20px)
-- **Live Preview**: See changes in real-time
-- **Accessibility**: Improved readability options
+### **🌙 Dark Mode**
+- **Toggle Functionality**: Seamless light/dark theme switching
+- **Bootstrap Integration**: Native Bootstrap 5.3.3 dark mode support
+- **Content Preservation**: Maintains readability with appropriate color contrast
+- **System Integration**: Respects user's system theme preferences
 
-### ♿ Accessibility
-- **High Contrast Mode**: Enhanced contrast for better visibility
-- **ARIA Labels**: Proper accessibility markup
-- **Keyboard Navigation**: Full keyboard support
+### **🎨 Color Themes**
+| Theme | Primary Color | Secondary Color | Use Case |
+|-------|---------------|-----------------|----------|
+| **Default Blue** | `#0d6efd` | `#6f42c1` | Classic Bootstrap-inspired theme |
+| **Emerald Green** | `#10b981` | `#059669` | Fresh, nature-inspired palette |
+| **Purple** | `#8b5cf6` | `#7c3aed` | Modern purple/violet scheme |
+| **Amber** | `#f59e0b` | `#d97706` | Warm, golden amber theme |
 
-## Implementation
+### **📝 Typography Options**
+| Size | Base Font | Line Height | Use Case |
+|------|-----------|-------------|----------|
+| **Small** | 14px | 1.4 | Compact layouts |
+| **Normal** | 16px | 1.5 | Default setting |
+| **Large** | 18px | 1.6 | Better readability |
+| **Extra Large** | 20px | 1.7 | Accessibility needs |
 
-### Database Schema
-Theme settings are stored in the `system_params` table:
-```sql
-CREATE TABLE system_params (
-    param_name TEXT PRIMARY KEY,
-    param_value TEXT,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+### **♿ Accessibility Features**
+- **High Contrast Mode**: Enhanced contrast ratios for better visibility
+- **ARIA Labels**: Proper accessibility markup throughout
+- **Keyboard Navigation**: Full keyboard support for theme controls
+- **Screen Reader Support**: Compatible with assistive technologies
+- **Focus Indicators**: Clear focus states for interactive elements
+
+---
+
+## 🚀 **Installation & Setup**
+
+### **Prerequisites**
+The theme system is built into the application core. No additional installation required.
+
+### **Initial Configuration**
+1. **Access Theme Settings**:
+   - Navigate to Settings → System Configuration → System Theme
+   - Or directly access via URL: `/maintenance/theme_settings`
+
+2. **First-Time Setup**:
+   ```python
+   # Default theme parameters are automatically initialized
+   {
+       "theme_color_scheme": "default",
+       "theme_dark_mode": False,
+       "theme_font_size": "normal", 
+       "theme_high_contrast": False
+   }
+   ```
+
+3. **Verify Installation**:
+   ```bash
+   # Check if theme CSS is being generated
+   curl http://localhost:5000/api/theme_settings
+   ```
+
+---
+
+## ⚙️ **Theme Configuration**
+
+### **Available Settings**
+
+#### **Color Scheme Options**
+```python
+THEME_COLOR_SCHEMES = {
+    'default': {
+        'primary': '#0d6efd',
+        'secondary': '#6f42c1',
+        'name': 'Default Blue'
+    },
+    'emerald': {
+        'primary': '#10b981',
+        'secondary': '#059669', 
+        'name': 'Emerald Green'
+    },
+    'purple': {
+        'primary': '#8b5cf6',
+        'secondary': '#7c3aed',
+        'name': 'Purple'
+    },
+    'amber': {
+        'primary': '#f59e0b',
+        'secondary': '#d97706',
+        'name': 'Amber'
+    }
+}
 ```
+
+#### **Font Size Mapping**
+```python
+FONT_SIZE_MAP = {
+    'small': '14px',
+    'normal': '16px', 
+    'large': '18px',
+    'extra-large': '20px'
+}
+```
+
+#### **Configuration via Web Interface**
+1. **Theme Selection**: Choose from 4 pre-built color schemes
+2. **Dark Mode Toggle**: Enable/disable dark mode
+3. **Font Size**: Select from 4 typography options
+4. **High Contrast**: Toggle high contrast mode
+5. **Live Preview**: See changes instantly
+
+#### **Configuration via API**
+```bash
+# Update theme settings
+curl -X POST http://localhost:5000/api/theme_settings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "theme_color_scheme": "purple",
+    "theme_dark_mode": true,
+    "theme_font_size": "large",
+    "theme_high_contrast": false
+  }'
+```
+
+---
+
+## 🎨 **Color Schemes**
+
+### **Default Blue Theme**
+```css
+:root {
+    --theme-primary: #0d6efd;
+    --theme-secondary: #6f42c1;
+    --theme-gradient: linear-gradient(135deg, #0d6efd, #6f42c1);
+}
+```
+**Best For**: Professional applications, corporate environments
+
+### **Emerald Green Theme** 
+```css
+:root {
+    --theme-primary: #10b981;
+    --theme-secondary: #059669;
+    --theme-gradient: linear-gradient(135deg, #10b981, #059669);
+}
+```
+**Best For**: Environmental apps, health & wellness platforms
+
+### **Purple Theme**
+```css
+:root {
+    --theme-primary: #8b5cf6;
+    --theme-secondary: #7c3aed;
+    --theme-gradient: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
+```
+**Best For**: Creative applications, modern interfaces
+
+### **Amber Theme**
+```css
+:root {
+    --theme-primary: #f59e0b;
+    --theme-secondary: #d97706;
+    --theme-gradient: linear-gradient(135deg, #f59e0b, #d97706);
+}
+```
+**Best For**: Warm, inviting interfaces, educational platforms
+
+---
 
 Theme parameters:
 - `theme_color_scheme`: Color theme (default, emerald, purple, amber)

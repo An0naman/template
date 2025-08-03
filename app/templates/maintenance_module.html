@@ -48,63 +48,49 @@
             transition: width 0.3s ease;
         }
         
-        /* Data Structure Section - Blue */
-        /* Data Structure Section - Blue */
+        /* Section-specific styles */
         .data-structure .setting-card::before {
             background: linear-gradient(135deg, #0d6efd, #6f42c1);
         }
         .data-structure .setting-card:hover {
-            background: var(--bs-body-bg);
             border-color: #0d6efd;
-            transform: translateY(-2px);
             box-shadow: 0 4px 20px rgba(13, 110, 253, 0.15);
         }
-        .data-structure .setting-card:hover::before {
-            width: 8px;
-        }
 
-        /* Notes Configuration Section - Orange */
         .notes-section .setting-card::before {
             background: linear-gradient(135deg, #fd7e14, #e5550e);
         }
         .notes-section .setting-card:hover {
-            background: var(--bs-body-bg);
             border-color: #fd7e14;
-            transform: translateY(-2px);
             box-shadow: 0 4px 20px rgba(253, 126, 20, 0.15);
         }
-        .notes-section .setting-card:hover::before {
-            width: 8px;
-        }
 
-        /* Sensor Section - Green */
         .sensor-section .setting-card::before {
             background: linear-gradient(135deg, #198754, #20c997);
         }
         .sensor-section .setting-card:hover {
-            background: var(--bs-body-bg);
             border-color: #198754;
-            transform: translateY(-2px);
             box-shadow: 0 4px 20px rgba(25, 135, 84, 0.15);
         }
-        .sensor-section .setting-card:hover::before {
-            width: 8px;
-        }
         
-        /* System Section - Purple */
         .system-section .setting-card::before {
             background: linear-gradient(135deg, #6f42c1, #d63384);
         }
         .system-section .setting-card:hover {
-            background: var(--bs-body-bg);
             border-color: #6f42c1;
-            transform: translateY(-2px);
             box-shadow: 0 4px 20px rgba(111, 66, 193, 0.15);
         }
-        .system-section .setting-card:hover::before {
+
+        /* Common hover effects */
+        .setting-card:hover {
+            background: var(--bs-body-bg);
+            transform: translateY(-2px);
+        }
+        .setting-card:hover::before {
             width: 8px;
         }
         
+        /* Setting icons with gradient backgrounds */
         .setting-icon {
             width: 48px;
             height: 48px;
@@ -126,6 +112,8 @@
         .setting-icon.bg-purple {
             background: linear-gradient(135deg, #6f42c1, #d63384);
         }
+
+        /* Typography */
         .setting-title {
             font-size: 1.1rem;
             font-weight: 600;
@@ -138,6 +126,27 @@
             line-height: 1.4;
             margin: 0;
         }
+        
+        /* Section headers */
+        .section-header {
+            margin-bottom: 1rem;
+        }
+        .section-header h4 {
+            margin-bottom: 0.5rem;
+        }
+        .section-header.text-primary h4 {
+            color: var(--bs-primary) !important;
+        }
+        .section-header.text-orange h4 {
+            color: #fd7e14 !important;
+        }
+        .section-header.text-success h4 {
+            color: var(--bs-success) !important;
+        }
+        .section-header.text-purple h4 {
+            color: #6f42c1 !important;
+        }
+        /* Layout and general styles */
         .section-divider {
             border-bottom: 2px solid var(--bs-border-color);
             margin: 2rem 0;
@@ -154,6 +163,8 @@
         .breadcrumb-item a:hover {
             color: var(--bs-primary);
         }
+
+        /* Responsive design */
         @media (max-width: 768px) {
             .container {
                 margin-top: 15px;
@@ -171,23 +182,25 @@
 </head>
 <body>
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
+        <header class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h1 class="mb-0">{{ project_name }} Settings</h1>
             </div>
-            <div>
+            <nav>
                 <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary">
                     <i class="fas fa-arrow-left me-2"></i>Back
                 </a>
-            </div>
-        </div>
+            </nav>
+        </header>
 
         <!-- Data Structure Settings -->
-        <div class="mb-5 data-structure">
-            <h4 class="mb-3 text-primary">
-                <i class="fas fa-database me-2"></i>Data Structure
-            </h4>
-            <p class="text-muted mb-3">Configure the fundamental structure of your data</p>
+        <section class="mb-5 data-structure">
+            <div class="section-header text-primary">
+                <h4>
+                    <i class="fas fa-database me-2"></i>Data Structure
+                </h4>
+                <p class="text-muted mb-3">Configure the fundamental structure of your data</p>
+            </div>
             <div class="settings-grid">
                 <a href="{{ url_for('maintenance.manage_entry_types_page') }}" class="setting-card">
                     <div class="setting-icon">
@@ -205,14 +218,16 @@
                     <p class="setting-description">Configure how different {{ entry_plural_label.lower() }} can be related to each other (e.g., "Parent of", "Authored by").</p>
                 </a>
             </div>
-        </div>
+        </section>
 
         <!-- Notes Configuration -->
-        <div class="mb-5 notes-section">
-            <h4 class="mb-3" style="color: #fd7e14;">
-                <i class="fas fa-sticky-note me-2"></i>Notes Configuration
-            </h4>
-            <p class="text-muted mb-3">Configure note types, colors, and file upload settings</p>
+        <section class="mb-5 notes-section">
+            <div class="section-header text-orange">
+                <h4>
+                    <i class="fas fa-sticky-note me-2"></i>Notes Configuration
+                </h4>
+                <p class="text-muted mb-3">Configure note types, colors, and file upload settings</p>
+            </div>
             <div class="settings-grid">
                 <a href="{{ url_for('maintenance.manage_note_types_page') }}" class="setting-card">
                     <div class="setting-icon bg-orange">
@@ -230,14 +245,16 @@
                     <p class="setting-description">Configure allowed file types, size limits, and upload restrictions for note attachments.</p>
                 </a>
             </div>
-        </div>
+        </section>
 
         <!-- Sensor & Monitoring Settings -->
-        <div class="mb-5 sensor-section">
-            <h4 class="mb-3 text-success">
-                <i class="fas fa-thermometer-half me-2"></i>Sensor & Monitoring
-            </h4>
-            <p class="text-muted mb-3">Configure sensor data collection and monitoring features</p>
+        <section class="mb-5 sensor-section">
+            <div class="section-header text-success">
+                <h4>
+                    <i class="fas fa-thermometer-half me-2"></i>Sensor & Monitoring
+                </h4>
+                <p class="text-muted mb-3">Configure sensor data collection and monitoring features</p>
+            </div>
             <div class="settings-grid">
                 <a href="{{ url_for('maintenance.manage_sensors_page') }}" class="setting-card">
                     <div class="setting-icon bg-success">
@@ -263,14 +280,16 @@
                     <p class="setting-description">Set up automatic notifications when sensor values cross defined thresholds.</p>
                 </a>
             </div>
-        </div>
+        </section>
 
         <!-- System Settings -->
-        <div class="mb-4 system-section">
-            <h4 class="mb-3" style="color: #6f42c1;">
-                <i class="fas fa-cogs me-2"></i>System Configuration
-            </h4>
-            <p class="text-muted mb-3">Global application settings and preferences</p>
+        <section class="mb-4 system-section">
+            <div class="section-header text-purple">
+                <h4>
+                    <i class="fas fa-cogs me-2"></i>System Configuration
+                </h4>
+                <p class="text-muted mb-3">Global application settings and preferences</p>
+            </div>
             <div class="settings-grid">
                 <a href="{{ url_for('main.settings') }}" class="setting-card">
                     <div class="setting-icon bg-purple">
@@ -288,7 +307,7 @@
                     <p class="setting-description">Configure application theme, dark mode, and visual appearance for the main interface.</p>
                 </a>
             </div>
-        </div>
+        </section>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
