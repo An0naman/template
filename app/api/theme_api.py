@@ -73,11 +73,16 @@ def handle_theme_settings():
                 # Valid options validation
                 valid_themes = ['default', 'emerald', 'purple', 'amber', 'custom']
                 valid_font_sizes = ['small', 'normal', 'large', 'extra-large']
-                valid_section_border_styles = ['rounded', 'sharp', 'subtle', 'bold']
+                valid_section_border_styles = ['rounded', 'sharp', 'subtle', 'bold', 'retro', 'pixelated', 'pokemon', 'nature', 'autumn', 'ocean', 'forest', 'sunset']
                 valid_section_spacing = ['compact', 'normal', 'spacious']
                 valid_section_backgrounds = ['flat', 'subtle', 'elevated', 'glassmorphic']
                 valid_section_animations = ['none', 'fade', 'slide', 'bounce', 'pulse']
                 valid_section_effects = ['none', 'glow', 'shadow', 'gradient', 'texture']
+                valid_section_patterns = ['none', 'forest-diagonal', 'bamboo-stripes', 'leaf-pattern', 'tree-rings', 
+                                        'diagonal-lines', 'crosshatch', 'grid-pattern', 'diamond-weave', 
+                                        'wave-flow', 'ripple-effect', 'cloud-texture', 'marble-veins']
+                valid_section_decorations = ['none', 'leaf', 'tree', 'flower', 'sun', 'moon', 'star', 'diamond', 
+                                           'shield', 'sword', 'gem', 'gear', 'lightning', 'circuit', 'code', 'data']
                 
                 if theme not in valid_themes:
                     return jsonify({'error': 'Invalid theme selected'}), 400
@@ -92,6 +97,8 @@ def handle_theme_settings():
                     background = section_styles.get('background', 'subtle')
                     animation = section_styles.get('animation', 'none')
                     effect = section_styles.get('effect', 'none')
+                    pattern = section_styles.get('pattern', 'none')
+                    decoration = section_styles.get('decoration', 'none')
                     
                     if border_style not in valid_section_border_styles:
                         return jsonify({'error': 'Invalid section border style selected'}), 400
@@ -103,6 +110,10 @@ def handle_theme_settings():
                         return jsonify({'error': 'Invalid section animation selected'}), 400
                     if effect not in valid_section_effects:
                         return jsonify({'error': 'Invalid section effect selected'}), 400
+                    if pattern not in valid_section_patterns:
+                        return jsonify({'error': 'Invalid section pattern selected'}), 400
+                    if decoration not in valid_section_decorations:
+                        return jsonify({'error': 'Invalid section decoration selected'}), 400
                 
                 # Validate custom colors if theme is custom
                 if theme == 'custom' and custom_colors:
@@ -499,13 +510,23 @@ def generate_theme_css(settings=None):
     background = section_styles.get('background', 'subtle')
     animation = section_styles.get('animation', 'none')
     effect = section_styles.get('effect', 'none')
+    pattern = section_styles.get('pattern', 'none')
+    decoration = section_styles.get('decoration', 'none')
     
     # Section border radius values
     border_radius_map = {
         'rounded': '0.75rem',
         'sharp': '0',
         'subtle': '0.375rem',
-        'bold': '1.25rem'
+        'bold': '1.25rem',
+        'retro': '0',  # Sharp corners for retro feel
+        'pixelated': '0',  # No radius for pixel-perfect edges
+        'pokemon': '0.25rem',  # Slight rounding like original Pokemon games
+        'nature': '1rem',  # Organic rounded corners
+        'autumn': '0.5rem',  # Moderate rounding for autumn leaves
+        'ocean': '1.5rem',  # Flowing, wave-like curves
+        'forest': '0.8rem',  # Natural, tree-like rounding
+        'sunset': '0.6rem'  # Gentle sunset curves
     }
     
     # Section spacing values
@@ -590,6 +611,458 @@ def generate_theme_css(settings=None):
             }}
         }}
     """
+    
+    # Add special border effects
+    if border_style in ['retro', 'pixelated', 'pokemon', 'nature', 'autumn', 'ocean', 'forest', 'sunset']:
+        css += f"""
+        /* Special Border Effects */
+        :root {{
+            --section-special-border-width: {'4px' if border_style in ['retro', 'pokemon'] else '3px' if border_style in ['nature', 'ocean'] else '2px'};
+            --section-special-border-style: {'double' if border_style == 'pokemon' else 'solid'};
+        }}
+        """
+        
+        if border_style == 'retro':
+            css += f"""
+        /* Classic Retro Border Style */
+        .theme-section, .content-section {{
+            border-width: var(--section-special-border-width) !important;
+            border-style: solid !important;
+            box-shadow: 
+                inset -2px -2px 0 rgba(0, 0, 0, 0.3),
+                inset 2px 2px 0 rgba(255, 255, 255, 0.3),
+                2px 2px 4px rgba(0, 0, 0, 0.2) !important;
+            background: linear-gradient(135deg, 
+                rgba(255, 255, 255, 0.1) 0%, 
+                transparent 50%, 
+                rgba(0, 0, 0, 0.1) 100%) !important;
+        }}
+        """
+        elif border_style == 'pixelated':
+            css += f"""
+        /* Pixelated 8-bit Style Border */
+        .theme-section, .content-section {{
+            border-width: 2px !important;
+            border-style: solid !important;
+            border-image: 
+                repeating-linear-gradient(90deg, 
+                    var(--theme-primary) 0px, var(--theme-primary) 2px,
+                    var(--theme-primary-darker) 2px, var(--theme-primary-darker) 4px,
+                    var(--theme-primary) 4px, var(--theme-primary) 6px,
+                    var(--theme-primary-lighter) 6px, var(--theme-primary-lighter) 8px
+                ) 2 !important;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+            box-shadow: 
+                4px 4px 0 var(--theme-primary-darker),
+                2px 2px 0 var(--theme-primary) !important;
+        }}
+        """
+        elif border_style == 'pokemon':
+            css += f"""
+        /* Pokemon Game Style Border */
+        .theme-section, .content-section {{
+            border-width: 3px !important;
+            border-style: double !important;
+            border-color: var(--theme-primary) !important;
+            background: 
+                linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.05) 75%, rgba(255, 255, 255, 0.05) 85%, transparent 85%),
+                var(--section-bg, var(--theme-bg-surface)) !important;
+            background-size: 12px 12px;
+            box-shadow: 
+                inset 1px 1px 0 rgba(255, 255, 255, 0.2),
+                inset -1px -1px 0 rgba(0, 0, 0, 0.2),
+                0 0 0 1px var(--theme-primary-darker),
+                2px 2px 4px rgba(0, 0, 0, 0.15) !important;
+            position: relative;
+            transition: none !important; /* Remove hover transitions */
+        }}
+        
+        .theme-section:hover, .content-section:hover {{
+            background: 
+                linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.05) 75%, rgba(255, 255, 255, 0.05) 85%, transparent 85%),
+                var(--section-bg, var(--theme-bg-surface)) !important; /* Keep same background on hover */
+        }}
+        
+        .theme-section::before, .content-section::before {{
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            right: -1px;
+            bottom: -1px;
+            background: linear-gradient(45deg, 
+                var(--theme-primary) 0%, 
+                var(--theme-primary-lighter) 25%, 
+                var(--theme-primary) 50%, 
+                var(--theme-primary-darker) 75%, 
+                var(--theme-primary) 100%);
+            z-index: -1;
+            border-radius: inherit;
+            opacity: 0.7;
+        }}
+        
+        /* Pokemon-style corner decorations */
+        .theme-section::after, .content-section::after {{
+            content: '◆';
+            position: absolute;
+            top: 6px;
+            right: 10px;
+            color: var(--theme-primary);
+            font-size: 10px;
+            font-weight: bold;
+            text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.3);
+            opacity: 0.6;
+        }}
+        """
+        elif border_style == 'nature':
+            css += f"""
+        /* Nature Theme Border */
+        .theme-section, .content-section {{
+            border-width: 3px !important;
+            border-style: solid !important;
+            border-color: #228B22 !important;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(34, 139, 34, 0.1) 0%, transparent 30%),
+                radial-gradient(circle at 80% 20%, rgba(107, 142, 35, 0.08) 0%, transparent 25%),
+                radial-gradient(circle at 60% 80%, rgba(50, 205, 50, 0.06) 0%, transparent 20%),
+                var(--section-bg, var(--theme-bg-surface)) !important;
+            box-shadow: 
+                inset 0 0 20px rgba(34, 139, 34, 0.1),
+                0 2px 8px rgba(34, 139, 34, 0.2),
+                0 0 0 1px rgba(34, 139, 34, 0.3) !important;
+            position: relative;
+        }}
+        
+        .theme-section::before, .content-section::before {{
+            content: '🌿';
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            font-size: 12px;
+            opacity: 0.6;
+        }}
+        """
+        elif border_style == 'autumn':
+            css += f"""
+        /* Autumn Theme Border */
+        .theme-section, .content-section {{
+            border-width: 2px !important;
+            border-style: solid !important;
+            border-image: linear-gradient(45deg, 
+                #D2691E 0%, #CD853F 25%, #DEB887 50%, #F4A460 75%, #D2691E 100%) 2 !important;
+            background: 
+                linear-gradient(135deg, 
+                    rgba(210, 105, 30, 0.05) 0%, 
+                    rgba(205, 133, 63, 0.03) 25%, 
+                    rgba(222, 184, 135, 0.05) 50%, 
+                    rgba(244, 164, 96, 0.03) 75%, 
+                    rgba(210, 105, 30, 0.05) 100%),
+                var(--section-bg, var(--theme-bg-surface)) !important;
+            box-shadow: 
+                0 0 15px rgba(210, 105, 30, 0.15),
+                inset 0 0 10px rgba(244, 164, 96, 0.1) !important;
+            position: relative;
+        }}
+        
+        .theme-section::before, .content-section::before {{
+            content: '🍂';
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            font-size: 12px;
+            opacity: 0.7;
+            animation: autumn-sway 3s ease-in-out infinite;
+        }}
+        
+        @keyframes autumn-sway {{
+            0%, 100% {{ transform: rotate(-2deg); }}
+            50% {{ transform: rotate(2deg); }}
+        }}
+        """
+        elif border_style == 'ocean':
+            css += f"""
+        /* Ocean Theme Border */
+        .theme-section, .content-section {{
+            border-width: 3px !important;
+            border-style: solid !important;
+            border-color: #008B8B !important;
+            background: 
+                linear-gradient(90deg, 
+                    rgba(0, 139, 139, 0.1) 0%, 
+                    rgba(32, 178, 170, 0.08) 25%, 
+                    rgba(72, 209, 204, 0.06) 50%, 
+                    rgba(32, 178, 170, 0.08) 75%, 
+                    rgba(0, 139, 139, 0.1) 100%),
+                var(--section-bg, var(--theme-bg-surface)) !important;
+            background-size: 200% 100%;
+            animation: ocean-wave 4s linear infinite;
+            box-shadow: 
+                0 0 20px rgba(0, 139, 139, 0.2),
+                inset 0 0 15px rgba(72, 209, 204, 0.1) !important;
+            position: relative;
+        }}
+        
+        @keyframes ocean-wave {{
+            0% {{ background-position: 0% 0%; }}
+            100% {{ background-position: 200% 0%; }}
+        }}
+        
+        .theme-section::before, .content-section::before {{
+            content: '🌊';
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            font-size: 12px;
+            opacity: 0.6;
+            animation: ocean-bob 2s ease-in-out infinite;
+        }}
+        
+        @keyframes ocean-bob {{
+            0%, 100% {{ transform: translateY(0px); }}
+            50% {{ transform: translateY(-3px); }}
+        }}
+        """
+        elif border_style == 'forest':
+            css += f"""
+        /* Forest Theme Border */
+        .theme-section, .content-section {{
+            border-width: 2px !important;
+            border-style: solid !important;
+            border-color: #2F4F2F !important;
+            background: 
+                repeating-linear-gradient(45deg, 
+                    transparent 0px, 
+                    transparent 4px, 
+                    rgba(47, 79, 47, 0.03) 4px, 
+                    rgba(47, 79, 47, 0.03) 8px),
+                linear-gradient(180deg, 
+                    rgba(34, 139, 34, 0.05) 0%, 
+                    rgba(47, 79, 47, 0.08) 100%),
+                var(--section-bg, var(--theme-bg-surface)) !important;
+            box-shadow: 
+                inset 0 0 25px rgba(47, 79, 47, 0.1),
+                0 2px 6px rgba(47, 79, 47, 0.15) !important;
+            position: relative;
+        }}
+        
+        .theme-section::before, .content-section::before {{
+            content: '🌲';
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            font-size: 12px;
+            opacity: 0.6;
+        }}
+        """
+        elif border_style == 'sunset':
+            css += f"""
+        /* Sunset Theme Border */
+        .theme-section, .content-section {{
+            border-width: 2px !important;
+            border-style: solid !important;
+            border-image: linear-gradient(45deg, 
+                #FF6347 0%, #FF7F50 20%, #FFA500 40%, #FFD700 60%, #FF8C00 80%, #FF6347 100%) 2 !important;
+            background: 
+                linear-gradient(135deg, 
+                    rgba(255, 99, 71, 0.08) 0%, 
+                    rgba(255, 127, 80, 0.06) 25%, 
+                    rgba(255, 165, 0, 0.04) 50%, 
+                    rgba(255, 215, 0, 0.06) 75%, 
+                    rgba(255, 140, 0, 0.08) 100%),
+                var(--section-bg, var(--theme-bg-surface)) !important;
+            box-shadow: 
+                0 0 25px rgba(255, 140, 0, 0.2),
+                inset 0 0 15px rgba(255, 215, 0, 0.1) !important;
+            position: relative;
+        }}
+        
+        .theme-section::before, .content-section::before {{
+            content: '🌅';
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            font-size: 12px;
+            opacity: 0.7;
+            animation: sunset-glow 3s ease-in-out infinite alternate;
+        }}
+        
+        @keyframes sunset-glow {{
+            0% {{ opacity: 0.5; }}
+            100% {{ opacity: 0.9; }}
+        }}
+        """
+    
+    # Add pattern CSS based on selection
+    if pattern != 'none':
+        pattern_css = ""
+        if pattern == 'forest-diagonal':
+            pattern_css = """
+            background-image: 
+                repeating-linear-gradient(45deg, 
+                    transparent 0px, 
+                    transparent 4px, 
+                    rgba(47, 79, 47, 0.03) 4px, 
+                    rgba(47, 79, 47, 0.03) 8px),
+                linear-gradient(180deg, 
+                    rgba(34, 139, 34, 0.05) 0%, 
+                    rgba(47, 79, 47, 0.08) 100%) !important;
+            """
+        elif pattern == 'bamboo-stripes':
+            pattern_css = """
+            background-image: 
+                repeating-linear-gradient(90deg, 
+                    transparent 0px, 
+                    transparent 6px, 
+                    rgba(34, 139, 34, 0.04) 6px, 
+                    rgba(34, 139, 34, 0.04) 8px),
+                linear-gradient(180deg, 
+                    rgba(144, 238, 144, 0.03) 0%, 
+                    rgba(34, 139, 34, 0.06) 100%) !important;
+            """
+        elif pattern == 'leaf-pattern':
+            pattern_css = """
+            background-image: 
+                radial-gradient(circle at 25% 25%, rgba(34, 139, 34, 0.05) 2px, transparent 3px),
+                radial-gradient(circle at 75% 75%, rgba(107, 142, 35, 0.04) 2px, transparent 3px),
+                linear-gradient(45deg, rgba(50, 205, 50, 0.02) 0%, transparent 50%) !important;
+            background-size: 20px 20px, 40px 40px, 100% 100% !important;
+            """
+        elif pattern == 'tree-rings':
+            pattern_css = """
+            background-image: 
+                radial-gradient(circle, transparent 10px, rgba(139, 69, 19, 0.03) 11px, rgba(139, 69, 19, 0.03) 15px, transparent 16px),
+                radial-gradient(circle, transparent 25px, rgba(160, 82, 45, 0.02) 26px, rgba(160, 82, 45, 0.02) 30px, transparent 31px) !important;
+            background-size: 50px 50px, 100px 100px !important;
+            """
+        elif pattern == 'diagonal-lines':
+            pattern_css = """
+            background-image: 
+                repeating-linear-gradient(45deg, 
+                    transparent 0px, 
+                    transparent 3px, 
+                    rgba(128, 128, 128, 0.05) 3px, 
+                    rgba(128, 128, 128, 0.05) 6px) !important;
+            """
+        elif pattern == 'crosshatch':
+            pattern_css = """
+            background-image: 
+                repeating-linear-gradient(45deg, 
+                    transparent 0px, 
+                    transparent 2px, 
+                    rgba(128, 128, 128, 0.03) 2px, 
+                    rgba(128, 128, 128, 0.03) 4px),
+                repeating-linear-gradient(-45deg, 
+                    transparent 0px, 
+                    transparent 2px, 
+                    rgba(128, 128, 128, 0.03) 2px, 
+                    rgba(128, 128, 128, 0.03) 4px) !important;
+            """
+        elif pattern == 'grid-pattern':
+            pattern_css = """
+            background-image: 
+                repeating-linear-gradient(0deg, 
+                    transparent 0px, 
+                    transparent 9px, 
+                    rgba(128, 128, 128, 0.03) 9px, 
+                    rgba(128, 128, 128, 0.03) 10px),
+                repeating-linear-gradient(90deg, 
+                    transparent 0px, 
+                    transparent 9px, 
+                    rgba(128, 128, 128, 0.03) 9px, 
+                    rgba(128, 128, 128, 0.03) 10px) !important;
+            """
+        elif pattern == 'diamond-weave':
+            pattern_css = """
+            background-image: 
+                repeating-linear-gradient(45deg, 
+                    transparent 0px, 
+                    transparent 5px, 
+                    rgba(128, 128, 128, 0.04) 5px, 
+                    rgba(128, 128, 128, 0.04) 10px),
+                repeating-linear-gradient(-45deg, 
+                    transparent 0px, 
+                    transparent 5px, 
+                    rgba(128, 128, 128, 0.04) 5px, 
+                    rgba(128, 128, 128, 0.04) 10px) !important;
+            """
+        elif pattern == 'wave-flow':
+            pattern_css = """
+            background-image: 
+                radial-gradient(ellipse at top left, rgba(0, 139, 139, 0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at bottom right, rgba(72, 209, 204, 0.03) 0%, transparent 50%),
+                linear-gradient(135deg, rgba(0, 139, 139, 0.02) 0%, rgba(72, 209, 204, 0.02) 100%) !important;
+            """
+        elif pattern == 'ripple-effect':
+            pattern_css = """
+            background-image: 
+                radial-gradient(circle at 30% 30%, transparent 20px, rgba(0, 139, 139, 0.03) 21px, rgba(0, 139, 139, 0.03) 25px, transparent 26px),
+                radial-gradient(circle at 70% 70%, transparent 15px, rgba(72, 209, 204, 0.03) 16px, rgba(72, 209, 204, 0.03) 20px, transparent 21px) !important;
+            background-size: 80px 80px, 60px 60px !important;
+            """
+        elif pattern == 'cloud-texture':
+            pattern_css = """
+            background-image: 
+                radial-gradient(circle at 20% 50%, rgba(176, 196, 222, 0.04) 0%, transparent 25%),
+                radial-gradient(circle at 80% 20%, rgba(135, 206, 235, 0.03) 0%, transparent 30%),
+                radial-gradient(circle at 40% 80%, rgba(173, 216, 230, 0.03) 0%, transparent 20%) !important;
+            background-size: 120px 120px, 150px 150px, 100px 100px !important;
+            """
+        elif pattern == 'marble-veins':
+            pattern_css = """
+            background-image: 
+                linear-gradient(135deg, rgba(128, 128, 128, 0.02) 0%, transparent 20%, rgba(169, 169, 169, 0.03) 40%, transparent 60%, rgba(128, 128, 128, 0.02) 80%),
+                linear-gradient(45deg, rgba(169, 169, 169, 0.01) 0%, transparent 30%, rgba(128, 128, 128, 0.02) 70%) !important;
+            """
+        
+        if pattern_css:
+            css += f"""
+        /* Pattern Effect: {pattern} */
+        .theme-section, .content-section {{
+            {pattern_css}
+        }}
+        """
+    
+    # Add decoration CSS based on selection
+    if decoration != 'none':
+        decoration_map = {
+            'leaf': '🍃',
+            'tree': '🌲',
+            'flower': '🌸',
+            'sun': '☀️',
+            'moon': '🌙',
+            'star': '⭐',
+            'diamond': '💎',
+            'shield': '🛡️',
+            'sword': '⚔️',
+            'gem': '💠',
+            'gear': '⚙️',
+            'lightning': '⚡',
+            'circuit': '🔌',
+            'code': '📋',
+            'data': '💾'
+        }
+        
+        decoration_icon = decoration_map.get(decoration, '⭐')
+        
+        css += f"""
+        /* Corner Decoration: {decoration} */
+        .theme-section, .content-section {{
+            position: relative;
+        }}
+        
+        .theme-section::after, .content-section::after {{
+            content: '{decoration_icon}';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            font-size: 16px;
+            opacity: 0.6;
+            pointer-events: none;
+            z-index: 10;
+        }}
+        """
     
     # Add effect CSS based on selection
     if effect == 'glow':
