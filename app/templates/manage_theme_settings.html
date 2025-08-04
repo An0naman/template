@@ -1599,6 +1599,16 @@
                 #previewContainer .nav-pills .nav-link.active {
                     background-color: ${primaryColor};
                     border-color: ${primaryColor};
+                    color: white;
+                }
+                
+                #previewContainer .nav-pills .nav-link {
+                    color: ${primaryColor};
+                }
+                
+                #previewContainer .nav-pills .nav-link:hover {
+                    color: ${primaryColor};
+                    background-color: ${primaryColor}20;
                 }
                 
                 #previewContainer .nav-tabs .nav-link.active {
@@ -1606,9 +1616,72 @@
                     border-bottom-color: ${primaryColor};
                 }
                 
+                #previewContainer .nav-tabs .nav-link {
+                    color: ${primaryColor};
+                    border-color: transparent;
+                    background-color: transparent;
+                }
+                
+                #previewContainer .nav-tabs .nav-link:hover {
+                    border-color: ${primaryColor}40 ${primaryColor}40 ${primaryColor}40;
+                    color: ${primaryColor};
+                    background-color: ${primaryColor}10;
+                }
+                
+                #previewContainer .nav-tabs {
+                    border-bottom-color: ${primaryColor}40;
+                    background-color: transparent;
+                }
+                
                 #previewContainer .page-item.active .page-link {
                     background-color: ${primaryColor};
                     border-color: ${primaryColor};
+                    color: white;
+                }
+                
+                #previewContainer .page-item .page-link {
+                    background-color: transparent;
+                    border-color: ${primaryColor}40;
+                    color: ${primaryColor};
+                }
+                
+                #previewContainer .page-item:hover .page-link:not(.active) {
+                    background-color: ${primaryColor}15;
+                    border-color: ${primaryColor};
+                    color: ${primaryColor};
+                }
+                
+                #previewContainer .page-item.disabled .page-link {
+                    background-color: ${primaryColor}05;
+                    border-color: ${primaryColor}20;
+                    color: ${primaryColor}60;
+                }
+                
+                #previewContainer .table {
+                    color: ${primaryColor};
+                    border-color: ${primaryColor}30;
+                    background-color: transparent;
+                }
+                
+                #previewContainer .table th {
+                    background-color: ${primaryColor}10;
+                    border-color: ${primaryColor}30;
+                    color: ${primaryColor};
+                    font-weight: 600;
+                }
+                
+                #previewContainer .table td {
+                    border-color: ${primaryColor}20;
+                    color: ${primaryColor};
+                    background-color: transparent;
+                }
+                
+                #previewContainer .table tbody tr:hover {
+                    background-color: ${primaryColor}08;
+                }
+                
+                #previewContainer .table-striped > tbody > tr:nth-of-type(odd) {
+                    background-color: ${primaryColor}05;
                 }
                 
                 #previewContainer .progress-bar {
