@@ -68,16 +68,41 @@ def handle_theme_settings():
                 custom_colors = data.get('custom_colors', {})
                 custom_light_mode = data.get('custom_light_mode', {})
                 custom_dark_mode = data.get('custom_dark_mode', {})
+                section_styles = data.get('section_styles', {})
                 
                 # Valid options validation
                 valid_themes = ['default', 'emerald', 'purple', 'amber', 'custom']
                 valid_font_sizes = ['small', 'normal', 'large', 'extra-large']
+                valid_section_border_styles = ['rounded', 'sharp', 'subtle', 'bold']
+                valid_section_spacing = ['compact', 'normal', 'spacious']
+                valid_section_backgrounds = ['flat', 'subtle', 'elevated', 'glassmorphic']
+                valid_section_animations = ['none', 'fade', 'slide', 'bounce', 'pulse']
+                valid_section_effects = ['none', 'glow', 'shadow', 'gradient', 'texture']
                 
                 if theme not in valid_themes:
                     return jsonify({'error': 'Invalid theme selected'}), 400
                 
                 if font_size not in valid_font_sizes:
                     return jsonify({'error': 'Invalid font size selected'}), 400
+                
+                # Validate section styles
+                if section_styles:
+                    border_style = section_styles.get('border_style', 'rounded')
+                    spacing = section_styles.get('spacing', 'normal')
+                    background = section_styles.get('background', 'subtle')
+                    animation = section_styles.get('animation', 'none')
+                    effect = section_styles.get('effect', 'none')
+                    
+                    if border_style not in valid_section_border_styles:
+                        return jsonify({'error': 'Invalid section border style selected'}), 400
+                    if spacing not in valid_section_spacing:
+                        return jsonify({'error': 'Invalid section spacing selected'}), 400
+                    if background not in valid_section_backgrounds:
+                        return jsonify({'error': 'Invalid section background selected'}), 400
+                    if animation not in valid_section_animations:
+                        return jsonify({'error': 'Invalid section animation selected'}), 400
+                    if effect not in valid_section_effects:
+                        return jsonify({'error': 'Invalid section effect selected'}), 400
                 
                 # Validate custom colors if theme is custom
                 if theme == 'custom' and custom_colors:
@@ -113,6 +138,12 @@ def handle_theme_settings():
                     ('theme_high_contrast', str(high_contrast))
                 ]
                 
+                # Add section styles
+                if section_styles:
+                    theme_settings.append(('theme_section_styles', json.dumps(section_styles)))
+                else:
+                    cursor.execute("DELETE FROM SystemParameters WHERE parameter_name = 'theme_section_styles'")
+                
                 # Add custom colors if theme is custom
                 if theme == 'custom' and custom_colors:
                     theme_settings.append(('theme_custom_colors', json.dumps(custom_colors)))
@@ -147,7 +178,8 @@ def handle_theme_settings():
                     'high_contrast': high_contrast,
                     'custom_colors': custom_colors if theme == 'custom' else {},
                     'custom_light_mode': custom_light_mode,
-                    'custom_dark_mode': custom_dark_mode
+                    'custom_dark_mode': custom_dark_mode,
+                    'section_styles': section_styles
                 }
                 
                 return jsonify({
@@ -173,6 +205,7 @@ def handle_theme_settings():
                 custom_colors = {}
                 custom_light_mode = {}
                 custom_dark_mode = {}
+                section_styles = {}
                 
                 for parameter_name, parameter_value in cursor.fetchall():
                     if parameter_name == 'theme_color_scheme':
@@ -198,6 +231,11 @@ def handle_theme_settings():
                             custom_dark_mode = json.loads(parameter_value)
                         except (json.JSONDecodeError, TypeError):
                             custom_dark_mode = {}
+                    elif parameter_name == 'theme_section_styles':
+                        try:
+                            section_styles = json.loads(parameter_value)
+                        except (json.JSONDecodeError, TypeError):
+                            section_styles = {}
                 
                 # Set defaults if not found
                 settings.setdefault('theme', 'default')
@@ -207,6 +245,7 @@ def handle_theme_settings():
                 settings['custom_colors'] = custom_colors
                 settings['custom_light_mode'] = custom_light_mode
                 settings['custom_dark_mode'] = custom_dark_mode
+                settings['section_styles'] = section_styles
                 
                 return jsonify(settings)
                 
@@ -238,6 +277,7 @@ def get_current_theme_settings():
         custom_colors = {}
         custom_light_mode = {}
         custom_dark_mode = {}
+        section_styles = {}
         
         for parameter_name, parameter_value in cursor.fetchall():
             if parameter_name == 'theme_color_scheme':
@@ -263,6 +303,11 @@ def get_current_theme_settings():
                     custom_dark_mode = json.loads(parameter_value)
                 except (json.JSONDecodeError, TypeError):
                     custom_dark_mode = {}
+            elif parameter_name == 'theme_section_styles':
+                try:
+                    section_styles = json.loads(parameter_value)
+                except (json.JSONDecodeError, TypeError):
+                    section_styles = {}
         
         # Set defaults
         settings.setdefault('current_theme', 'default')
@@ -272,6 +317,7 @@ def get_current_theme_settings():
         settings['custom_colors'] = custom_colors
         settings['custom_light_mode'] = custom_light_mode
         settings['custom_dark_mode'] = custom_dark_mode
+        settings['section_styles'] = section_styles
         
         conn.close()
         return settings
@@ -285,7 +331,8 @@ def get_current_theme_settings():
             'high_contrast_enabled': False,
             'custom_colors': {},
             'custom_light_mode': {},
-            'custom_dark_mode': {}
+            'custom_dark_mode': {},
+            'section_styles': {}
         }
 
 
@@ -297,6 +344,9 @@ def generate_theme_css(settings=None):
     theme = settings.get('current_theme', 'default')
     dark_mode = settings.get('dark_mode_enabled', False)
     custom_colors = settings.get('custom_colors', {})
+    custom_light_mode = settings.get('custom_light_mode', {})
+    custom_dark_mode = settings.get('custom_dark_mode', {})
+    section_styles = settings.get('section_styles', {})
     custom_light_mode = settings.get('custom_light_mode', {})
     custom_dark_mode = settings.get('custom_dark_mode', {})
     
@@ -443,6 +493,145 @@ def generate_theme_css(settings=None):
             --theme-table-hover: rgba({','.join(str(c) for c in _hex_to_rgb(colors['primary']))}, 0.08);
     """
     
+    # Add section styling variables
+    border_style = section_styles.get('border_style', 'rounded')
+    spacing = section_styles.get('spacing', 'normal')
+    background = section_styles.get('background', 'subtle')
+    animation = section_styles.get('animation', 'none')
+    effect = section_styles.get('effect', 'none')
+    
+    # Section border radius values
+    border_radius_map = {
+        'rounded': '0.75rem',
+        'sharp': '0',
+        'subtle': '0.375rem',
+        'bold': '1.25rem'
+    }
+    
+    # Section spacing values
+    spacing_map = {
+        'compact': '1rem',
+        'normal': '1.5rem',
+        'spacious': '2rem'
+    }
+    
+    # Section animation values
+    animation_map = {
+        'none': 'none',
+        'fade': 'fadeIn 0.5s ease-in-out',
+        'slide': 'slideInUp 0.6s ease-out',
+        'bounce': 'bounceIn 0.8s ease-out',
+        'pulse': 'pulse 2s infinite ease-in-out'
+    }
+    
+    css += f"""
+        /* Section Styling Variables */
+        --section-border-radius: {border_radius_map[border_style]};
+        --section-padding: {spacing_map[spacing]};
+        --section-margin-bottom: {spacing_map[spacing]};
+        --section-animation: {animation_map[animation]};
+        
+        /* Section Animation Keyframes */
+        @keyframes fadeIn {{
+            from {{ opacity: 0; }}
+            to {{ opacity: 1; }}
+        }}
+        
+        @keyframes slideInUp {{
+            from {{
+                opacity: 0;
+                transform: translateY(30px);
+            }}
+            to {{
+                opacity: 1;
+                transform: translateY(0);
+            }}
+        }}
+        
+        @keyframes bounceIn {{
+            0%, 20%, 40%, 60%, 80% {{
+                animation-timing-function: cubic-bezier(0.215, 0.610, 0.355, 1.000);
+            }}
+            0% {{
+                opacity: 0;
+                transform: scale3d(0.3, 0.3, 0.3);
+            }}
+            20% {{
+                transform: scale3d(1.1, 1.1, 1.1);
+            }}
+            40% {{
+                transform: scale3d(0.9, 0.9, 0.9);
+            }}
+            60% {{
+                opacity: 1;
+                transform: scale3d(1.03, 1.03, 1.03);
+            }}
+            80% {{
+                transform: scale3d(0.97, 0.97, 0.97);
+            }}
+            to {{
+                opacity: 1;
+                transform: scale3d(1, 1, 1);
+            }}
+        }}
+        
+        @keyframes pulse {{
+            0% {{
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba({','.join(str(c) for c in _hex_to_rgb(colors['primary']))}, 0.7);
+            }}
+            70% {{
+                transform: scale(1.02);
+                box-shadow: 0 0 0 10px rgba({','.join(str(c) for c in _hex_to_rgb(colors['primary']))}, 0);
+            }}
+            100% {{
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba({','.join(str(c) for c in _hex_to_rgb(colors['primary']))}, 0);
+            }}
+        }}
+    """
+    
+    # Add effect CSS based on selection
+    if effect == 'glow':
+        css += f"""
+        /* Section Glow Effect */
+        :root {{
+            --section-glow: 0 0 20px rgba({','.join(str(c) for c in _hex_to_rgb(colors['primary']))}, 0.3);
+        }}
+        """
+    elif effect == 'shadow':
+        css += f"""
+        /* Section Enhanced Shadow Effect */
+        :root {{
+            --section-enhanced-shadow: 0 10px 25px rgba(0, 0, 0, 0.2), 0 6px 10px rgba(0, 0, 0, 0.1);
+        }}
+        """
+    elif effect == 'gradient':
+        primary_rgb = _hex_to_rgb(colors['primary'])
+        css += f"""
+        /* Section Gradient Effect */
+        :root {{
+            --section-gradient-bg: linear-gradient(135deg, 
+                rgba({primary_rgb[0]}, {primary_rgb[1]}, {primary_rgb[2]}, 0.1) 0%, 
+                rgba({primary_rgb[0]}, {primary_rgb[1]}, {primary_rgb[2]}, 0.05) 100%);
+        }}
+        """
+    elif effect == 'texture':
+        css += f"""
+        /* Section Texture Effect */
+        :root {{
+            --section-texture-bg: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 2px,
+                rgba({','.join(str(c) for c in _hex_to_rgb(colors['primary']))}, 0.03) 2px,
+                rgba({','.join(str(c) for c in _hex_to_rgb(colors['primary']))}, 0.03) 4px
+            );
+        }}
+        """
+    
+    # Section background styles will be applied differently for light/dark modes
+    
     # Add dark mode or light mode specific variables
     if dark_mode:
         # Use custom dark mode colors or defaults
@@ -563,6 +752,46 @@ def generate_theme_css(settings=None):
         
         [data-bs-theme="dark"] {{
             color-scheme: dark;
+        }}
+        """
+        
+        # Add dark mode section background styles
+        base_bg = dark_colors['bg_card']
+        if background == 'flat':
+            section_bg = dark_colors['bg_body']
+            section_border = 'transparent'
+            section_shadow = 'none'
+        elif background == 'subtle':
+            section_bg = base_bg
+            section_border = dark_colors['border']
+            section_shadow = '0 1px 3px rgba(0, 0, 0, 0.2)'
+        elif background == 'elevated':
+            section_bg = _lighten_color(base_bg, 0.03)
+            section_border = _lighten_color(dark_colors['border'], 0.1)
+            section_shadow = '0 4px 12px rgba(0, 0, 0, 0.4)'
+        elif background == 'glassmorphic':
+            bg_rgb = _hex_to_rgb(base_bg)
+            section_bg = f"rgba({int(bg_rgb[0] * 0.95)}, {int(bg_rgb[1] * 0.95)}, {int(bg_rgb[2] * 0.95)}, 0.8)"
+            section_border = _lighten_color(dark_colors['border'], 0.2)
+            section_shadow = '0 8px 32px rgba(0, 0, 0, 0.3)'
+        
+        # Apply effects to the background (Dark Mode)
+        if effect == 'glow':
+            section_shadow = f"var(--section-glow, {section_shadow})"
+        elif effect == 'shadow':
+            section_shadow = f"var(--section-enhanced-shadow, {section_shadow})"
+        elif effect == 'gradient':
+            section_bg = f"var(--section-gradient-bg), {section_bg}"
+        elif effect == 'texture':
+            section_bg = f"var(--section-texture-bg), {section_bg}"
+        
+        css += f"""
+        /* Section Background - {background.title()} Style (Dark Mode) */
+        :root {{
+            --section-bg: {section_bg};
+            --section-border: {section_border};
+            --section-shadow: {section_shadow};
+            {'--section-backdrop-filter: blur(8px);' if background == 'glassmorphic' else ''}
         }}
         """
     else:
@@ -1630,6 +1859,67 @@ def generate_theme_css(settings=None):
                 display: none !important;
             }
         }
+        
+        /* Section Styling Application */
+        .content-section, .filter-section, .entry-item {
+            background: var(--section-bg, var(--theme-bg-card)) !important;
+            border: 1px solid var(--section-border, var(--theme-border)) !important;
+            border-radius: var(--section-border-radius, 0.75rem) !important;
+            padding: var(--section-padding, 1.5rem) !important;
+            margin-bottom: var(--section-margin-bottom, 1.5rem) !important;
+            box-shadow: var(--section-shadow, 0 1px 3px rgba(0, 0, 0, 0.1)) !important;
+        }
+        
+        .content-section::before {
+            border-radius: var(--section-border-radius, 0.75rem) 0 0 var(--section-border-radius, 0.75rem) !important;
+        }
+        
+        /* Glassmorphic backdrop filter support */
+        .content-section.glassmorphic, .filter-section.glassmorphic, .entry-item.glassmorphic {
+            backdrop-filter: var(--section-backdrop-filter, none);
+            -webkit-backdrop-filter: var(--section-backdrop-filter, none);
+        }
     """
+    
+    # Add light mode section background styles if not in dark mode
+    if not dark_mode:
+        base_bg = light_colors['bg_card']
+        if background == 'flat':
+            section_bg = light_colors['bg_body']
+            section_border = 'transparent'
+            section_shadow = 'none'
+        elif background == 'subtle':
+            section_bg = base_bg
+            section_border = light_colors['border']
+            section_shadow = '0 1px 3px rgba(0, 0, 0, 0.1)'
+        elif background == 'elevated':
+            section_bg = _lighten_color(base_bg, 0.02)
+            section_border = _darken_color(light_colors['border'], 0.1)
+            section_shadow = '0 4px 12px rgba(0, 0, 0, 0.15)'
+        elif background == 'glassmorphic':
+            bg_rgb = _hex_to_rgb(base_bg)
+            section_bg = f"rgba({min(255, int(bg_rgb[0] * 1.02))}, {min(255, int(bg_rgb[1] * 1.02))}, {min(255, int(bg_rgb[2] * 1.02))}, 0.9)"
+            section_border = _darken_color(light_colors['border'], 0.2)
+            section_shadow = '0 8px 32px rgba(0, 0, 0, 0.1)'
+        
+        # Apply effects to the background (Light Mode)
+        if effect == 'glow':
+            section_shadow = f"var(--section-glow, {section_shadow})"
+        elif effect == 'shadow':
+            section_shadow = f"var(--section-enhanced-shadow, {section_shadow})"
+        elif effect == 'gradient':
+            section_bg = f"var(--section-gradient-bg), {section_bg}"
+        elif effect == 'texture':
+            section_bg = f"var(--section-texture-bg), {section_bg}"
+        
+        css += f"""
+        /* Section Background - {background.title()} Style (Light Mode) */
+        :root {{
+            --section-bg: {section_bg};
+            --section-border: {section_border};
+            --section-shadow: {section_shadow};
+            {'--section-backdrop-filter: blur(8px);' if background == 'glassmorphic' else ''}
+        }}
+        """
     
     return css

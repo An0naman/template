@@ -91,12 +91,33 @@ When selecting the "Custom" theme, you can customize:
 - **Muted Text Color**: Dark theme secondary text
 - **Border Color**: Dark theme borders and dividers
 
+#### **📦 Section Styling Options**
+Customize the visual appearance of content sections, filter areas, and entry cards:
+
+**Border Styles:**
+- **Rounded** (Default): Standard rounded corners (0.75rem radius)
+- **Sharp**: No border radius for a modern, angular look
+- **Subtle**: Slightly rounded corners (0.375rem radius)
+- **Bold**: Pronounced rounded corners (1.25rem radius)
+
+**Section Spacing:**
+- **Compact**: Reduced padding and margins (1rem)
+- **Normal** (Default): Standard spacing (1.5rem)
+- **Spacious**: Increased spacing for better readability (2rem)
+
+**Background Effects:**
+- **Flat**: No shadows, seamless blend with page background
+- **Subtle** (Default): Light shadow and clear borders
+- **Elevated**: Strong shadows for a floating card effect
+- **Glassmorphic**: Semi-transparent background with blur effects
+
 #### **✨ Advanced Features**
 - **Real-time Preview**: See changes as you make them
 - **Color Synchronization**: Color picker and hex input stay in sync
 - **Reset Options**: Restore default values with one click
 - **Persistence**: Custom colors saved across sessions
 - **Automatic Application**: Page reloads automatically to apply changes
+- **Section Style Preview**: Interactive preview showing how styling affects sections
 
 ---
 
@@ -209,18 +230,31 @@ FONT_SIZE_MAP = {
 }
 ```
 
+#### **Section Styling Configuration**
+```python
+SECTION_STYLES = {
+    'border_style': 'rounded',  # rounded, sharp, subtle, bold
+    'spacing': 'normal',        # compact, normal, spacious
+    'background': 'subtle'      # flat, subtle, elevated, glassmorphic
+}
+```
+
 #### **Configuration via Web Interface**
 1. **Theme Selection**: Choose from 5 color schemes (4 pre-built + 1 custom)
 2. **Dark Mode Toggle**: Enable/disable dark mode
 3. **Font Size**: Select from 4 typography options
 4. **High Contrast**: Toggle high contrast mode
-5. **Custom Colors** (when Custom theme selected):
+5. **Section Styling**: Customize appearance of content sections
+   - **Border Style**: 4 options for section corner rounding
+   - **Section Spacing**: 3 options for padding and margins
+   - **Background Style**: 4 options for shadows and effects
+6. **Custom Colors** (when Custom theme selected):
    - **Color Palette**: 7 customizable theme colors
    - **Light Mode**: 6 customizable light mode interface elements
    - **Dark Mode**: 6 customizable dark mode interface elements
    - **Reset Options**: Restore defaults for any section
-6. **Live Preview**: See changes instantly
-7. **Auto-Reload**: Page automatically refreshes to apply custom colors
+7. **Live Preview**: See changes instantly with section style preview
+8. **Auto-Reload**: Page automatically refreshes to apply custom colors
 
 #### **Configuration via API**
 ```bash
@@ -352,6 +386,10 @@ Theme parameters:
 - `dark_mode`: Dark mode enabled (true/false)
 - `font_size`: Base font size (small, normal, large, extra-large)
 - `high_contrast`: High contrast mode (true/false)
+- `section_styles`: Section styling options
+  - `border_style`: Border corner style (rounded, sharp, subtle, bold)
+  - `spacing`: Section spacing (compact, normal, spacious)
+  - `background`: Background effect (flat, subtle, elevated, glassmorphic)
 - `custom_colors`: Custom color palette (when theme = 'custom')
   - `primary`, `primary_hover`, `secondary`, `success`, `danger`, `warning`, `info`
 - `custom_light_mode`: Light mode interface colors
@@ -371,6 +409,11 @@ Retrieve current theme settings.
     "dark_mode": false,
     "font_size": "normal",
     "high_contrast": false,
+    "section_styles": {
+        "border_style": "rounded",
+        "spacing": "normal",
+        "background": "subtle"
+    },
     "custom_colors": {},
     "custom_light_mode": {},
     "custom_dark_mode": {}
@@ -384,6 +427,11 @@ Retrieve current theme settings.
     "dark_mode": true,
     "font_size": "large",
     "high_contrast": false,
+    "section_styles": {
+        "border_style": "bold",
+        "spacing": "spacious",
+        "background": "elevated"
+    },
     "custom_colors": {
         "primary": "#ff6b35",
         "primary_hover": "#e55a2e",
@@ -421,7 +469,12 @@ Update theme settings.
     "theme": "purple",
     "dark_mode": true,
     "font_size": "large",
-    "high_contrast": false
+    "high_contrast": false,
+    "section_styles": {
+        "border_style": "bold",
+        "spacing": "spacious",
+        "background": "elevated"
+    }
 }
 ```
 

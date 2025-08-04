@@ -51,11 +51,33 @@
             margin: 0;
             font-weight: 600;
         }        .filter-section {
-            background: var(--theme-bg-surface, var(--bs-secondary-bg));
-            border: 1px solid var(--theme-border, var(--bs-border-color));
-            border-radius: var(--border-radius);
-            padding: var(--content-spacing);
-            margin-bottom: var(--content-spacing);
+            background: var(--section-bg, var(--theme-bg-surface, var(--bs-secondary-bg)));
+            border: 1px solid var(--section-border, var(--theme-border, var(--bs-border-color)));
+            border-radius: var(--section-border-radius, var(--border-radius));
+            padding: var(--section-padding, var(--content-spacing));
+            margin-bottom: var(--section-margin-bottom, var(--content-spacing));
+            box-shadow: var(--section-shadow, none);
+            backdrop-filter: var(--section-backdrop-filter, none);
+            transition: all 0.3s ease;
+        }
+
+        /* Theme Section Styles */
+        .theme-section {
+            background: var(--section-bg, var(--theme-bg-surface, var(--bs-secondary-bg)));
+            border: 1px solid var(--section-border, var(--theme-border, var(--bs-border-color)));
+            border-radius: var(--section-border-radius, var(--border-radius));
+            padding: var(--section-padding, var(--content-spacing));
+            margin-bottom: var(--section-margin-bottom, var(--content-spacing));
+            box-shadow: var(--section-shadow, none);
+            backdrop-filter: var(--section-backdrop-filter, none);
+            -webkit-backdrop-filter: var(--section-backdrop-filter, none);
+            animation: var(--section-animation, none);
+            transition: all 0.3s ease;
+        }
+
+        .theme-section:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
         }
 
         .entry-item {
@@ -334,7 +356,7 @@
             </div>
 
             <!-- Filter Section -->
-            <div class="mb-4">
+            <div class="mb-4 theme-section">
                 <div class="section-header">
                     <h5 class="section-title">
                         <i class="fas fa-filter me-2"></i>Filter {{ entry_plural_label }}
@@ -412,7 +434,7 @@
             </div>
 
             <!-- Entries List -->
-            <div class="mb-4">
+            <div class="mb-4 theme-section">
                 <div class="section-header">
                     <div class="d-flex justify-content-between align-items-center">
                         <h5 class="section-title mb-0">

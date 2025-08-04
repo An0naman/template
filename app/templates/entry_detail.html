@@ -49,20 +49,40 @@
         }
 
         .content-section {
-            background: var(--theme-bg-card, var(--bs-body-bg));
+            background: var(--section-bg, var(--theme-bg-card, var(--bs-body-bg)));
             color: var(--theme-text, var(--bs-body-color));
-            border: 1px solid var(--theme-border, var(--bs-border-color));
-            border-radius: 12px;
+            border: 1px solid var(--section-border, var(--theme-border, var(--bs-border-color)));
+            border-radius: var(--section-border-radius, 12px);
             border-left: 4px solid var(--theme-primary, var(--bs-primary));
-            box-shadow: var(--shadow-sm);
+            box-shadow: var(--section-shadow, var(--shadow-sm));
+            backdrop-filter: var(--section-backdrop-filter, none);
             overflow: hidden;
-            margin-bottom: var(--content-spacing);
+            margin-bottom: var(--section-margin-bottom, var(--content-spacing));
             transition: var(--transition-base);
         }
 
         .content-section:hover {
             box-shadow: var(--shadow-md);
             transform: translateY(-1px);
+        }
+
+        /* Theme Section Styles */
+        .theme-section {
+            background: var(--section-bg, var(--theme-bg-surface, var(--bs-secondary-bg)));
+            border: 1px solid var(--section-border, var(--theme-border, var(--bs-border-color)));
+            border-radius: var(--section-border-radius, var(--border-radius));
+            padding: var(--section-padding, var(--content-spacing));
+            margin-bottom: var(--section-margin-bottom, var(--content-spacing));
+            box-shadow: var(--section-shadow, none);
+            backdrop-filter: var(--section-backdrop-filter, none);
+            -webkit-backdrop-filter: var(--section-backdrop-filter, none);
+            animation: var(--section-animation, none);
+            transition: all 0.3s ease;
+        }
+
+        .theme-section:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
         }
 
         .section-header {
@@ -1412,7 +1432,7 @@
 <body>
     <div class="container-fluid">
         <!-- Header Section -->
-        <div class="content-section mb-4">
+        <div class="content-section theme-section mb-4">
             <div class="section-content">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3">
                     <h1 class="h3 mb-2 mb-md-0" id="entryTitle">{{ entry.title }}</h1>
@@ -1476,7 +1496,7 @@
         <!-- Collapsible Labels Section -->
         {% if entry.show_labels_section %}
         <div class="collapse mb-4" id="labelPrintingSection">
-            <div class="content-section">
+            <div class="content-section theme-section">
                 <div class="section-content">
                     <div class="section-header mb-3">
                         <h4 class="section-title">
@@ -1535,7 +1555,7 @@
             <div class="col-lg-7">
                 <!-- Collapsible Entry Editor -->
                 <div class="collapse mb-4" id="descriptionEditor">
-                    <div class="content-section">
+                    <div class="content-section theme-section">
                         <div class="section-content">
                             <div class="section-header mb-3">
                                 <h5 class="section-title">
@@ -1628,7 +1648,7 @@
                 <hr class="my-4">
 
                 {% if entry.has_sensors %}
-                <div class="content-section mb-4">
+                <div class="content-section theme-section mb-4">
                     <div class="section-content">
                         <div class="section-header mb-3">
                             <h4 class="section-title">
@@ -1698,7 +1718,7 @@
                 </div>
                 {% endif %}
 
-                <div class="content-section mb-4" id="relatedRecordsSection" style="display: none;">
+                <div class="content-section theme-section mb-4" id="relatedRecordsSection" style="display: none;">
                     <div class="section-content">
                         <div class="section-header mb-3">
                             <h4 class="section-title">
@@ -1713,7 +1733,7 @@
             </div>
 
             <div class="col-lg-5">
-                <div class="content-section">
+                <div class="content-section theme-section">
                     <div class="section-content">
                         <div class="section-header mb-3">
                             <h4 class="section-title">
