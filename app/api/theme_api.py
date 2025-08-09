@@ -1,6 +1,40 @@
 from flask import Blueprint, request, jsonify, render_template, session, g, current_app
 import sqlite3
 import json
+from datetime import datetime, time
+
+def is_dark_mode_time(start_time_str, end_time_str):
+    """
+    Determine if current time falls within dark mode hours
+    
+    Args:
+        start_time_str: Dark mode start time in HH:MM format (e.g., "18:00")
+        end_time_str: Dark mode end time in HH:MM format (e.g., "06:00")
+    
+    Returns:
+        bool: True if current time is within dark mode hours
+    """
+    try:
+        current_time = datetime.now().time()
+        
+        # Parse start and end times
+        start_hour, start_min = map(int, start_time_str.split(':'))
+        end_hour, end_min = map(int, end_time_str.split(':'))
+        
+        start_time = time(start_hour, start_min)
+        end_time = time(end_hour, end_min)
+        
+        # Handle overnight periods (e.g., 18:00 to 06:00)
+        if start_time > end_time:
+            # Dark mode spans midnight
+            return current_time >= start_time or current_time < end_time
+        else:
+            # Dark mode within same day
+            return start_time <= current_time < end_time
+            
+    except (ValueError, AttributeError):
+        # Default to light mode if time parsing fails
+        return False
 
 theme_api = Blueprint('theme_api', __name__)
 
@@ -63,6 +97,9 @@ def handle_theme_settings():
                 # Validate input data
                 theme = data.get('theme', 'default')
                 dark_mode = bool(data.get('dark_mode', False))
+                auto_dark_mode = bool(data.get('auto_dark_mode', False))
+                dark_mode_start = data.get('dark_mode_start', '18:00')
+                dark_mode_end = data.get('dark_mode_end', '06:00')
                 font_size = data.get('font_size', 'normal')
                 high_contrast = bool(data.get('high_contrast', False))
                 custom_colors = data.get('custom_colors', {})
@@ -73,16 +110,30 @@ def handle_theme_settings():
                 # Valid options validation
                 valid_themes = ['default', 'emerald', 'purple', 'amber', 'custom']
                 valid_font_sizes = ['small', 'normal', 'large', 'extra-large']
-                valid_section_border_styles = ['rounded', 'sharp', 'subtle', 'bold', 'retro', 'pixelated', 'pokemon', 'nature', 'autumn', 'ocean', 'forest', 'sunset']
+                valid_section_border_styles = ['none', 'thin', 'thick', 'dashed']
                 valid_section_spacing = ['compact', 'normal', 'spacious']
                 valid_section_backgrounds = ['flat', 'subtle', 'elevated', 'glassmorphic']
                 valid_section_animations = ['none', 'fade', 'slide', 'bounce', 'pulse']
                 valid_section_effects = ['none', 'glow', 'shadow', 'gradient', 'texture']
-                valid_section_patterns = ['none', 'forest-diagonal', 'bamboo-stripes', 'leaf-pattern', 'tree-rings', 
-                                        'diagonal-lines', 'crosshatch', 'grid-pattern', 'diamond-weave', 
-                                        'wave-flow', 'ripple-effect', 'cloud-texture', 'marble-veins']
-                valid_section_decorations = ['none', 'leaf', 'tree', 'flower', 'sun', 'moon', 'star', 'diamond', 
-                                           'shield', 'sword', 'gem', 'gear', 'lightning', 'circuit', 'code', 'data']
+                valid_section_patterns = ['none', 'diagonal-lines', 'dots', 'grid', 'zigzag', 'crosshatch', 'waves', 
+                                        'honeycomb', 'checkers', 'triangles', 'stars', 'circuit', 'noise']
+                valid_section_decorations = ['none', 'leaf', 'tree', 'flower', 'rose', 'cactus', 'mushroom', 'sun', 'moon', 'star', 
+                                           'rainbow', 'cloud', 'snow', 'fire', 'lightning', 'cat', 'dog', 'fox', 'owl', 
+                                           'butterfly', 'bee', 'diamond', 'gem', 'crown', 'trophy', 'medal', 'key', 'lock',
+                                           'shield', 'sword', 'crystal', 'magic', 'wizard', 'unicorn', 'dragon', 'gear',
+                                           'circuit', 'code', 'data', 'rocket', 'robot', 'computer', 'phone', 'gamepad',
+                                           'wifi', 'battery', 'palette', 'music', 'camera', 'target', 'soccer', 'basketball',
+                                           'coffee', 'pizza', 'cake', 'donut', 'smile', 'cool', 'thinking', 'party',
+                                           'heart', 'peace', 'yin-yang', 'infinity', 'check', 'warning']
+                
+                # Validate time format for auto dark mode
+                if auto_dark_mode:
+                    import re
+                    time_pattern = r'^([01]\d|2[0-3]):([0-5]\d)$'
+                    if not re.match(time_pattern, dark_mode_start):
+                        return jsonify({'error': f'Invalid dark mode start time format. Use HH:MM (24-hour format)'}), 400
+                    if not re.match(time_pattern, dark_mode_end):
+                        return jsonify({'error': f'Invalid dark mode end time format. Use HH:MM (24-hour format)'}), 400
                 
                 if theme not in valid_themes:
                     return jsonify({'error': 'Invalid theme selected'}), 400
@@ -92,7 +143,7 @@ def handle_theme_settings():
                 
                 # Validate section styles
                 if section_styles:
-                    border_style = section_styles.get('border_style', 'rounded')
+                    border_style = section_styles.get('border_style', 'none')
                     spacing = section_styles.get('spacing', 'normal')
                     background = section_styles.get('background', 'subtle')
                     animation = section_styles.get('animation', 'none')
@@ -145,6 +196,9 @@ def handle_theme_settings():
                 theme_settings = [
                     ('theme_color_scheme', theme),
                     ('theme_dark_mode', str(dark_mode)),
+                    ('theme_auto_dark_mode', str(auto_dark_mode)),
+                    ('theme_dark_mode_start', dark_mode_start),
+                    ('theme_dark_mode_end', dark_mode_end),
                     ('theme_font_size', font_size),
                     ('theme_high_contrast', str(high_contrast))
                 ]
@@ -185,6 +239,9 @@ def handle_theme_settings():
                 session['theme_settings'] = {
                     'theme': theme,
                     'dark_mode': dark_mode,
+                    'auto_dark_mode': auto_dark_mode,
+                    'dark_mode_start': dark_mode_start,
+                    'dark_mode_end': dark_mode_end,
                     'font_size': font_size,
                     'high_contrast': high_contrast,
                     'custom_colors': custom_colors if theme == 'custom' else {},
@@ -223,6 +280,12 @@ def handle_theme_settings():
                         settings['theme'] = parameter_value
                     elif parameter_name == 'theme_dark_mode':
                         settings['dark_mode'] = parameter_value.lower() == 'true'
+                    elif parameter_name == 'theme_auto_dark_mode':
+                        settings['auto_dark_mode'] = parameter_value.lower() == 'true'
+                    elif parameter_name == 'theme_dark_mode_start':
+                        settings['dark_mode_start'] = parameter_value
+                    elif parameter_name == 'theme_dark_mode_end':
+                        settings['dark_mode_end'] = parameter_value
                     elif parameter_name == 'theme_font_size':
                         settings['font_size'] = parameter_value
                     elif parameter_name == 'theme_high_contrast':
@@ -251,6 +314,9 @@ def handle_theme_settings():
                 # Set defaults if not found
                 settings.setdefault('theme', 'default')
                 settings.setdefault('dark_mode', False)
+                settings.setdefault('auto_dark_mode', False)
+                settings.setdefault('dark_mode_start', '18:00')
+                settings.setdefault('dark_mode_end', '06:00')
                 settings.setdefault('font_size', 'normal')
                 settings.setdefault('high_contrast', False)
                 settings['custom_colors'] = custom_colors
@@ -289,12 +355,21 @@ def get_current_theme_settings():
         custom_light_mode = {}
         custom_dark_mode = {}
         section_styles = {}
+        auto_dark_mode = False
+        dark_mode_start = '18:00'
+        dark_mode_end = '06:00'
         
         for parameter_name, parameter_value in cursor.fetchall():
             if parameter_name == 'theme_color_scheme':
                 settings['current_theme'] = parameter_value
             elif parameter_name == 'theme_dark_mode':
                 settings['dark_mode_enabled'] = parameter_value.lower() == 'true'
+            elif parameter_name == 'theme_auto_dark_mode':
+                auto_dark_mode = parameter_value.lower() == 'true'
+            elif parameter_name == 'theme_dark_mode_start':
+                dark_mode_start = parameter_value
+            elif parameter_name == 'theme_dark_mode_end':
+                dark_mode_end = parameter_value
             elif parameter_name == 'theme_font_size':
                 settings['font_size'] = parameter_value
             elif parameter_name == 'theme_high_contrast':
@@ -325,6 +400,11 @@ def get_current_theme_settings():
         settings.setdefault('dark_mode_enabled', False)
         settings.setdefault('font_size', 'normal')
         settings.setdefault('high_contrast_enabled', False)
+        
+        # Apply automatic dark mode if enabled
+        if auto_dark_mode:
+            settings['dark_mode_enabled'] = is_dark_mode_time(dark_mode_start, dark_mode_end)
+        
         settings['custom_colors'] = custom_colors
         settings['custom_light_mode'] = custom_light_mode
         settings['custom_dark_mode'] = custom_dark_mode
@@ -505,7 +585,7 @@ def generate_theme_css(settings=None):
     """
     
     # Add section styling variables
-    border_style = section_styles.get('border_style', 'rounded')
+    border_style = section_styles.get('border_style', 'none')
     spacing = section_styles.get('spacing', 'normal')
     background = section_styles.get('background', 'subtle')
     animation = section_styles.get('animation', 'none')
@@ -515,6 +595,10 @@ def generate_theme_css(settings=None):
     
     # Section border radius values
     border_radius_map = {
+        'none': '0.5rem',  # Default radius for no border
+        'thin': '0.375rem',  # Small radius for thin border
+        'thick': '0.75rem',  # Medium radius for thick border
+        'dashed': '0.5rem',  # Default radius for dashed border
         'rounded': '0.75rem',
         'sharp': '0',
         'subtle': '0.375rem',

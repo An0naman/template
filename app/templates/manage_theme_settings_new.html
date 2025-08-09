@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="{{ 'dark' if theme_settings.dark_mode_enabled else 'light' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ project_name }} - System Theme</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <!-- Dynamic Theme CSS -->
+    <style id="theme-styles">
+        {{ theme_css|safe }}
+    </style>
+    
+    <style>
+        :root {
+            --content-spacing: 1.5rem;
+            --border-radius: 0.75rem;
+            --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --transition-base: all 0.2s ease;
+        }
+
+        body {
+            background-color: var(--theme-bg-body, var(--bs-body-bg));
+            color: var(--theme-text, var(--bs-body-color));
+            font-family: var(--bs-font-sans-serif);
+            line-height: 1.6;
+        }
+
+        .main-container {
+            margin: 2rem 0;
+        }
+
+        .settings-container {
+            background-color: var(--theme-bg-card, var(--bs-body-bg));
+            color: var(--theme-text, var(--bs-body-color));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-md);
+            padding: var(--content-spacing);
+            margin-bottom: 2rem;
+        }
+
+        .settings-section {
+            background: var(--theme-bg-surface, var(--bs-secondary-bg));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            padding: var(--content-spacing);
+            margin-bottom: var(--content-spacing);
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition-base);
+        }
+
+        .settings-section:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-1px);
+        }
+
+        .preview-container {
+            background: var(--theme-bg-card, var(--bs-body-bg));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            padding: var(--content-spacing);
+            box-shadow: var(--shadow-md);
+            position: sticky;
+            top: 2rem;
+            max-height: calc(100vh - 4rem);
+            overflow-y: auto;
+        }
+
+        .theme-section {
+            background: var(--section-bg, var(--theme-bg-surface, var(--bs-secondary-bg)));
+            border: 1px solid var(--section-border, var(--theme-border, var(--bs-border-color)));
+            border-radius: var(--section-border-radius, var(--border-radius));
+            padding: var(--section-padding, var(--content-spacing));
+            margin-bottom: var(--section-margin-bottom, var(--content-spacing));
+            box-shadow: var(--section-shadow, var(--shadow-sm));
+            border-left: 4px solid var(--theme-primary, var(--bs-primary));
+            transition: var(--transition-base);
+            position: relative;
+        }
+
+        .theme-section:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .section-header {
+            border-bottom: 1px solid var(--theme-border, var(--bs-border-color));
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .section-title {
+            color: var(--theme-text, var(--bs-body-color));
+            margin: 0;
+            font-weight: 600;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-title i {
+            color: var(--theme-primary, var(--bs-primary));
+        }
+
+        .section-content {
+            padding: 0;
+        }
+
+        /* Form controls with proper theming */
+        .form-control, .form-select {
+            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
+            border-color: var(--theme-border, var(--bs-border-color)) !important;
+            color: var(--theme-text, var(--bs-body-color)) !important;
+        }
+
+        .form-control:focus, .form-select:focus {
+            background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
+            border-color: var(--theme-primary, var(--bs-primary)) !important;
+            color: var(--theme-text, var(--bs-body-color)) !important;
+            box-shadow: 0 0 0 0.25rem rgba(var(--theme-primary-rgb, 13, 110, 253), 0.25) !important;
+        }
+
+        /* Theme selection cards */
+        .theme-card {
+            border: 2px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            cursor: pointer;
+            transition: var(--transition-base);
+            background: var(--theme-bg-card, var(--bs-body-bg));
+            height: 100%;
+        }
+
+        .theme-card:hover {
+            border-color: var(--theme-primary, var(--bs-primary));
+            box-shadow: 0 2px 8px rgba(var(--theme-primary-rgb, 13, 110, 253), 0.15);
+        }
+
+        .theme-card.selected {
+            border-color: var(--theme-primary, var(--bs-primary));
+            background: rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1);
+        }
+
+        .color-swatch {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            display: inline-block;
+            margin-right: 0.5rem;
+        }
+
+        /* Toggle switch styling */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--theme-border, #ccc);
+            transition: 0.4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: var(--theme-bg-card, white);
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--theme-primary, var(--bs-primary));
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        /* Action buttons */
+        .btn-theme-primary {
+            background: linear-gradient(135deg, var(--theme-primary, #6f42c1), var(--theme-danger, #d63384));
+            border: none;
+            color: white;
+        }
+
+        .btn-theme-primary:hover {
+            background: linear-gradient(135deg, var(--theme-primary-hover, #5a3399), var(--theme-danger, #b02a5a));
+            color: white;
+        }
+
+        /* Responsive layout */
+        @media (max-width: 768px) {
+            .preview-container {
+                position: static;
+                max-height: none;
+                margin-top: 2rem;
+            }
+        }
+
+        /* Preview section effects */
+        .effect-glow {
+            box-shadow: 0 0 20px rgba(var(--theme-primary-rgb, 13, 110, 253), 0.3);
+        }
+
+        .effect-gradient {
+            background: linear-gradient(135deg, 
+                var(--theme-bg-surface, var(--bs-secondary-bg)) 0%, 
+                rgba(var(--theme-primary-rgb, 13, 110, 253), 0.05) 100%);
+        }
+
+        .pattern-diagonal-lines {
+            background-image: linear-gradient(45deg, 
+                transparent 0%, 
+                transparent 35%, 
+                rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 35%, 
+                rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 65%, 
+                transparent 65%);
+            background-size: 20px 20px;
+        }
+
+        .decoration-leaf::before {
+            content: "🍃";
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            opacity: 0.5;
+        }
+
+        .decoration-star::before {
+            content: "⭐";
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            opacity: 0.5;
+        }
+
+        /* Status message styling */
+        .status-message {
+            border-radius: var(--border-radius);
+            margin-bottom: 1rem;
+        }
+
+        /* Collapsible sections */
+        .collapsible-section {
+            transition: max-height 0.3s ease;
+            overflow: hidden;
+        }
+
+        .collapsible-section.collapsed {
+            max-height: 0;
+            padding: 0;
+            margin: 0;
+            border: none;
+        }
+
+        /* Color input groups */
+        .color-input-group {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .color-input-group .form-control[type="color"] {
+            width: 50px;
+            height: 38px;
+            padding: 2px;
+            border-radius: 0.375rem 0 0 0.375rem;
+        }
+
+        .color-input-group .form-control[type="text"] {
+            border-radius: 0 0.375rem 0.375rem 0;
+            border-left: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid main-container">
+        <div class="row">
+            <!-- Settings Panel -->
+            <div class="col-lg-7">
+                <div class="settings-container">
+                    <!-- Header -->
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h1 class="mb-0">System Theme</h1>
+                            <p class="text-muted mb-0">Configure application theme and visual appearance</p>
+                        </div>
+                        <div>
+                            <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Settings
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Status Messages -->
+                    <div id="statusMessage" class="alert d-none status-message" role="alert"></div>
+
+                    <!-- Core Theme Settings -->
+                    <div class="settings-section">
+                        <h5 class="mb-3" style="color: var(--theme-primary, #6f42c1);">
+                            <i class="fas fa-palette me-2"></i>Theme & Mode
+                        </h5>
+                        
+                        <!-- Dark Mode Toggle -->
+                        <div class="row align-items-center mb-4">
+                            <div class="col-md-8">
+                                <h6>Dark Mode</h6>
+                                <p class="text-muted mb-0">Switch to dark color scheme for low-light environments</p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <label class="switch">
+                                    <input type="checkbox" id="darkModeToggle" {{ 'checked' if dark_mode_enabled else '' }}>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Theme Selection -->
+                        <div class="mb-3">
+                            <label class="form-label">Color Scheme</label>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="theme-card" data-theme="default" onclick="themeManager.updateSetting('root', 'theme', 'default')">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <div class="color-swatch" style="background: #0d6efd;"></div>
+                                            <div class="color-swatch" style="background: #198754;"></div>
+                                            <div class="color-swatch" style="background: #dc3545;"></div>
+                                            <h6 class="mb-0 ms-2">Default Blue</h6>
+                                        </div>
+                                        <small class="text-muted">Classic Bootstrap colors</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="theme-card" data-theme="emerald" onclick="themeManager.updateSetting('root', 'theme', 'emerald')">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <div class="color-swatch" style="background: #10b981;"></div>
+                                            <div class="color-swatch" style="background: #059669;"></div>
+                                            <div class="color-swatch" style="background: #ef4444;"></div>
+                                            <h6 class="mb-0 ms-2">Emerald Green</h6>
+                                        </div>
+                                        <small class="text-muted">Nature-inspired green palette</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="theme-card" data-theme="purple" onclick="themeManager.updateSetting('root', 'theme', 'purple')">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <div class="color-swatch" style="background: #8b5cf6;"></div>
+                                            <div class="color-swatch" style="background: #7c3aed;"></div>
+                                            <div class="color-swatch" style="background: #ef4444;"></div>
+                                            <h6 class="mb-0 ms-2">Purple</h6>
+                                        </div>
+                                        <small class="text-muted">Professional purple scheme</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="theme-card" data-theme="amber" onclick="themeManager.updateSetting('root', 'theme', 'amber')">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <div class="color-swatch" style="background: #f59e0b;"></div>
+                                            <div class="color-swatch" style="background: #d97706;"></div>
+                                            <div class="color-swatch" style="background: #ef4444;"></div>
+                                            <h6 class="mb-0 ms-2">Amber</h6>
+                                        </div>
+                                        <small class="text-muted">Warm amber and gold tones</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Font Size -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="fontSize" class="form-label">Font Size</label>
+                                <select class="form-select" id="fontSize" onchange="themeManager.updateSetting('root', 'fontSize', this.value)">
+                                    <option value="small" {{ 'selected' if font_size == 'small' else '' }}>Small (14px)</option>
+                                    <option value="normal" {{ 'selected' if font_size == 'normal' or not font_size else '' }}>Normal (16px)</option>
+                                    <option value="large" {{ 'selected' if font_size == 'large' else '' }}>Large (18px)</option>
+                                    <option value="extra-large" {{ 'selected' if font_size == 'extra-large' else '' }}>Extra Large (20px)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">High Contrast</label>
+                                <div class="text-end">
+                                    <label class="switch">
+                                        <input type="checkbox" id="highContrastToggle" {{ 'checked' if high_contrast_enabled else '' }}>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section Styling -->
+                    <div class="settings-section">
+                        <h5 class="mb-3" style="color: var(--theme-primary, #6f42c1);">
+                            <i class="fas fa-layer-group me-2"></i>Section Styling
+                        </h5>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label for="sectionBorderStyle" class="form-label">Border Style</label>
+                                <select class="form-select" id="sectionBorderStyle" onchange="themeManager.updateSetting('sectionStyles', 'borderStyle', this.value)">
+                                    <option value="rounded">Rounded</option>
+                                    <option value="sharp">Sharp</option>
+                                    <option value="subtle">Subtle</option>
+                                    <option value="bold">Bold</option>
+                                    <option value="nature">Nature</option>
+                                    <option value="ocean">Ocean</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <label for="sectionSpacing" class="form-label">Spacing</label>
+                                <select class="form-select" id="sectionSpacing" onchange="themeManager.updateSetting('sectionStyles', 'spacing', this.value)">
+                                    <option value="compact">Compact</option>
+                                    <option value="normal">Normal</option>
+                                    <option value="spacious">Spacious</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <label for="sectionEffect" class="form-label">Visual Effect</label>
+                                <select class="form-select" id="sectionEffect" onchange="themeManager.updateSetting('sectionStyles', 'effect', this.value)">
+                                    <option value="none">None</option>
+                                    <option value="glow">Glow</option>
+                                    <option value="gradient">Gradient</option>
+                                    <option value="shadow">Enhanced Shadow</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row g-3 mt-1">
+                            <div class="col-md-6">
+                                <label for="sectionPattern" class="form-label">Pattern</label>
+                                <select class="form-select" id="sectionPattern" onchange="themeManager.updateSetting('sectionStyles', 'pattern', this.value)">
+                                    <option value="none">None</option>
+                                    <option value="diagonal-lines">Diagonal Lines</option>
+                                    <option value="grid-pattern">Grid</option>
+                                    <option value="wave-flow">Wave Flow</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="sectionDecoration" class="form-label">Corner Decoration</label>
+                                <select class="form-select" id="sectionDecoration" onchange="themeManager.updateSetting('sectionStyles', 'decoration', this.value)">
+                                    <option value="none">None</option>
+                                    <option value="leaf">🍃 Leaf</option>
+                                    <option value="star">⭐ Star</option>
+                                    <option value="gear">⚙️ Gear</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Custom Colors (Collapsible) -->
+                    <div class="settings-section collapsible-section" id="customColorsSection">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0" style="color: var(--theme-primary, #6f42c1);">
+                                <i class="fas fa-paint-brush me-2"></i>Custom Colors
+                            </h5>
+                            <button class="btn btn-outline-secondary btn-sm" type="button" onclick="toggleSection('customColorsSection')">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="collapsible-content">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Primary Color</label>
+                                    <div class="color-input-group">
+                                        <input type="color" class="form-control" id="customPrimary" value="#0d6efd">
+                                        <input type="text" class="form-control" placeholder="#0d6efd">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Success Color</label>
+                                    <div class="color-input-group">
+                                        <input type="color" class="form-control" id="customSuccess" value="#198754">
+                                        <input type="text" class="form-control" placeholder="#198754">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Warning Color</label>
+                                    <div class="color-input-group">
+                                        <input type="color" class="form-control" id="customWarning" value="#ffc107">
+                                        <input type="text" class="form-control" placeholder="#ffc107">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Danger Color</label>
+                                    <div class="color-input-group">
+                                        <input type="color" class="form-control" id="customDanger" value="#dc3545">
+                                        <input type="text" class="form-control" placeholder="#dc3545">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Save Button -->
+                    <div class="text-end">
+                        <button type="button" class="btn btn-theme-primary btn-lg" onclick="saveThemeSettings()">
+                            <i class="fas fa-save me-2"></i>Save Theme Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Preview Panel -->
+            <div class="col-lg-5">
+                <div class="preview-container">
+                    <h5 class="mb-3" style="color: var(--theme-primary, #6f42c1);">
+                        <i class="fas fa-eye me-2"></i>Live Preview
+                    </h5>
+                    <p class="text-muted mb-3">Real-time preview of your theme settings</p>
+                    
+                    <div id="unified-preview">
+                        <!-- Preview content will be generated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='theme-manager.js') }}"></script>
+    <script>
+        // Initialize theme manager with current settings
+        document.addEventListener('DOMContentLoaded', () => {
+            const initialState = {
+                theme: '{{ current_theme or "default" }}',
+                darkMode: {{ 'true' if dark_mode_enabled else 'false' }},
+                fontSize: '{{ font_size or "normal" }}',
+                highContrast: {{ 'true' if high_contrast_enabled else 'false' }},
+                customColors: {{ custom_colors|tojson if custom_colors else '{}' }},
+                customLightMode: {{ custom_light_mode|tojson if custom_light_mode else '{}' }},
+                customDarkMode: {{ custom_dark_mode|tojson if custom_dark_mode else '{}' }},
+                sectionStyles: {{ section_styles|tojson if section_styles else '{}' }}
+            };
+            
+            themeManager.init(initialState);
+            
+            // Set up event listeners
+            setupEventListeners();
+            
+            // Update UI to reflect current state
+            updateUIFromState();
+        });
+        
+        function setupEventListeners() {
+            // Dark mode toggle
+            document.getElementById('darkModeToggle').addEventListener('change', (e) => {
+                themeManager.updateSetting('root', 'darkMode', e.target.checked);
+            });
+            
+            // High contrast toggle
+            document.getElementById('highContrastToggle').addEventListener('change', (e) => {
+                themeManager.updateSetting('root', 'highContrast', e.target.checked);
+            });
+            
+            // Custom color inputs
+            setupColorInputListeners();
+        }
+        
+        function setupColorInputListeners() {
+            const colorInputs = ['customPrimary', 'customSuccess', 'customWarning', 'customDanger'];
+            
+            colorInputs.forEach(inputId => {
+                const colorInput = document.getElementById(inputId);
+                if (colorInput) {
+                    colorInput.addEventListener('change', (e) => {
+                        const colorKey = inputId.replace('custom', '').toLowerCase();
+                        themeManager.updateSetting('customColors', colorKey, e.target.value);
+                        
+                        // Update corresponding text input
+                        const textInput = colorInput.nextElementSibling;
+                        if (textInput) textInput.value = e.target.value;
+                    });
+                }
+            });
+        }
+        
+        function updateUIFromState() {
+            // Update theme selection
+            const currentTheme = themeManager.state.theme;
+            document.querySelectorAll('.theme-card').forEach(card => {
+                card.classList.toggle('selected', card.dataset.theme === currentTheme);
+            });
+            
+            // Update form controls
+            const controls = {
+                'sectionBorderStyle': themeManager.state.sectionStyles.borderStyle || 'rounded',
+                'sectionSpacing': themeManager.state.sectionStyles.spacing || 'normal',
+                'sectionEffect': themeManager.state.sectionStyles.effect || 'none',
+                'sectionPattern': themeManager.state.sectionStyles.pattern || 'none',
+                'sectionDecoration': themeManager.state.sectionStyles.decoration || 'none'
+            };
+            
+            Object.entries(controls).forEach(([id, value]) => {
+                const element = document.getElementById(id);
+                if (element) element.value = value;
+            });
+        }
+        
+        function toggleSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            const content = section.querySelector('.collapsible-content');
+            const icon = section.querySelector('.fas');
+            
+            section.classList.toggle('collapsed');
+            icon.classList.toggle('fa-chevron-down');
+            icon.classList.toggle('fa-chevron-up');
+        }
+        
+        async function saveThemeSettings() {
+            const statusMsg = document.getElementById('statusMessage');
+            
+            try {
+                const success = await themeManager.saveSettings();
+                
+                if (success) {
+                    statusMsg.className = 'alert alert-success status-message';
+                    statusMsg.textContent = 'Theme settings saved successfully!';
+                } else {
+                    statusMsg.className = 'alert alert-danger status-message';
+                    statusMsg.textContent = 'Failed to save theme settings. Please try again.';
+                }
+                
+                statusMsg.classList.remove('d-none');
+                
+                // Auto-hide after 3 seconds
+                setTimeout(() => {
+                    statusMsg.classList.add('d-none');
+                }, 3000);
+                
+            } catch (error) {
+                statusMsg.className = 'alert alert-danger status-message';
+                statusMsg.textContent = 'An error occurred while saving. Please try again.';
+                statusMsg.classList.remove('d-none');
+            }
+        }
+        
+        // Theme manager event listener for real-time updates
+        themeManager.addEventListener('change', (category, key, value) => {
+            // Update UI elements when theme manager state changes
+            if (category === 'root' && key === 'theme') {
+                updateUIFromState();
+            }
+        });
+    </script>
+</body>
+</html>
