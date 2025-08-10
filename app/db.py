@@ -295,12 +295,20 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 device_id INTEGER NOT NULL,
                 entry_id INTEGER NOT NULL,
+                auto_record BOOLEAN DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (device_id) REFERENCES RegisteredDevices (id) ON DELETE CASCADE,
                 FOREIGN KEY (entry_id) REFERENCES Entry (id) ON DELETE CASCADE,
                 UNIQUE(device_id, entry_id)
             )
         ''')
+        
+        # Add missing column to DeviceEntryLinks if it doesn't exist
+        try:
+            cursor.execute('ALTER TABLE DeviceEntryLinks ADD COLUMN auto_record BOOLEAN DEFAULT 1')
+            logger.info("Added auto_record column to DeviceEntryLinks table")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
         
         # Create DeviceSensorMapping table
         cursor.execute('''

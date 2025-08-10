@@ -1016,3 +1016,117 @@ def _analyze_data_structure(data, prefix=""):
         paths.update(_analyze_data_structure(data[0], f"{prefix}[0]"))
     
     return paths
+
+
+@device_api_bp.route('/devices/<int:device_id>/link-entry', methods=['POST'])
+def link_device_to_entry(device_id):
+    """Link a device to automatically record data to a specific entry"""
+    try:
+        data = request.get_json()
+        entry_id = data.get('entry_id')
+        
+        if not entry_id:
+            return jsonify({'error': 'Entry ID is required'}), 400
+        
+        db = get_db()
+        cursor = db.cursor()
+        
+        # Check if device exists
+        cursor.execute('SELECT * FROM RegisteredDevices WHERE id = ?', (device_id,))
+        device = cursor.fetchone()
+        if not device:
+            return jsonify({'error': 'Device not found'}), 404
+        
+        # Check if entry exists (assuming you have an Entry table)
+        cursor.execute('SELECT * FROM Entry WHERE id = ?', (entry_id,))
+        entry = cursor.fetchone()
+        if not entry:
+            return jsonify({'error': 'Entry not found'}), 404
+        
+        # Check if link already exists
+        cursor.execute('SELECT * FROM DeviceEntryLinks WHERE device_id = ? AND entry_id = ?', 
+                      (device_id, entry_id))
+        existing_link = cursor.fetchone()
+        
+        if existing_link:
+            return jsonify({'error': 'Device is already linked to this entry'}), 400
+        
+        # Create the link
+        cursor.execute('''
+            INSERT INTO DeviceEntryLinks (device_id, entry_id, auto_record, created_at)
+            VALUES (?, ?, ?, datetime('now'))
+        ''', (device_id, entry_id, True))
+        
+        db.commit()
+        
+        return jsonify({
+            'message': 'Device linked to entry successfully',
+            'device_id': device_id,
+            'entry_id': entry_id
+        })
+        
+    except Exception as e:
+        logger.error(f"Error linking device to entry: {e}", exc_info=True)
+        return jsonify({'error': f'Failed to link device to entry: {str(e)}'}), 500
+
+
+@device_api_bp.route('/devices/<int:device_id>/unlink-entry', methods=['POST'])
+def unlink_device_from_entry(device_id):
+    """Unlink a device from an entry"""
+    try:
+        data = request.get_json()
+        entry_id = data.get('entry_id')
+        
+        if not entry_id:
+            return jsonify({'error': 'Entry ID is required'}), 400
+        
+        db = get_db()
+        cursor = db.cursor()
+        
+        # Remove the link
+        cursor.execute('DELETE FROM DeviceEntryLinks WHERE device_id = ? AND entry_id = ?', 
+                      (device_id, entry_id))
+        
+        if cursor.rowcount == 0:
+            return jsonify({'error': 'Device link not found'}), 404
+        
+        db.commit()
+        
+        return jsonify({
+            'message': 'Device unlinked from entry successfully',
+            'device_id': device_id,
+            'entry_id': entry_id
+        })
+        
+    except Exception as e:
+        logger.error(f"Error unlinking device from entry: {e}", exc_info=True)
+        return jsonify({'error': f'Failed to unlink device from entry: {str(e)}'}), 500
+
+
+@device_api_bp.route('/entries/<int:entry_id>/linked-devices', methods=['GET'])
+def get_linked_devices(entry_id):
+    """Get all devices linked to a specific entry"""
+    try:
+        db = get_db()
+        cursor = db.cursor()
+        
+        # Get linked devices
+        cursor.execute('''
+            SELECT rd.*, del.auto_record, del.created_at as link_created_at
+            FROM RegisteredDevices rd
+            JOIN DeviceEntryLinks del ON rd.id = del.device_id
+            WHERE del.entry_id = ?
+            ORDER BY rd.device_name
+        ''', (entry_id,))
+        
+        devices = [dict(row) for row in cursor.fetchall()]
+        
+        return jsonify({
+            'entry_id': entry_id,
+            'linked_devices': devices,
+            'count': len(devices)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting linked devices: {e}", exc_info=True)
+        return jsonify({'error': f'Failed to get linked devices: {str(e)}'}), 500

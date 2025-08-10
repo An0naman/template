@@ -1878,9 +1878,14 @@
                             </div>
                         </div>
                         
-                        <button class="btn btn-theme-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#addSensorDataModal">
-                            <i class="fas fa-plus-circle me-2"></i>Add Sensor Reading
-                        </button>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button class="btn btn-theme-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#addSensorDataModal">
+                                <i class="fas fa-plus-circle me-2"></i>Add Sensor Reading
+                            </button>
+                            <button class="btn btn-outline-info btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#deviceManagementModal" onclick="openDeviceManagement()">
+                                <i class="fas fa-cogs me-2"></i>Manage Device Sensors
+                            </button>
+                        </div>
                     </div>
                 </div>
                 {% endif %}
@@ -2203,6 +2208,43 @@
                         </div>
                         <button type="submit" class="btn btn-theme-primary">Add</button>
                     </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device Management Modal -->
+    <div class="modal fade" id="deviceManagementModal" tabindex="-1" aria-labelledby="deviceManagementModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deviceManagementModalLabel">
+                        <i class="fas fa-microchip me-2"></i>Device Sensor Management
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Manage your ESP32 devices and configure which sensor data gets automatically recorded to this entry.</strong>
+                        <br>Use this interface to discover devices, configure data points, and set up automatic polling.
+                    </div>
+                    
+                    <!-- Device Management Content will be loaded here -->
+                    <div id="deviceManagementContent">
+                        <div class="text-center py-4">
+                            <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
+                            <p class="text-muted mt-2">Loading device management interface...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Close
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="loadDeviceManagementContent()">
+                        <i class="fas fa-sync me-2"></i>Refresh
+                    </button>
                 </div>
             </div>
         </div>
@@ -4158,6 +4200,196 @@
                 if (loadingSensorData) {
                     loadingSensorData.style.display = 'none';
                 }
+            }
+        }
+
+        // Device Management Functions
+        function openDeviceManagement() {
+            // Show the device management modal
+            const modal = new bootstrap.Modal(document.getElementById('deviceManagementModal'));
+            modal.show();
+            
+            // Load device management content immediately
+            loadDeviceManagementContent();
+        }        async function loadDeviceManagementContent() {
+            try {
+                const contentDiv = document.getElementById('deviceManagementContent');
+                contentDiv.innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
+                        <p class="text-muted mt-2">Loading devices...</p>
+                    </div>
+                `;
+
+                console.log('Fetching devices and linked devices...');
+
+                // Fetch both devices and linked devices for this entry
+                const [devicesResponse, linkedDevicesResponse] = await Promise.all([
+                    fetch('/api/devices'),
+                    fetch(`/api/entries/${entryId}/linked-devices`)
+                ]);
+
+                console.log('Devices response:', devicesResponse.ok, devicesResponse.status);
+                console.log('Linked devices response:', linkedDevicesResponse.ok, linkedDevicesResponse.status);
+
+                if (!devicesResponse.ok) {
+                    throw new Error('Failed to load devices');
+                }
+
+                const devices = await devicesResponse.json();
+                let linkedDevices = [];
+                
+                if (linkedDevicesResponse.ok) {
+                    const linkedData = await linkedDevicesResponse.json();
+                    linkedDevices = linkedData.linked_devices || [];
+                }
+
+                console.log('Loaded devices:', devices.length);
+                console.log('Loaded linked devices:', linkedDevices.length);
+
+                renderDeviceManagementInterface(devices, linkedDevices);
+
+            } catch (error) {
+                console.error('Error loading device management:', error);
+                document.getElementById('deviceManagementContent').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Error loading devices: ${error.message}
+                        <br><small>Try refreshing or check your network connection.</small>
+                    </div>
+                `;
+            }
+        }
+
+        function renderDeviceManagementInterface(devices, linkedDevices = []) {
+            const contentDiv = document.getElementById('deviceManagementContent');
+            const linkedDeviceIds = new Set(linkedDevices.map(d => d.id));
+            
+            let html = `
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1"><i class="fas fa-microchip me-2"></i>Available Devices</h6>
+                            <small class="text-muted">${devices.length} device(s) found, ${linkedDevices.length} linked to this entry</small>
+                        </div>
+                        <a href="/manage_devices" target="_blank" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-external-link-alt me-1"></i>Manage All Devices
+                        </a>
+                    </div>
+                </div>
+            `;
+
+            if (devices.length === 0) {
+                html += `
+                    <div class="alert alert-warning text-center">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <strong>No devices found</strong><br>
+                        <a href="/manage_devices" target="_blank" class="btn btn-primary btn-sm mt-2">
+                            <i class="fas fa-plus me-1"></i>Add Devices
+                        </a>
+                    </div>
+                `;
+            } else {
+                html += '<div class="list-group">';
+                
+                devices.forEach(device => {
+                    const isLinked = linkedDeviceIds.has(device.id);
+                    const statusColor = device.auto_polling ? 'success' : 'warning';
+                    const statusText = device.auto_polling ? 'Auto-polling' : 'Manual only';
+                    
+                    html += `
+                        <div class="list-group-item ${isLinked ? 'list-group-item-success' : ''}">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center mb-1">
+                                        <h6 class="mb-0 me-2">${device.device_name}</h6>
+                                        <span class="badge bg-${statusColor}">${statusText}</span>
+                                        ${isLinked ? '<span class="badge bg-success ms-1"><i class="fas fa-link me-1"></i>Linked</span>' : ''}
+                                    </div>
+                                    <small class="text-muted">
+                                        <i class="fas fa-network-wired me-1"></i>${device.device_ip} 
+                                        <i class="fas fa-microchip me-1 ms-2"></i>${device.device_type}
+                                        ${device.last_poll_success ? 
+                                            '<br><i class="fas fa-clock me-1"></i>Last poll: ' + new Date(device.last_poll_success).toLocaleString() 
+                                            : ''}
+                                    </small>
+                                </div>
+                                <div class="ms-3">
+                                    ${isLinked ? 
+                                        `<button class="btn btn-outline-danger btn-sm" onclick="unlinkDeviceFromEntry(${device.id})">
+                                            <i class="fas fa-unlink me-1"></i>Unlink
+                                        </button>` :
+                                        `<button class="btn btn-success btn-sm" onclick="linkDeviceToEntry(${device.id})">
+                                            <i class="fas fa-link me-1"></i>Link to Entry
+                                        </button>`
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+            }
+
+            contentDiv.innerHTML = html;
+        }
+
+        async function refreshDeviceList() {
+            loadDeviceManagementContent();
+        }
+
+        async function linkDeviceToEntry(deviceId) {
+            try {
+                const response = await fetch(`/api/devices/${deviceId}/link-entry`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ entry_id: entryId })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to link device');
+                }
+
+                const result = await response.json();
+                alert('Device linked successfully! It will now automatically record sensor data to this entry.');
+                
+                // Refresh the device list
+                loadDeviceManagementContent();
+
+            } catch (error) {
+                console.error('Error linking device:', error);
+                alert('Error linking device: ' + error.message);
+            }
+        }
+
+        async function unlinkDeviceFromEntry(deviceId) {
+            try {
+                if (!confirm('Are you sure you want to unlink this device from this entry? It will stop automatically recording data to this entry.')) {
+                    return;
+                }
+
+                const response = await fetch(`/api/devices/${deviceId}/unlink-entry`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ entry_id: entryId })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to unlink device');
+                }
+
+                const result = await response.json();
+                alert('Device unlinked successfully!');
+                
+                // Refresh the device list
+                loadDeviceManagementContent();
+
+            } catch (error) {
+                console.error('Error unlinking device:', error);
+                alert('Error unlinking device: ' + error.message);
             }
         }
 
