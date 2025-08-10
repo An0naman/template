@@ -4,8 +4,8 @@ services:
     container_name: template # This will be prefixed by CasaOS with the app name
     restart: always
     ports:
-      # This maps the chosen HOST_PORT (e.g., 5052) to the container's internal PORT 5000
-      - "5000:5000" # NOTE: Dev Manager will override the host side of this with your chosen port
+      # This maps the chosen HOST_PORT (e.g., 5001) to the container's internal PORT 5001
+      - "5001:5001" # NOTE: Dev Manager will override the host side of this with your chosen port
     
     # CRITICAL: Use a named Docker volume for data persistence.
     # This ensures Docker manages permissions and persists data even if host folder is read-only.
@@ -16,7 +16,7 @@ services:
     #user: "1000:1000" # Uncomment if you need to run as a specific user
 
     environment:
-      - FLASK_APP=app.py
+      - FLASK_APP=run.py
     # REMOVED: command: ["sh", "-c", "chmod -R 777 /app/data && python run.py"]
     # The CMD instruction in the Dockerfile will now be used.
 

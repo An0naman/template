@@ -57,3 +57,17 @@ instance/
 # Environment variables
 .env
 .flaskenv
+
+# Test files (if you want to exclude them)
+test_*.html
+*_test.html
+debug_*.html
+
+# Uploads and user data
+app/static/uploads/
+uploads/
+
+# Project specific
+*.bak
+*.tmp
+*_backup.*

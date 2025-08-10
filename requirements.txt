@@ -1,5 +1,19 @@
+# Core Flask dependencies
 Flask==3.0.3
-PyYAML
-requests
+Werkzeug>=2.0.0
+
+# Data handling
+PyYAML>=6.0
+requests>=2.28.0
+
+# Image processing and QR codes
 Pillow==10.4.0
 qrcode[pil]==7.4.2
+
+# Optional: For enhanced database features
+# sqlite3 is included with Python by default
+
+# Development dependencies (uncomment for development)
+# flask-debugtoolbar
+# pytest
+# pytest-flask

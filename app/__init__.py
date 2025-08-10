@@ -60,6 +60,8 @@ def create_app():
     # --- Register Blueprints ---
     from .routes.main_routes import main_bp
     from .routes.maintenance_routes import maintenance_bp
+    
+    # Import all API blueprints
     from .api.entry_api import entry_api_bp
     from .api.entry_type_api import entry_type_api_bp
     from .api.notes_api import notes_api_bp
@@ -73,6 +75,7 @@ def create_app():
     from .api.device_api import device_api_bp
     from .api.sql_api import sql_api_bp
 
+    # Register all blueprints
     app.register_blueprint(main_bp)
     app.register_blueprint(maintenance_bp)
     app.register_blueprint(entry_api_bp, url_prefix='/api')

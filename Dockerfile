@@ -24,12 +24,12 @@ COPY app/ app/
 # Copy the top-level run.py
 COPY run.py .
 
-# Copy the cron script for overdue checking
-COPY cron_check_overdue.sh .
+# Copy scripts directory
+COPY scripts/ scripts/
 
 # Expose the port your Flask app runs on (from app/config.py's PORT)
-# We'll standardize this to 5000 for the container's internal port.
-EXPOSE 5000
+# We'll standardize this to 5001 for the container's internal port.
+EXPOSE 5001
 
 # Command to run your Flask application
 CMD ["python", "run.py"]
