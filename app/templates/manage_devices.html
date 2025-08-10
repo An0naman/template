@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="{{ 'dark' if theme_settings.dark_mode_enabled else 'light' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ project_name }} - Device Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
+        }
+        .container {
+            margin-top: 30px;
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+        }
+        .content-section {
+            position: relative;
+            overflow: hidden;
+            background: var(--bs-secondary-bg);
+            border: 1px solid var(--bs-border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .content-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(135deg, #198754, #20c997);
+        }
+        .device-card {
+            background: var(--bs-body-bg);
+            border: 1px solid var(--bs-border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s ease;
+        }
+        .device-card:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .device-online {
+            border-left: 4px solid #198754;
+        }
+        .device-offline {
+            border-left: 4px solid #dc3545;
+        }
+        .device-disabled {
+            border-left: 4px solid #6c757d;
+            opacity: 0.7;
+        }
+        .btn-green {
+            background: linear-gradient(135deg, #198754, #20c997);
+            border: none;
+            color: white;
+        }
+        .btn-green:hover {
+            background: linear-gradient(135deg, #157347, #1aa179);
+            color: white;
+        }
+        .alert-section {
+            background: rgba(25, 135, 84, 0.1);
+            border: 1px solid rgba(25, 135, 84, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            color: var(--bs-body-color);
+        }
+        .scanning-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1050;
+        }
+        .scanning-content {
+            background: var(--bs-body-bg);
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 400px;
+        }
+        @media (max-width: 768px) {
+            .container {
+                margin-top: 15px;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-start mb-4">
+            <div>
+                <h1 class="mb-0">{{ project_name }} Device Management</h1>
+                <p class="text-muted mb-0">Manage ESP32 sensors and IoT devices</p>
+            </div>
+            <div class="header-actions d-flex align-items-center">
+                <button class="btn btn-outline-info me-2" onclick="showTestConnection()">
+                    <i class="fas fa-plug me-2"></i>Test Connection
+                </button>
+                <div class="btn-group me-2">
+                    <button class="btn btn-green" onclick="scanNetwork()">
+                        <i class="fas fa-search me-2"></i>Scan for Devices
+                    </button>
+                    <button class="btn btn-outline-success" onclick="scanNetworkSimple()">
+                        <i class="fas fa-search me-2"></i>Simple Scan
+                    </button>
+                </div>
+                <button class="btn btn-outline-secondary me-2" onclick="checkApiStatus()">
+                    <i class="fas fa-info-circle me-2"></i>API Status
+                </button>
+                <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Settings
+                </a>
+            </div>
+        </div>
+
+        <div class="alert-section">
+            <div class="d-flex align-items-start">
+                <i class="fas fa-info-circle text-success me-3 mt-1"></i>
+                <div>
+                    <strong>About Device Management:</strong> This system automatically discovers ESP32 fermentation 
+                    controllers and other IoT devices on your network, then links them to specific entries for 
+                    automated sensor data collection.
+                </div>
+            </div>
+        </div>
+
+        <!-- Registered Devices Section -->
+        <div class="content-section">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0 text-success">
+                    <i class="fas fa-microchip me-2"></i>Registered Devices
+                </h5>
+                <button class="btn btn-sm btn-outline-success" onclick="pollAllDevices()">
+                    <i class="fas fa-sync me-1"></i>Poll All
+                </button>
+            </div>
+            <div id="devicesContainer">
+                <div class="text-center text-muted">
+                    <i class="fas fa-spinner fa-spin me-2"></i>Loading devices...
+                </div>
+            </div>
+        </div>
+
+        <!-- Success/Error Messages -->
+        <div id="alertContainer"></div>
+    </div>
+
+    <!-- Scanning Overlay -->
+    <div class="scanning-overlay" id="scanningOverlay">
+        <div class="scanning-content">
+            <i class="fas fa-wifi fa-3x text-success mb-3"></i>
+            <h5>Scanning Network</h5>
+            <p class="text-muted">Looking for ESP32 devices...</p>
+            <div class="progress">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+            </div>
+            <button class="btn btn-secondary mt-3" onclick="cancelScan()">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Device Configuration Modal -->
+    <div class="modal fade" id="deviceModal" tabindex="-1" aria-labelledby="deviceModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deviceModalLabel">Configure Device</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="deviceForm">
+                        <input type="hidden" id="deviceId">
+                        <div class="mb-3">
+                            <label for="deviceName" class="form-label">Device Name *</label>
+                            <input type="text" class="form-control" id="deviceName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="deviceIP" class="form-label">IP Address *</label>
+                            <input type="text" class="form-control" id="deviceIP" placeholder="192.168.1.100" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="linkedEntries" class="form-label">Link to Entries</label>
+                            <select class="form-select" id="linkedEntries" multiple size="6">
+                                <!-- Options will be populated by JavaScript -->
+                            </select>
+                            <div class="form-text">
+                                <strong>Hold Ctrl (or Cmd on Mac) to select multiple entries.</strong><br>
+                                Choose which entries will receive sensor data from this device. You can select multiple entries.
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="pollingEnabled" class="form-label">Automatic Polling</label>
+                                    <select class="form-select" id="pollingEnabled">
+                                        <option value="1">Enabled</option>
+                                        <option value="0">Disabled</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="pollingInterval" class="form-label">Polling Interval (seconds)</label>
+                                    <input type="number" class="form-control" id="pollingInterval" value="60" min="10" max="3600">
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-green" onclick="saveDevice()">Save Device</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device Discovery Modal -->
+    <div class="modal fade" id="discoveryModal" tabindex="-1" aria-labelledby="discoveryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="discoveryModalLabel">Discovered Devices</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="discoveredDevicesContainer">
+                        <!-- Discovered devices will be loaded here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test Connection Modal -->
+    <div class="modal fade" id="testConnectionModal" tabindex="-1" aria-labelledby="testConnectionModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="testConnectionModalLabel">Test Device Connection</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="testConnectionForm">
+                        <div class="mb-3">
+                            <label for="testIP" class="form-label">Device IP Address *</label>
+                            <input type="text" class="form-control" id="testIP" placeholder="192.168.1.100" required>
+                            <div class="form-text">Enter the IP address of your ESP32 device</div>
+                        </div>
+                    </form>
+                    <div id="testResultContainer" style="display: none;">
+                        <!-- Test results will be shown here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-green" onclick="testConnection()">
+                        <i class="fas fa-plug me-1"></i>Test Connection
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sensor Mapping Modal -->
+    <div class="modal fade" id="sensorMappingModal" tabindex="-1" aria-labelledby="sensorMappingModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="sensorMappingModalLabel">Configure Data Points</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="sensorMappingContainer">
+                        <div class="text-center">
+                            <i class="fas fa-spinner fa-spin me-2"></i>Loading sensor mappings...
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-green" onclick="saveSensorMappings()">
+                        <i class="fas fa-save me-1"></i>Save Mappings
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Global variables
+        let devices = [];
+        let entries = [];
+        let currentScanRequest = null;
+
+        // DOM Elements
+        const devicesContainer = document.getElementById('devicesContainer');
+        const alertContainer = document.getElementById('alertContainer');
+        const scanningOverlay = document.getElementById('scanningOverlay');
+        const deviceModal = new bootstrap.Modal(document.getElementById('deviceModal'));
+        const discoveryModal = new bootstrap.Modal(document.getElementById('discoveryModal'));
+        const testConnectionModal = new bootstrap.Modal(document.getElementById('testConnectionModal'));
+        const sensorMappingModal = new bootstrap.Modal(document.getElementById('sensorMappingModal'));
+
+        // Global variables for sensor mapping
+        let currentDeviceId = null;
+        let currentSensorMappings = [];
+        let availableSensors = [];
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDevices();
+            loadEntries();
+        });
+
+        // Load registered devices
+        async function loadDevices() {
+            try {
+                const response = await fetch('/api/devices');
+                if (!response.ok) throw new Error('Failed to load devices');
+                
+                devices = await response.json();
+                renderDevices();
+            } catch (error) {
+                console.error('Error loading devices:', error);
+                showAlert('Error loading devices: ' + error.message, 'danger');
+            }
+        }
+
+        // Load entries for linking
+        async function loadEntries() {
+            try {
+                const response = await fetch('/api/entries');
+                if (!response.ok) throw new Error('Failed to load entries');
+                
+                entries = await response.json();
+                populateEntrySelect();
+            } catch (error) {
+                console.error('Error loading entries:', error);
+            }
+        }
+
+        // Render devices list
+        function renderDevices() {
+            if (devices.length === 0) {
+                devicesContainer.innerHTML = `
+                    <div class="text-center text-muted">
+                        <i class="fas fa-microchip fa-3x mb-3"></i>
+                        <p>No devices registered yet.</p>
+                        <p>Click "Scan for Devices" to discover ESP32 controllers on your network.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const html = devices.map(device => {
+                const statusClass = device.status === 'online' ? 'device-online' : 
+                                   device.status === 'offline' ? 'device-offline' : 'device-disabled';
+                
+                const statusIcon = device.status === 'online' ? 'fa-check-circle text-success' : 
+                                  device.status === 'offline' ? 'fa-times-circle text-danger' : 'fa-pause-circle text-muted';
+
+                const lastSeen = device.last_seen ? new Date(device.last_seen).toLocaleString() : 'Never';
+                const linkedEntries = device.linked_entries && device.linked_entries.length > 0 
+                    ? device.linked_entries.map(entry => entry.title).join(', ') 
+                    : 'Not linked';
+
+                return `
+                    <div class="device-card ${statusClass}">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fas ${statusIcon} me-2"></i>
+                                    <h6 class="mb-0">${device.device_name}</h6>
+                                    <span class="badge bg-secondary ms-2">${device.device_type}</span>
+                                </div>
+                                <div class="row text-muted small">
+                                    <div class="col-md-6">
+                                        <strong>IP:</strong> ${device.ip}<br>
+                                        <strong>Device ID:</strong> ${device.device_id}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>Linked Entries:</strong> ${linkedEntries}<br>
+                                        <strong>Last Seen:</strong> ${lastSeen}
+                                    </div>
+                                </div>
+                                ${device.polling_enabled ? 
+                                    `<div class="mt-2"><span class="badge bg-success">Auto-polling every ${device.polling_interval}s</span></div>` : 
+                                    `<div class="mt-2"><span class="badge bg-warning">Auto-polling disabled</span></div>`
+                                }
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="pollDevice(${device.id})" 
+                                            title="Poll device now">
+                                        <i class="fas fa-sync"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-info" onclick="manageSensorMappings(${device.id})" 
+                                            title="Configure data points">
+                                        <i class="fas fa-cogs"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-warning" onclick="debugDeviceData(${device.id})" 
+                                            title="Debug device data">
+                                        <i class="fas fa-bug"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="editDevice(${device.id})" 
+                                            title="Edit device">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteDevice(${device.id})" 
+                                            title="Delete device">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            devicesContainer.innerHTML = html;
+        }
+
+        // Populate entry select dropdown
+        function populateEntrySelect() {
+            const select = document.getElementById('linkedEntries');
+            select.innerHTML = '';
+            
+            entries.forEach(entry => {
+                const option = document.createElement('option');
+                option.value = entry.id;
+                option.textContent = `${entry.title} (${entry.type_name || 'Entry'})`;
+                select.appendChild(option);
+            });
+        }
+
+        // Scan network for devices
+        async function scanNetwork() {
+            try {
+                scanningOverlay.style.display = 'flex';
+                document.querySelector('.scanning-content h5').textContent = 'Scanning Network (Full)';
+                document.querySelector('.scanning-content p').textContent = 'Looking for ESP32 devices with threading...';
+                
+                currentScanRequest = fetch('/api/devices/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+
+                const response = await currentScanRequest;
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                scanningOverlay.style.display = 'none';
+                
+                if (result.discovered_devices.length > 0) {
+                    showDiscoveredDevices(result.discovered_devices, result);
+                } else {
+                    showAlert(`No ESP32 devices found on network ${result.scan_range}. Scanned ${result.total_scanned} addresses. Try the "Simple Scan" option or manual "Test Connection" if you know the IP.`, 'warning');
+                }
+                
+            } catch (error) {
+                scanningOverlay.style.display = 'none';
+                if (error.name !== 'AbortError') {
+                    console.error('Error scanning network:', error);
+                    showAlert('Error scanning network: ' + error.message, 'danger');
+                }
+            }
+        }
+
+        // Simple network scan for debugging
+        async function scanNetworkSimple() {
+            try {
+                scanningOverlay.style.display = 'flex';
+                document.querySelector('.scanning-content h5').textContent = 'Scanning Network (Simple)';
+                document.querySelector('.scanning-content p').textContent = 'Sequential scan for debugging...';
+                
+                currentScanRequest = fetch('/api/devices/scan-simple', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+
+                const response = await currentScanRequest;
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                scanningOverlay.style.display = 'none';
+                
+                if (result.discovered_devices.length > 0) {
+                    showDiscoveredDevices(result.discovered_devices, result);
+                } else {
+                    showAlert(`Simple scan complete. No ESP32 devices found on network ${result.scan_range}. Scanned ${result.total_scanned} addresses sequentially.`, 'info');
+                }
+                
+            } catch (error) {
+                scanningOverlay.style.display = 'none';
+                if (error.name !== 'AbortError') {
+                    console.error('Error in simple scan:', error);
+                    showAlert('Error in simple scan: ' + error.message, 'danger');
+                }
+            }
+        }
+
+        // Check API status
+        async function checkApiStatus() {
+            try {
+                const response = await fetch('/api/devices/status');
+                if (!response.ok) throw new Error('Status check failed');
+                
+                const status = await response.json();
+                
+                showAlert(`API Status: ${status.status.toUpperCase()}<br>
+                          Local Network: ${status.local_network_range}<br>
+                          Available Endpoints: ${status.available_endpoints.length}<br>
+                          Timestamp: ${new Date(status.timestamp).toLocaleString()}`, 'info');
+                
+            } catch (error) {
+                console.error('Error checking API status:', error);
+                showAlert('Error checking API status: ' + error.message, 'danger');
+            }
+        }
+
+        // Cancel network scan
+        function cancelScan() {
+            if (currentScanRequest) {
+                currentScanRequest.abort();
+            }
+            scanningOverlay.style.display = 'none';
+        }
+
+        // Show discovered devices
+        function showDiscoveredDevices(discoveredDevices, scanResult) {
+            const container = document.getElementById('discoveredDevicesContainer');
+            
+            let headerInfo = '';
+            if (scanResult) {
+                headerInfo = `
+                    <div class="alert alert-info mb-3">
+                        <strong>Scan Results:</strong><br>
+                        Network: ${scanResult.scan_range}<br>
+                        Addresses Scanned: ${scanResult.total_scanned || 'N/A'}<br>
+                        Devices Found: ${discoveredDevices.length}<br>
+                        Scan Type: ${scanResult.scan_type || 'threaded'}<br>
+                        Time: ${new Date(scanResult.scan_time).toLocaleString()}
+                    </div>
+                `;
+            }
+            
+            const html = headerInfo + discoveredDevices.map(device => {
+                // Check if device is already registered
+                const existingDevice = devices.find(d => d.device_id === device.device_id);
+                
+                let actionButton;
+                if (existingDevice) {
+                    actionButton = `
+                        <div class="text-center">
+                            <span class="badge bg-success mb-2">Already Registered</span><br>
+                            <button class="btn btn-outline-primary btn-sm" onclick="editDevice(${existingDevice.id})">
+                                <i class="fas fa-edit me-1"></i>Edit Device
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    actionButton = `
+                        <button class="btn btn-green" 
+                                data-device-id="${device.device_id}" 
+                                data-device-name="${device.device_name}" 
+                                data-device-ip="${device.ip}" 
+                                data-device-type="${device.device_type}" 
+                                data-device-capabilities="${device.capabilities.join(',')}"
+                                onclick="registerDiscoveredDeviceFromButton(this)">
+                            <i class="fas fa-plus me-1"></i>Register
+                        </button>
+                    `;
+                }
+                
+                return `
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-md-8">
+                                    <h6 class="card-title">${device.device_name}</h6>
+                                    <p class="card-text text-muted">
+                                        <strong>IP:</strong> ${device.ip}<br>
+                                        <strong>Device ID:</strong> ${device.device_id}<br>
+                                        <strong>Type:</strong> ${device.device_type}<br>
+                                        <strong>Capabilities:</strong> ${device.capabilities.join(', ')}<br>
+                                        <strong>Status:</strong> ${device.status}
+                                    </p>
+                                    ${device.sample_data && device.sample_data.sensor ? `
+                                        <div class="mt-2 p-2 bg-light rounded">
+                                            <small class="text-muted">
+                                                <strong>Current Data:</strong><br>
+                                                Temperature: ${device.sample_data.sensor.temperature}°C<br>
+                                                Heating: ${device.sample_data.relay?.state || 'Unknown'}<br>
+                                                Device Status: ${device.sample_data.device_status}
+                                            </small>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    ${actionButton}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = html;
+            discoveryModal.show();
+        }
+
+        // Register discovered device from button click
+        function registerDiscoveredDeviceFromButton(button) {
+            console.log('Register button clicked:', button);
+            const deviceId = button.getAttribute('data-device-id');
+            const deviceName = button.getAttribute('data-device-name');
+            const ip = button.getAttribute('data-device-ip');
+            const deviceType = button.getAttribute('data-device-type');
+            const capabilitiesStr = button.getAttribute('data-device-capabilities');
+            const capabilities = capabilitiesStr ? capabilitiesStr.split(',') : [];
+            
+            console.log('Device data:', { deviceId, deviceName, ip, deviceType, capabilities });
+            
+            registerDiscoveredDevice(deviceId, deviceName, ip, deviceType, capabilities);
+        }
+
+        // Register discovered device
+        async function registerDiscoveredDevice(deviceId, deviceName, ip, deviceType, capabilities) {
+            console.log('registerDiscoveredDevice called with:', { deviceId, deviceName, ip, deviceType, capabilities });
+            
+            try {
+                const requestData = {
+                    device_id: deviceId,
+                    device_name: deviceName,
+                    ip: ip,
+                    device_type: deviceType,
+                    capabilities: Array.isArray(capabilities) ? capabilities : JSON.parse(capabilities)
+                };
+                
+                console.log('Sending API request:', requestData);
+                
+                const response = await fetch('/api/devices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    if (response.status === 409) {
+                        // Device already registered
+                        const existingDevice = devices.find(d => d.device_id === deviceId);
+                        if (existingDevice) {
+                            showAlert(`Device "${deviceName}" is already registered. <button class="btn btn-link p-0 align-baseline" onclick="editDevice(${existingDevice.id}); document.querySelector('.alert .btn-close').click();">Click here to edit it</button>`, 'warning');
+                        } else {
+                            showAlert('Device is already registered. Please refresh the page to see all devices.', 'warning');
+                        }
+                        return;
+                    }
+                    throw new Error(error.error || 'Registration failed');
+                }
+
+                const result = await response.json();
+                console.log('Registration successful:', result);
+                
+                discoveryModal.hide();
+                showAlert('Device registered successfully!', 'success');
+                loadDevices();
+                
+            } catch (error) {
+                console.error('Error registering device:', error);
+                showAlert('Error registering device: ' + error.message, 'danger');
+            }
+        }
+
+        // Edit device
+        function editDevice(deviceId) {
+            const device = devices.find(d => d.id === deviceId);
+            if (!device) return;
+
+            document.getElementById('deviceId').value = device.id;
+            document.getElementById('deviceName').value = device.device_name;
+            document.getElementById('deviceIP').value = device.ip;
+            
+            // Handle multiple linked entries
+            const linkedEntriesSelect = document.getElementById('linkedEntries');
+            // Clear all selections first
+            Array.from(linkedEntriesSelect.options).forEach(option => option.selected = false);
+            
+            // Select the linked entries - use the linked_entries array
+            if (device.linked_entries && device.linked_entries.length > 0) {
+                device.linked_entries.forEach(entry => {
+                    const option = linkedEntriesSelect.querySelector(`option[value="${entry.id}"]`);
+                    if (option) option.selected = true;
+                });
+            }
+            
+            document.getElementById('pollingEnabled').value = device.polling_enabled ? '1' : '0';
+            document.getElementById('pollingInterval').value = device.polling_interval;
+
+            document.getElementById('deviceModalLabel').textContent = 'Edit Device';
+            deviceModal.show();
+        }
+
+        // Save device
+        async function saveDevice() {
+            const form = document.getElementById('deviceForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            try {
+                const deviceId = document.getElementById('deviceId').value;
+                
+                // Get selected entry IDs
+                const linkedEntriesSelect = document.getElementById('linkedEntries');
+                const selectedEntries = Array.from(linkedEntriesSelect.selectedOptions).map(option => option.value);
+                
+                const data = {
+                    device_name: document.getElementById('deviceName').value,
+                    ip: document.getElementById('deviceIP').value,
+                    linked_entry_ids: selectedEntries,
+                    polling_enabled: document.getElementById('pollingEnabled').value === '1',
+                    polling_interval: parseInt(document.getElementById('pollingInterval').value)
+                };
+
+                const response = await fetch(`/api/devices/${deviceId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Update failed');
+                }
+
+                deviceModal.hide();
+                showAlert('Device updated successfully!', 'success');
+                loadDevices();
+                
+            } catch (error) {
+                console.error('Error saving device:', error);
+                showAlert('Error saving device: ' + error.message, 'danger');
+            }
+        }
+
+        // Delete device
+        async function deleteDevice(deviceId) {
+            const device = devices.find(d => d.id === deviceId);
+            if (!device) return;
+
+            if (!confirm(`Are you sure you want to delete device "${device.device_name}"?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/devices/${deviceId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Delete failed');
+                }
+
+                showAlert('Device deleted successfully!', 'success');
+                loadDevices();
+                
+            } catch (error) {
+                console.error('Error deleting device:', error);
+                showAlert('Error deleting device: ' + error.message, 'danger');
+            }
+        }
+
+        // Poll single device
+        async function pollDevice(deviceId) {
+            try {
+                const response = await fetch(`/api/devices/${deviceId}/poll`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Poll failed');
+                }
+
+                const result = await response.json();
+                showAlert(`${result.message}`, 'success');
+                loadDevices(); // Refresh to show updated last_seen
+
+            } catch (error) {
+                console.error('Error polling device:', error);
+                showAlert('Error polling device: ' + error.message, 'danger');
+            }
+        }
+
+        // Poll all devices
+        async function pollAllDevices() {
+            try {
+                const response = await fetch('/api/devices/poll-all', {
+                    method: 'POST'
+                });
+
+                if (!response.ok) throw new Error('Poll all failed');
+                
+                const result = await response.json();
+                showAlert(`${result.message}`, 'success');
+                loadDevices(); // Refresh devices
+
+            } catch (error) {
+                console.error('Error polling all devices:', error);
+                showAlert('Error polling devices: ' + error.message, 'danger');
+            }
+        }
+
+        // Show alert message
+        function showAlert(message, type) {
+            const alertHtml = `
+                <div class="alert alert-${type} alert-dismissible fade show mt-3" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `;
+            alertContainer.innerHTML = alertHtml;
+
+            // Auto-dismiss success alerts
+            if (type === 'success') {
+                setTimeout(() => {
+                    const alert = alertContainer.querySelector('.alert');
+                    if (alert) {
+                        alert.remove();
+                    }
+                }, 5000);
+            }
+        }
+
+        // Show test connection modal
+        function showTestConnection() {
+            document.getElementById('testIP').value = '';
+            document.getElementById('testResultContainer').style.display = 'none';
+            testConnectionModal.show();
+        }
+
+        // Test connection to a device
+        async function testConnection() {
+            const ip = document.getElementById('testIP').value.trim();
+            if (!ip) {
+                alert('Please enter an IP address');
+                return;
+            }
+
+            const resultContainer = document.getElementById('testResultContainer');
+            resultContainer.innerHTML = `
+                <div class="text-center">
+                    <i class="fas fa-spinner fa-spin me-2"></i>Testing connection to ${ip}...
+                </div>
+            `;
+            resultContainer.style.display = 'block';
+
+            try {
+                const response = await fetch('/api/devices/test-connection', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ip: ip })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.status === 'online') {
+                    // Check if device is already registered
+                    const existingDevice = devices.find(d => d.device_id === result.device_id);
+                    
+                    // Success - show device info
+                    let html = `
+                        <div class="alert alert-success">
+                            <h6><i class="fas fa-check-circle me-2"></i>Connection Successful!</h6>
+                            <div class="mt-2">
+                                <strong>Device Type:</strong> ${result.device_type}<br>
+                                <strong>Device Name:</strong> ${result.device_name}<br>
+                                <strong>Capabilities:</strong> ${result.capabilities.join(', ')}
+                            </div>
+                    `;
+
+                    if (result.device_type === 'esp32_fermentation') {
+                        html += `
+                            <div class="mt-2">
+                                <strong>Current Temperature:</strong> ${result.temperature}°C<br>
+                                <strong>Heating Status:</strong> ${result.heating_status}<br>
+                                <strong>WiFi Signal:</strong> ${result.wifi_signal} dBm
+                            </div>
+                        `;
+                    }
+
+                    if (existingDevice) {
+                        html += `
+                            <div class="mt-3">
+                                <span class="badge bg-success me-2">Already Registered</span>
+                                <button class="btn btn-outline-primary btn-sm" onclick="editDevice(${existingDevice.id}); testConnectionModal.hide();">
+                                    <i class="fas fa-edit me-1"></i>Edit Device
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        html += `
+                            <div class="mt-3">
+                                <button class="btn btn-green btn-sm" 
+                                        data-device-id="${result.device_id}" 
+                                        data-device-name="${result.device_name}" 
+                                        data-device-ip="${ip}" 
+                                        data-device-type="${result.device_type}" 
+                                        data-device-capabilities="${result.capabilities.join(',')}"
+                                        onclick="registerFromTestButton(this)">
+                                    <i class="fas fa-plus me-1"></i>Register This Device
+                                </button>
+                            </div>
+                        `;
+                    }
+
+                    html += `</div>`;
+
+                    resultContainer.innerHTML = html;
+                } else {
+                    // Failed
+                    resultContainer.innerHTML = `
+                        <div class="alert alert-danger">
+                            <h6><i class="fas fa-times-circle me-2"></i>Connection Failed</h6>
+                            <p class="mb-0">${result.error || 'Unable to connect to device'}</p>
+                        </div>
+                    `;
+                }
+
+            } catch (error) {
+                console.error('Error testing connection:', error);
+                resultContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h6><i class="fas fa-times-circle me-2"></i>Connection Failed</h6>
+                        <p class="mb-0">Error: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Register device from test connection button
+        function registerFromTestButton(button) {
+            console.log('Test register button clicked:', button);
+            const deviceId = button.getAttribute('data-device-id');
+            const deviceName = button.getAttribute('data-device-name');
+            const ip = button.getAttribute('data-device-ip');
+            const deviceType = button.getAttribute('data-device-type');
+            const capabilitiesStr = button.getAttribute('data-device-capabilities');
+            const capabilities = capabilitiesStr ? capabilitiesStr.split(',') : [];
+            
+            console.log('Test device data:', { deviceId, deviceName, ip, deviceType, capabilities });
+            
+            registerFromTest(deviceId, deviceName, ip, deviceType, capabilities);
+        }
+
+        // Register device from test connection
+        async function registerFromTest(deviceId, deviceName, ip, deviceType, capabilities) {
+            try {
+                const response = await fetch('/api/devices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        device_id: deviceId,
+                        device_name: deviceName,
+                        ip: ip,
+                        device_type: deviceType,
+                        capabilities: Array.isArray(capabilities) ? capabilities : JSON.parse(capabilities)
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    if (response.status === 409) {
+                        // Device already registered
+                        const existingDevice = devices.find(d => d.device_id === deviceId);
+                        if (existingDevice) {
+                            testConnectionModal.hide();
+                            showAlert(`Device "${deviceName}" is already registered. <button class="btn btn-link p-0 align-baseline" onclick="editDevice(${existingDevice.id}); document.querySelector('.alert .btn-close').click();">Click here to edit it</button>`, 'warning');
+                        } else {
+                            showAlert('Device is already registered. Please refresh the page to see all devices.', 'warning');
+                        }
+                        return;
+                    }
+                    throw new Error(error.error || 'Registration failed');
+                }
+
+                testConnectionModal.hide();
+                showAlert('Device registered successfully!', 'success');
+                loadDevices();
+                
+            } catch (error) {
+                console.error('Error registering device:', error);
+                showAlert('Error registering device: ' + error.message, 'danger');
+            }
+        }
+
+        // Sensor Mapping Functions
+        
+        // Manage sensor mappings
+        async function manageSensorMappings(deviceId) {
+            currentDeviceId = deviceId;
+            const device = devices.find(d => d.id === deviceId);
+            
+            if (!device) {
+                showAlert('Device not found', 'danger');
+                return;
+            }
+
+            // Update modal title
+            document.getElementById('sensorMappingModalLabel').textContent = `Configure Data Points - ${device.device_name}`;
+            
+            // Load sensor mappings
+            await loadSensorMappings(deviceId);
+            
+            // Show modal
+            sensorMappingModal.show();
+        }
+
+        // Load sensor mappings for a device
+        async function loadSensorMappings(deviceId) {
+            try {
+                const container = document.getElementById('sensorMappingContainer');
+                container.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin me-2"></i>Loading sensor mappings...</div>';
+
+                const response = await fetch(`/api/devices/${deviceId}/sensor-mappings`);
+                if (!response.ok) throw new Error('Failed to load sensor mappings');
+                
+                const data = await response.json();
+                currentSensorMappings = data.sensor_mappings || [];
+                availableSensors = data.available_sensors || [];
+                
+                renderSensorMappings();
+                
+            } catch (error) {
+                console.error('Error loading sensor mappings:', error);
+                document.getElementById('sensorMappingContainer').innerHTML = 
+                    `<div class="alert alert-danger">Error loading sensor mappings: ${error.message}</div>`;
+            }
+        }
+
+        // Render sensor mappings interface
+        function renderSensorMappings() {
+            const container = document.getElementById('sensorMappingContainer');
+            
+            let html = `
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Configure Data Points:</strong> Choose which sensor data from your device should be tracked. 
+                    You can customize the field names and units as they appear in your entries.
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6>Available Sensors</h6>
+                        <div class="list-group" id="availableSensorsList">
+            `;
+            
+            // Show available sensors
+            availableSensors.forEach(sensor => {
+                const isUsed = currentSensorMappings.some(m => m.sensor_name === sensor.name);
+                html += `
+                    <div class="list-group-item ${isUsed ? 'list-group-item-secondary' : ''}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${sensor.display_name}</strong>
+                                <small class="text-muted d-block">${sensor.unit} (${sensor.data_type})</small>
+                            </div>
+                            <button class="btn btn-sm ${isUsed ? 'btn-secondary' : 'btn-outline-success'}" 
+                                    onclick="${isUsed ? 'removeSensorMapping' : 'addSensorMapping'}('${sensor.name}')"
+                                    ${isUsed ? 'disabled' : ''}>
+                                <i class="fas ${isUsed ? 'fa-check' : 'fa-plus'}"></i>
+                                ${isUsed ? 'Added' : 'Add'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Configured Data Points</h6>
+                        <div id="configuredMappingsList">
+            `;
+            
+            // Show configured mappings
+            if (currentSensorMappings.length === 0) {
+                html += `
+                    <div class="text-muted text-center py-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No data points configured yet.<br>
+                        Add sensors from the left panel.
+                    </div>
+                `;
+            } else {
+                currentSensorMappings.forEach((mapping, index) => {
+                    const sensor = availableSensors.find(s => s.name === mapping.sensor_name);
+                    html += `
+                        <div class="card mb-2">
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <strong>${sensor ? sensor.display_name : mapping.sensor_name}</strong>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="removeSensorMapping('${mapping.sensor_name}')">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">Display as:</label>
+                                    <input type="text" class="form-control form-control-sm" 
+                                           value="${mapping.entry_field}" 
+                                           onchange="updateMappingField(${index}, 'entry_field', this.value)"
+                                           placeholder="Field name in entries">
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Unit:</label>
+                                        <input type="text" class="form-control form-control-sm" 
+                                               value="${mapping.unit || ''}" 
+                                               onchange="updateMappingField(${index}, 'unit', this.value)"
+                                               placeholder="e.g., °C, %">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Type:</label>
+                                        <select class="form-select form-select-sm" 
+                                                onchange="updateMappingField(${index}, 'data_type', this.value)">
+                                            <option value="text" ${mapping.data_type === 'text' ? 'selected' : ''}>Text</option>
+                                            <option value="numeric" ${mapping.data_type === 'numeric' ? 'selected' : ''}>Numeric</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="mt-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" 
+                                               ${mapping.enabled ? 'checked' : ''} 
+                                               onchange="updateMappingField(${index}, 'enabled', this.checked)">
+                                        <label class="form-check-label">
+                                            Enabled
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+
+        // Add sensor mapping
+        function addSensorMapping(sensorName) {
+            const sensor = availableSensors.find(s => s.name === sensorName);
+            if (!sensor) return;
+            
+            // Create new mapping
+            const newMapping = {
+                sensor_name: sensorName,
+                entry_field: sensor.display_name,
+                data_type: sensor.data_type,
+                unit: sensor.unit,
+                enabled: true
+            };
+            
+            currentSensorMappings.push(newMapping);
+            renderSensorMappings();
+        }
+
+        // Remove sensor mapping
+        function removeSensorMapping(sensorName) {
+            currentSensorMappings = currentSensorMappings.filter(m => m.sensor_name !== sensorName);
+            renderSensorMappings();
+        }
+
+        // Update mapping field
+        function updateMappingField(index, field, value) {
+            if (currentSensorMappings[index]) {
+                currentSensorMappings[index][field] = value;
+            }
+        }
+
+        // Save sensor mappings
+        async function saveSensorMappings() {
+            try {
+                if (!currentDeviceId) {
+                    showAlert('No device selected', 'danger');
+                    return;
+                }
+
+                const response = await fetch(`/api/devices/${currentDeviceId}/sensor-mappings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mappings: currentSensorMappings
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to save mappings');
+                }
+
+                const result = await response.json();
+                sensorMappingModal.hide();
+                showAlert(result.message, 'success');
+                
+            } catch (error) {
+                console.error('Error saving sensor mappings:', error);
+                showAlert('Error saving sensor mappings: ' + error.message, 'danger');
+            }
+        }
+
+        // Debug device data structure
+        async function debugDeviceData(deviceId) {
+            try {
+                const device = devices.find(d => d.id === deviceId);
+                if (!device) {
+                    showAlert('Device not found', 'danger');
+                    return;
+                }
+
+                showAlert('<i class="fas fa-spinner fa-spin me-2"></i>Fetching device data...', 'info');
+
+                const response = await fetch(`/api/devices/${deviceId}/debug-data`);
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to debug device data');
+                }
+
+                const result = await response.json();
+                
+                // Show detailed data structure
+                const dataStructure = JSON.stringify(result.data_structure, null, 2);
+                const rawData = JSON.stringify(result.raw_data, null, 2);
+                
+                showAlert(`
+                    <h6><i class="fas fa-bug me-2"></i>Device Data Debug - ${device.device_name}</h6>
+                    <div class="mt-3">
+                        <strong>Endpoint:</strong> ${result.endpoint}<br>
+                        <strong>Device Type:</strong> ${result.device_type}
+                    </div>
+                    <div class="mt-3">
+                        <h6>Available Data Paths:</h6>
+                        <pre style="font-size: 12px; max-height: 200px; overflow-y: auto;">${dataStructure}</pre>
+                    </div>
+                    <div class="mt-3">
+                        <h6>Raw Device Data:</h6>
+                        <pre style="font-size: 12px; max-height: 200px; overflow-y: auto;">${rawData}</pre>
+                    </div>
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            Use this information to configure your sensor mappings correctly. 
+                            Look for the data paths that contain the values you want to track.
+                        </small>
+                    </div>
+                `, 'info');
+                
+            } catch (error) {
+                console.error('Error debugging device data:', error);
+                showAlert('Error debugging device data: ' + error.message, 'danger');
+            }
+        }
+    </script>
+</body>
+</html>

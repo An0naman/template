@@ -70,6 +70,7 @@ def create_app():
     from .api.labels_api import labels_api_bp
     from .api.cron_api import cron_api_bp
     from .api.theme_api import theme_api
+    from .api.device_api import device_api_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(maintenance_bp)
@@ -83,6 +84,7 @@ def create_app():
     app.register_blueprint(labels_api_bp, url_prefix='/api')
     app.register_blueprint(cron_api_bp, url_prefix='/api')
     app.register_blueprint(theme_api, url_prefix='/api')
+    app.register_blueprint(device_api_bp, url_prefix='/api')
 
     app.logger.info("Blueprints registered.")
 
@@ -116,5 +118,15 @@ def create_app():
     if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
         scheduler.start()
         app.logger.info("Task scheduler started.")
+
+    # Initialize and start the device polling scheduler
+    from .device_scheduler import DevicePollingScheduler
+    device_scheduler = DevicePollingScheduler()
+    device_scheduler.init_app(app)
+    
+    # Start device scheduler in production or when not in debug mode
+    if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        device_scheduler.start()
+        app.logger.info("Device polling scheduler started.")
 
     return app

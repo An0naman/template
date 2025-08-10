@@ -126,3 +126,12 @@ def manage_theme_settings_page():
                            entry_singular_label=params.get('entry_singular_label'),
                            entry_plural_label=params.get('entry_plural_label'),
                            **theme_settings)
+
+@maintenance_bp.route('/manage_devices')
+def manage_devices_page():
+    from ..db import get_system_parameters
+    params = get_system_parameters()
+    return render_template('manage_devices.html',
+                           project_name=params.get('project_name'),
+                           entry_singular_label=params.get('entry_singular_label'),
+                           entry_plural_label=params.get('entry_plural_label'))

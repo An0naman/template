@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Register Button Fix</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        .btn-green {
+            background: linear-gradient(135deg, #198754, #20c997);
+            border: none;
+            color: white;
+        }
+        .btn-green:hover {
+            background: linear-gradient(135deg, #157347, #1aa179);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>Test Register Button Fix</h1>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <h3>Old Method (Broken)</h3>
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title">ESP32 Test Device</h6>
+                        <p class="card-text">
+                            <strong>IP:</strong> 192.168.1.100<br>
+                            <strong>Device ID:</strong> esp32_test<br>
+                            <strong>Type:</strong> esp32_fermentation<br>
+                            <strong>Capabilities:</strong> temperature, relay_control
+                        </p>
+                        <!-- This will break due to JSON.stringify quotes -->
+                        <button class="btn btn-green" onclick="testOldMethod('esp32_test', 'ESP32 Test', '192.168.1.100', 'esp32_fermentation', '${JSON.stringify(['temperature', 'relay_control'])}')">
+                            <i class="fas fa-plus me-1"></i>Register (Old Method)
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <h3>New Method (Fixed)</h3>
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title">ESP32 Test Device</h6>
+                        <p class="card-text">
+                            <strong>IP:</strong> 192.168.1.100<br>
+                            <strong>Device ID:</strong> esp32_test<br>
+                            <strong>Type:</strong> esp32_fermentation<br>
+                            <strong>Capabilities:</strong> temperature, relay_control
+                        </p>
+                        <!-- This will work with data attributes -->
+                        <button class="btn btn-green" 
+                                data-device-id="esp32_test" 
+                                data-device-name="ESP32 Test" 
+                                data-device-ip="192.168.1.100" 
+                                data-device-type="esp32_fermentation" 
+                                data-device-capabilities="temperature,relay_control"
+                                onclick="testNewMethod(this)">
+                            <i class="fas fa-plus me-1"></i>Register (New Method)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="result" class="mt-4"></div>
+    </div>
+
+    <script>
+        function testOldMethod(deviceId, deviceName, ip, deviceType, capabilities) {
+            document.getElementById('result').innerHTML = `
+                <div class="alert alert-danger">
+                    <strong>Old Method Called:</strong><br>
+                    This method likely failed due to quote escaping issues in onclick attribute.<br>
+                    Capabilities: ${capabilities}
+                </div>
+            `;
+        }
+        
+        function testNewMethod(button) {
+            const deviceId = button.getAttribute('data-device-id');
+            const deviceName = button.getAttribute('data-device-name');
+            const ip = button.getAttribute('data-device-ip');
+            const deviceType = button.getAttribute('data-device-type');
+            const capabilitiesStr = button.getAttribute('data-device-capabilities');
+            const capabilities = capabilitiesStr ? capabilitiesStr.split(',') : [];
+            
+            document.getElementById('result').innerHTML = `
+                <div class="alert alert-success">
+                    <strong>New Method Called Successfully:</strong><br>
+                    Device ID: ${deviceId}<br>
+                    Device Name: ${deviceName}<br>
+                    IP: ${ip}<br>
+                    Device Type: ${deviceType}<br>
+                    Capabilities: ${JSON.stringify(capabilities)}<br>
+                    <small>This would now call the API to register the device.</small>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

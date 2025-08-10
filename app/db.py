@@ -256,6 +256,69 @@ def init_db():
             );
         ''')
 
+        # Create Device Management Tables
+        
+        # Create RegisteredDevices table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS RegisteredDevices (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                device_id TEXT UNIQUE NOT NULL,
+                device_name TEXT NOT NULL,
+                ip TEXT NOT NULL,
+                device_type TEXT NOT NULL,
+                capabilities TEXT,
+                status TEXT DEFAULT 'unknown',
+                last_seen TIMESTAMP,
+                polling_enabled BOOLEAN DEFAULT 1,
+                polling_interval INTEGER DEFAULT 30,
+                last_poll_success TIMESTAMP,
+                last_poll_error TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        # Add missing columns to RegisteredDevices if they don't exist
+        try:
+            cursor.execute('ALTER TABLE RegisteredDevices ADD COLUMN last_poll_success TIMESTAMP')
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        try:
+            cursor.execute('ALTER TABLE RegisteredDevices ADD COLUMN last_poll_error TEXT')
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        # Create DeviceEntryLinks table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS DeviceEntryLinks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                device_id INTEGER NOT NULL,
+                entry_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (device_id) REFERENCES RegisteredDevices (id) ON DELETE CASCADE,
+                FOREIGN KEY (entry_id) REFERENCES Entry (id) ON DELETE CASCADE,
+                UNIQUE(device_id, entry_id)
+            )
+        ''')
+        
+        # Create DeviceSensorMapping table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS DeviceSensorMapping (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                device_id INTEGER NOT NULL,
+                sensor_name TEXT NOT NULL,
+                entry_field TEXT NOT NULL,
+                data_type TEXT DEFAULT 'text',
+                unit TEXT,
+                enabled BOOLEAN DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (device_id) REFERENCES RegisteredDevices (id) ON DELETE CASCADE,
+                UNIQUE(device_id, sensor_name)
+            )
+        ''')
+
         # Insert default system parameters if they don't exist
         default_params = {
             # General settings
