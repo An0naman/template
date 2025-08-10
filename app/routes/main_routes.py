@@ -143,3 +143,12 @@ def settings():
     return render_template('settings.html',
                           project_name=params.get('project_name'),
                           params=params)
+
+@main_bp.route('/sql_ide')
+def sql_ide():
+    """SQL IDE route for database management"""
+    from ..db import get_system_parameters
+    params = get_system_parameters()
+    
+    return render_template('simple_sql_ide.html',
+                          project_name=params.get('project_name'))
