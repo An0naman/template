@@ -7,8 +7,8 @@ maintenance_bp = Blueprint('maintenance', __name__, template_folder='../template
 
 def get_db():
     if 'db' not in g:
-        db_path = current_app.config['DATABASE_PATH']
-        g.db = sqlite3.connect(db_path)
+        from ..db import get_connection
+        g.db = get_connection()
         g.db.row_factory = sqlite3.Row
     return g.db
 
@@ -132,6 +132,15 @@ def manage_devices_page():
     from ..db import get_system_parameters
     params = get_system_parameters()
     return render_template('manage_devices.html',
+                           project_name=params.get('project_name'),
+                           entry_singular_label=params.get('entry_singular_label'),
+                           entry_plural_label=params.get('entry_plural_label'))
+
+@maintenance_bp.route('/sql_ide')
+def sql_ide_page():
+    from ..db import get_system_parameters
+    params = get_system_parameters()
+    return render_template('sql_ide.html',
                            project_name=params.get('project_name'),
                            entry_singular_label=params.get('entry_singular_label'),
                            entry_plural_label=params.get('entry_plural_label'))

@@ -71,6 +71,7 @@ def create_app():
     from .api.cron_api import cron_api_bp
     from .api.theme_api import theme_api
     from .api.device_api import device_api_bp
+    from .api.sql_api import sql_api_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(maintenance_bp)
@@ -85,6 +86,7 @@ def create_app():
     app.register_blueprint(cron_api_bp, url_prefix='/api')
     app.register_blueprint(theme_api, url_prefix='/api')
     app.register_blueprint(device_api_bp, url_prefix='/api')
+    app.register_blueprint(sql_api_bp, url_prefix='/api')
 
     app.logger.info("Blueprints registered.")
 
