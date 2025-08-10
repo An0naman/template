@@ -419,3 +419,48 @@ def get_system_parameters():
     finally:
         if conn and 'db' not in g: # Only close if not part of a request context
             conn.close()
+
+def get_user_preference(preference_name, default_value=None):
+    """Get a user preference value by name"""
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT preference_value FROM UserPreferences WHERE preference_name = ?",
+                (preference_name,)
+            )
+            result = cursor.fetchone()
+            return result['preference_value'] if result else default_value
+    except sqlite3.Error as e:
+        logger.error(f"Error getting user preference {preference_name}: {e}")
+        return default_value
+
+def set_user_preference(preference_name, preference_value):
+    """Set a user preference value (insert or update)"""
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO UserPreferences (preference_name, preference_value, updated_at)
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(preference_name) DO UPDATE SET
+                    preference_value = excluded.preference_value,
+                    updated_at = CURRENT_TIMESTAMP
+            ''', (preference_name, preference_value))
+            conn.commit()
+            logger.debug(f"Set user preference {preference_name} = {preference_value}")
+            return True
+    except sqlite3.Error as e:
+        logger.error(f"Error setting user preference {preference_name}: {e}")
+        return False
+
+def get_all_user_preferences():
+    """Get all user preferences as a dictionary"""
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT preference_name, preference_value FROM UserPreferences")
+            return {row['preference_name']: row['preference_value'] for row in cursor.fetchall()}
+    except sqlite3.Error as e:
+        logger.error(f"Error getting all user preferences: {e}")
+        return {}

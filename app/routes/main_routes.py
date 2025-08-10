@@ -14,17 +14,43 @@ def get_db():
 
 @main_bp.route('/')
 def index():
-    from ..db import get_system_parameters # Import locally for function use
+    from ..db import get_system_parameters, get_user_preference, set_user_preference # Import locally for function use
     from ..api.theme_api import generate_theme_css, get_current_theme_settings
 
     params = get_system_parameters()
     conn = get_db()
     cursor = conn.cursor()
 
-    # Get filter parameters
-    view_type = request.args.get('view_type', 'primary')  # 'primary', 'all', 'type'
-    entry_type_filter = request.args.get('entry_type', '')
-    status_filter = request.args.get('status', 'active')  # Default to active only
+    # Get filter parameters from query string or use saved preferences
+    view_type = request.args.get('view_type')
+    entry_type_filter = request.args.get('entry_type')
+    status_filter = request.args.get('status')
+    result_limit = request.args.get('result_limit')
+    save_filters = request.args.get('save_filters') == 'true'
+    
+    # If no filters provided, load from saved preferences
+    if view_type is None:
+        view_type = get_user_preference('default_view_type', 'primary')
+    if entry_type_filter is None:
+        entry_type_filter = get_user_preference('default_entry_type_filter', '')
+    if status_filter is None:
+        status_filter = get_user_preference('default_status_filter', 'active')
+    if result_limit is None:
+        result_limit = get_user_preference('default_result_limit', '50')
+    
+    # Save filters if requested
+    if save_filters:
+        set_user_preference('default_view_type', view_type)
+        set_user_preference('default_entry_type_filter', entry_type_filter)
+        set_user_preference('default_status_filter', status_filter)
+        set_user_preference('default_result_limit', result_limit)
+    
+    # Convert result_limit to integer, with fallback
+    try:
+        result_limit_int = int(result_limit) if result_limit else 50
+        result_limit_int = max(1, min(result_limit_int, 1000))  # Limit between 1 and 1000
+    except (ValueError, TypeError):
+        result_limit_int = 50
     
     # Build the query based on filters
     query_parts = []
@@ -62,6 +88,7 @@ def index():
         query_parts.append("WHERE " + " AND ".join(conditions))
     
     query_parts.append("ORDER BY e.created_at DESC")
+    query_parts.append(f"LIMIT {result_limit_int}")
     
     final_query = base_query + " " + " ".join(query_parts)
     
@@ -81,6 +108,7 @@ def index():
                            current_view_type=view_type,
                            current_entry_type=entry_type_filter,
                            current_status=status_filter,
+                           current_result_limit=result_limit,
                            theme_css=generate_theme_css(),
                            theme_settings=get_current_theme_settings())
 

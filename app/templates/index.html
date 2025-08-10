@@ -366,7 +366,7 @@
                 <div class="filter-section">
                     <form method="GET" id="filterForm">
                         <div class="row g-3">
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <label for="view_type" class="form-label">View</label>
                                 <select name="view_type" id="view_type" class="form-select">
                                     <option value="primary" {{ 'selected' if current_view_type == 'primary' else '' }}>Primary Types Only</option>
@@ -385,7 +385,7 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <label for="status" class="form-label">Status</label>
                                 <select name="status" id="status" class="form-select">
                                     <option value="active" {{ 'selected' if current_status == 'active' else '' }}>Active Only</option>
@@ -393,9 +393,23 @@
                                     <option value="all" {{ 'selected' if current_status == 'all' else '' }}>All Status</option>
                                 </select>
                             </div>
+                            <div class="col-md-2">
+                                <label for="result_limit" class="form-label">Limit</label>
+                                <select name="result_limit" id="result_limit" class="form-select">
+                                    <option value="10" {{ 'selected' if current_result_limit == '10' else '' }}>10</option>
+                                    <option value="25" {{ 'selected' if current_result_limit == '25' else '' }}>25</option>
+                                    <option value="50" {{ 'selected' if current_result_limit == '50' else '' }}>50</option>
+                                    <option value="100" {{ 'selected' if current_result_limit == '100' else '' }}>100</option>
+                                    <option value="250" {{ 'selected' if current_result_limit == '250' else '' }}>250</option>
+                                    <option value="500" {{ 'selected' if current_result_limit == '500' else '' }}>500</option>
+                                </select>
+                            </div>
                             <div class="col-md-3 d-flex align-items-end gap-2">
                                 <button type="submit" class="btn btn-theme-primary flex-fill">
                                     <i class="fas fa-filter me-1"></i>Apply
+                                </button>
+                                <button type="submit" name="save_filters" value="true" class="btn btn-theme-accent" title="Save as default filters">
+                                    <i class="fas fa-save me-1"></i>Save
                                 </button>
                                 <a href="{{ url_for('main.index') }}" class="btn btn-theme-secondary">
                                     <i class="fas fa-times me-1"></i>Clear
@@ -405,7 +419,7 @@
                     </form>
 
                     <!-- Filter Summary -->
-                    {% if current_view_type != 'primary' or current_status != 'active' or current_entry_type %}
+                    {% if current_view_type != 'primary' or current_status != 'active' or current_entry_type or current_result_limit != '50' %}
                     <div class="alert alert-info themed-alert-info mt-3 mb-0">
                         <div class="d-flex align-items-start">
                             <i class="fas fa-info-circle me-3 mt-1 text-theme-info"></i>
@@ -419,12 +433,13 @@
                                     Primary types only,
                                 {% endif %}
                                 {% if current_status == 'active' %}
-                                    Active entries only
+                                    Active entries only,
                                 {% elif current_status == 'inactive' %}
-                                    Inactive entries only
+                                    Inactive entries only,
                                 {% else %}
-                                    All statuses
+                                    All statuses,
                                 {% endif %}
+                                Limited to {{ current_result_limit }} most recent results.
                                 ({{ entries|length }} {{ 'entry' if entries|length == 1 else 'entries' }} found)
                             </div>
                         </div>

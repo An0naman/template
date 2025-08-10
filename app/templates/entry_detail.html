@@ -1876,6 +1876,28 @@
                                     </select>
                                 </div>
                             </div>
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-4">
+                                    <label for="dataLimitFilter" class="form-label">Data Limit</label>
+                                    <input type="number" class="form-control form-control-sm" id="dataLimitFilter" 
+                                           placeholder="Enter number or leave empty for all" 
+                                           min="1" max="10000" 
+                                           title="Enter number of most recent data points to display (1-10000), or leave empty for all data">
+                                    <div class="form-text">
+                                        <small>Number of most recent data points to show (leave empty for all)</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="button" class="btn btn-theme-accent btn-sm mt-4" onclick="saveChartPreferences()">
+                                        <i class="fas fa-save me-1"></i>Save Chart Settings
+                                    </button>
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="button" class="btn btn-theme-secondary btn-sm mt-4" onclick="resetChartPreferences()">
+                                        <i class="fas fa-undo me-1"></i>Reset to Defaults
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                         
                         <div class="d-flex gap-2 flex-wrap">
@@ -4629,16 +4651,37 @@
                 });
             }
 
-            // Chart control event listeners
+            // Chart control event listeners with auto-save
             if (chartTypeSelect) {
-                chartTypeSelect.addEventListener('change', renderChartView);
+                chartTypeSelect.addEventListener('change', function() {
+                    renderChartView();
+                    autoSaveChartPreferences();
+                });
             }
             if (sensorTypeFilter) {
-                sensorTypeFilter.addEventListener('change', renderChartView);
+                sensorTypeFilter.addEventListener('change', function() {
+                    renderChartView();
+                    autoSaveChartPreferences();
+                });
             }
             if (timeRangeFilter) {
-                timeRangeFilter.addEventListener('change', renderChartView);
+                timeRangeFilter.addEventListener('change', function() {
+                    renderChartView();
+                    autoSaveChartPreferences();
+                });
             }
+            
+            // Data limit filter event listener
+            const dataLimitFilter = document.getElementById('dataLimitFilter');
+            if (dataLimitFilter) {
+                dataLimitFilter.addEventListener('change', function() {
+                    renderChartView();
+                    autoSaveChartPreferences();
+                });
+            }
+            
+            // Load saved chart preferences on page load
+            loadChartPreferences();
         }
 
         function updateChartFilters(sensorData) {
@@ -4687,7 +4730,19 @@
                 filteredData = filteredData.filter(d => new Date(d.recorded_at) >= cutoffDate);
             }
             
-            // Sort by recorded_at
+            // Sort by recorded_at (most recent first for limiting)
+            filteredData.sort((a, b) => new Date(b.recorded_at) - new Date(a.recorded_at));
+            
+            // Apply data limit
+            const dataLimitFilter = document.getElementById('dataLimitFilter');
+            if (dataLimitFilter && dataLimitFilter.value.trim() !== '') {
+                const limit = parseInt(dataLimitFilter.value);
+                if (!isNaN(limit) && limit > 0) {
+                    filteredData = filteredData.slice(0, limit);
+                }
+            }
+            
+            // Sort again by recorded_at for chart display (oldest first)
             filteredData.sort((a, b) => new Date(a.recorded_at) - new Date(b.recorded_at));
             
             return filteredData;
@@ -4879,6 +4934,123 @@
                 }
             });
         }
+        
+        // Chart preference persistence functions
+        function getChartPreferenceKey() {
+            return `chartPrefs_entry_{{ entry.id }}`;
+        }
+        
+        function loadChartPreferences() {
+            const prefsKey = getChartPreferenceKey();
+            const savedPrefs = localStorage.getItem(prefsKey);
+            
+            if (savedPrefs) {
+                try {
+                    const prefs = JSON.parse(savedPrefs);
+                    
+                    // Apply saved preferences to the form controls
+                    if (chartTypeSelect && prefs.chartType) {
+                        chartTypeSelect.value = prefs.chartType;
+                    }
+                    if (sensorTypeFilter && prefs.sensorType) {
+                        sensorTypeFilter.value = prefs.sensorType;
+                    }
+                    if (timeRangeFilter && prefs.timeRange) {
+                        timeRangeFilter.value = prefs.timeRange;
+                    }
+                    const dataLimitFilter = document.getElementById('dataLimitFilter');
+                    if (dataLimitFilter && prefs.dataLimit) {
+                        // Handle both old select values and new input values
+                        if (prefs.dataLimit === 'all') {
+                            dataLimitFilter.value = '';
+                        } else {
+                            dataLimitFilter.value = prefs.dataLimit;
+                        }
+                    }
+                    
+                    console.log('Loaded chart preferences:', prefs);
+                } catch (e) {
+                    console.error('Error loading chart preferences:', e);
+                }
+            }
+        }
+        
+        function autoSaveChartPreferences() {
+            const prefsKey = getChartPreferenceKey();
+            const dataLimitFilter = document.getElementById('dataLimitFilter');
+            
+            const prefs = {
+                chartType: chartTypeSelect ? chartTypeSelect.value : 'line',
+                sensorType: sensorTypeFilter ? sensorTypeFilter.value : 'all',
+                timeRange: timeRangeFilter ? timeRangeFilter.value : 'all',
+                dataLimit: dataLimitFilter ? (dataLimitFilter.value.trim() || 'all') : 'all',
+                savedAt: new Date().toISOString()
+            };
+            
+            try {
+                localStorage.setItem(prefsKey, JSON.stringify(prefs));
+                console.log('Auto-saved chart preferences:', prefs);
+            } catch (e) {
+                console.error('Error saving chart preferences:', e);
+            }
+        }
+        
+        function saveChartPreferences() {
+            autoSaveChartPreferences();
+            
+            // Show user feedback
+            const saveButton = document.querySelector('button[onclick="saveChartPreferences()"]');
+            if (saveButton) {
+                const originalText = saveButton.innerHTML;
+                saveButton.innerHTML = '<i class="fas fa-check me-1"></i>Saved!';
+                saveButton.classList.remove('btn-theme-accent');
+                saveButton.classList.add('btn-success');
+                
+                setTimeout(() => {
+                    saveButton.innerHTML = originalText;
+                    saveButton.classList.remove('btn-success');
+                    saveButton.classList.add('btn-theme-accent');
+                }, 2000);
+            }
+        }
+        
+        function resetChartPreferences() {
+            const prefsKey = getChartPreferenceKey();
+            
+            try {
+                localStorage.removeItem(prefsKey);
+                
+                // Reset form controls to defaults
+                if (chartTypeSelect) chartTypeSelect.value = 'line';
+                if (sensorTypeFilter) sensorTypeFilter.value = 'all';
+                if (timeRangeFilter) timeRangeFilter.value = 'all';
+                const dataLimitFilter = document.getElementById('dataLimitFilter');
+                if (dataLimitFilter) dataLimitFilter.value = '';
+                
+                // Re-render chart with default settings
+                renderChartView();
+                
+                // Show user feedback
+                const resetButton = document.querySelector('button[onclick="resetChartPreferences()"]');
+                if (resetButton) {
+                    const originalText = resetButton.innerHTML;
+                    resetButton.innerHTML = '<i class="fas fa-check me-1"></i>Reset!';
+                    resetButton.classList.remove('btn-theme-secondary');
+                    resetButton.classList.add('btn-success');
+                    
+                    setTimeout(() => {
+                        resetButton.innerHTML = originalText;
+                        resetButton.classList.remove('btn-success');
+                        resetButton.classList.add('btn-theme-secondary');
+                    }, 2000);
+                }
+                
+                console.log('Chart preferences reset to defaults');
+            } catch (e) {
+                console.error('Error resetting chart preferences:', e);
+            }
+        }
+        
         {% endif %}
 
         // Wikipedia search functionality for new relationship modal
