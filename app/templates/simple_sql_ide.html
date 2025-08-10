@@ -143,7 +143,68 @@
             border-radius: 8px;
             background: var(--bs-body-bg);
             overflow: auto;
-            max-height: 300px;
+            max-height: 400px;
+            min-height: 200px;
+        }
+        
+        .results-table {
+            margin-bottom: 0;
+            background: var(--bs-body-bg);
+            color: var(--bs-body-color);
+        }
+        
+        .results-table th {
+            background: var(--bs-secondary-bg);
+            color: var(--bs-body-color);
+            border-bottom: 2px solid var(--bs-border-color);
+            padding: 12px 8px;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .results-table td {
+            padding: 8px;
+            border-bottom: 1px solid var(--bs-border-color);
+            vertical-align: top;
+            word-break: break-word;
+        }
+        
+        .results-table tbody tr:hover {
+            background: var(--bs-secondary-bg);
+        }
+        
+        .results-table .null-value {
+            color: var(--bs-secondary-color);
+            font-style: italic;
+        }
+        
+        /* Fallback styling for better visibility */
+        #resultsContainer {
+            min-height: 100px;
+        }
+        
+        #resultsContainer.visible {
+            border: 2px solid #6f42c1;
+            background: var(--bs-body-bg) !important;
+        }
+        
+        .results-container table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .results-container table, 
+        .results-container th, 
+        .results-container td {
+            border: 1px solid var(--bs-border-color);
+            color: var(--bs-body-color) !important;
+        }
+        
+        /* Force visibility in case of theme issues */
+        .results-table * {
+            color: inherit !important;
         }
         
         .btn-purple {
@@ -349,6 +410,9 @@
                                 <button id="clearBtn" class="btn btn-outline-secondary">
                                     <i class="fas fa-eraser me-1"></i>Clear
                                 </button>
+                                <button id="testResultsBtn" class="btn btn-outline-info">
+                                    <i class="fas fa-vial me-1"></i>Test Results Display
+                                </button>
                             </div>
                             
                             <!-- Messages -->
@@ -359,12 +423,17 @@
                         <div id="resultsContainer" class="section-card" style="display: none;">
                             <h5 class="text-purple mb-3">
                                 <i class="fas fa-table me-2"></i>Query Results
+                                <span id="resultCount" class="badge bg-secondary ms-2"></span>
                             </h5>
                             <div class="results-container">
-                                <table id="resultsTable" class="table table-hover table-sm mb-0">
-                                    <thead id="resultsTableHead" class="table-dark"></thead>
+                                <table id="resultsTable" class="table results-table">
+                                    <thead id="resultsTableHead"></thead>
                                     <tbody id="resultsTableBody"></tbody>
                                 </table>
+                            </div>
+                            <div class="mt-2 text-muted small">
+                                <i class="fas fa-info-circle me-1"></i>
+                                <span id="resultInfo">Results displayed above</span>
                             </div>
                         </div>
                     </div>
@@ -575,6 +644,7 @@
         const schemaContent = document.getElementById('schemaContent');
         const executeBtn = document.getElementById('executeBtn');
         const clearBtn = document.getElementById('clearBtn');
+        const testResultsBtn = document.getElementById('testResultsBtn');
         const messages = document.getElementById('messages');
         const resultsContainer = document.getElementById('resultsContainer');
         const resultsTable = document.getElementById('resultsTable');
@@ -586,6 +656,23 @@
         testApiBtn.addEventListener('click', testApi);
         executeBtn.addEventListener('click', executeQuery);
         clearBtn.addEventListener('click', clearEditor);
+        testResultsBtn.addEventListener('click', testResultsDisplay);
+
+        function testResultsDisplay() {
+            console.log('Testing results display...');
+            
+            // Test data
+            const testResults = [
+                { id: 1, name: 'Test Item 1', value: 'Sample Value', status: 'Active' },
+                { id: 2, name: 'Test Item 2', value: null, status: 'Inactive' },
+                { id: 3, name: 'Test Item 3', value: 'Another Value', status: 'Pending' }
+            ];
+            const testColumns = ['id', 'name', 'value', 'status'];
+            
+            console.log('Displaying test results:', testResults);
+            displayResults(testResults, testColumns);
+            showMessage('Test results displayed successfully!', 'success');
+        }
 
         function showMessage(message, type = 'info') {
             const alertClass = type === 'error' ? 'error' : 
@@ -762,22 +849,29 @@
             })
             .then(response => response.json())
             .then(data => {
+                console.log('Query response:', data);
                 if (data.success) {
                     if (data.query_type === 'select') {
+                        console.log('Processing SELECT query results...');
                         displayResults(data.results, data.column_names);
                         showMessage(`Query executed successfully. ${data.row_count} row(s) returned.`, 'success');
                     } else {
+                        console.log('Non-SELECT query executed');
                         resultsContainer.style.display = 'none';
+                        resultsContainer.classList.remove('visible');
                         showMessage(`Query executed successfully. ${data.affected_rows} row(s) affected.`, 'success');
                     }
                 } else {
+                    console.error('Query failed:', data.error);
                     resultsContainer.style.display = 'none';
+                    resultsContainer.classList.remove('visible');
                     showMessage(`Error: ${data.error}`, 'error');
                 }
             })
             .catch(error => {
                 console.error('Query execution error:', error);
                 resultsContainer.style.display = 'none';
+                resultsContainer.classList.remove('visible');
                 showMessage(`Network error: ${error.message}`, 'error');
             })
             .finally(() => {
@@ -787,39 +881,76 @@
         }
 
         function displayResults(results, columnNames) {
+            console.log('displayResults called with:', { results, columnNames });
+            
             if (!results || results.length === 0) {
                 resultsContainer.style.display = 'none';
+                resultsContainer.classList.remove('visible');
                 showMessage('Query executed successfully but returned no results.', 'success');
                 return;
+            }
+
+            console.log(`Displaying ${results.length} rows with ${columnNames.length} columns`);
+
+            // Update result count badge
+            const resultCount = document.getElementById('resultCount');
+            if (resultCount) {
+                resultCount.textContent = `${results.length} rows`;
+            }
+
+            // Update result info
+            const resultInfo = document.getElementById('resultInfo');
+            if (resultInfo) {
+                resultInfo.textContent = `Showing ${results.length} row(s) with ${columnNames.length} column(s)`;
             }
 
             // Create table header
             let headerHtml = '<tr>';
             columnNames.forEach(column => {
-                headerHtml += `<th>${column}</th>`;
+                headerHtml += `<th title="Column: ${column}">${column}</th>`;
             });
             headerHtml += '</tr>';
             resultsTableHead.innerHTML = headerHtml;
+            console.log('Table header created:', headerHtml);
 
             // Create table body
             let bodyHtml = '';
-            results.forEach(row => {
+            results.forEach((row, rowIndex) => {
                 bodyHtml += '<tr>';
                 columnNames.forEach(column => {
                     const value = row[column];
-                    const displayValue = value === null ? '<em>NULL</em>' : String(value);
-                    bodyHtml += `<td>${displayValue}</td>`;
+                    let displayValue, cellClass = '';
+                    
+                    if (value === null || value === undefined) {
+                        displayValue = '<span class="null-value">NULL</span>';
+                    } else if (typeof value === 'string' && value.length > 100) {
+                        displayValue = value.substring(0, 100) + '...';
+                    } else {
+                        displayValue = String(value);
+                    }
+                    
+                    bodyHtml += `<td title="Row ${rowIndex + 1}, ${column}: ${value}">${displayValue}</td>`;
                 });
                 bodyHtml += '</tr>';
             });
             resultsTableBody.innerHTML = bodyHtml;
+            console.log(`Table body created with ${results.length} rows`);
 
+            // Show the results container
             resultsContainer.style.display = 'block';
+            resultsContainer.classList.add('visible');
+            console.log('Results container shown with visibility class');
+            
+            // Scroll to results if needed
+            setTimeout(() => {
+                resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
         }
 
         function clearEditor() {
             sqlEditor.setValue('');
             resultsContainer.style.display = 'none';
+            resultsContainer.classList.remove('visible');
             messages.innerHTML = '';
         }
 
