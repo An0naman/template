@@ -106,6 +106,21 @@
             color: var(--bs-body-color);
         }
         
+        /* Fix cursor visibility in dark mode */
+        .CodeMirror-cursor {
+            border-left: 2px solid var(--bs-body-color) !important;
+        }
+        
+        /* Dark mode specific cursor fix */
+        [data-bs-theme="dark"] .CodeMirror-cursor {
+            border-left: 2px solid #ffffff !important;
+        }
+        
+        /* Selected text visibility */
+        .CodeMirror-selected {
+            background: rgba(111, 66, 193, 0.3) !important;
+        }
+        
         .table-item {
             padding: 10px 16px;
             border-bottom: 1px solid var(--bs-border-color);
@@ -113,9 +128,27 @@
             font-family: monospace;
             transition: background-color 0.2s;
             margin-left: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         
         .table-item:hover {
+            background: rgba(111, 66, 193, 0.1);
+            color: #6f42c1;
+        }
+        
+        .table-expand-btn {
+            background: none;
+            border: none;
+            color: var(--bs-secondary-color);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            transition: all 0.2s;
+        }
+        
+        .table-expand-btn:hover {
             background: rgba(111, 66, 193, 0.1);
             color: #6f42c1;
         }
@@ -336,6 +369,40 @@
                 min-height: 50vh;
             }
         }
+        
+        /* Sequence execution styles */
+        .sequence-summary {
+            padding: 1rem;
+            background: var(--bs-secondary-bg);
+            border-radius: 8px;
+            border-left: 4px solid #6f42c1;
+        }
+        
+        .sequence-summary h5 {
+            color: var(--bs-body-color);
+            margin-bottom: 1rem;
+        }
+        
+        .sequence-summary .alert {
+            margin-top: 1rem;
+            margin-bottom: 0;
+        }
+        
+        /* Saved queries dropdown styling */
+        .dropdown-menu {
+            max-height: 400px;
+            overflow-y: auto;
+            min-width: 300px;
+        }
+        
+        .dropdown-item.d-flex {
+            padding: 0.5rem 1rem;
+            border-bottom: 1px solid var(--bs-border-color);
+        }
+        
+        .dropdown-item.d-flex:last-child {
+            border-bottom: none;
+        }
     </style>
 </head>
 <body>
@@ -403,15 +470,24 @@
                             </div>
                             
                             <!-- Action Buttons -->
-                            <div class="d-flex gap-2 mb-3">
+                            <div class="d-flex gap-2 mb-3 flex-wrap">
                                 <button id="executeBtn" class="btn btn-purple">
-                                    <i class="fas fa-play me-1"></i>Execute Query
+                                    <i class="fas fa-play me-1"></i>Execute
                                 </button>
+                                <div class="btn-group">
+                                    <button id="saveQueryBtn" class="btn btn-info">
+                                        <i class="fas fa-save me-1"></i>Save Query
+                                    </button>
+                                    <button class="btn btn-info dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span class="visually-hidden">Toggle Dropdown</span>
+                                    </button>
+                                    <ul class="dropdown-menu" id="savedQueriesDropdown">
+                                        <li><h6 class="dropdown-header">Saved Queries</h6></li>
+                                        <li><span class="dropdown-item-text text-muted">No saved queries yet</span></li>
+                                    </ul>
+                                </div>
                                 <button id="clearBtn" class="btn btn-outline-secondary">
                                     <i class="fas fa-eraser me-1"></i>Clear
-                                </button>
-                                <button id="testResultsBtn" class="btn btn-outline-info">
-                                    <i class="fas fa-vial me-1"></i>Test Results Display
                                 </button>
                             </div>
                             
@@ -421,10 +497,26 @@
                         
                         <!-- Results Section -->
                         <div id="resultsContainer" class="section-card" style="display: none;">
-                            <h5 class="text-purple mb-3">
-                                <i class="fas fa-table me-2"></i>Query Results
-                                <span id="resultCount" class="badge bg-secondary ms-2"></span>
-                            </h5>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="text-purple mb-0">
+                                    <i class="fas fa-table me-2"></i>Query Results
+                                    <span id="resultCount" class="badge bg-secondary ms-2"></span>
+                                </h5>
+                                <!-- Navigation for multiple results -->
+                                <div id="resultNavigation" class="btn-group" style="display: none;">
+                                    <button id="prevResultBtn" class="btn btn-sm btn-outline-secondary">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <span id="resultCounter" class="btn btn-sm btn-outline-secondary disabled">1 / 1</span>
+                                    <button id="nextResultBtn" class="btn btn-sm btn-outline-secondary">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="currentResultInfo" class="mb-2 text-muted small">
+                                <i class="fas fa-info-circle me-1"></i>
+                                <span>Single query result</span>
+                            </div>
                             <div class="results-container">
                                 <table id="resultsTable" class="table results-table">
                                     <thead id="resultsTableHead"></thead>
@@ -643,36 +735,37 @@
         const testApiBtn = document.getElementById('testApiBtn');
         const schemaContent = document.getElementById('schemaContent');
         const executeBtn = document.getElementById('executeBtn');
+        const saveQueryBtn = document.getElementById('saveQueryBtn');
+        const savedQueriesDropdown = document.getElementById('savedQueriesDropdown');
         const clearBtn = document.getElementById('clearBtn');
-        const testResultsBtn = document.getElementById('testResultsBtn');
         const messages = document.getElementById('messages');
         const resultsContainer = document.getElementById('resultsContainer');
         const resultsTable = document.getElementById('resultsTable');
         const resultsTableHead = document.getElementById('resultsTableHead');
         const resultsTableBody = document.getElementById('resultsTableBody');
+        
+        // Result navigation elements
+        const resultNavigation = document.getElementById('resultNavigation');
+        const prevResultBtn = document.getElementById('prevResultBtn');
+        const nextResultBtn = document.getElementById('nextResultBtn');
+        const resultCounter = document.getElementById('resultCounter');
+        const currentResultInfo = document.getElementById('currentResultInfo');
+        
+        // Global variables for result management
+        let allResults = [];
+        let currentResultIndex = 0;
 
         // Event listeners
         loadSchemaBtn.addEventListener('click', loadSchema);
         testApiBtn.addEventListener('click', testApi);
         executeBtn.addEventListener('click', executeQuery);
+        saveQueryBtn.addEventListener('click', saveQuery);
         clearBtn.addEventListener('click', clearEditor);
-        testResultsBtn.addEventListener('click', testResultsDisplay);
-
-        function testResultsDisplay() {
-            console.log('Testing results display...');
-            
-            // Test data
-            const testResults = [
-                { id: 1, name: 'Test Item 1', value: 'Sample Value', status: 'Active' },
-                { id: 2, name: 'Test Item 2', value: null, status: 'Inactive' },
-                { id: 3, name: 'Test Item 3', value: 'Another Value', status: 'Pending' }
-            ];
-            const testColumns = ['id', 'name', 'value', 'status'];
-            
-            console.log('Displaying test results:', testResults);
-            displayResults(testResults, testColumns);
-            showMessage('Test results displayed successfully!', 'success');
-        }
+        prevResultBtn.addEventListener('click', () => navigateResults(-1));
+        nextResultBtn.addEventListener('click', () => navigateResults(1));
+        
+        // Load saved queries on page load
+        loadSavedQueries();
 
         function showMessage(message, type = 'info') {
             const alertClass = type === 'error' ? 'error' : 
@@ -788,8 +881,11 @@
             let html = '';
             
             tables.forEach(tableName => {
-                html += `<div class="table-item" onclick="toggleTable('${tableName}')" ondblclick="insertTableName('${tableName}')">
-                    <strong>📁 ${tableName}</strong>
+                html += `<div class="table-item" onclick="insertTableName('${tableName}')">
+                    <span><strong>📁 ${tableName}</strong></span>
+                    <button class="table-expand-btn" onclick="event.stopPropagation(); toggleTable('${tableName}'); this.innerHTML = document.getElementById('columns-${tableName}').style.display === 'none' ? '<i class=&quot;fas fa-chevron-down&quot;></i>' : '<i class=&quot;fas fa-chevron-up&quot;></i>';">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
                 </div>`;
                 html += `<div id="columns-${tableName}" style="display: none;">`;
                 
@@ -836,8 +932,30 @@
                 return;
             }
 
+            // Split by semicolons and filter out empty commands
+            const commands = query.split(';')
+                .map(cmd => cmd.trim())
+                .filter(cmd => cmd.length > 0);
+
+            if (commands.length === 0) {
+                showMessage('No valid commands found', 'error');
+                return;
+            }
+
             executeBtn.disabled = true;
-            executeBtn.textContent = 'Executing...';
+            
+            if (commands.length === 1) {
+                // Single command execution
+                executeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Executing...';
+                executeSingleCommand(commands[0]);
+            } else {
+                // Multiple command execution
+                executeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Executing Sequence...';
+                executeCommandSequence(commands, 0, []);
+            }
+        }
+
+        function executeSingleCommand(command) {
             messages.innerHTML = '<div class="loading">Executing query...</div>';
 
             fetch('/api/execute', {
@@ -845,7 +963,7 @@
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ query: query })
+                body: JSON.stringify({ query: command })
             })
             .then(response => response.json())
             .then(data => {
@@ -853,30 +971,34 @@
                 if (data.success) {
                     if (data.query_type === 'select') {
                         console.log('Processing SELECT query results...');
-                        displayResults(data.results, data.column_names);
+                        allResults = [{
+                            command: command,
+                            data: data,
+                            success: true,
+                            index: 0
+                        }];
+                        currentResultIndex = 0;
+                        displayCurrentResult();
                         showMessage(`Query executed successfully. ${data.row_count} row(s) returned.`, 'success');
                     } else {
                         console.log('Non-SELECT query executed');
-                        resultsContainer.style.display = 'none';
-                        resultsContainer.classList.remove('visible');
+                        hideResults();
                         showMessage(`Query executed successfully. ${data.affected_rows} row(s) affected.`, 'success');
                     }
                 } else {
                     console.error('Query failed:', data.error);
-                    resultsContainer.style.display = 'none';
-                    resultsContainer.classList.remove('visible');
+                    hideResults();
                     showMessage(`Error: ${data.error}`, 'error');
                 }
             })
             .catch(error => {
                 console.error('Query execution error:', error);
-                resultsContainer.style.display = 'none';
-                resultsContainer.classList.remove('visible');
+                hideResults();
                 showMessage(`Network error: ${error.message}`, 'error');
             })
             .finally(() => {
                 executeBtn.disabled = false;
-                executeBtn.textContent = 'Execute Query';
+                executeBtn.innerHTML = '<i class="fas fa-play me-1"></i>Execute';
             });
         }
 
@@ -884,8 +1006,7 @@
             console.log('displayResults called with:', { results, columnNames });
             
             if (!results || results.length === 0) {
-                resultsContainer.style.display = 'none';
-                resultsContainer.classList.remove('visible');
+                hideResults();
                 showMessage('Query executed successfully but returned no results.', 'success');
                 return;
             }
@@ -947,11 +1068,237 @@
             }, 100);
         }
 
-        function clearEditor() {
-            sqlEditor.setValue('');
+        function hideResults() {
             resultsContainer.style.display = 'none';
             resultsContainer.classList.remove('visible');
+            resultNavigation.style.display = 'none';
+            allResults = [];
+            currentResultIndex = 0;
+        }
+
+        function displayCurrentResult() {
+            if (allResults.length === 0) {
+                hideResults();
+                return;
+            }
+
+            const currentResult = allResults[currentResultIndex];
+            
+            // Show navigation only if there are multiple results
+            if (allResults.length > 1) {
+                resultNavigation.style.display = 'flex';
+                resultCounter.textContent = `${currentResultIndex + 1} / ${allResults.length}`;
+                prevResultBtn.disabled = currentResultIndex === 0;
+                nextResultBtn.disabled = currentResultIndex === allResults.length - 1;
+                
+                // Update current result info
+                currentResultInfo.innerHTML = `
+                    <i class="fas fa-info-circle me-1"></i>
+                    <span>Command ${currentResult.index + 1}: ${currentResult.command.substring(0, 50)}${currentResult.command.length > 50 ? '...' : ''}</span>
+                `;
+            } else {
+                resultNavigation.style.display = 'none';
+                currentResultInfo.innerHTML = `
+                    <i class="fas fa-info-circle me-1"></i>
+                    <span>Single query result</span>
+                `;
+            }
+
+            // Display the current result
+            if (currentResult.success && currentResult.data && currentResult.data.query_type === 'select') {
+                displayResults(currentResult.data.results, currentResult.data.column_names);
+            } else {
+                hideResults();
+            }
+        }
+
+        function navigateResults(direction) {
+            if (allResults.length === 0) return;
+            
+            const newIndex = currentResultIndex + direction;
+            if (newIndex >= 0 && newIndex < allResults.length) {
+                currentResultIndex = newIndex;
+                displayCurrentResult();
+            }
+        }
+
+        function clearEditor() {
+            sqlEditor.setValue('');
+            hideResults();
             messages.innerHTML = '';
+        }
+
+        // Query saving and loading functions
+        function saveQuery() {
+            const query = sqlEditor.getValue().trim();
+            if (!query) {
+                showMessage('Please enter a query to save', 'error');
+                return;
+            }
+
+            const queryName = prompt('Enter a name for this query:');
+            if (!queryName) return;
+
+            const savedQueries = getSavedQueries();
+            const queryId = Date.now().toString();
+            
+            savedQueries[queryId] = {
+                name: queryName,
+                query: query,
+                savedAt: new Date().toISOString()
+            };
+
+            localStorage.setItem('sqlIdeQueries', JSON.stringify(savedQueries));
+            loadSavedQueries();
+            showMessage(`Query "${queryName}" saved successfully`, 'success');
+        }
+
+        function getSavedQueries() {
+            try {
+                return JSON.parse(localStorage.getItem('sqlIdeQueries') || '{}');
+            } catch (e) {
+                return {};
+            }
+        }
+
+        function loadSavedQueries() {
+            const savedQueries = getSavedQueries();
+            const dropdown = savedQueriesDropdown;
+            
+            // Clear existing items except header
+            dropdown.innerHTML = '<li><h6 class="dropdown-header">Saved Queries</h6></li>';
+            
+            const queryIds = Object.keys(savedQueries);
+            if (queryIds.length === 0) {
+                dropdown.innerHTML += '<li><span class="dropdown-item-text text-muted">No saved queries yet</span></li>';
+                return;
+            }
+
+            // Sort by saved date (newest first)
+            queryIds.sort((a, b) => new Date(savedQueries[b].savedAt) - new Date(savedQueries[a].savedAt));
+
+            queryIds.forEach(queryId => {
+                const query = savedQueries[queryId];
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <div class="dropdown-item d-flex justify-content-between align-items-center">
+                        <div class="flex-grow-1">
+                            <a href="#" class="text-decoration-none" onclick="loadQuery('${queryId}'); return false;">
+                                <strong>${query.name}</strong><br>
+                                <small class="text-muted">${new Date(query.savedAt).toLocaleDateString()}</small>
+                            </a>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger ms-2" onclick="deleteQuery('${queryId}'); return false;" title="Delete query">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                dropdown.appendChild(li);
+            });
+        }
+
+        function loadQuery(queryId) {
+            const savedQueries = getSavedQueries();
+            const query = savedQueries[queryId];
+            if (query) {
+                sqlEditor.setValue(query.query);
+                showMessage(`Loaded query: ${query.name}`, 'success');
+            }
+        }
+
+        function deleteQuery(queryId) {
+            const savedQueries = getSavedQueries();
+            const query = savedQueries[queryId];
+            
+            if (confirm(`Are you sure you want to delete the query "${query.name}"?`)) {
+                delete savedQueries[queryId];
+                localStorage.setItem('sqlIdeQueries', JSON.stringify(savedQueries));
+                loadSavedQueries();
+                showMessage(`Query "${query.name}" deleted`, 'success');
+            }
+        }
+
+        async function executeCommandSequence(commands, index, results) {
+            if (index >= commands.length) {
+                // All commands executed
+                executeBtn.disabled = false;
+                executeBtn.innerHTML = '<i class="fas fa-play me-1"></i>Execute';
+                
+                // Filter results to only include successful SELECT queries
+                const selectResults = results.filter(r => r.success && r.data && r.data.query_type === 'select');
+                
+                // Display summary
+                const successCount = results.filter(r => r.success).length;
+                const errorCount = results.length - successCount;
+                
+                let summaryHtml = `<div class="sequence-summary">
+                    <h5><i class="fas fa-list-check me-2"></i>Sequence Execution Complete</h5>
+                    <p><strong>${successCount}/${results.length}</strong> commands executed successfully</p>
+                `;
+
+                if (errorCount > 0) {
+                    summaryHtml += `<div class="alert alert-warning">
+                        <strong>${errorCount} command(s) failed:</strong><br>
+                        ${results.filter(r => !r.success).map((r, i) => 
+                            `Command ${r.index + 1}: ${r.error}`
+                        ).join('<br>')}
+                    </div>`;
+                }
+
+                if (selectResults.length > 0) {
+                    summaryHtml += `<p><strong>${selectResults.length} SELECT query/queries returned results</strong> - use the navigation arrows to browse through them.</p>`;
+                    
+                    // Set up result navigation
+                    allResults = selectResults;
+                    currentResultIndex = 0;
+                    displayCurrentResult();
+                } else {
+                    summaryHtml += `<p>No SELECT queries returned results to display.</p>`;
+                    hideResults();
+                }
+
+                summaryHtml += '</div>';
+                showMessage(summaryHtml, successCount === results.length ? 'success' : 'warning');
+                return;
+            }
+
+            const command = commands[index];
+            messages.innerHTML = `<div class="loading">Executing command ${index + 1}/${commands.length}: ${command.substring(0, 50)}${command.length > 50 ? '...' : ''}</div>`;
+
+            try {
+                const response = await fetch('/api/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: command })
+                });
+
+                const data = await response.json();
+                results.push({
+                    index: index,
+                    command: command,
+                    success: data.success,
+                    data: data.success ? data : null,
+                    error: data.success ? null : data.error
+                });
+
+                // Small delay between commands
+                setTimeout(() => {
+                    executeCommandSequence(commands, index + 1, results);
+                }, 100);
+
+            } catch (error) {
+                results.push({
+                    index: index,
+                    command: command,
+                    success: false,
+                    data: null,
+                    error: error.message
+                });
+
+                setTimeout(() => {
+                    executeCommandSequence(commands, index + 1, results);
+                }, 100);
+            }
         }
 
         // Auto-load schema when page loads
