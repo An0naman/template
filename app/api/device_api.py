@@ -80,25 +80,57 @@ def scan_for_esp32_device(ip):
         if response.status_code == 200:
             data = response.json()
             
-            # Check if this looks like our ESP32 fermentation controller
-            # Updated to match your actual ESP32 structure
-            if ('sensor' in data and 'relay' in data and 'device_id' in data and
-                'temperature' in data.get('sensor', {}) and 'state' in data.get('relay', {})):
+            # Extract device identifiers
+            device_name = data.get('device_name', '')
+            device_id = data.get('device_id', '')
+            
+            # Check if this looks like our ESP32 device based on naming convention
+            # Look for common ESP32/fermentation controller naming patterns
+            name_patterns = [
+                'esp32', 'fermentation', 'controller', 'sensor', 'temp', 'brewery', 'fermenter'
+            ]
+            
+            # Check if device_name or device_id contains any of our patterns
+            device_text = f"{device_name} {device_id}".lower()
+            is_target_device = any(pattern in device_text for pattern in name_patterns)
+            
+            # Also check if it has the basic structure we expect (but don't require sensor to be working)
+            has_basic_structure = (
+                'device_id' in data or 'device_name' in data
+            )
+            
+            if is_target_device and has_basic_structure:
+                # Determine device type based on what fields are present
+                device_type = 'unknown'
+                capabilities = []
                 
-                # Extract device info from your ESP32's actual structure
-                device_name = data.get('device_name', f'ESP32 Controller ({ip})')
-                device_id = data.get('device_id', f'esp32_{ip.replace(".", "_")}')
+                if 'sensor' in data:
+                    capabilities.append('temperature')
+                if 'relay' in data:
+                    capabilities.append('relay_control')
+                    
+                # More specific typing based on naming
+                if any(word in device_text for word in ['fermentation', 'fermenter', 'brewery']):
+                    device_type = 'esp32_fermentation'
+                elif 'esp32' in device_text:
+                    device_type = 'esp32_generic'
+                else:
+                    device_type = 'iot_device'
                 
-                logger.info(f"Found ESP32 device at {ip}: {device_name}")
+                # Use fallback names if not provided
+                final_device_name = device_name or f'Device at {ip}'
+                final_device_id = device_id or f'device_{ip.replace(".", "_")}'
+                
+                logger.info(f"Found {device_type} device at {ip}: {final_device_name} (ID: {final_device_id})")
                 
                 return {
                     'ip': ip,
-                    'device_id': device_id,
-                    'device_name': device_name,
+                    'device_id': final_device_id,
+                    'device_name': final_device_name,
                     'last_seen': datetime.now().isoformat(),
                     'status': 'online',
-                    'device_type': 'esp32_fermentation',
-                    'capabilities': ['temperature', 'relay_control'],
+                    'device_type': device_type,
+                    'capabilities': capabilities,
                     'sample_data': data
                 }
     except requests.exceptions.ConnectTimeout:
@@ -623,26 +655,68 @@ def test_device_connection():
         response.raise_for_status()
         device_data = response.json()
         
-        # Analyze the response to determine device type
+        # Analyze the response to determine device type using naming convention
         device_info = {
             'ip': ip,
             'status': 'online',
             'response_data': device_data
         }
         
-        # Check if it's an ESP32 fermentation controller (updated for your structure)
-        if ('sensor' in device_data and 'relay' in device_data and 'device_id' in device_data and
-            'temperature' in device_data.get('sensor', {}) and 
-            'state' in device_data.get('relay', {})):
+        # Extract device identifiers
+        device_name = device_data.get('device_name', '')
+        device_id = device_data.get('device_id', '')
+        
+        # Check if this looks like our target device based on naming convention
+        name_patterns = [
+            'esp32', 'fermentation', 'controller', 'sensor', 'temp', 'brewery', 'fermenter'
+        ]
+        
+        device_text = f"{device_name} {device_id}".lower()
+        is_target_device = any(pattern in device_text for pattern in name_patterns)
+        
+        if is_target_device or ('sensor' in device_data and 'relay' in device_data and 'device_id' in device_data):
+            # Determine capabilities based on what's present in the data
+            capabilities = []
+            if 'sensor' in device_data:
+                capabilities.append('temperature')
+            if 'relay' in device_data:
+                capabilities.append('relay_control')
+            
+            # Determine device type based on naming
+            device_type = 'unknown'
+            if any(word in device_text for word in ['fermentation', 'fermenter', 'brewery']):
+                device_type = 'esp32_fermentation'
+            elif 'esp32' in device_text:
+                device_type = 'esp32_generic'
+            elif capabilities:  # Has sensor/relay but no clear naming
+                device_type = 'iot_device'
+            
+            # Extract additional info if available
+            temperature = None
+            heating_status = None
+            wifi_signal = None
+            
+            if 'sensor' in device_data:
+                sensor_data = device_data['sensor']
+                temperature = sensor_data.get('temperature')
+                # Mark as error if temperature is invalid
+                if temperature == -999 or not sensor_data.get('valid', True):
+                    temperature = f"{temperature} (SENSOR ERROR)"
+            
+            if 'relay' in device_data:
+                heating_status = device_data['relay'].get('state')
+            
+            if 'network' in device_data:
+                wifi_signal = device_data['network'].get('rssi')
             
             device_info.update({
-                'device_type': 'esp32_fermentation',
-                'device_name': device_data.get('device_name', f'ESP32 Controller ({ip})'),
-                'device_id': device_data.get('device_id', f'esp32_{ip.replace(".", "_")}'),
-                'capabilities': ['temperature', 'relay_control'],
-                'temperature': device_data['sensor'].get('temperature'),
-                'heating_status': device_data['relay'].get('state'),
-                'wifi_signal': device_data.get('network', {}).get('rssi')
+                'device_type': device_type,
+                'device_name': device_name or f'Device at {ip}',
+                'device_id': device_id or f'device_{ip.replace(".", "_")}',
+                'capabilities': capabilities,
+                'temperature': temperature,
+                'heating_status': heating_status,
+                'wifi_signal': wifi_signal
             })
         else:
             device_info.update({

@@ -3,9 +3,10 @@ services:
     build: .
     container_name: template # This will be prefixed by CasaOS with the app name
     restart: always
-    ports:
+    network_mode: host # Allow container to access host network for device discovery
+    # ports: # Commented out because host networking makes port mapping unnecessary
       # This maps the chosen HOST_PORT (e.g., 5001) to the container's internal PORT 5001
-      - "5001:5001" # NOTE: Dev Manager will override the host side of this with your chosen port
+      # - "5001:5001" # NOTE: Dev Manager will override the host side of this with your chosen port
     
     # CRITICAL: Use a named Docker volume for data persistence.
     # This ensures Docker manages permissions and persists data even if host folder is read-only.
