@@ -91,7 +91,7 @@ def manage_sensor_alarms_page():
                            entry_plural_label=params.get('entry_plural_label'),
                            entry_types=[dict(row) for row in entry_types],
                            entries=[dict(row) for row in entries],
-                           sensor_types=params.get('sensor_types', 'Temperature,Humidity,Pressure').split(','))
+                           sensor_types=[t.strip() for t in params.get('sensor_types', '').split(',') if t.strip()])
 
 @maintenance_bp.route('/manage_note_types')
 def manage_note_types_page():

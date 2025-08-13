@@ -129,9 +129,9 @@
             <div class="d-flex align-items-start">
                 <i class="fas fa-info-circle text-success me-3 mt-1"></i>
                 <div>
-                    <strong>About Sensor Data:</strong> When enabled for an entry type, users can record and track sensor measurements 
-                    (temperature, humidity, pressure, etc.) for entries of that type. This is useful for monitoring physical objects, 
-                    locations, or equipment.
+                    <strong>About Sensor Data:</strong> When enabled for an entry type, users can record and track sensor measurements. 
+                    Sensor types are automatically discovered when devices are added to the system. 
+                    This is useful for monitoring physical objects, locations, or equipment.
                 </div>
             </div>
         </div>
@@ -188,7 +188,7 @@
                 const systemParams = await systemParamsResponse.json();
                 
                 // Parse available sensor types
-                const sensorTypesString = systemParams.sensor_types || 'Temperature,Humidity,Pressure';
+                const sensorTypesString = systemParams.sensor_types || '';
                 availableSensorTypes = sensorTypesString.split(',').map(type => type.trim()).filter(type => type !== '');
                 
                 renderEntryTypes();
@@ -262,7 +262,7 @@
                                 <h6><i class="fas fa-list me-1"></i> Available Sensor Types:</h6>
                                 <div class="sensor-types-section">
                                     ${sensorTypesCheckboxes}
-                                    ${availableSensorTypes.length === 0 ? '<p class="text-muted mb-0">No sensor types configured. <a href="' + manageSensorTypesUrl + '">Add some sensor types first</a>.</p>' : ''}
+                                    ${availableSensorTypes.length === 0 ? '<p class="text-muted mb-0"><i class="fas fa-robot me-1"></i> No sensor types discovered yet. <a href="' + manageSensorTypesUrl + '">Add devices or manually create sensor types</a>.</p>' : ''}
                                 </div>
                                 <small class="text-muted">Select which sensor types will be available when adding sensor data to entries of this type.</small>
                             </div>

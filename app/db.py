@@ -333,7 +333,7 @@ def init_db():
             'project_name': 'My Awesome Project',
             'entry_singular_label': 'Entry',
             'entry_plural_label': 'Entries',
-            'sensor_types': 'Temperature,Humidity,Pressure,pH,Light,Motion,Sound,Vibration,Distance,Weight,Voltage,Current',
+            'sensor_types': '',  # Start with empty sensor types - let devices register them dynamically
             'project_logo_path': '',
             
             # Label printing settings
@@ -380,7 +380,7 @@ def get_system_parameters():
                 'project_name': 'My Awesome Project',
                 'entry_singular_label': 'Entry',
                 'entry_plural_label': 'Entries',
-                'sensor_types': 'Temperature,Humidity,Pressure,pH,Light,Motion,Sound,Vibration,Distance,Weight,Voltage,Current',
+                'sensor_types': '',  # Start with empty sensor types - let devices register them dynamically
                 'allowed_file_types': 'txt,pdf,png,jpg,jpeg,gif,webp,svg,doc,docx,xls,xlsx,ppt,pptx,mp4,avi,mov,wmv,flv,webm,mkv,mp3,wav,flac,aac,ogg,zip,rar,7z,tar,gz',
                 'max_file_size': '50',
                 'custom_note_types': '[]'

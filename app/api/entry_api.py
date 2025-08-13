@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify, g, url_for, current_app
 import sqlite3
 from datetime import datetime
 import logging
+from ..utils.sensor_type_manager import auto_register_sensor_types
 
 # Define a Blueprint for Entry API
 entry_api_bp = Blueprint('entry_api', __name__)
@@ -211,6 +212,12 @@ def add_sensor_data_to_entry(entry_id):
 
         if not sensor_type or not value:
             return jsonify({'error': 'Sensor type and value are required.'}), 400
+
+        # Auto-register the sensor type if it doesn't exist
+        sensor_data_points = [{'sensor_type': sensor_type}]
+        new_types = auto_register_sensor_types(sensor_data_points, f"manual entry for entry {entry_id}")
+        if new_types:
+            logger.info(f"Auto-registered sensor type '{sensor_type}' from manual entry")
 
         conn = get_db()
         cursor = conn.cursor()

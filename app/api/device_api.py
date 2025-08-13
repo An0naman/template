@@ -10,6 +10,7 @@ import logging
 from datetime import datetime, timedelta
 import json
 from ..db import get_connection
+from ..utils.sensor_type_manager import auto_register_sensor_types, get_sensor_types_from_device_data
 
 # Define a Blueprint for Device API
 device_api_bp = Blueprint('device_api', __name__)
@@ -294,6 +295,9 @@ def register_device():
         if cursor.fetchone():
             return jsonify({'error': 'Device with this ID already registered'}), 409
         
+        # We no longer auto-create sensor types during device registration
+        # Users will configure data points manually, which will create the appropriate sensor types
+        
         # Insert new device (without linked_entry_id)
         cursor.execute('''
             INSERT INTO RegisteredDevices 
@@ -420,6 +424,64 @@ def delete_device(device_id):
         conn.rollback()
         return jsonify({'error': 'Failed to delete device'}), 500
 
+def extract_sensor_data_using_mappings(device_id, device_data, cursor):
+    """
+    Extract sensor data based on configured device sensor mappings
+    
+    Args:
+        device_id: ID of the device
+        device_data: Raw JSON data from device
+        cursor: Database cursor
+        
+    Returns:
+        List of sensor data points with mapped sensor types
+    """
+    # Get configured sensor mappings for this device
+    cursor.execute('''
+        SELECT sensor_name, entry_field, data_type, unit, enabled
+        FROM DeviceSensorMapping 
+        WHERE device_id = ? AND enabled = 1
+    ''', (device_id,))
+    
+    mappings = cursor.fetchall()
+    sensor_data_points = []
+    timestamp = datetime.now().isoformat()
+    
+    def get_nested_value(data, path):
+        """Get value from nested dictionary using dot notation path"""
+        keys = path.split('.')
+        current = data
+        for key in keys:
+            if isinstance(current, dict) and key in current:
+                current = current[key]
+            else:
+                return None
+        return current
+    
+    # Process each configured mapping
+    for mapping in mappings:
+        sensor_name = mapping['sensor_name']  # e.g., "sensor.temperature"
+        entry_field = mapping['entry_field']   # e.g., "Temperature" 
+        unit = mapping['unit'] or ''
+        
+        # Extract the value from device data
+        value = get_nested_value(device_data, sensor_name)
+        
+        if value is not None:
+            # Format the value with unit if specified
+            if unit and isinstance(value, (int, float)):
+                formatted_value = f"{value}{unit}"
+            else:
+                formatted_value = str(value)
+            
+            sensor_data_points.append({
+                'sensor_type': entry_field,  # Use the configured sensor type name
+                'value': formatted_value,
+                'recorded_at': timestamp
+            })
+    
+    return sensor_data_points
+
 @device_api_bp.route('/devices/<int:device_id>/poll', methods=['POST'])
 def poll_device_data(device_id):
     """Manually poll data from a specific device"""
@@ -454,38 +516,13 @@ def poll_device_data(device_id):
             response.raise_for_status()
             device_data = response.json()
             
-            # Extract sensor data (updated for your ESP32 structure)
-            sensor_data_points = []
-            timestamp = datetime.now().isoformat()
+            # Extract sensor data using configured mappings
+            sensor_data_points = extract_sensor_data_using_mappings(device_id, device_data, cursor)
             
-            # Temperature data
-            if 'sensor' in device_data and device_data['sensor'].get('valid'):
-                temp_value = device_data['sensor']['temperature']
-                sensor_data_points.append({
-                    'sensor_type': 'Temperature',
-                    'value': f"{temp_value}°C",
-                    'recorded_at': timestamp
-                })
+            if not sensor_data_points:
+                return jsonify({'warning': 'No sensor mappings configured for this device. Please configure data points first.'}), 200
             
-            # Relay state (heating status)
-            if 'relay' in device_data:
-                relay_state = device_data['relay']['state']
-                sensor_data_points.append({
-                    'sensor_type': 'Heating Status',
-                    'value': relay_state,
-                    'recorded_at': timestamp
-                })
-            
-            # WiFi signal strength (updated for your structure)
-            if 'network' in device_data and 'rssi' in device_data['network']:
-                wifi_rssi = device_data['network']['rssi']
-                sensor_data_points.append({
-                    'sensor_type': 'WiFi Signal',
-                    'value': f"{wifi_rssi} dBm",
-                    'recorded_at': timestamp
-                })
-            
-            # Store sensor data to all linked entries
+            # Store sensor data to all linked entries and trigger notification checks
             stored_count = 0
             for entry_id in linked_entry_ids:
                 for sensor_point in sensor_data_points:
@@ -499,8 +536,18 @@ def poll_device_data(device_id):
                         sensor_point['recorded_at']
                     ))
                     stored_count += 1
+                    
+                    # Check sensor notification rules for each data point
+                    try:
+                        from ..api.notifications_api import check_sensor_rules
+                        check_sensor_rules(entry_id, sensor_point['sensor_type'], 
+                                         sensor_point['value'], sensor_point['recorded_at'])
+                    except Exception as e:
+                        logger.warning(f"Error checking sensor rules for entry {entry_id}: {e}")
+                        # Don't fail the data collection if notification checking fails
             
             # Update device last_seen
+            timestamp = datetime.now().isoformat()
             cursor.execute('''
                 UPDATE RegisteredDevices 
                 SET last_seen = ?, status = 'online', last_poll_success = ?
@@ -566,27 +613,14 @@ def poll_all_devices():
                 response.raise_for_status()
                 device_data = response.json()
                 
-                # Store sensor data (same logic as above, updated for your structure)
-                sensor_data_points = []
-                timestamp = datetime.now().isoformat()
+                # Extract sensor data using configured mappings
+                sensor_data_points = extract_sensor_data_using_mappings(device['id'], device_data, cursor)
                 
-                if 'sensor' in device_data and device_data['sensor'].get('valid'):
-                    temp_value = device_data['sensor']['temperature']
-                    sensor_data_points.append({
-                        'sensor_type': 'Temperature',
-                        'value': f"{temp_value}°C",
-                        'recorded_at': timestamp
-                    })
+                if not sensor_data_points:
+                    # No configured mappings - skip this device
+                    continue
                 
-                if 'relay' in device_data:
-                    relay_state = device_data['relay']['state']
-                    sensor_data_points.append({
-                        'sensor_type': 'Heating Status',
-                        'value': relay_state,
-                        'recorded_at': timestamp
-                    })
-                
-                # Store sensor data to all linked entries
+                # Store sensor data to all linked entries and trigger notification checks
                 stored_count = 0
                 for entry_id in linked_entry_ids:
                     for sensor_point in sensor_data_points:
@@ -600,7 +634,17 @@ def poll_all_devices():
                             sensor_point['recorded_at']
                         ))
                         stored_count += 1
+                        
+                        # Check sensor notification rules for each data point
+                        try:
+                            from ..api.notifications_api import check_sensor_rules
+                            check_sensor_rules(entry_id, sensor_point['sensor_type'], 
+                                             sensor_point['value'], sensor_point['recorded_at'])
+                        except Exception as e:
+                            logger.warning(f"Error checking sensor rules for entry {entry_id}: {e}")
+                            # Don't fail the data collection if notification checking fails
                 
+                timestamp = datetime.now().isoformat()
                 cursor.execute('''
                     UPDATE RegisteredDevices 
                     SET last_seen = ?, status = 'online', last_poll_success = ?
@@ -913,6 +957,23 @@ def save_sensor_mappings(device_id):
         if not device:
             return jsonify({'error': 'Device not found'}), 404
         
+        # Auto-register sensor types for enabled mappings
+        # This is where sensor types should be created - when users configure data points
+        enabled_sensor_types = []
+        for mapping in mappings:
+            if mapping.get('enabled', True) and mapping.get('entry_field'):
+                enabled_sensor_types.append({
+                    'sensor_type': mapping.get('entry_field')
+                })
+        
+        new_sensor_types = []
+        if enabled_sensor_types:
+            from ..utils.sensor_type_manager import auto_register_sensor_types
+            new_sensor_types = auto_register_sensor_types(
+                enabled_sensor_types, 
+                device['device_name'] if device['device_name'] else f'Device {device_id}'
+            )
+        
         # Delete existing mappings
         cursor.execute('DELETE FROM DeviceSensorMapping WHERE device_id = ?', (device_id,))
         
@@ -935,10 +996,17 @@ def save_sensor_mappings(device_id):
         
         logger.info(f"Saved {len(mappings)} sensor mappings for device {device_id}")
         
-        return jsonify({
+        response_data = {
             'message': f'Saved {len(mappings)} sensor mappings',
             'mappings_count': len(mappings)
-        })
+        }
+        
+        if new_sensor_types:
+            response_data['new_sensor_types'] = new_sensor_types
+            response_data['message'] += f' and created {len(new_sensor_types)} new sensor types'
+            logger.info(f"Auto-created sensor types during data point configuration: {new_sensor_types}")
+        
+        return jsonify(response_data)
         
     except Exception as e:
         logger.error(f"Error saving sensor mappings: {e}", exc_info=True)
@@ -977,12 +1045,16 @@ def debug_device_data(device_id):
         # Analyze data structure
         data_paths = _analyze_data_structure(raw_data)
         
+        # Get discovered sensor types
+        discovered_sensor_types = get_sensor_types_from_device_data(raw_data)
+        
         return jsonify({
             'device_name': device['device_name'],
             'device_type': device['device_type'],
             'endpoint': device_url,
             'raw_data': raw_data,
-            'data_structure': data_paths
+            'data_structure': data_paths,
+            'discovered_sensor_types': discovered_sensor_types
         })
         
     except Exception as e:

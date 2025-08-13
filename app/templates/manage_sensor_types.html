@@ -118,8 +118,9 @@
             <div class="d-flex align-items-start">
                 <i class="fas fa-info-circle text-success me-3 mt-1"></i>
                 <div>
-                    <strong>About Sensor Types:</strong> These are the standardized sensor types that can be selected when adding 
-                    sensor data to entries. Having a predefined list ensures consistency and makes data analysis easier.
+                    <strong>About Sensor Types:</strong> Sensor types are automatically discovered and registered when devices are added to the system. 
+                    You can also manually add sensor types here if you want to create sensor alarms before connecting devices, 
+                    or for sensors you'll record manually without a device.
                 </div>
             </div>
         </div>
@@ -194,7 +195,7 @@
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const params = await response.json();
-                const sensorTypesString = params.sensor_types || 'Temperature,Humidity,Pressure';
+                const sensorTypesString = params.sensor_types || '';
                 sensorTypes = sensorTypesString.split(',').map(type => type.trim()).filter(type => type !== '');
                 renderSensorTypes();
             } catch (error) {
@@ -208,7 +209,10 @@
             if (sensorTypes.length === 0) {
                 sensorTypesContainer.innerHTML = `
                     <div class="text-center text-muted">
-                        <p>No sensor types configured yet. Add some sensor types below.</p>
+                        <i class="fas fa-robot fa-2x mb-2 d-block text-muted opacity-50"></i>
+                        <p><strong>No sensor types yet!</strong></p>
+                        <p class="mb-2">Sensor types will be automatically discovered when you add devices to the system.</p>
+                        <p class="small">You can also manually add sensor types below if needed.</p>
                     </div>
                 `;
                 return;

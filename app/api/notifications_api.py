@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify, g, current_app
 import sqlite3
 from datetime import datetime, timedelta
 import logging
+from ..utils.sensor_type_manager import ensure_sensor_type_exists
 
 # Define a Blueprint for Notifications API
 notifications_api_bp = Blueprint('notifications_api', __name__)
@@ -254,6 +255,10 @@ def create_notification_rule():
     if priority not in ['low', 'medium', 'high', 'critical']:
         return jsonify({'error': 'Invalid priority level.'}), 400
     
+    # Ensure the sensor type exists in the system
+    if not ensure_sensor_type_exists(sensor_type):
+        logger.warning(f"Failed to ensure sensor type '{sensor_type}' exists, but continuing with rule creation")
+    
     conn = get_db()
     cursor = conn.cursor()
     
@@ -401,7 +406,14 @@ def check_sensor_rules(entry_id, sensor_type, value, recorded_at):
             
             # Check if condition is met
             try:
-                sensor_value = float(value)
+                # Extract numeric value from potentially formatted string (e.g., "232724 bytes" -> 232724)
+                # This handles sensor values that include units from device data formatting
+                import re
+                numeric_match = re.match(r'^(-?\d+(?:\.\d+)?)', str(value).strip())
+                if numeric_match:
+                    sensor_value = float(numeric_match.group(1))
+                else:
+                    sensor_value = float(value)
                 threshold = rule['threshold_value']
                 
                 condition_met = False

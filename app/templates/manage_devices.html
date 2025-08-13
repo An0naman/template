@@ -1080,7 +1080,8 @@
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle me-2"></i>
                     <strong>Configure Data Points:</strong> Choose which sensor data from your device should be tracked. 
-                    You can customize the field names and units as they appear in your entries.
+                    When you enable data points here, sensor types will be automatically created to match the field names you choose.
+                    This ensures sensor types align perfectly with your device's actual data structure.
                 </div>
                 
                 <div class="row mb-3">
@@ -1242,7 +1243,15 @@
 
                 const result = await response.json();
                 sensorMappingModal.hide();
-                showAlert(result.message, 'success');
+                
+                // Show enhanced feedback if sensor types were created
+                let message = result.message;
+                if (result.new_sensor_types && result.new_sensor_types.length > 0) {
+                    message += `\n\nNew sensor types created: ${result.new_sensor_types.join(', ')}`;
+                    message += '\n\nYou can now use these sensor types when creating alarms or viewing sensor data.';
+                }
+                
+                showAlert(message, 'success');
                 
             } catch (error) {
                 console.error('Error saving sensor mappings:', error);
@@ -1277,7 +1286,10 @@
                     <h6><i class="fas fa-bug me-2"></i>Device Data Debug - ${device.device_name}</h6>
                     <div class="mt-3">
                         <strong>Endpoint:</strong> ${result.endpoint}<br>
-                        <strong>Device Type:</strong> ${result.device_type}
+                        <strong>Device Type:</strong> ${result.device_type}<br>
+                        <strong>Discovered Sensor Types:</strong> ${result.discovered_sensor_types && result.discovered_sensor_types.length > 0 
+                            ? '<span class="badge bg-success me-1">' + result.discovered_sensor_types.join('</span> <span class="badge bg-success me-1">') + '</span>'
+                            : '<span class="text-muted">None discovered</span>'}
                     </div>
                     <div class="mt-3">
                         <h6>Available Data Paths:</h6>
