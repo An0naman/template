@@ -111,6 +111,34 @@
             font-size: 1.1em;
         }
 
+        /* Enhanced Reminder Styles */
+        .reminder-status-card {
+            background: var(--theme-bg-surface, var(--bs-secondary-bg));
+            border: 1px solid var(--theme-border, var(--bs-border-color)) !important;
+            transition: var(--transition-base);
+        }
+
+        .reminder-status-card:hover {
+            box-shadow: var(--shadow-sm);
+            transform: translateY(-1px);
+        }
+
+        .reminder-details {
+            font-size: 0.95rem;
+        }
+
+        #reminderProgressSummary {
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            background: var(--theme-bg-surface, var(--bs-info-bg-subtle));
+            color: var(--theme-text, var(--bs-info-color));
+            border-left: 4px solid var(--theme-info, var(--bs-info));
+        }
+
+        #reminderProgressSummary .alert-heading {
+            color: var(--theme-text, var(--bs-info-color));
+            margin-bottom: 0.5rem;
+        }
+
         .section-content {
             padding: var(--content-spacing);
         }
@@ -1938,6 +1966,25 @@
                             </button>
                         </div>
 
+                        <!-- Reminder Progress Summary -->
+                        <div id="reminderProgressSummary" class="alert alert-info mb-3" style="display: none;">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="flex-grow-1">
+                                    <h6 class="alert-heading mb-1">
+                                        <i class="fas fa-bell me-2"></i>Reminder Progress
+                                    </h6>
+                                    <div id="reminderProgressContent">
+                                        <!-- Dynamic content will be inserted here -->
+                                    </div>
+                                </div>
+                                <div class="ms-3">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" id="viewAllRemindersBtn">
+                                        <i class="fas fa-list me-1"></i>View All
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="collapse mb-3" id="newNoteForm">
                             <div class="content-subsection">
                                 <div class="mb-3">
@@ -2012,13 +2059,33 @@
                     <p><strong>Type:</strong> <span id="modalNoteType"></span></p>
                     <p><strong>Created On:</strong> <span id="modalNoteCreated"></span></p>
                     
-                    <!-- Reminder Section -->
+                    <!-- Enhanced Reminder Section -->
                     <div id="modalNoteReminder" style="display: none;">
-                        <div id="reminderDisplayMode">
-                            <p><strong>Reminder:</strong> 
-                                <span id="modalReminderDate" class="text-info"></span>
-                                <span id="modalReminderStatus" class="badge ms-2"></span>
-                                <button type="button" class="btn btn-sm btn-primary ms-2" id="editReminderBtn">
+                        <div class="reminder-status-card mb-3 p-3 border rounded">
+                            <div id="reminderDisplayMode">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-bell me-2"></i>Reminder Status
+                                    </h6>
+                                    <span id="modalReminderStatus" class="badge"></span>
+                                </div>
+                                <div class="reminder-details">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <small class="text-muted">Scheduled for:</small>
+                                            <div id="modalReminderDate" class="fw-bold"></div>
+                                        </div>
+                                        <div class="col-md-6 text-end">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" id="editReminderBtn">
+                                                <i class="fas fa-edit me-1"></i>Edit
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="reminderProgress" class="mt-2">
+                                        <!-- Dynamic progress info will be inserted here -->
+                                    </div>
+                                </div>
+                            </div>
                                     <i class="fas fa-edit me-1"></i>Edit
                                 </button>
                             </p>
@@ -2850,6 +2917,7 @@
                 });
 
                 displayNotes(notes);
+                updateReminderProgressSummary(notes);
             } catch (error) {
                 console.error('Error fetching notes:', error);
                 noNotesMessage.textContent = 'Failed to load notes.';
@@ -2965,32 +3033,45 @@
                             const reminderDate = new Date(note.reminder.scheduled_for);
                             modalReminderDate.textContent = reminderDate.toLocaleString();
                             
-                            // Set status badge
+                            // Set status badge and progress information
                             const now = new Date();
                             const isPast = reminderDate <= now;
                             const isRead = note.reminder.is_read;
                             const isDismissed = note.reminder.is_dismissed;
+                            const reminderProgress = document.getElementById('reminderProgress');
+                            
+                            let progressHtml = '';
                             
                             if (isDismissed) {
-                                modalReminderStatus.className = 'badge ms-2';
-                                modalReminderStatus.style.backgroundColor = 'var(--theme-secondary, #6c757d)';
-                                modalReminderStatus.style.color = 'white';
+                                modalReminderStatus.className = 'badge bg-secondary';
                                 modalReminderStatus.textContent = 'Dismissed';
+                                progressHtml = '<small class="text-muted"><i class="fas fa-ban me-1"></i>This reminder has been dismissed</small>';
                             } else if (isPast && !isRead) {
-                                modalReminderStatus.className = 'badge ms-2';
-                                modalReminderStatus.style.backgroundColor = 'var(--theme-danger, #dc3545)';
-                                modalReminderStatus.style.color = 'white';
+                                modalReminderStatus.className = 'badge bg-danger';
                                 modalReminderStatus.textContent = 'Overdue';
+                                const overdueDays = Math.floor((now - reminderDate) / (1000 * 60 * 60 * 24));
+                                const overdueHours = Math.floor((now - reminderDate) / (1000 * 60 * 60));
+                                
+                                if (overdueDays > 0) {
+                                    progressHtml = `<small class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i>Overdue by ${overdueDays} day${overdueDays !== 1 ? 's' : ''}</small>`;
+                                } else if (overdueHours > 0) {
+                                    progressHtml = `<small class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i>Overdue by ${overdueHours} hour${overdueHours !== 1 ? 's' : ''}</small>`;
+                                } else {
+                                    progressHtml = '<small class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i>Overdue (less than 1 hour)</small>';
+                                }
                             } else if (isPast && isRead) {
-                                modalReminderStatus.className = 'badge ms-2';
-                                modalReminderStatus.style.backgroundColor = 'var(--theme-success, #198754)';
-                                modalReminderStatus.style.color = 'white';
+                                modalReminderStatus.className = 'badge bg-success';
                                 modalReminderStatus.textContent = 'Completed';
+                                progressHtml = '<small class="text-success"><i class="fas fa-check-circle me-1"></i>Reminder has been completed</small>';
                             } else {
-                                modalReminderStatus.className = 'badge ms-2';
-                                modalReminderStatus.style.backgroundColor = 'var(--theme-warning, #ffc107)';
-                                modalReminderStatus.style.color = 'var(--theme-text-dark, #000)';
+                                modalReminderStatus.className = 'badge bg-warning text-dark';
                                 modalReminderStatus.textContent = 'Scheduled';
+                                const timeUntil = getRelativeTimeString(reminderDate, now);
+                                progressHtml = `<small class="text-info"><i class="fas fa-clock me-1"></i>Scheduled for ${timeUntil}</small>`;
+                            }
+                            
+                            if (reminderProgress) {
+                                reminderProgress.innerHTML = progressHtml;
                             }
                         } else {
                             modalNoteReminder.style.display = 'none';
@@ -3005,6 +3086,131 @@
                     }
                 });
             });
+        }
+
+        // Function to update reminder progress summary
+        function updateReminderProgressSummary(notes) {
+            const reminderProgressSummary = document.getElementById('reminderProgressSummary');
+            const reminderProgressContent = document.getElementById('reminderProgressContent');
+            const viewAllRemindersBtn = document.getElementById('viewAllRemindersBtn');
+            
+            if (!reminderProgressSummary || !reminderProgressContent) return;
+            
+            // Filter notes with reminders
+            const notesWithReminders = notes.filter(note => note.reminder);
+            
+            if (notesWithReminders.length === 0) {
+                reminderProgressSummary.style.display = 'none';
+                return;
+            }
+            
+            const now = new Date();
+            let overdue = 0;
+            let upcoming = 0;
+            let completed = 0;
+            let dismissed = 0;
+            
+            // Categorize reminders
+            notesWithReminders.forEach(note => {
+                const reminderDate = new Date(note.reminder.scheduled_for);
+                const isPast = reminderDate <= now;
+                const isRead = note.reminder.is_read;
+                const isDismissed = note.reminder.is_dismissed;
+                
+                if (isDismissed) {
+                    dismissed++;
+                } else if (isPast && !isRead) {
+                    overdue++;
+                } else if (isPast && isRead) {
+                    completed++;
+                } else {
+                    upcoming++;
+                }
+            });
+            
+            // Create summary content
+            let summaryHtml = '';
+            const summaryItems = [];
+            
+            if (overdue > 0) {
+                summaryItems.push(`<span class="badge bg-danger me-2">${overdue} Overdue</span>`);
+            }
+            if (upcoming > 0) {
+                summaryItems.push(`<span class="badge bg-warning text-dark me-2">${upcoming} Upcoming</span>`);
+            }
+            if (completed > 0) {
+                summaryItems.push(`<span class="badge bg-success me-2">${completed} Completed</span>`);
+            }
+            if (dismissed > 0) {
+                summaryItems.push(`<span class="badge bg-secondary me-2">${dismissed} Dismissed</span>`);
+            }
+            
+            if (summaryItems.length > 0) {
+                summaryHtml = `<div class="d-flex flex-wrap align-items-center gap-1">${summaryItems.join('')}</div>`;
+                
+                // Add the next upcoming reminder info
+                const nextUpcoming = notesWithReminders
+                    .filter(note => {
+                        const reminderDate = new Date(note.reminder.scheduled_for);
+                        return reminderDate > now && !note.reminder.is_dismissed;
+                    })
+                    .sort((a, b) => new Date(a.reminder.scheduled_for) - new Date(b.reminder.scheduled_for))[0];
+                
+                if (nextUpcoming) {
+                    const nextDate = new Date(nextUpcoming.reminder.scheduled_for);
+                    const timeUntil = getRelativeTimeString(nextDate, now);
+                    summaryHtml += `<small class="text-muted mt-1 d-block">
+                        <i class="fas fa-clock me-1"></i>Next: "${nextUpcoming.note_title || 'Untitled'}" ${timeUntil}
+                    </small>`;
+                }
+            }
+            
+            reminderProgressContent.innerHTML = summaryHtml;
+            reminderProgressSummary.style.display = 'block';
+            
+            // Set up the view all button click handler
+            viewAllRemindersBtn.onclick = () => {
+                // Scroll to notes section and highlight reminder items
+                const notesList = document.getElementById('notesList');
+                if (notesList) {
+                    notesList.scrollIntoView({ behavior: 'smooth' });
+                    
+                    // Temporarily highlight notes with reminders
+                    setTimeout(() => {
+                        notesList.querySelectorAll('.list-group-item').forEach(item => {
+                            const reminderIcon = item.querySelector('.fa-bell, .fa-bell-slash');
+                            if (reminderIcon) {
+                                item.style.backgroundColor = 'var(--theme-primary, #007bff)';
+                                item.style.backgroundColor = 'rgba(0, 123, 255, 0.1)';
+                                item.style.borderColor = 'var(--theme-primary, #007bff)';
+                                
+                                setTimeout(() => {
+                                    item.style.backgroundColor = '';
+                                    item.style.borderColor = '';
+                                }, 2000);
+                            }
+                        });
+                    }, 500);
+                }
+            };
+        }
+        
+        // Helper function to get relative time string
+        function getRelativeTimeString(targetDate, currentDate) {
+            const diffMs = targetDate - currentDate;
+            const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+            const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+            const diffMinutes = Math.ceil(diffMs / (1000 * 60));
+            
+            if (diffDays > 1) {
+                return `in ${diffDays} days`;
+            } else if (diffHours > 1) {
+                return `in ${diffHours} hours`;
+            } else if (diffMinutes > 1) {
+                return `in ${diffMinutes} minutes`;
+            } else {
+                return 'very soon';
+            }
         }
 
         // Function to display note files in the modal
