@@ -195,6 +195,14 @@ class DevicePollingScheduler:
                             VALUES (?, ?, ?, ?)
                         ''', (entry_id, sensor_type, value, timestamp))
                         stored_count += 1
+                        
+                        # Check sensor notification rules for each data point
+                        try:
+                            from .api.notifications_api import check_sensor_rules_with_connection
+                            check_sensor_rules_with_connection(cursor, entry_id, sensor_type, value, timestamp)
+                        except Exception as e:
+                            logger.warning(f"Error checking sensor rules for entry {entry_id}: {e}")
+                            # Don't fail the data collection if notification checking fails
             
             return stored_count
             
@@ -216,32 +224,48 @@ class DevicePollingScheduler:
                     'temperature' in device_data['sensor']):
                     
                     temp_value = device_data['sensor']['temperature']
+                    temp_formatted = f"{temp_value}°C"
                     cursor.execute('''
                         INSERT INTO SensorData (entry_id, sensor_type, value, recorded_at)
                         VALUES (?, ?, ?, ?)
                     ''', (
                         entry_id,
                         'Temperature',
-                        f"{temp_value}°C",
+                        temp_formatted,
                         timestamp
                     ))
                     stored_count += 1
+                    
+                    # Check sensor notification rules
+                    try:
+                        from .api.notifications_api import check_sensor_rules_with_connection
+                        check_sensor_rules_with_connection(cursor, entry_id, 'Temperature', temp_formatted, timestamp)
+                    except Exception as e:
+                        logger.warning(f"Error checking sensor rules for Temperature: {e}")
                 
                 # Target temperature (if different from current)
                 if ('sensor' in device_data and 
                     'target' in device_data['sensor']):
                     
                     target_temp = device_data['sensor']['target']
+                    target_formatted = f"{target_temp}°C"
                     cursor.execute('''
                         INSERT INTO SensorData (entry_id, sensor_type, value, recorded_at)
                         VALUES (?, ?, ?, ?)
                     ''', (
                         entry_id,
                         'Target Temperature',
-                        f"{target_temp}°C",
+                        target_formatted,
                         timestamp
                     ))
                     stored_count += 1
+                    
+                    # Check sensor notification rules
+                    try:
+                        from .api.notifications_api import check_sensor_rules_with_connection
+                        check_sensor_rules_with_connection(cursor, entry_id, 'Target Temperature', target_formatted, timestamp)
+                    except Exception as e:
+                        logger.warning(f"Error checking sensor rules for Target Temperature: {e}")
                 
                 # Relay/Heating status
                 if 'relay' in device_data and 'state' in device_data['relay']:
@@ -256,6 +280,13 @@ class DevicePollingScheduler:
                         timestamp
                     ))
                     stored_count += 1
+                    
+                    # Check sensor notification rules
+                    try:
+                        from .api.notifications_api import check_sensor_rules_with_connection
+                        check_sensor_rules_with_connection(cursor, entry_id, 'Heating Status', relay_state, timestamp)
+                    except Exception as e:
+                        logger.warning(f"Error checking sensor rules for Heating Status: {e}")
                 
                 # System information (less frequent - only store every 10th poll)
                 if 'system' in device_data:
@@ -264,42 +295,66 @@ class DevicePollingScheduler:
                     # WiFi signal strength
                     if 'wifi_rssi' in system_data:
                         wifi_rssi = system_data['wifi_rssi']
+                        wifi_formatted = f"{wifi_rssi} dBm"
                         cursor.execute('''
                             INSERT INTO SensorData (entry_id, sensor_type, value, recorded_at)
                             VALUES (?, ?, ?, ?)
                         ''', (
                             entry_id,
                             'WiFi Signal',
-                            f"{wifi_rssi} dBm",
+                            wifi_formatted,
                             timestamp
                         ))
                         stored_count += 1
                         
+                        # Check sensor notification rules
+                        try:
+                            from .api.notifications_api import check_sensor_rules_with_connection
+                            check_sensor_rules_with_connection(cursor, entry_id, 'WiFi Signal', wifi_formatted, timestamp)
+                        except Exception as e:
+                            logger.warning(f"Error checking sensor rules for WiFi Signal: {e}")
+                        
                         # Free heap (memory)
                         if 'free_heap' in system_data:
                             free_heap = system_data['free_heap']
+                            heap_formatted = f"{free_heap} bytes"
                             cursor.execute('''
                                 INSERT INTO SensorData (entry_id, sensor_type, value, recorded_at)
                                 VALUES (?, ?, ?, ?)
                             ''', (
                                 entry_id,
                                 'Free Memory',
-                                f"{free_heap} bytes",
+                                heap_formatted,
                                 timestamp
                             ))
                             stored_count += 1
+                            
+                            # Check sensor notification rules
+                            try:
+                                from .api.notifications_api import check_sensor_rules_with_connection
+                                check_sensor_rules_with_connection(cursor, entry_id, 'Free Memory', heap_formatted, timestamp)
+                            except Exception as e:
+                                logger.warning(f"Error checking sensor rules for Free Memory: {e}")
                     
                     # Store device status
+                    device_status = device_data.get('device_status', 'unknown')
                     cursor.execute('''
                         INSERT INTO SensorData (entry_id, sensor_type, value, recorded_at)
                         VALUES (?, ?, ?, ?)
                     ''', (
                         entry_id,
                         'Device Status',
-                        device_data.get('device_status', 'unknown'),
+                        device_status,
                         timestamp
                     ))
                     stored_count += 1
+                    
+                    # Check sensor notification rules
+                    try:
+                        from .api.notifications_api import check_sensor_rules_with_connection
+                        check_sensor_rules_with_connection(cursor, entry_id, 'Device Status', device_status, timestamp)
+                    except Exception as e:
+                        logger.warning(f"Error checking sensor rules for Device Status: {e}")
             
             logger.info(f"Stored {stored_count} sensor readings for device {device['device_name']} across {len(entry_ids)} entries")
             return stored_count

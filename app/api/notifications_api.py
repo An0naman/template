@@ -446,6 +446,81 @@ def check_sensor_rules(entry_id, sensor_type, value, recorded_at):
     except Exception as e:
         logger.error(f"Error checking sensor rules: {e}", exc_info=True)
 
+def check_sensor_rules_with_connection(cursor, entry_id, sensor_type, value, recorded_at):
+    """Check if sensor data triggers any notification rules - version that accepts external cursor"""
+    try:
+        # Get applicable rules for this sensor data
+        cursor.execute('''
+            SELECT * FROM NotificationRule 
+            WHERE is_active = 1 
+            AND sensor_type = ?
+            AND (entry_id = ? OR entry_id IS NULL)
+            AND (entry_type_id IS NULL OR entry_type_id IN (
+                SELECT entry_type_id FROM Entry WHERE id = ?
+            ))
+        ''', (sensor_type, entry_id, entry_id))
+        
+        rules = cursor.fetchall()
+        
+        for rule in rules:
+            # Check if cooldown period has passed
+            cursor.execute('''
+                SELECT created_at FROM Notification 
+                WHERE notification_type = 'sensor_based'
+                AND entry_id = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+            ''', (entry_id,))
+            
+            last_notification = cursor.fetchone()
+            if last_notification:
+                last_time = datetime.fromisoformat(last_notification['created_at'])
+                cooldown_end = last_time + timedelta(minutes=rule['cooldown_minutes'])
+                if datetime.now() < cooldown_end:
+                    continue  # Still in cooldown period
+            
+            # Check if condition is met
+            try:
+                # Extract numeric value from potentially formatted string (e.g., "232724 bytes" -> 232724)
+                # This handles sensor values that include units from device data formatting
+                import re
+                numeric_match = re.match(r'^(-?\d+(?:\.\d+)?)', str(value).strip())
+                if numeric_match:
+                    sensor_value = float(numeric_match.group(1))
+                else:
+                    sensor_value = float(value)
+                threshold = rule['threshold_value']
+                
+                condition_met = False
+                if rule['condition_type'] == 'greater_than':
+                    condition_met = sensor_value > threshold
+                elif rule['condition_type'] == 'less_than':
+                    condition_met = sensor_value < threshold
+                elif rule['condition_type'] == 'equals':
+                    condition_met = abs(sensor_value - threshold) < 0.01  # Allow small floating point differences
+                elif rule['condition_type'] == 'between':
+                    threshold_secondary = rule['threshold_value_secondary']
+                    condition_met = min(threshold, threshold_secondary) <= sensor_value <= max(threshold, threshold_secondary)
+                
+                if condition_met:
+                    # Create notification - sensor notifications should show immediately
+                    cursor.execute('''
+                        INSERT INTO Notification 
+                        (title, message, notification_type, priority, entry_id, scheduled_for)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ''', (rule['notification_title'], rule['notification_message'], 
+                          'sensor_based', rule['priority'], entry_id, datetime.now().isoformat()))
+                    
+                    # Note: Don't commit here - let the calling function handle the transaction
+                    logger.info(f"Created sensor-based notification for rule {rule['id']}")
+                    
+            except (ValueError, TypeError):
+                # Skip non-numeric sensor values for numeric comparisons
+                continue
+                
+    except Exception as e:
+        logger.error(f"Error checking sensor rules with connection: {e}", exc_info=True)
+
 def create_note_notification(note_id, entry_id, scheduled_for, title, message):
     """Create a notification from a note with future date"""
     conn = get_db()
