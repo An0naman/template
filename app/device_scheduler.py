@@ -66,15 +66,17 @@ class DevicePollingScheduler:
             
             # Find devices that:
             # 1. Have polling enabled
-            # 2. Are linked to at least one entry (via DeviceEntryLinks table)
+            # 2. Are linked to at least one ACTIVE entry (via DeviceEntryLinks table)
             # 3. Are not disabled
             # 4. Haven't been polled recently (based on their polling_interval)
             cursor.execute('''
                 SELECT DISTINCT rd.* 
                 FROM RegisteredDevices rd
                 INNER JOIN DeviceEntryLinks del ON rd.id = del.device_id
+                INNER JOIN Entry e ON del.entry_id = e.id
                 WHERE rd.polling_enabled = 1 
                 AND rd.status != 'disabled'
+                AND e.status != 'inactive'
                 AND (
                     rd.last_poll_success IS NULL 
                     OR datetime(rd.last_poll_success, '+' || rd.polling_interval || ' seconds') <= datetime('now')
@@ -154,9 +156,12 @@ class DevicePollingScheduler:
         stored_count = 0
         
         try:
-            # Get all linked entry IDs for this device
+            # Get all linked entry IDs for this device (only active entries)
             cursor.execute('''
-                SELECT entry_id FROM DeviceEntryLinks WHERE device_id = ?
+                SELECT del.entry_id 
+                FROM DeviceEntryLinks del
+                INNER JOIN Entry e ON del.entry_id = e.id
+                WHERE del.device_id = ? AND e.status != 'inactive'
             ''', (device['id'],))
             linked_entries = cursor.fetchall()
             

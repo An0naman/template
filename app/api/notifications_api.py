@@ -374,6 +374,13 @@ def check_sensor_rules(entry_id, sensor_type, value, recorded_at):
     cursor = conn.cursor()
     
     try:
+        # First check if the entry is active - don't create notifications for inactive entries
+        cursor.execute('SELECT status FROM Entry WHERE id = ?', (entry_id,))
+        entry_result = cursor.fetchone()
+        if not entry_result or entry_result['status'] == 'inactive':
+            logger.debug(f"Skipping sensor rule check for inactive entry {entry_id}")
+            return
+        
         # Get applicable rules for this sensor data
         cursor.execute('''
             SELECT * FROM NotificationRule 
@@ -449,6 +456,13 @@ def check_sensor_rules(entry_id, sensor_type, value, recorded_at):
 def check_sensor_rules_with_connection(cursor, entry_id, sensor_type, value, recorded_at):
     """Check if sensor data triggers any notification rules - version that accepts external cursor"""
     try:
+        # First check if the entry is active - don't create notifications for inactive entries
+        cursor.execute('SELECT status FROM Entry WHERE id = ?', (entry_id,))
+        entry_result = cursor.fetchone()
+        if not entry_result or entry_result['status'] == 'inactive':
+            logger.debug(f"Skipping sensor rule check for inactive entry {entry_id}")
+            return
+        
         # Get applicable rules for this sensor data
         cursor.execute('''
             SELECT * FROM NotificationRule 

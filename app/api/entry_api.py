@@ -213,14 +213,22 @@ def add_sensor_data_to_entry(entry_id):
         if not sensor_type or not value:
             return jsonify({'error': 'Sensor type and value are required.'}), 400
 
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Check if the entry is active - don't allow sensor data for inactive entries
+        cursor.execute('SELECT status FROM Entry WHERE id = ?', (entry_id,))
+        entry_result = cursor.fetchone()
+        if not entry_result:
+            return jsonify({'error': 'Entry not found.'}), 404
+        if entry_result['status'] == 'inactive':
+            return jsonify({'error': 'Cannot add sensor data to inactive entries.'}), 400
+
         # Auto-register the sensor type if it doesn't exist
         sensor_data_points = [{'sensor_type': sensor_type}]
         new_types = auto_register_sensor_types(sensor_data_points, f"manual entry for entry {entry_id}")
         if new_types:
             logger.info(f"Auto-registered sensor type '{sensor_type}' from manual entry")
-
-        conn = get_db()
-        cursor = conn.cursor()
         
         cursor.execute(
             "INSERT INTO SensorData (entry_id, sensor_type, value, recorded_at) VALUES (?, ?, ?, ?)",
