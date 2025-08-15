@@ -278,7 +278,30 @@ def update_note_reminder(note_id):
                 INSERT INTO Notification (notification_type, entry_id, note_id, scheduled_for, title, message, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """, ('note_based', note['entry_id'], note_id, scheduled_for, notification_title, notification_message, datetime.now().isoformat()))
+            
+            notification_id = cursor.lastrowid
             logger.info(f"Created new reminder for note {note_id} scheduled for {scheduled_for}")
+            
+            # Send ntfy notification if scheduled for now or past
+            try:
+                from app.services.ntfy_service import send_app_notification_via_ntfy
+                from datetime import datetime
+                scheduled_datetime = datetime.fromisoformat(scheduled_for.replace('Z', '+00:00'))
+                current_datetime = datetime.now()
+                
+                # If scheduled for now or in the past, send immediately
+                if scheduled_datetime <= current_datetime:
+                    notification_data = {
+                        'title': notification_title,
+                        'message': notification_message,
+                        'type': 'note_based',
+                        'priority': 'medium',
+                        'entry_id': note['entry_id'],
+                        'notification_id': notification_id
+                    }
+                    send_app_notification_via_ntfy(notification_data)
+            except Exception as e:
+                logger.error(f"Failed to send ntfy notification for note {note_id}: {e}")
         
         conn.commit()
         return jsonify({'message': 'Reminder updated successfully'}), 200
