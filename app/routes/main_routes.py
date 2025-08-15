@@ -158,6 +158,9 @@ def entry_detail_page(entry_id):
                            entry=entry_data,
                            entry_singular_label=params.get('entry_singular_label'),
                            entry_plural_label=params.get('entry_plural_label'),
+                           allowed_file_types=params.get('allowed_file_types', 
+                               'txt,pdf,png,jpg,jpeg,gif,webp,svg,doc,docx,xls,xlsx,ppt,pptx,mp4,avi,mov,wmv,flv,webm,mkv,mp3,wav,flac,aac,ogg,zip,rar,7z,tar,gz'),
+                           max_file_size=params.get('max_file_size', '50'),
                            theme_css=generate_theme_css())
 
 @main_bp.route('/settings')

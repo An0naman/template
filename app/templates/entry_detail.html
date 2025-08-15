@@ -18,7 +18,7 @@
     <!-- Clean Base Styles -->
     <style>
         :root {
-            --content-spacing: 1.5rem;
+            --content-spacing: 1rem;
             --border-radius: 0.5rem;
             --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
             --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -400,7 +400,7 @@
             background: var(--theme-bg-surface, var(--bs-secondary-bg));
             color: var(--theme-text, var(--bs-body-color));
             border-radius: 8px;
-            padding: 1rem;
+            padding: 0.75rem;
             border: 1px solid var(--theme-border, var(--bs-border-color));
             height: 100%;
         }
@@ -472,7 +472,7 @@
         }
         
         .section-content {
-            padding: 1.5rem;
+            padding: 1rem;
         }
         
         .section-header {
@@ -1175,28 +1175,48 @@
         
         /* Progress bar theme support */
         .progress {
-            background-color: var(--theme-bg-surface, #e9ecef);
+            background-color: var(--theme-bg-surface, var(--bs-secondary-bg));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
         }
         
         .progress-bar {
-            background-color: var(--bs-primary, #0d6efd);
+            background: linear-gradient(135deg, var(--theme-primary, var(--bs-primary)), var(--theme-primary-hover, var(--bs-primary)));
+            transition: all 0.3s ease;
+        }
+        
+        .progress-bar.progress-bar-striped {
+            background: linear-gradient(45deg, 
+                transparent 25%, 
+                rgba(255,255,255,0.15) 25%, 
+                rgba(255,255,255,0.15) 50%, 
+                transparent 50%, 
+                transparent 75%, 
+                rgba(255,255,255,0.15) 75%, 
+                rgba(255,255,255,0.15)) var(--theme-primary, var(--bs-primary));
         }
         
         /* Progress Timeline Styles */
         .progress-timeline {
-            padding: 0.75rem;
+            padding: 1rem;
             background: var(--theme-bg-card, var(--bs-body-bg));
-            border-radius: 8px;
-            border: 1px solid var(--theme-border, var(--bs-border-color-translucent));
+            border-radius: 12px;
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            box-shadow: var(--shadow-sm);
         }
         
         .progress-header {
             font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .progress-header small {
+            color: var(--theme-text-muted, var(--bs-secondary));
         }
         
         .progress-status-text {
             font-weight: 600;
             color: var(--theme-primary, var(--bs-primary));
+            font-size: 0.95rem;
         }
         
         .progress-timeline .progress {
@@ -1481,6 +1501,29 @@
                 flex-direction: column;
                 gap: 0.5rem;
             }
+            
+            /* Better mobile text handling */
+            .info-card {
+                padding: 0.5rem;
+            }
+            
+            .info-value div {
+                margin-bottom: 0.5rem !important;
+            }
+            
+            /* Progress timeline mobile improvements */
+            .progress-timeline {
+                padding: 0.75rem;
+            }
+            
+            .progress-header {
+                gap: 0.5rem !important;
+            }
+            
+            .progress-details small {
+                font-size: 0.8rem;
+                margin-bottom: 0.5rem;
+            }
         }
         
         /* Tablet responsive adjustments */
@@ -1608,12 +1651,12 @@
                         <div class="info-card">
                             <div class="info-label">Dates</div>
                             <div class="info-value" id="datesDisplay">
-                                <div><strong>Created On:</strong> <span id="created-at">{{ entry.created_at }}</span></div>
+                                <div class="mb-2"><strong>Created On:</strong><br class="d-md-none"><span class="ms-md-2" id="created-at">{{ entry.created_at }}</span></div>
                                 {% if entry.intended_end_date and entry.show_end_dates %}
-                                <div><strong>Intended End:</strong> <span id="intended-end-date-display">{{ entry.intended_end_date[:10] if entry.intended_end_date else '' }}</span></div>
+                                <div class="mb-2"><strong>Intended End:</strong><br class="d-md-none"><span class="ms-md-2" id="intended-end-date-display">{{ entry.intended_end_date[:10] if entry.intended_end_date else '' }}</span></div>
                                 {% endif %}
                                 {% if entry.actual_end_date and entry.show_end_dates %}
-                                <div><strong>Actual End:</strong> <span id="actual-end-date-display">{{ entry.actual_end_date[:10] if entry.actual_end_date else '' }}</span></div>
+                                <div class="mb-2"><strong>Actual End:</strong><br class="d-md-none"><span class="ms-md-2" id="actual-end-date-display">{{ entry.actual_end_date[:10] if entry.actual_end_date else '' }}</span></div>
                                 {% endif %}
                             </div>
                         </div>
@@ -1629,12 +1672,12 @@
                         </div>
                         <div class="info-value">
                             <div id="progressContainer" class="progress-timeline">
-                                <div class="progress-header d-flex justify-content-between align-items-center mb-2">
+                                <div class="progress-header d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-2 gap-2">
                                     <small class="text-muted">
                                         <i class="fas fa-play-circle me-1"></i>
                                         Created: <span id="progress-start-date">{{ entry.created_at[:10] if entry.created_at else '' }}</span>
                                     </small>
-                                    <small class="progress-status-text" id="progressStatusText">
+                                    <small class="progress-status-text text-center" id="progressStatusText">
                                         <span id="progressPercentage">0</span>% Complete
                                     </small>
                                     <small class="text-muted">
@@ -1642,7 +1685,7 @@
                                         Target: <span id="progress-end-date">{{ entry.intended_end_date[:10] if entry.intended_end_date else '' }}</span>
                                     </small>
                                 </div>
-                                <div class="progress mb-2" style="height: 12px;">
+                                <div class="progress mb-3" style="height: 12px;">
                                     <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
                                          role="progressbar" 
                                          style="width: 0%;" 
@@ -1653,20 +1696,20 @@
                                 </div>
                                 <div class="progress-details">
                                     <div class="row g-2">
-                                        <div class="col-md-4">
-                                            <small class="text-muted">
+                                        <div class="col-12 col-md-4">
+                                            <small class="text-muted d-block text-center text-md-start">
                                                 <i class="fas fa-clock me-1"></i>
                                                 <span id="daysElapsed">0</span> days elapsed
                                             </small>
                                         </div>
-                                        <div class="col-md-4 text-center">
-                                            <small class="text-muted">
+                                        <div class="col-12 col-md-4">
+                                            <small class="text-muted d-block text-center">
                                                 <i class="fas fa-calendar-day me-1"></i>
                                                 <span id="totalDays">0</span> total days
                                             </small>
                                         </div>
-                                        <div class="col-md-4 text-end">
-                                            <small id="remainingTime" class="text-muted">
+                                        <div class="col-12 col-md-4">
+                                            <small id="remainingTime" class="text-muted d-block text-center text-md-end">
                                                 <i class="fas fa-hourglass-half me-1"></i>
                                                 <span id="daysRemaining">0</span> days remaining
                                             </small>
@@ -1916,23 +1959,23 @@
                                     </div>
                                 </div>
                                 <div class="col-md-4">
-                                    <button type="button" class="btn btn-theme-accent btn-sm mt-4" onclick="saveChartPreferences()">
+                                    <button type="button" class="btn btn-theme-primary btn-sm mt-4" onclick="saveChartPreferences()">
                                         <i class="fas fa-save me-1"></i>Save Chart Settings
                                     </button>
                                 </div>
                                 <div class="col-md-4">
-                                    <button type="button" class="btn btn-theme-secondary btn-sm mt-4" onclick="resetChartPreferences()">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm mt-4" onclick="resetChartPreferences()">
                                         <i class="fas fa-undo me-1"></i>Reset to Defaults
                                     </button>
                                 </div>
                             </div>
                         </div>
                         
-                        <div class="d-flex gap-2 flex-wrap">
+                        <div class="d-flex gap-2 flex-wrap mt-3">
                             <button class="btn btn-theme-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#addSensorDataModal">
                                 <i class="fas fa-plus-circle me-2"></i>Add Sensor Reading
                             </button>
-                            <button class="btn btn-outline-info btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#deviceManagementModal" onclick="openDeviceManagement()">
+                            <button class="btn btn-theme-secondary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#deviceManagementModal" onclick="openDeviceManagement()">
                                 <i class="fas fa-cogs me-2"></i>Manage Device Sensors
                             </button>
                         </div>
@@ -2025,9 +2068,34 @@
                                     <div id="selectedFilesInfo" class="mt-2 small text-muted">No files selected.</div>
                                     <div class="form-text">
                                         <i class="fas fa-info-circle me-1"></i> 
-                                        Supported file types: Images (JPG, PNG, GIF, WebP), Documents (PDF, DOC, DOCX, TXT), 
-                                        Archives (ZIP, RAR), Videos (MP4, AVI, MOV), and more.
-                                        <br><strong>Max file size:</strong> 50MB per file
+                                        <span id="supportedFileTypes">
+                                            {% set file_types = allowed_file_types.split(',') %}
+                                            Supported file types: 
+                                            {% set image_types = [] %}
+                                            {% set doc_types = [] %}
+                                            {% set archive_types = [] %}
+                                            {% set video_types = [] %}
+                                            {% set audio_types = [] %}
+                                            {% set other_types = [] %}
+                                            {% for ext in file_types %}
+                                                {% set ext = ext.strip().upper() %}
+                                                {% if ext in ['JPG', 'JPEG', 'PNG', 'GIF', 'WEBP', 'SVG'] %}
+                                                    {% if image_types.append(ext) %}{% endif %}
+                                                {% elif ext in ['PDF', 'DOC', 'DOCX', 'TXT', 'XLS', 'XLSX', 'PPT', 'PPTX'] %}
+                                                    {% if doc_types.append(ext) %}{% endif %}
+                                                {% elif ext in ['ZIP', 'RAR', '7Z', 'TAR', 'GZ'] %}
+                                                    {% if archive_types.append(ext) %}{% endif %}
+                                                {% elif ext in ['MP4', 'AVI', 'MOV', 'WMV', 'FLV', 'WEBM', 'MKV'] %}
+                                                    {% if video_types.append(ext) %}{% endif %}
+                                                {% elif ext in ['MP3', 'WAV', 'FLAC', 'AAC', 'OGG'] %}
+                                                    {% if audio_types.append(ext) %}{% endif %}
+                                                {% else %}
+                                                    {% if other_types.append(ext) %}{% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                            {% if image_types %}Images ({{ image_types|join(', ') }}){% endif %}{% if doc_types %}{% if image_types %}, {% endif %}Documents ({{ doc_types|join(', ') }}){% endif %}{% if archive_types %}{% if image_types or doc_types %}, {% endif %}Archives ({{ archive_types|join(', ') }}){% endif %}{% if video_types %}{% if image_types or doc_types or archive_types %}, {% endif %}Videos ({{ video_types|join(', ') }}){% endif %}{% if audio_types %}{% if image_types or doc_types or archive_types or video_types %}, {% endif %}Audio ({{ audio_types|join(', ') }}){% endif %}{% if other_types %}{% if image_types or doc_types or archive_types or video_types or audio_types %}, {% endif %}Other ({{ other_types|join(', ') }}){% endif %}.
+                                        </span>
+                                        <br><strong>Max file size:</strong> {{ max_file_size }}MB per file
                                     </div>
                                 </div>
                                 <button type="button" class="btn btn-theme-primary" id="addNoteBtn">
@@ -2156,7 +2224,7 @@
                         <div class="mb-3">
                             <label for="additionalFiles" class="form-label">Select files to attach:</label>
                             <input type="file" class="form-control" id="additionalFiles" multiple>
-                            <div class="form-text">Maximum file size: 50MB per file</div>
+                            <div class="form-text">Maximum file size: {{ max_file_size }}MB per file</div>
                         </div>
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-sm btn-success" id="uploadAdditionalFilesBtn">
@@ -2854,11 +2922,21 @@
                 return;
             }
 
-            // Validate file sizes (50MB max per file)
-            const maxFileSize = 50 * 1024 * 1024; // 50MB in bytes
+            // Validate file sizes
+            const maxFileSize = {{ max_file_size }} * 1024 * 1024; // Convert MB to bytes
+            const allowedExtensions = new Set({{ allowed_file_types.split(',')|map('trim')|map('lower')|list|tojson }});
+            
             for (let file of files) {
                 if (file.size > maxFileSize) {
-                    displayStatus(noteStatusMessage, `File "${file.name}" is too large. Maximum file size is 50MB.`, 'alert-warning');
+                    displayStatus(noteStatusMessage, `File "${file.name}" is too large. Maximum file size is {{ max_file_size }}MB.`, 'alert-warning');
+                    return;
+                }
+                
+                // Validate file extension
+                const fileName = file.name.toLowerCase();
+                const fileExtension = fileName.split('.').pop();
+                if (!allowedExtensions.has(fileExtension)) {
+                    displayStatus(noteStatusMessage, `File "${file.name}" has an unsupported file type. Please check the supported file types below.`, 'alert-warning');
                     return;
                 }
             }
@@ -3583,6 +3661,25 @@
                 return;
             }
 
+            // Validate files before upload
+            const maxFileSize = {{ max_file_size }} * 1024 * 1024; // Convert MB to bytes
+            const allowedExtensions = new Set({{ allowed_file_types.split(',')|map('trim')|map('lower')|list|tojson }});
+            
+            for (let file of files) {
+                if (file.size > maxFileSize) {
+                    alert(`File "${file.name}" is too large. Maximum file size is {{ max_file_size }}MB.`);
+                    return;
+                }
+                
+                // Validate file extension
+                const fileName = file.name.toLowerCase();
+                const fileExtension = fileName.split('.').pop();
+                if (!allowedExtensions.has(fileExtension)) {
+                    alert(`File "${file.name}" has an unsupported file type. Please check the supported file types.`);
+                    return;
+                }
+            }
+
             try {
                 const formData = new FormData();
                 for (let i = 0; i < files.length; i++) {
@@ -3893,29 +3990,29 @@
                     <div class="card mb-3">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">${def.name}</h5>
-                            <div>
-                                <button class="btn btn-sm btn-primary add-new-btn" data-definition-id="${def.id}" ${canAddMore ? '' : 'disabled'}>
-                                    Add New
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-theme-primary add-new-btn" data-definition-id="${def.id}" ${canAddMore ? '' : 'disabled'} title="Add New ${def.name}">
+                                    <i class="fas fa-plus"></i>
                                 </button>
-                                <button class="btn btn-sm btn-secondary add-existing-btn" data-definition-id="${def.id}" ${canAddMore ? '' : 'disabled'}>
-                                    Add Existing
+                                <button class="btn btn-sm btn-theme-secondary add-existing-btn" data-definition-id="${def.id}" ${canAddMore ? '' : 'disabled'} title="Add Existing ${def.name}">
+                                    <i class="fas fa-link"></i>
                                 </button>
                             </div>
                         </div>
                         <div class="card-body">
-                            <table class="table table-sm">
+                            <table class="table table-sm table-hover">
                                 <thead>
                                     <tr>
                                         <th>Related Entry</th>
-                                        <th>Actions</th>
+                                        <th width="100" class="text-end">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     ${relatedEntries.map(entry => `
                                         <tr>
                                             <td><a href="/entry/${entry.related_entry_id}" class="text-decoration-none">${entry.related_entry_title}</a></td>
-                                            <td>
-                                                <button class="btn btn-sm btn-danger delete-related-btn" data-relationship-id="${entry.relationship_id}" title="Delete relationship">
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-danger delete-related-btn" data-relationship-id="${entry.relationship_id}" title="Delete relationship">
                                                     <i class="fas fa-trash-alt"></i>
                                                 </button>
                                             </td>
@@ -4689,24 +4786,74 @@
         function renderTableView(sensorData) {
             const sensorDataContainer = document.getElementById('sensorDataContainer');
             
+            // Pagination variables
+            const itemsPerPage = 10;
+            const totalPages = Math.ceil(sensorData.length / itemsPerPage);
+            let currentPage = parseInt(sensorDataContainer.dataset.currentPage || '1');
+            
+            // Ensure current page is valid
+            if (currentPage > totalPages) currentPage = 1;
+            if (currentPage < 1) currentPage = 1;
+            
+            // Calculate pagination slice
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, sensorData.length);
+            const paginatedData = sensorData.slice(startIndex, endIndex);
+            
             const tableHtml = `
-                <table class="table table-sm table-striped">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-muted">Showing ${startIndex + 1}-${endIndex} of ${sensorData.length} readings</span>
+                    ${totalPages > 1 ? `
+                        <nav aria-label="Sensor data pagination">
+                            <ul class="pagination pagination-sm mb-0">
+                                <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                                    <button class="page-link sensor-page-btn" data-page="${currentPage - 1}" ${currentPage === 1 ? 'disabled' : ''}>
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                </li>
+                                ${Array.from({length: Math.min(5, totalPages)}, (_, i) => {
+                                    let pageNum;
+                                    if (totalPages <= 5) {
+                                        pageNum = i + 1;
+                                    } else if (currentPage <= 3) {
+                                        pageNum = i + 1;
+                                    } else if (currentPage >= totalPages - 2) {
+                                        pageNum = totalPages - 4 + i;
+                                    } else {
+                                        pageNum = currentPage - 2 + i;
+                                    }
+                                    return `
+                                        <li class="page-item ${pageNum === currentPage ? 'active' : ''}">
+                                            <button class="page-link sensor-page-btn" data-page="${pageNum}">${pageNum}</button>
+                                        </li>
+                                    `;
+                                }).join('')}
+                                <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                                    <button class="page-link sensor-page-btn" data-page="${currentPage + 1}" ${currentPage === totalPages ? 'disabled' : ''}>
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </li>
+                            </ul>
+                        </nav>
+                    ` : ''}
+                </div>
+                <table class="table table-sm table-striped table-hover">
                     <thead>
                         <tr>
                             <th>Sensor Type</th>
                             <th>Value</th>
                             <th>Recorded At</th>
-                            <th>Actions</th>
+                            <th width="100">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${sensorData.map(data => `
+                        ${paginatedData.map(data => `
                             <tr>
                                 <td>${data.sensor_type}</td>
                                 <td>${data.value}</td>
                                 <td>${formatSensorTimestamp(data.recorded_at)}</td>
                                 <td>
-                                    <button class="btn btn-sm btn-danger delete-sensor-btn" data-sensor-id="${data.id}" title="Delete reading">
+                                    <button class="btn btn-sm btn-outline-danger delete-sensor-btn" data-sensor-id="${data.id}" title="Delete reading">
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
                                 </td>
@@ -4717,6 +4864,18 @@
             `;
             
             sensorDataContainer.innerHTML = tableHtml;
+            sensorDataContainer.dataset.currentPage = currentPage;
+            
+            // Attach pagination event listeners
+            const pageButtons = sensorDataContainer.querySelectorAll('.sensor-page-btn');
+            pageButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const newPage = parseInt(this.dataset.page);
+                    sensorDataContainer.dataset.currentPage = newPage;
+                    renderTableView(sensorData); // Re-render with new page
+                });
+            });
+            
             attachSensorDataEventListeners();
         }
 
