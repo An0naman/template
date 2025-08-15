@@ -71,7 +71,7 @@ def add_entry():
     try:
         cursor.execute(
             "INSERT INTO Entry (title, description, entry_type_id, intended_end_date, status, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (title, description, entry_type_id, intended_end_date, status, datetime.now().isoformat())
+            (title, description, entry_type_id, intended_end_date, status, datetime.now(timezone.utc).isoformat())
         )
         conn.commit()
         # Use main_bp.entry_detail_page because it's in a different blueprint
