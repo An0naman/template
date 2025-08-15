@@ -38,6 +38,7 @@ class TaskScheduler:
     def _run_scheduler(self):
         """Main scheduler loop"""
         last_overdue_check = None
+        last_scheduled_check = None
         
         while self.running:
             try:
@@ -47,6 +48,12 @@ class TaskScheduler:
                         logger.info("Running overdue check...")
                         self._check_overdue_entries()
                         last_overdue_check = datetime.now()
+                    
+                    # Check for scheduled notifications every minute
+                    if self._should_run_scheduled_check(last_scheduled_check):
+                        logger.info("Running scheduled notifications check...")
+                        self._process_scheduled_notifications()
+                        last_scheduled_check = datetime.now()
                         
             except Exception as e:
                 logger.error(f"Error in scheduler: {e}", exc_info=True)
@@ -103,59 +110,103 @@ class TaskScheduler:
             return False
             
     def _check_overdue_entries(self):
-        """Check for overdue entries and create notifications"""
+        """Check for overdue entries and create notifications with ntfy integration"""
         try:
+            # Import here to avoid circular imports
+            from app.api.notifications_api import check_overdue_end_dates
+            
+            # Use the ntfy-integrated overdue check function
+            notifications_created = check_overdue_end_dates()
+            
+            if notifications_created > 0:
+                logger.info(f"Scheduler created {notifications_created} overdue notifications with ntfy integration")
+            else:
+                logger.info("Scheduler: No overdue entries found")
+                
+        except Exception as e:
+            logger.error(f"Error in scheduler overdue check: {e}", exc_info=True)
+
+    def _should_run_scheduled_check(self, last_check):
+        """Check if scheduled notifications should be processed (every minute)"""
+        if last_check is None:
+            return True
+        
+        # Run every minute
+        return (datetime.now() - last_check).total_seconds() >= 60
+
+    def _process_scheduled_notifications(self):
+        """Process notifications that are scheduled for now and send ntfy notifications"""
+        try:
+            # Import here to avoid circular imports
+            from app.services.ntfy_service import send_app_notification_via_ntfy
+            from app.db import get_connection
+            
             conn = get_connection()
             cursor = conn.cursor()
             
-            # Find entries that are overdue (intended_end_date is past and status is not completed)
-            cursor.execute("""
-                SELECT e.id, e.title, e.intended_end_date, et.name as entry_type_name
-                FROM Entry e
-                JOIN EntryType et ON e.entry_type_id = et.id
-                WHERE e.intended_end_date IS NOT NULL 
-                  AND e.intended_end_date != ''
-                  AND e.status != 'completed'
-                  AND date(e.intended_end_date) < date('now')
-                  AND et.show_end_dates = 1
-            """)
+            # Add ntfy_sent column if it doesn't exist
+            try:
+                cursor.execute("PRAGMA table_info(Notification)")
+                columns = [column[1] for column in cursor.fetchall()]
+                if 'ntfy_sent' not in columns:
+                    logger.info("Adding ntfy_sent column to Notification table...")
+                    cursor.execute('ALTER TABLE Notification ADD COLUMN ntfy_sent INTEGER DEFAULT 0')
+                    conn.commit()
+                    logger.info("Successfully added ntfy_sent column")
+            except Exception as e:
+                logger.error(f"Error adding ntfy_sent column: {e}")
             
-            overdue_entries = cursor.fetchall()
+            # Find notifications that are scheduled for now or past and haven't been sent
+            current_time = datetime.now().isoformat()
             
-            for entry in overdue_entries:
-                # Check if we already have a recent notification for this entry
-                cursor.execute("""
-                    SELECT id FROM Notification 
-                    WHERE entry_id = ? 
-                      AND notification_type = 'overdue'
-                      AND created_at > datetime('now', '-7 days')
-                """, (entry['id'],))
+            cursor.execute('''
+                SELECT n.id, n.title, n.message, n.notification_type, n.priority, 
+                       n.entry_id, n.note_id, n.scheduled_for
+                FROM Notification n
+                WHERE n.scheduled_for IS NOT NULL 
+                  AND n.scheduled_for <= ?
+                  AND (n.ntfy_sent IS NULL OR n.ntfy_sent = 0)
+            ''', (current_time,))
+            
+            due_notifications = cursor.fetchall()
+            
+            for notification in due_notifications:
+                notification_id = notification['id']
                 
-                recent_notification = cursor.fetchone()
-                
-                if not recent_notification:
-                    # Create notification
-                    title = f"Overdue: {entry['title']}"
-                    message = f"The {entry['entry_type_name'].lower()} '{entry['title']}' was due on {entry['intended_end_date']} and is now overdue."
+                try:
+                    # Send ntfy notification
+                    notification_data = {
+                        'title': notification['title'],
+                        'message': notification['message'],
+                        'type': notification['notification_type'],
+                        'priority': notification['priority'],
+                        'entry_id': notification['entry_id'],
+                        'notification_id': notification_id
+                    }
                     
-                    cursor.execute("""
-                        INSERT INTO Notification 
-                        (title, message, notification_type, priority, entry_id, scheduled_for)
-                        VALUES (?, ?, 'overdue', 'high', ?, datetime('now'))
-                    """, (title, message, entry['id']))
+                    send_app_notification_via_ntfy(notification_data)
                     
-                    logger.info(f"Created overdue notification for entry {entry['id']}: {entry['title']}")
+                    # Mark as sent in database
+                    cursor.execute('''
+                        UPDATE Notification 
+                        SET ntfy_sent = 1 
+                        WHERE id = ?
+                    ''', (notification_id,))
+                    
+                    logger.info(f"Sent scheduled ntfy notification {notification_id}: {notification['title']}")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to send scheduled ntfy notification {notification_id}: {e}")
+                    continue
             
             conn.commit()
             conn.close()
             
-            if overdue_entries:
-                logger.info(f"Processed {len(overdue_entries)} overdue entries")
-            else:
-                logger.info("No overdue entries found")
+            if due_notifications:
+                logger.info(f"Processed {len(due_notifications)} scheduled notifications")
                 
         except Exception as e:
-            logger.error(f"Error checking overdue entries: {e}", exc_info=True)
+            logger.error(f"Error processing scheduled notifications: {e}", exc_info=True)
 
 # Global scheduler instance
 scheduler = TaskScheduler()

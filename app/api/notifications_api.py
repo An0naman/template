@@ -4,6 +4,7 @@ import sqlite3
 from datetime import datetime, timedelta
 import logging
 from ..utils.sensor_type_manager import ensure_sensor_type_exists
+from ..services.ntfy_service import send_app_notification_via_ntfy
 
 # Define a Blueprint for Notifications API
 notifications_api_bp = Blueprint('notifications_api', __name__)
@@ -190,6 +191,33 @@ def create_notification():
         
         conn.commit()
         notification_id = cursor.lastrowid
+        
+        # Send push notification via ntfy if configured
+        try:
+            # Check if ntfy is configured in the database
+            from app.services.ntfy_service import NtfyService
+            ntfy_service = NtfyService.from_database()
+            
+            if ntfy_service and ntfy_service.server_url and ntfy_service.topic:
+                # Get app base URL for creating action links
+                app_base_url = request.host_url.rstrip('/')
+                
+                # Prepare notification data for ntfy
+                notification_data = {
+                    'title': title,
+                    'message': message,
+                    'type': notification_type,
+                    'priority': priority,
+                    'entry_id': entry_id,
+                    'notification_id': notification_id
+                }
+                
+                send_app_notification_via_ntfy(notification_data)
+                logger.info(f"Successfully sent ntfy push notification for notification {notification_id}")
+                    
+        except Exception as e:
+            logger.error(f"Error sending ntfy push notification: {e}", exc_info=True)
+            # Don't fail the notification creation if push notification fails
         
         return jsonify({
             'message': 'Notification created successfully!',
@@ -438,13 +466,28 @@ def check_sensor_rules(entry_id, sensor_type, value, recorded_at):
                     # Create notification - sensor notifications should show immediately
                     cursor.execute('''
                         INSERT INTO Notification 
-                        (title, message, notification_type, priority, entry_id, scheduled_for)
-                        VALUES (?, ?, ?, ?, ?, ?)
+                        (title, message, notification_type, priority, entry_id, scheduled_for, ntfy_sent)
+                        VALUES (?, ?, ?, ?, ?, ?, 1)
                     ''', (rule['notification_title'], rule['notification_message'], 
                           'sensor_based', rule['priority'], entry_id, datetime.now().isoformat()))
                     
+                    notification_id = cursor.lastrowid
                     conn.commit()
                     logger.info(f"Created sensor-based notification for rule {rule['id']}")
+                    
+                    # Send ntfy notification immediately for sensor-based notifications
+                    try:
+                        notification_data = {
+                            'title': rule['notification_title'],
+                            'message': rule['notification_message'],
+                            'type': 'sensor_based',
+                            'priority': rule['priority'],
+                            'entry_id': entry_id,
+                            'notification_id': notification_id
+                        }
+                        send_app_notification_via_ntfy(notification_data)
+                    except Exception as e:
+                        logger.error(f"Failed to send ntfy notification for sensor rule {rule['id']}: {e}")
                     
             except (ValueError, TypeError):
                 # Skip non-numeric sensor values for numeric comparisons
@@ -520,13 +563,28 @@ def check_sensor_rules_with_connection(cursor, entry_id, sensor_type, value, rec
                     # Create notification - sensor notifications should show immediately
                     cursor.execute('''
                         INSERT INTO Notification 
-                        (title, message, notification_type, priority, entry_id, scheduled_for)
-                        VALUES (?, ?, ?, ?, ?, ?)
+                        (title, message, notification_type, priority, entry_id, scheduled_for, ntfy_sent)
+                        VALUES (?, ?, ?, ?, ?, ?, 1)
                     ''', (rule['notification_title'], rule['notification_message'], 
                           'sensor_based', rule['priority'], entry_id, datetime.now().isoformat()))
                     
+                    notification_id = cursor.lastrowid
                     # Note: Don't commit here - let the calling function handle the transaction
                     logger.info(f"Created sensor-based notification for rule {rule['id']}")
+                    
+                    # Send ntfy notification immediately for sensor-based notifications
+                    try:
+                        notification_data = {
+                            'title': rule['notification_title'],
+                            'message': rule['notification_message'],
+                            'type': 'sensor_based',
+                            'priority': rule['priority'],
+                            'entry_id': entry_id,
+                            'notification_id': notification_id
+                        }
+                        send_app_notification_via_ntfy(notification_data)
+                    except Exception as e:
+                        logger.error(f"Failed to send ntfy notification for sensor rule {rule['id']}: {e}")
                     
             except (ValueError, TypeError):
                 # Skip non-numeric sensor values for numeric comparisons
@@ -547,8 +605,30 @@ def create_note_notification(note_id, entry_id, scheduled_for, title, message):
             VALUES (?, ?, 'note_based', 'medium', ?, ?, ?)
         ''', (title, message, entry_id, note_id, scheduled_for))
         
+        notification_id = cursor.lastrowid
         conn.commit()
-        return cursor.lastrowid
+        
+        # Send ntfy notification for note-based notifications that are scheduled for now or past
+        try:
+            from datetime import datetime
+            scheduled_datetime = datetime.fromisoformat(scheduled_for.replace('Z', '+00:00'))
+            current_datetime = datetime.now()
+            
+            # If scheduled for now or in the past, send immediately
+            if scheduled_datetime <= current_datetime:
+                notification_data = {
+                    'title': title,
+                    'message': message,
+                    'type': 'note_based',
+                    'priority': 'medium',
+                    'entry_id': entry_id,
+                    'notification_id': notification_id
+                }
+                send_app_notification_via_ntfy(notification_data)
+        except Exception as e:
+            logger.error(f"Failed to send ntfy notification for note {note_id}: {e}")
+        
+        return notification_id
         
     except Exception as e:
         logger.error(f"Error creating note notification: {e}", exc_info=True)

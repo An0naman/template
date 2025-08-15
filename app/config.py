@@ -27,3 +27,9 @@ DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
 UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'app', 'static', 'uploads')
 MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB max file size
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# ntfy Push Notification Configuration
+# These can be overridden by environment variables
+NTFY_SERVER_URL = os.environ.get('NTFY_SERVER_URL', 'https://ntfy.sh')
+NTFY_TOPIC = os.environ.get('NTFY_TOPIC')  # No default - must be configured
+NTFY_AUTH_TOKEN = os.environ.get('NTFY_AUTH_TOKEN')  # Optional for private topics

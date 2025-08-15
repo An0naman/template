@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ntfy Push Notifications - {{ config.project_name }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .ntfy-setup-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .setup-step {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .setup-step h5 {
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        .setup-step .step-number {
+            background: #4CAF50;
+            color: white;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        
+        .qr-code-container {
+            text-align: center;
+            background: white;
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .topic-display {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+            padding: 0.5rem;
+            font-family: monospace;
+            word-break: break-all;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-indicator.connected {
+            background-color: #4CAF50;
+        }
+        
+        .status-indicator.disconnected {
+            background-color: #f44336;
+        }
+        
+        /* Fix cursor for enabled buttons */
+        .btn:not(:disabled) {
+            cursor: pointer !important;
+        }
+        
+        .btn:disabled {
+            cursor: not-allowed !important;
+        }
+        
+        /* Ensure test button shows pointer when enabled */
+        #testButton:not(:disabled) {
+            cursor: pointer !important;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-mobile-alt me-2"></i>ntfy Push Notifications
+            </a>
+            <a href="/" class="btn btn-outline-light">
+                <i class="fas fa-arrow-left me-1"></i>Back to App
+            </a>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Status Card -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-bell me-2"></i>ntfy Status
+                        </h5>
+                        <button class="btn btn-primary btn-sm" onclick="refreshStatus()">
+                            <i class="fas fa-sync-alt me-1"></i>Refresh
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="ntfyStatus">
+                            <div class="d-flex align-items-center">
+                                <span class="status-indicator disconnected" id="statusIndicator"></span>
+                                <span id="statusText">Loading...</span>
+                            </div>
+                            <div id="configDetails" class="mt-2" style="display: none;">
+                                <small class="text-muted">
+                                    <strong>Server:</strong> <span id="serverUrl"></span><br>
+                                    <strong>Topic:</strong> <span id="topicName"></span><br>
+                                    <strong>Authentication:</strong> <span id="authStatus"></span>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Setup Guide -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="ntfy-setup-card">
+                    <h2 class="mb-4">
+                        <i class="fas fa-rocket me-2"></i>Get Push Notifications on Your iPhone
+                    </h2>
+                    
+                    <div class="setup-step">
+                        <h5>
+                            <span class="step-number">1</span>
+                            Download ntfy App
+                        </h5>
+                        <p>Download the ntfy app from the App Store on your iPhone:</p>
+                        <a href="https://apps.apple.com/app/ntfy/id1625396347" target="_blank" class="btn btn-light">
+                            <i class="fab fa-apple me-2"></i>Download from App Store
+                        </a>
+                    </div>
+                    
+                    <div class="setup-step">
+                        <h5>
+                            <span class="step-number">2</span>
+                            Configure Your Topic
+                        </h5>
+                        <p>Set up your unique notification topic below. This will be used to send notifications to your device.</p>
+                        
+                        <form id="ntfyConfigForm" class="mt-3">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="serverUrl" class="form-label">ntfy Server URL</label>
+                                    <input type="url" class="form-control" id="serverUrlInput" 
+                                           value="https://ntfy.sh" placeholder="https://ntfy.sh">
+                                    <small class="form-text text-light">Use https://ntfy.sh for the public server</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="topicInput" class="form-label">Your Topic Name</label>
+                                    <input type="text" class="form-control" id="topicInput" 
+                                           placeholder="my-app-notifications-xyz123">
+                                    <small class="form-text text-light">Choose a unique topic name</small>
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <label for="authTokenInput" class="form-label">Authentication Token (Optional)</label>
+                                    <input type="password" class="form-control" id="authTokenInput" 
+                                           placeholder="Leave empty for public topic">
+                                    <small class="form-text text-light">For private topics only</small>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-success mt-3">
+                                <i class="fas fa-save me-2"></i>Save Configuration
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <div class="setup-step">
+                        <h5>
+                            <span class="step-number">3</span>
+                            Subscribe in ntfy App
+                        </h5>
+                        <p>Open the ntfy app on your iPhone and subscribe to your topic:</p>
+                        <ol class="text-light">
+                            <li>Tap the "+" button to add a new subscription</li>
+                            <li>Enter your topic name: <span class="topic-display" id="displayTopic">Configure topic above</span></li>
+                            <li>If using a custom server, change the server URL</li>
+                            <li>Tap "Subscribe"</li>
+                        </ol>
+                        
+                        <!-- QR Code will be generated here when topic is configured -->
+                        <div id="qrCodeContainer" class="qr-code-container" style="display: none;">
+                            <h6 class="text-dark">Or scan this QR code:</h6>
+                            <div id="qrCode"></div>
+                            <small class="text-muted">Scan with your iPhone camera or ntfy app</small>
+                        </div>
+                    </div>
+                    
+                    <div class="setup-step">
+                        <h5>
+                            <span class="step-number">4</span>
+                            Test Your Setup
+                        </h5>
+                        <p>Send a test notification to verify everything is working:</p>
+                        <button class="btn btn-secondary" onclick="sendTestNotification()" id="testButton" data-ready="false">
+                            <i class="fas fa-spinner fa-spin me-2"></i>Loading Configuration...
+                        </button>
+                        <div id="testResult" class="mt-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Usage Tips -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-lightbulb me-2"></i>Usage Tips
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-shield-alt me-2"></i>Privacy & Security</h6>
+                                <ul>
+                                    <li>Choose a unique, hard-to-guess topic name</li>
+                                    <li>Consider using authentication tokens for sensitive data</li>
+                                    <li>You can use your own ntfy server for maximum privacy</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-cog me-2"></i>Customization</h6>
+                                <ul>
+                                    <li>Notifications will include relevant emoji based on type</li>
+                                    <li>Priority levels control notification urgency</li>
+                                    <li>Click actions will open related entries in your app</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script>
+        let currentConfig = {};
+
+        // Load initial configuration
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, starting initialization...');
+            refreshStatus();
+            
+            // Fallback: If button is still loading after 5 seconds, try to fix it
+            setTimeout(function() {
+                const testButton = document.getElementById('testButton');
+                if (testButton.innerHTML.includes('Loading Configuration')) {
+                    console.log('Button still loading after 5 seconds, attempting to fix...');
+                    // Try to fetch config again
+                    refreshStatus();
+                }
+            }, 5000);
+        });
+
+        async function refreshStatus() {
+            const testButton = document.getElementById('testButton');
+            console.log('Starting refreshStatus...');
+            
+            try {
+                console.log('Fetching config from /api/ntfy/config...');
+                const response = await fetch('/api/ntfy/config');
+                console.log('Response received:', response.status, response.statusText);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const config = await response.json();
+                console.log('Config parsed:', config);
+                
+                currentConfig = config;
+                updateStatusDisplay(config);
+                updateFormValues(config);
+                
+                // Update topic display (with QR code error handling)
+                try {
+                    updateTopicDisplay(config.topic);
+                } catch (error) {
+                    console.log('Topic display update failed (likely QR code issue):', error.message);
+                    // Still update the topic text even if QR fails
+                    const displayElement = document.getElementById('displayTopic');
+                    if (config.topic) {
+                        displayElement.textContent = config.topic;
+                        displayElement.style.display = 'inline-block';
+                    } else {
+                        displayElement.textContent = 'Configure topic above';
+                        displayElement.style.display = 'inline';
+                    }
+                }
+                
+                // Enable test button if topic is configured
+                const hasValidTopic = config.topic && config.topic.trim() !== '';
+                console.log('Has valid topic:', hasValidTopic, 'Topic:', config.topic);
+                
+                if (hasValidTopic) {
+                    // Enable the button
+                    testButton.disabled = false;
+                    testButton.className = 'btn btn-warning';
+                    testButton.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Send Test Notification';
+                    testButton.style.cursor = 'pointer';
+                    testButton.setAttribute('data-ready', 'true');
+                    console.log('Test button enabled successfully');
+                } else {
+                    // Keep button disabled
+                    testButton.disabled = true;
+                    testButton.className = 'btn btn-secondary';
+                    testButton.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Configure Topic First';
+                    testButton.style.cursor = 'not-allowed';
+                    testButton.setAttribute('data-ready', 'false');
+                    console.log('Test button kept disabled - no valid topic');
+                }
+                
+                // Debug logging
+                console.log('ntfy config loaded:', config);
+                console.log('Test button enabled:', hasValidTopic);
+                console.log('Button disabled attribute:', testButton.disabled);
+                console.log('Button cursor style:', testButton.style.cursor);
+                
+            } catch (error) {
+                console.error('Error in refreshStatus:', error);
+                
+                // Set button to error state
+                testButton.disabled = true;
+                testButton.className = 'btn btn-danger';
+                testButton.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Configuration Error';
+                testButton.style.cursor = 'not-allowed';
+                testButton.setAttribute('data-ready', 'false');
+                
+                updateStatusDisplay({ enabled: false, error: 'Failed to load configuration: ' + error.message });
+            }
+        }
+
+        // Manual function to force enable the test button (for debugging)
+        function forceEnableTestButton() {
+            console.log('Force enabling test button...');
+            const testButton = document.getElementById('testButton');
+            
+            // Set the currentConfig to have a valid topic
+            currentConfig = { topic: 'fermentation', enabled: true, server_url: 'https://ntfy.sh', has_auth_token: false };
+            
+            testButton.disabled = false;
+            testButton.className = 'btn btn-warning';
+            testButton.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Send Test Notification';
+            testButton.style.cursor = 'pointer';
+            testButton.setAttribute('data-ready', 'true');
+            
+            // Update displays
+            updateStatusDisplay(currentConfig);
+            updateFormValues(currentConfig);
+            updateTopicDisplay(currentConfig.topic);
+            
+            console.log('Test button force-enabled with config:', currentConfig);
+        }
+
+        // Add this to window for console access
+        window.forceEnableTestButton = forceEnableTestButton;
+
+        function updateStatusDisplay(config) {
+            const indicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            const configDetails = document.getElementById('configDetails');
+            
+            if (config.enabled && config.topic) {
+                indicator.className = 'status-indicator connected';
+                statusText.textContent = 'ntfy is configured and ready';
+                configDetails.style.display = 'block';
+                
+                document.getElementById('serverUrl').textContent = config.server_url || 'https://ntfy.sh';
+                document.getElementById('topicName').textContent = config.topic;
+                document.getElementById('authStatus').textContent = config.has_auth_token ? 'Enabled' : 'Public topic';
+            } else {
+                indicator.className = 'status-indicator disconnected';
+                statusText.textContent = config.error || 'ntfy is not configured';
+                configDetails.style.display = 'none';
+            }
+        }
+
+        function updateFormValues(config) {
+            document.getElementById('serverUrlInput').value = config.server_url || 'https://ntfy.sh';
+            document.getElementById('topicInput').value = config.topic || '';
+            // Don't populate auth token for security
+        }
+
+        function updateTopicDisplay(topic) {
+            const displayElement = document.getElementById('displayTopic');
+            const qrContainer = document.getElementById('qrCodeContainer');
+            
+            if (topic) {
+                displayElement.textContent = topic;
+                displayElement.style.display = 'inline-block';
+                
+                // Generate QR code for easy subscription (with error handling)
+                try {
+                    generateQRCode(topic);
+                    qrContainer.style.display = 'block';
+                } catch (error) {
+                    console.log('QR code generation failed (library not loaded yet):', error.message);
+                    qrContainer.style.display = 'none';
+                    // Try again after a delay
+                    setTimeout(() => {
+                        try {
+                            generateQRCode(topic);
+                            qrContainer.style.display = 'block';
+                        } catch (e) {
+                            console.log('QR code generation still failing, skipping:', e.message);
+                        }
+                    }, 1000);
+                }
+            } else {
+                displayElement.textContent = 'Configure topic above';
+                displayElement.style.display = 'inline';
+                qrContainer.style.display = 'none';
+            }
+        }
+
+        function generateQRCode(topic) {
+            const qrCodeElement = document.getElementById('qrCode');
+            qrCodeElement.innerHTML = ''; // Clear previous QR code
+            
+            // Check if QRCode library is loaded
+            if (typeof QRCode === 'undefined') {
+                console.log('QRCode library not loaded yet');
+                qrCodeElement.innerHTML = '<p class="text-muted"><i class="fas fa-qrcode me-1"></i>QR code will appear when library loads</p>';
+                throw new Error('QRCode is not defined');
+            }
+            
+            const serverUrl = document.getElementById('serverUrlInput').value || 'https://ntfy.sh';
+            const subscribeUrl = `${serverUrl}/${topic}`;
+            
+            QRCode.toCanvas(qrCodeElement, subscribeUrl, {
+                width: 200,
+                margin: 2,
+                color: {
+                    dark: '#000000',
+                    light: '#FFFFFF'
+                }
+            }, function (error) {
+                if (error) {
+                    console.error('Error generating QR code:', error);
+                    qrCodeElement.innerHTML = '<p class="text-danger">Failed to generate QR code</p>';
+                }
+            });
+        }
+
+        // Handle form submission
+        document.getElementById('ntfyConfigForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                server_url: document.getElementById('serverUrlInput').value.trim(),
+                topic: document.getElementById('topicInput').value.trim(),
+                auth_token: document.getElementById('authTokenInput').value.trim()
+            };
+            
+            if (!formData.topic) {
+                showAlert('Please enter a topic name.', 'warning');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/ntfy/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert('Configuration saved successfully!', 'success');
+                    refreshStatus();
+                } else {
+                    showAlert(result.error || 'Failed to save configuration', 'danger');
+                }
+                
+            } catch (error) {
+                console.error('Error saving configuration:', error);
+                showAlert('Failed to save configuration. Please try again.', 'danger');
+            }
+        });
+
+        async function sendTestNotification() {
+            const button = document.getElementById('testButton');
+            const resultDiv = document.getElementById('testResult');
+            
+            // Check if button is ready
+            if (button.getAttribute('data-ready') !== 'true') {
+                resultDiv.innerHTML = '<div class="alert alert-warning mt-2"><i class="fas fa-exclamation-triangle me-2"></i>Please configure a topic first.</div>';
+                return;
+            }
+            
+            // Store original state
+            const originalContent = button.innerHTML;
+            const originalClass = button.className;
+            
+            button.disabled = true;
+            button.className = 'btn btn-info';
+            button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Sending...';
+            
+            try {
+                const response = await fetch('/api/ntfy/test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title: 'Test Notification',
+                        message: 'Hello from your app! 🎉 ntfy is working correctly.',
+                        priority: 3
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.innerHTML = '<div class="alert alert-success mt-2"><i class="fas fa-check me-2"></i>Test notification sent successfully! Check your iPhone.</div>';
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-danger mt-2"><i class="fas fa-exclamation-triangle me-2"></i>Failed to send test notification: ${result.error}</div>`;
+                }
+                
+            } catch (error) {
+                console.error('Error sending test notification:', error);
+                resultDiv.innerHTML = '<div class="alert alert-danger mt-2"><i class="fas fa-exclamation-triangle me-2"></i>Failed to send test notification. Please try again.</div>';
+            } finally {
+                // Restore button to proper state
+                const hasValidTopic = currentConfig.topic && currentConfig.topic.trim() !== '';
+                if (hasValidTopic) {
+                    button.disabled = false;
+                    button.className = 'btn btn-warning';
+                    button.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Send Test Notification';
+                    button.style.cursor = 'pointer';
+                } else {
+                    button.disabled = true;
+                    button.className = 'btn btn-secondary';
+                    button.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Configure Topic First';
+                    button.style.cursor = 'not-allowed';
+                }
+            }
+        }
+
+        function showAlert(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            // Insert at the top of the main container
+            const container = document.querySelector('.container');
+            container.insertBefore(alertDiv, container.firstChild);
+            
+            // Auto-dismiss success alerts
+            if (type === 'success') {
+                setTimeout(() => {
+                    alertDiv.remove();
+                }, 5000);
+            }
+        }
+    </script>
+</body>
+</html>
