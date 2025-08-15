@@ -466,8 +466,8 @@ def check_sensor_rules(entry_id, sensor_type, value, recorded_at):
                     # Create notification - sensor notifications should show immediately
                     cursor.execute('''
                         INSERT INTO Notification 
-                        (title, message, notification_type, priority, entry_id, scheduled_for, ntfy_sent)
-                        VALUES (?, ?, ?, ?, ?, ?, 1)
+                        (title, message, notification_type, priority, entry_id, scheduled_for)
+                        VALUES (?, ?, ?, ?, ?, ?)
                     ''', (rule['notification_title'], rule['notification_message'], 
                           'sensor_based', rule['priority'], entry_id, datetime.now().isoformat()))
                     
@@ -563,8 +563,8 @@ def check_sensor_rules_with_connection(cursor, entry_id, sensor_type, value, rec
                     # Create notification - sensor notifications should show immediately
                     cursor.execute('''
                         INSERT INTO Notification 
-                        (title, message, notification_type, priority, entry_id, scheduled_for, ntfy_sent)
-                        VALUES (?, ?, ?, ?, ?, ?, 1)
+                        (title, message, notification_type, priority, entry_id, scheduled_for)
+                        VALUES (?, ?, ?, ?, ?, ?)
                     ''', (rule['notification_title'], rule['notification_message'], 
                           'sensor_based', rule['priority'], entry_id, datetime.now().isoformat()))
                     

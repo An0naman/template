@@ -14,6 +14,7 @@ class TaskScheduler:
         self.app = app
         self.running = False
         self.thread = None
+        self.sent_notifications = set()  # Track sent notification IDs
         
     def init_app(self, app):
         self.app = app
@@ -144,19 +145,7 @@ class TaskScheduler:
             conn = get_connection()
             cursor = conn.cursor()
             
-            # Add ntfy_sent column if it doesn't exist
-            try:
-                cursor.execute("PRAGMA table_info(Notification)")
-                columns = [column[1] for column in cursor.fetchall()]
-                if 'ntfy_sent' not in columns:
-                    logger.info("Adding ntfy_sent column to Notification table...")
-                    cursor.execute('ALTER TABLE Notification ADD COLUMN ntfy_sent INTEGER DEFAULT 0')
-                    conn.commit()
-                    logger.info("Successfully added ntfy_sent column")
-            except Exception as e:
-                logger.error(f"Error adding ntfy_sent column: {e}")
-            
-            # Find notifications that are scheduled for now or past and haven't been sent
+            # Find notifications that are scheduled for now or past
             current_time = datetime.now().isoformat()
             
             cursor.execute('''
@@ -165,13 +154,16 @@ class TaskScheduler:
                 FROM Notification n
                 WHERE n.scheduled_for IS NOT NULL 
                   AND n.scheduled_for <= ?
-                  AND (n.ntfy_sent IS NULL OR n.ntfy_sent = 0)
             ''', (current_time,))
             
             due_notifications = cursor.fetchall()
             
             for notification in due_notifications:
                 notification_id = notification['id']
+                
+                # Skip if we've already sent this notification
+                if notification_id in self.sent_notifications:
+                    continue
                 
                 try:
                     # Send ntfy notification
@@ -186,12 +178,8 @@ class TaskScheduler:
                     
                     send_app_notification_via_ntfy(notification_data)
                     
-                    # Mark as sent in database
-                    cursor.execute('''
-                        UPDATE Notification 
-                        SET ntfy_sent = 1 
-                        WHERE id = ?
-                    ''', (notification_id,))
+                    # Mark as sent in memory
+                    self.sent_notifications.add(notification_id)
                     
                     logger.info(f"Sent scheduled ntfy notification {notification_id}: {notification['title']}")
                     
@@ -199,11 +187,10 @@ class TaskScheduler:
                     logger.error(f"Failed to send scheduled ntfy notification {notification_id}: {e}")
                     continue
             
-            conn.commit()
             conn.close()
             
             if due_notifications:
-                logger.info(f"Processed {len(due_notifications)} scheduled notifications")
+                logger.info(f"Processed {len(due_notifications)} scheduled notifications ({len([n for n in due_notifications if n['id'] not in self.sent_notifications])} new)")
                 
         except Exception as e:
             logger.error(f"Error processing scheduled notifications: {e}", exc_info=True)

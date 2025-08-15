@@ -1,36 +1,101 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="{{ 'dark' if theme_settings.dark_mode_enabled else 'light' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ntfy Push Notifications - {{ config.project_name }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>{{ project_name }} - Push Notifications</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='notifications_modern.css') }}">
     <style>
-        .ntfy-setup-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        body {
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
+        }
+        .container {
+            margin-top: 30px;
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+            border: 1px solid var(--bs-border-color);
+        }
+        .settings-section {
+            margin-bottom: 2rem;
+        }
+        .section-card {
+            background: var(--bs-secondary-bg);
+            border: 1px solid var(--bs-border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .section-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(135deg, #6f42c1, #d63384);
+        }
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #6f42c1;
+        }
+        .btn-purple {
+            background: linear-gradient(135deg, #6f42c1, #d63384);
+            border: none;
             color: white;
-            border-radius: 15px;
+        }
+        .btn-purple:hover {
+            background: linear-gradient(135deg, #5a359a, #b02a5b);
+            color: white;
+        }
+        
+        .ntfy-setup-card {
+            background: var(--bs-secondary-bg);
+            border: 1px solid var(--bs-border-color);
+            border-radius: 12px;
             padding: 2rem;
             margin-bottom: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .ntfy-setup-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(135deg, #6f42c1, #d63384);
         }
         
         .setup-step {
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--bs-body-bg);
+            border: 1px solid var(--bs-border-color);
             border-radius: 10px;
             padding: 1.5rem;
             margin-bottom: 1rem;
-            border-left: 4px solid #4CAF50;
+            border-left: 4px solid #6f42c1;
         }
         
         .setup-step h5 {
             margin-bottom: 1rem;
             display: flex;
             align-items: center;
+            color: var(--bs-body-color);
         }
         
         .setup-step .step-number {
-            background: #4CAF50;
+            background: linear-gradient(135deg, #6f42c1, #d63384);
             color: white;
             border-radius: 50%;
             width: 30px;
@@ -44,18 +109,21 @@
         
         .qr-code-container {
             text-align: center;
-            background: white;
+            background: var(--bs-body-bg);
+            border: 2px dashed var(--bs-border-color);
             border-radius: 10px;
             padding: 1rem;
             margin: 1rem 0;
         }
         
         .topic-display {
-            background: rgba(0, 0, 0, 0.2);
+            background: var(--bs-secondary-bg);
+            border: 1px solid var(--bs-border-color);
             border-radius: 5px;
             padding: 0.5rem;
             font-family: monospace;
             word-break: break-all;
+            color: var(--bs-body-color);
         }
         
         .status-indicator {
@@ -67,11 +135,11 @@
         }
         
         .status-indicator.connected {
-            background-color: #4CAF50;
+            background-color: #198754;
         }
         
         .status-indicator.disconnected {
-            background-color: #f44336;
+            background-color: #dc3545;
         }
         
         /* Fix cursor for enabled buttons */
@@ -87,59 +155,61 @@
         #testButton:not(:disabled) {
             cursor: pointer !important;
         }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .container {
+                margin-top: 15px;
+                padding: 20px;
+            }
+        }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="/">
-                <i class="fas fa-mobile-alt me-2"></i>ntfy Push Notifications
-            </a>
-            <a href="/" class="btn btn-outline-light">
-                <i class="fas fa-arrow-left me-1"></i>Back to App
-            </a>
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="mb-0">{{ project_name }} Push Notifications</h1>
+            </div>
+            <div>
+                <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Settings
+                </a>
+            </div>
         </div>
-    </nav>
-
-    <div class="container mt-4">
         <!-- Status Card -->
-        <div class="row">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            <i class="fas fa-bell me-2"></i>ntfy Status
-                        </h5>
-                        <button class="btn btn-primary btn-sm" onclick="refreshStatus()">
-                            <i class="fas fa-sync-alt me-1"></i>Refresh
-                        </button>
-                    </div>
-                    <div class="card-body">
-                        <div id="ntfyStatus">
-                            <div class="d-flex align-items-center">
-                                <span class="status-indicator disconnected" id="statusIndicator"></span>
-                                <span id="statusText">Loading...</span>
-                            </div>
-                            <div id="configDetails" class="mt-2" style="display: none;">
-                                <small class="text-muted">
-                                    <strong>Server:</strong> <span id="serverUrl"></span><br>
-                                    <strong>Topic:</strong> <span id="topicName"></span><br>
-                                    <strong>Authentication:</strong> <span id="authStatus"></span>
-                                </small>
-                            </div>
+        <div class="settings-section">
+            <div class="section-card">
+                <div class="section-title">
+                    <i class="fas fa-bell me-2"></i>ntfy Status
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div id="ntfyStatus">
+                        <div class="d-flex align-items-center">
+                            <span class="status-indicator disconnected" id="statusIndicator"></span>
+                            <span id="statusText">Loading...</span>
+                        </div>
+                        <div id="configDetails" class="mt-2" style="display: none;">
+                            <small class="text-muted">
+                                <strong>Server:</strong> <span id="serverUrl"></span><br>
+                                <strong>Topic:</strong> <span id="topicName"></span><br>
+                                <strong>Authentication:</strong> <span id="authStatus"></span>
+                            </small>
                         </div>
                     </div>
+                    <button class="btn btn-purple btn-sm" onclick="refreshStatus()">
+                        <i class="fas fa-sync-alt me-1"></i>Refresh
+                    </button>
                 </div>
             </div>
         </div>
 
         <!-- Setup Guide -->
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="ntfy-setup-card">
-                    <h2 class="mb-4">
-                        <i class="fas fa-rocket me-2"></i>Get Push Notifications on Your iPhone
-                    </h2>
+        <div class="settings-section">
+            <div class="ntfy-setup-card">
+                <div class="section-title">
+                    <i class="fas fa-rocket me-2"></i>Get Push Notifications on Your iPhone
+                </div>
                     
                     <div class="setup-step">
                         <h5>
@@ -147,7 +217,7 @@
                             Download ntfy App
                         </h5>
                         <p>Download the ntfy app from the App Store on your iPhone:</p>
-                        <a href="https://apps.apple.com/app/ntfy/id1625396347" target="_blank" class="btn btn-light">
+                        <a href="https://apps.apple.com/app/ntfy/id1625396347" target="_blank" class="btn btn-outline-secondary">
                             <i class="fab fa-apple me-2"></i>Download from App Store
                         </a>
                     </div>
@@ -165,13 +235,13 @@
                                     <label for="serverUrl" class="form-label">ntfy Server URL</label>
                                     <input type="url" class="form-control" id="serverUrlInput" 
                                            value="https://ntfy.sh" placeholder="https://ntfy.sh">
-                                    <small class="form-text text-light">Use https://ntfy.sh for the public server</small>
+                                    <small class="form-text text-muted">Use https://ntfy.sh for the public server</small>
                                 </div>
                                 <div class="col-md-6">
                                     <label for="topicInput" class="form-label">Your Topic Name</label>
                                     <input type="text" class="form-control" id="topicInput" 
                                            placeholder="my-app-notifications-xyz123">
-                                    <small class="form-text text-light">Choose a unique topic name</small>
+                                    <small class="form-text text-muted">Choose a unique topic name</small>
                                 </div>
                             </div>
                             <div class="row mt-3">
@@ -179,10 +249,10 @@
                                     <label for="authTokenInput" class="form-label">Authentication Token (Optional)</label>
                                     <input type="password" class="form-control" id="authTokenInput" 
                                            placeholder="Leave empty for public topic">
-                                    <small class="form-text text-light">For private topics only</small>
+                                    <small class="form-text text-muted">For private topics only</small>
                                 </div>
                             </div>
-                            <button type="submit" class="btn btn-success mt-3">
+                            <button type="submit" class="btn btn-purple mt-3">
                                 <i class="fas fa-save me-2"></i>Save Configuration
                             </button>
                         </form>
@@ -194,7 +264,7 @@
                             Subscribe in ntfy App
                         </h5>
                         <p>Open the ntfy app on your iPhone and subscribe to your topic:</p>
-                        <ol class="text-light">
+                        <ol class="text-muted">
                             <li>Tap the "+" button to add a new subscription</li>
                             <li>Enter your topic name: <span class="topic-display" id="displayTopic">Configure topic above</span></li>
                             <li>If using a custom server, change the server URL</li>
@@ -203,7 +273,7 @@
                         
                         <!-- QR Code will be generated here when topic is configured -->
                         <div id="qrCodeContainer" class="qr-code-container" style="display: none;">
-                            <h6 class="text-dark">Or scan this QR code:</h6>
+                            <h6>Or scan this QR code:</h6>
                             <div id="qrCode"></div>
                             <small class="text-muted">Scan with your iPhone camera or ntfy app</small>
                         </div>
@@ -223,33 +293,28 @@
                 </div>
             </div>
         </div>
-
         <!-- Usage Tips -->
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="fas fa-lightbulb me-2"></i>Usage Tips
-                        </h5>
+        <div class="settings-section">
+            <div class="section-card">
+                <div class="section-title">
+                    <i class="fas fa-lightbulb me-2"></i>Usage Tips
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-shield-alt me-2"></i>Privacy & Security</h6>
+                        <ul>
+                            <li>Choose a unique, hard-to-guess topic name</li>
+                            <li>Consider using authentication tokens for sensitive data</li>
+                            <li>You can use your own ntfy server for maximum privacy</li>
+                        </ul>
                     </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6><i class="fas fa-shield-alt me-2"></i>Privacy & Security</h6>
-                                <ul>
-                                    <li>Choose a unique, hard-to-guess topic name</li>
-                                    <li>Consider using authentication tokens for sensitive data</li>
-                                    <li>You can use your own ntfy server for maximum privacy</li>
-                                </ul>
-                            </div>
-                            <div class="col-md-6">
-                                <h6><i class="fas fa-cog me-2"></i>Customization</h6>
-                                <ul>
-                                    <li>Notifications will include relevant emoji based on type</li>
-                                    <li>Priority levels control notification urgency</li>
-                                    <li>Click actions will open related entries in your app</li>
-                                </ul>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-cog me-2"></i>Customization</h6>
+                        <ul>
+                            <li>Notifications will include relevant emoji based on type</li>
+                            <li>Priority levels control notification urgency</li>
+                            <li>Click actions will open related entries in your app</li>
+                        </ul>
                             </div>
                         </div>
                     </div>
@@ -258,7 +323,7 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <script>
         let currentConfig = {};
@@ -322,7 +387,7 @@
                 if (hasValidTopic) {
                     // Enable the button
                     testButton.disabled = false;
-                    testButton.className = 'btn btn-warning';
+                    testButton.className = 'btn btn-purple';
                     testButton.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Send Test Notification';
                     testButton.style.cursor = 'pointer';
                     testButton.setAttribute('data-ready', 'true');
@@ -366,7 +431,7 @@
             currentConfig = { topic: 'fermentation', enabled: true, server_url: 'https://ntfy.sh', has_auth_token: false };
             
             testButton.disabled = false;
-            testButton.className = 'btn btn-warning';
+            testButton.className = 'btn btn-purple';
             testButton.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Send Test Notification';
             testButton.style.cursor = 'pointer';
             testButton.setAttribute('data-ready', 'true');
@@ -555,7 +620,7 @@
                 const hasValidTopic = currentConfig.topic && currentConfig.topic.trim() !== '';
                 if (hasValidTopic) {
                     button.disabled = false;
-                    button.className = 'btn btn-warning';
+                    button.className = 'btn btn-purple';
                     button.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Send Test Notification';
                     button.style.cursor = 'pointer';
                 } else {

@@ -430,7 +430,6 @@
                             .then(response => response.json())
                             .then(data => {
                                 if (data.message) {
-                                    alert(data.message);
                                     fetchRelationshipDefinitions();
                                 } else if (data.error) {
                                     alert('Error: ' + data.error);
@@ -486,7 +485,6 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.message) {
-                        alert(data.message);
                         relationshipDefinitionModal.hide();
                         fetchRelationshipDefinitions();
                     } else if (data.error) {

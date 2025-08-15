@@ -1,7 +1,7 @@
 # template_app/app/api/entry_api.py
 from flask import Blueprint, request, jsonify, g, url_for, current_app
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 from ..utils.sensor_type_manager import auto_register_sensor_types
 
@@ -208,7 +208,7 @@ def add_sensor_data_to_entry(entry_id):
         data = request.json
         sensor_type = data.get('sensor_type')
         value = data.get('value')
-        recorded_at = data.get('recorded_at', datetime.now().isoformat())
+        recorded_at = data.get('recorded_at', datetime.now(timezone.utc).isoformat())
 
         if not sensor_type or not value:
             return jsonify({'error': 'Sensor type and value are required.'}), 400

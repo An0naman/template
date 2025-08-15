@@ -2484,6 +2484,44 @@
             return defaultColors[lowerType] || '#6f42c1'; // Purple for unknown types
         }
 
+        // Function to format sensor timestamps for display
+        function formatSensorTimestamp(timestamp) {
+            try {
+                // Handle various timestamp formats
+                let date;
+                
+                // If timestamp doesn't end with 'Z' and doesn't have timezone info, 
+                // assume it's in local time (common for stored timestamps)
+                if (!timestamp.endsWith('Z') && !timestamp.includes('+') && !timestamp.includes('-', 10)) {
+                    // Treat as local time by appending local timezone offset
+                    date = new Date(timestamp);
+                } else {
+                    // Parse as is (UTC or timezone-aware)
+                    date = new Date(timestamp);
+                }
+                
+                // Check if date is valid
+                if (isNaN(date.getTime())) {
+                    console.warn('Invalid timestamp:', timestamp);
+                    return timestamp; // Return original if parsing fails
+                }
+                
+                // Format with local timezone
+                return date.toLocaleString(undefined, {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false // Use 24-hour format for consistency
+                });
+            } catch (error) {
+                console.error('Error formatting timestamp:', timestamp, error);
+                return timestamp; // Return original if error occurs
+            }
+        }
+
         // Load custom note type colors from system parameters
         async function loadNoteTypeColors() {
             try {
@@ -4666,7 +4704,7 @@
                             <tr>
                                 <td>${data.sensor_type}</td>
                                 <td>${data.value}</td>
-                                <td>${new Date(data.recorded_at).toLocaleString()}</td>
+                                <td>${formatSensorTimestamp(data.recorded_at)}</td>
                                 <td>
                                     <button class="btn btn-sm btn-danger delete-sensor-btn" data-sensor-id="${data.id}" title="Delete reading">
                                         <i class="fas fa-trash-alt"></i>
@@ -4786,6 +4824,17 @@
                 }
                 
                 try {
+                    // Convert datetime-local to ISO string with timezone
+                    let isoRecordedAt;
+                    if (recordedAt) {
+                        // datetime-local gives us local time without timezone info
+                        // Convert it to a proper ISO string with timezone
+                        const localDate = new Date(recordedAt);
+                        isoRecordedAt = localDate.toISOString();
+                    } else {
+                        isoRecordedAt = new Date().toISOString();
+                    }
+                    
                     const response = await fetch(`/api/entries/${entryId}/sensor_data`, {
                         method: 'POST',
                         headers: {
@@ -4794,7 +4843,7 @@
                         body: JSON.stringify({
                             sensor_type: sensorType,
                             value: sensorValue,
-                            recorded_at: recordedAt || new Date().toISOString()
+                            recorded_at: isoRecordedAt
                         })
                     });
                     

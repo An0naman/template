@@ -781,57 +781,6 @@ def test_device_connection():
         logger.error(f"Error testing device connection: {e}", exc_info=True)
         return jsonify({'error': 'Connection test failed'}), 500
 
-@device_api_bp.route('/devices/scan-simple', methods=['POST'])
-def scan_network_simple():
-    """Simple network scan with minimal concurrency for debugging"""
-    try:
-        data = request.get_json() or {}
-        network_range = data.get('network_range') or get_local_network_range()
-        
-        logger.info(f"Starting simple network scan on range: {network_range}")
-        
-        # Validate network range
-        try:
-            network = ipaddress.IPv4Network(network_range)
-            if network.num_addresses > 256:  # Limit scan size for simple scan
-                return jsonify({'error': f'Network range too large for simple scan ({network.num_addresses} addresses). Please use a /24 or smaller.'}), 400
-        except ValueError as e:
-            return jsonify({'error': f'Invalid network range: {e}'}), 400
-        
-        discovered_devices = []
-        scanned_count = 0
-        
-        # Scan sequentially (no threading) for easier debugging
-        for ip in network.hosts():
-            ip_str = str(ip)
-            scanned_count += 1
-            
-            try:
-                result = scan_for_esp32_device(ip_str)
-                if result:
-                    discovered_devices.append(result)
-                    logger.info(f"Found device at {ip_str}")
-            except Exception as e:
-                logger.debug(f"Error scanning {ip_str}: {e}")
-            
-            # Log progress every 10 IPs
-            if scanned_count % 10 == 0:
-                logger.info(f"Scanned {scanned_count} addresses...")
-        
-        logger.info(f"Simple scan completed. Scanned {scanned_count} addresses, found {len(discovered_devices)} devices")
-        
-        return jsonify({
-            'discovered_devices': discovered_devices,
-            'scan_range': network_range,
-            'scan_time': datetime.now().isoformat(),
-            'total_scanned': scanned_count,
-            'scan_type': 'simple'
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in simple network scan: {e}", exc_info=True)
-        return jsonify({'error': f'Simple network scan failed: {str(e)}'}), 500
-
 @device_api_bp.route('/devices/status', methods=['GET'])
 def get_api_status():
     """Get API status and configuration for debugging"""
@@ -844,7 +793,6 @@ def get_api_status():
             'timestamp': datetime.now().isoformat(),
             'available_endpoints': [
                 '/devices/scan - Full network scan with threading',
-                '/devices/scan-simple - Sequential scan for debugging',
                 '/devices/test-connection - Test single IP',
                 '/devices/status - This endpoint',
                 '/devices - CRUD operations',

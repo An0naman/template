@@ -144,37 +144,88 @@ class NtfyService:
         
         # Start with basic notification data
         enhanced_title = notification_data.get('title', 'Notification')
-        base_message = notification_data.get('message', '')
+        enhanced_message = notification_data.get('message', '')
         
         # Get notification type for better context
         notification_type = notification_data.get('type', notification_data.get('notification_type', 'manual'))
         
-        # Build enhanced message with proper formatting
-        message_parts = []
-        
-        # Add the main message content with appropriate emoji
-        if base_message:
-            # Choose emoji based on notification type or content
-            message_emoji = self._get_message_emoji(notification_type, base_message)
-            message_parts.append(f"{message_emoji} {base_message}")
-        
         # If entry_id is provided, fetch entry details to enhance the notification
-        entry_info = self._get_entry_info(notification_data.get('entry_id'))
-        if entry_info:
-            message_parts.append(entry_info)
+        if notification_data.get('entry_id'):
+            try:
+                conn = get_connection()
+                cursor = conn.cursor()
+                
+                # Fetch entry details including entry type
+                cursor.execute('''
+                    SELECT e.title as entry_title, e.status, e.intended_end_date, 
+                           et.name as entry_type_name
+                    FROM Entry e
+                    LEFT JOIN EntryType et ON e.entry_type_id = et.id
+                    WHERE e.id = ?
+                ''', (notification_data['entry_id'],))
+                
+                entry = cursor.fetchone()
+                conn.close()
+                
+                if entry:
+                    # Temporarily disable emojis to avoid encoding issues
+                    entry_type_name = entry['entry_type_name'] or 'Entry'
+                    # enhanced_title = f"[{entry_type_name}] {enhanced_title}"
+                    
+                    # Add detailed entry context to message
+                    entry_title = entry['entry_title'] or 'Untitled Entry'
+                    entry_type_name = entry['entry_type_name'] or 'Entry'
+                    entry_status = (entry['status'] or 'Unknown').title()
+                    
+                    enhanced_message += f"\n\n[Entry] {entry_title}"
+                    enhanced_message += f"\n[Type] {entry_type_name}"
+                    enhanced_message += f"\n[Status] {entry_status}"
+                    
+                    if entry['intended_end_date']:
+                        from datetime import datetime
+                        try:
+                            # Parse and format the due date nicely
+                            due_date = datetime.fromisoformat(entry['intended_end_date'].replace('Z', '+00:00'))
+                            enhanced_message += f"\n[Due] {due_date.strftime('%B %d, %Y')}"
+                        except:
+                            enhanced_message += f"\n[Due] {entry['intended_end_date'][:10]}"
+                            
+            except Exception as e:
+                logger.error(f"Error fetching entry details for notification: {e}")
+                # Continue with basic notification if entry fetch fails
         
         # If note_id is provided, fetch note details
-        note_info = self._get_note_info(notification_data.get('note_id'))
-        if note_info:
-            message_parts.append(note_info)
+        if notification_data.get('note_id'):
+            try:
+                conn = get_connection()
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    SELECT note_title, entry_id
+                    FROM Note 
+                    WHERE id = ?
+                ''', (notification_data['note_id'],))
+                
+                note = cursor.fetchone()
+                
+                if note and note['note_title']:
+                    enhanced_message += f"\n[Note] {note['note_title']}"
+                    
+                conn.close()
+                    
+            except Exception as e:
+                logger.error(f"Error fetching note details for notification: {e}")
         
-        # Add notification type context
-        type_info = self._get_type_info(notification_type)
-        if type_info:
-            message_parts.append(type_info)
+        # Add notification type context with better formatting
+        type_context = {
+            'note_based': 'Reminder',
+            'sensor_based': 'Sensor Alert', 
+            'manual': 'Manual',
+            'end_date_overdue': 'Overdue Alert'
+        }
         
-        # Join all message parts with proper spacing
-        enhanced_message = '\n\n'.join(filter(None, message_parts))
+        type_display = type_context.get(notification_type, 'System')
+        enhanced_message += f"\n\n[Type] {type_display}"
         
         # Set priority mapping
         priority_map = {
@@ -187,20 +238,20 @@ class NtfyService:
         
         # Enhanced emoji tags based on notification type and context
         tag_map = {
-            'note_based': ['📝', 'reminder', 'note'],
-            'sensor_based': ['📊', 'sensor', 'alert'],
+            'note_based': ['📝', 'reminder'],
+            'sensor_based': ['📊', 'warning', 'sensor'],
             'manual': ['👤', 'manual'],
-            'end_date_overdue': ['⚠️', 'overdue', 'urgent']
+            'end_date_overdue': ['⚠️', 'calendar', 'overdue']
         }
-        tags = tag_map.get(notification_type, ['📱', 'notification'])
+        tags = tag_map.get(notification_type, ['📱'])
         
-        # Create enhanced action buttons with better labels
+        # Create enhanced action buttons
         actions = []
         if notification_data.get('entry_id') and app_base_url:
             entry_url = f"{app_base_url}/entry/{notification_data['entry_id']}"
             actions.append({
                 'action': 'view',
-                'label': '👁️ View Details',
+                'label': '👁️ View Entry',
                 'url': entry_url
             })
             
@@ -228,151 +279,6 @@ class NtfyService:
             actions=actions,
             click_url=click_url
         )
-
-    def _get_message_emoji(self, notification_type, message_content):
-        """Get appropriate emoji for the main message based on type and content"""
-        # Type-based emojis
-        type_emojis = {
-            'note_based': '📝',
-            'sensor_based': '📊', 
-            'manual': '👤',
-            'end_date_overdue': '⚠️',
-            'reminder': '⏰',
-            'alert': '🚨',
-            'info': 'ℹ️'
-        }
-        
-        # Content-based keywords for emoji selection
-        content_keywords = {
-            'overdue': '⚠️',
-            'reminder': '⏰',
-            'alert': '🚨',
-            'warning': '⚠️',
-            'error': '❌',
-            'success': '✅',
-            'complete': '✅',
-            'urgent': '🚨',
-            'low': '🔵',
-            'high': '🔴'
-        }
-        
-        # Check message content for keywords
-        message_lower = message_content.lower()
-        for keyword, emoji in content_keywords.items():
-            if keyword in message_lower:
-                return emoji
-        
-        # Fall back to type-based emoji or default
-        return type_emojis.get(notification_type, '📢')
-
-    def _get_entry_info(self, entry_id):
-        """Get formatted entry information if entry_id is provided"""
-        if not entry_id:
-            return None
-            
-        try:
-            from app.db import get_connection
-            conn = get_connection()
-            cursor = conn.cursor()
-            
-            # Fetch entry details including entry type
-            cursor.execute('''
-                SELECT e.title as entry_title, e.status, e.intended_end_date, 
-                       et.name as entry_type_name
-                FROM Entry e
-                LEFT JOIN EntryType et ON e.entry_type_id = et.id
-                WHERE e.id = ?
-            ''', (entry_id,))
-            
-            entry = cursor.fetchone()
-            conn.close()
-            
-            if not entry:
-                return None
-                
-            # Build entry information section
-            entry_lines = []
-            
-            # Entry title
-            entry_title = entry['entry_title'] or 'Untitled Entry'
-            entry_lines.append(f"📄 Entry: {entry_title}")
-            
-            # Entry type if available
-            if entry['entry_type_name']:
-                entry_lines.append(f"📋 Type: {entry['entry_type_name']}")
-            
-            # Status with appropriate emoji
-            if entry['status']:
-                status = entry['status'].title()
-                status_emoji = {
-                    'Active': '🟢',
-                    'Completed': '✅',
-                    'Inactive': '⭕',
-                    'Pending': '🟡'
-                }.get(status, '📊')
-                entry_lines.append(f"{status_emoji} Status: {status}")
-            
-            # Due date if available
-            if entry['intended_end_date']:
-                from datetime import datetime
-                try:
-                    due_date = datetime.fromisoformat(entry['intended_end_date'].replace('Z', '+00:00'))
-                    due_str = due_date.strftime('%B %d, %Y')
-                    entry_lines.append(f"📅 Due: {due_str}")
-                except:
-                    entry_lines.append(f"📅 Due: {entry['intended_end_date'][:10]}")
-            
-            return '\n'.join(entry_lines) if entry_lines else None
-            
-        except Exception as e:
-            logger.error(f"Error fetching entry details: {e}")
-            return None
-
-    def _get_note_info(self, note_id):
-        """Get formatted note information if note_id is provided"""
-        if not note_id:
-            return None
-            
-        try:
-            from app.db import get_connection
-            conn = get_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute('''
-                SELECT note_title, entry_id
-                FROM Note 
-                WHERE id = ?
-            ''', (note_id,))
-            
-            note = cursor.fetchone()
-            conn.close()
-            
-            if note and note['note_title']:
-                return f"📝 Note: {note['note_title']}"
-            
-            return None
-                
-        except Exception as e:
-            logger.error(f"Error fetching note details: {e}")
-            return None
-
-    def _get_type_info(self, notification_type):
-        """Get formatted notification type information"""
-        type_labels = {
-            'note_based': '📝 Note Reminder',
-            'sensor_based': '📊 Sensor Alert', 
-            'manual': '👤 Manual Notification',
-            'end_date_overdue': '⚠️ Overdue Alert',
-            'reminder': '⏰ Scheduled Reminder',
-            'alert': '🚨 System Alert',
-            'info': 'ℹ️ Information'
-        }
-        
-        type_display = type_labels.get(notification_type)
-        if type_display:
-            return f"🔖 Type: {type_display}"
-        
-        return None
     
     @classmethod
     def from_config(cls, config=None):

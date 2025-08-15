@@ -94,6 +94,123 @@
             border-radius: 12px;
             text-align: center;
             max-width: 400px;
+            color: var(--bs-body-color);
+        }
+        
+        /* Device IP link styling */
+        .device-ip-link {
+            color: var(--bs-link-color);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .device-ip-link:hover {
+            color: var(--bs-link-hover-color);
+            text-decoration: underline;
+        }
+        .device-ip-link:focus {
+            outline: 2px solid var(--bs-focus-ring-color);
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+        
+        /* Modal theme support */
+        .modal-content {
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
+            border-color: var(--bs-border-color);
+        }
+        .modal-header {
+            background-color: var(--bs-secondary-bg);
+            border-bottom-color: var(--bs-border-color);
+            color: var(--bs-body-color);
+        }
+        .modal-title {
+            color: var(--bs-body-color);
+        }
+        .modal-body {
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
+        }
+        .modal-footer {
+            border-top-color: var(--bs-border-color);
+            background-color: var(--bs-secondary-bg);
+        }
+        
+        /* Form controls theme support */
+        .form-control, .form-select {
+            background-color: var(--bs-body-bg);
+            border-color: var(--bs-border-color);
+            color: var(--bs-body-color);
+        }
+        .form-control:focus, .form-select:focus {
+            background-color: var(--bs-body-bg);
+            border-color: var(--bs-primary);
+            color: var(--bs-body-color);
+            box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
+        }
+        .form-label {
+            color: var(--bs-body-color);
+        }
+        
+        /* Table theme support */
+        .table {
+            color: var(--bs-body-color);
+            border-color: var(--bs-border-color);
+        }
+        .table th {
+            background-color: var(--bs-secondary-bg);
+            border-color: var(--bs-border-color);
+            color: var(--bs-body-color);
+        }
+        .table td {
+            border-color: var(--bs-border-color);
+            color: var(--bs-body-color);
+        }
+        .table tbody tr:hover {
+            background-color: var(--bs-secondary-bg);
+        }
+        
+        /* Badge theme support */
+        .badge {
+            color: white;
+        }
+        .badge.bg-secondary {
+            background-color: var(--bs-secondary) !important;
+        }
+        .badge.bg-success {
+            background-color: var(--bs-success) !important;
+        }
+        .badge.bg-warning {
+            background-color: var(--bs-warning) !important;
+            color: var(--bs-dark) !important;
+        }
+        
+        /* Specific styling for discovered devices modal */
+        #discoveredDevicesContainer .card {
+            background-color: var(--bs-body-bg);
+            border-color: var(--bs-border-color);
+            color: var(--bs-body-color);
+        }
+        #discoveredDevicesContainer .card-body {
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
+        }
+        #discoveredDevicesContainer .card-title {
+            color: var(--bs-body-color);
+        }
+        #discoveredDevicesContainer .card-text {
+            color: var(--bs-body-color);
+        }
+        #discoveredDevicesContainer .text-muted {
+            color: var(--bs-secondary-color) !important;
+        }
+        
+        /* Alert theme support for discovery modal */
+        .alert-info {
+            background-color: var(--bs-info-bg-subtle);
+            border-color: var(--bs-info-border-subtle);
+            color: var(--bs-info-text-emphasis);
         }
         @media (max-width: 768px) {
             .container {
@@ -114,14 +231,9 @@
                 <button class="btn btn-outline-info me-2" onclick="showTestConnection()">
                     <i class="fas fa-plug me-2"></i>Test Connection
                 </button>
-                <div class="btn-group me-2">
-                    <button class="btn btn-green" onclick="scanNetwork()">
-                        <i class="fas fa-search me-2"></i>Scan for Devices
-                    </button>
-                    <button class="btn btn-outline-success" onclick="scanNetworkSimple()">
-                        <i class="fas fa-search me-2"></i>Simple Scan
-                    </button>
-                </div>
+                <button class="btn btn-green me-2" onclick="scanNetwork()">
+                    <i class="fas fa-search me-2"></i>Scan for Devices
+                </button>
                 <button class="btn btn-outline-secondary me-2" onclick="checkApiStatus()">
                     <i class="fas fa-info-circle me-2"></i>API Status
                 </button>
@@ -197,12 +309,30 @@
                         </div>
                         <div class="mb-3">
                             <label for="linkedEntries" class="form-label">Link to Entries</label>
-                            <select class="form-select" id="linkedEntries" multiple size="6">
-                                <!-- Options will be populated by JavaScript -->
-                            </select>
+                            <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <input type="text" class="form-control form-control-sm" id="entrySearchInput" 
+                                               placeholder="Search entries..." autocomplete="off">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <select class="form-select form-select-sm" id="entryTypeFilter">
+                                            <option value="">All Entry Types</option>
+                                            <!-- Options will be populated by JavaScript -->
+                                        </select>
+                                    </div>
+                                </div>
+                                <div id="entryCheckboxContainer">
+                                    <!-- Entry checkboxes will be populated by JavaScript -->
+                                </div>
+                            </div>
                             <div class="form-text">
-                                <strong>Hold Ctrl (or Cmd on Mac) to select multiple entries.</strong><br>
-                                Choose which entries will receive sensor data from this device. You can select multiple entries.
+                                <strong>Search and filter entries</strong> that will receive sensor data from this device.
+                                <div class="mt-1">
+                                    <small class="text-muted">
+                                        <span id="selectedEntriesCount">0</span> of <span id="totalEntriesCount">0</span> entries selected
+                                    </small>
+                                </div>
                             </div>
                         </div>
                         <div class="row">
@@ -319,6 +449,29 @@
         const alertContainer = document.getElementById('alertContainer');
         const scanningOverlay = document.getElementById('scanningOverlay');
         const deviceModal = new bootstrap.Modal(document.getElementById('deviceModal'));
+        
+        // Add modal event handlers
+        document.getElementById('deviceModal').addEventListener('hidden.bs.modal', function () {
+            // Clear the form and reset checkboxes when modal is closed
+            document.getElementById('deviceForm').reset();
+            document.getElementById('entrySearchInput').value = '';
+            document.getElementById('entryTypeFilter').value = '';
+            
+            // Clear all checkbox selections
+            const entryCheckboxContainer = document.getElementById('entryCheckboxContainer');
+            entryCheckboxContainer.querySelectorAll('.entry-checkbox').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            
+            // Reset count display
+            document.getElementById('selectedEntriesCount').textContent = '0';
+            document.getElementById('totalEntriesCount').textContent = entries.length;
+            
+            // Show all checkbox items (clear search and type filters)
+            entryCheckboxContainer.querySelectorAll('.entry-checkbox-item').forEach(item => {
+                item.style.display = 'block';
+            });
+        });
         const discoveryModal = new bootstrap.Modal(document.getElementById('discoveryModal'));
         const testConnectionModal = new bootstrap.Modal(document.getElementById('testConnectionModal'));
         const sensorMappingModal = new bootstrap.Modal(document.getElementById('sensorMappingModal'));
@@ -397,7 +550,7 @@
                                 </div>
                                 <div class="row text-muted small">
                                     <div class="col-md-6">
-                                        <strong>IP:</strong> ${device.ip}<br>
+                                        <strong>IP:</strong> <a href="http://${device.ip}" target="_blank" class="device-ip-link" title="Open device web interface">${device.ip} <i class="fas fa-external-link-alt fa-xs"></i></a><br>
                                         <strong>Device ID:</strong> ${device.device_id}
                                     </div>
                                     <div class="col-md-6">
@@ -442,16 +595,83 @@
             devicesContainer.innerHTML = html;
         }
 
-        // Populate entry select dropdown
+        // Populate entry checkbox list
         function populateEntrySelect() {
-            const select = document.getElementById('linkedEntries');
-            select.innerHTML = '';
+            const container = document.getElementById('entryCheckboxContainer');
+            const searchInput = document.getElementById('entrySearchInput');
+            const typeFilter = document.getElementById('entryTypeFilter');
+            const countDisplay = document.getElementById('selectedEntriesCount');
+            const totalCountDisplay = document.getElementById('totalEntriesCount');
             
-            entries.forEach(entry => {
+            container.innerHTML = '';
+            
+            // Get unique entry types for the filter
+            const entryTypes = [...new Set(entries.map(entry => entry.entry_type_label || 'Unknown'))].sort();
+            
+            // Populate the entry type filter dropdown
+            typeFilter.innerHTML = '<option value="">All Entry Types</option>';
+            entryTypes.forEach(typeName => {
                 const option = document.createElement('option');
-                option.value = entry.id;
-                option.textContent = `${entry.title} (${entry.type_name || 'Entry'})`;
-                select.appendChild(option);
+                option.value = typeName;
+                option.textContent = typeName;
+                typeFilter.appendChild(option);
+            });
+            
+            // Create checkboxes for each entry
+            entries.forEach(entry => {
+                const checkboxDiv = document.createElement('div');
+                checkboxDiv.className = 'form-check mb-2 entry-checkbox-item';
+                checkboxDiv.dataset.entryType = entry.entry_type_label || 'Unknown';
+                checkboxDiv.innerHTML = `
+                    <input class="form-check-input entry-checkbox" type="checkbox" 
+                           value="${entry.id}" id="entry_${entry.id}">
+                    <label class="form-check-label" for="entry_${entry.id}">
+                        <strong>${entry.title}</strong>
+                        <span class="badge bg-secondary ms-2">${entry.entry_type_label || 'Unknown'}</span>
+                    </label>
+                `;
+                container.appendChild(checkboxDiv);
+            });
+            
+            // Update total count
+            totalCountDisplay.textContent = entries.length;
+            
+            // Filter function
+            function applyFilters() {
+                const searchTerm = searchInput.value.toLowerCase();
+                const selectedType = typeFilter.value;
+                const checkboxItems = container.querySelectorAll('.entry-checkbox-item');
+                let visibleCount = 0;
+                
+                checkboxItems.forEach(item => {
+                    const label = item.querySelector('label').textContent.toLowerCase();
+                    const entryType = item.dataset.entryType;
+                    
+                    const matchesSearch = label.includes(searchTerm);
+                    const matchesType = !selectedType || entryType === selectedType;
+                    
+                    if (matchesSearch && matchesType) {
+                        item.style.display = 'block';
+                        visibleCount++;
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+                
+                // Update visible count in the total display
+                totalCountDisplay.textContent = `${visibleCount}`;
+            }
+            
+            // Add search functionality
+            searchInput.addEventListener('input', applyFilters);
+            
+            // Add type filter functionality
+            typeFilter.addEventListener('change', applyFilters);
+            
+            // Add change listeners to update selected count
+            container.addEventListener('change', function() {
+                const checkedBoxes = container.querySelectorAll('.entry-checkbox:checked');
+                countDisplay.textContent = checkedBoxes.length;
             });
         }
 
@@ -469,6 +689,8 @@
                 });
 
                 const response = await currentScanRequest;
+                currentScanRequest = null; // Reset after successful completion
+                
                 if (!response.ok) {
                     const errorData = await response.json();
                     throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
@@ -480,51 +702,15 @@
                 if (result.discovered_devices.length > 0) {
                     showDiscoveredDevices(result.discovered_devices, result);
                 } else {
-                    showAlert(`No ESP32 devices found on network ${result.scan_range}. Scanned ${result.total_scanned} addresses. Try the "Simple Scan" option or manual "Test Connection" if you know the IP.`, 'warning');
+                    showAlert(`No ESP32 devices found on network ${result.scan_range}. Scanned ${result.total_scanned} addresses. Try manual "Test Connection" if you know the IP.`, 'warning');
                 }
                 
             } catch (error) {
+                currentScanRequest = null; // Reset on error
                 scanningOverlay.style.display = 'none';
                 if (error.name !== 'AbortError') {
                     console.error('Error scanning network:', error);
                     showAlert('Error scanning network: ' + error.message, 'danger');
-                }
-            }
-        }
-
-        // Simple network scan for debugging
-        async function scanNetworkSimple() {
-            try {
-                scanningOverlay.style.display = 'flex';
-                document.querySelector('.scanning-content h5').textContent = 'Scanning Network (Simple)';
-                document.querySelector('.scanning-content p').textContent = 'Sequential scan for debugging...';
-                
-                currentScanRequest = fetch('/api/devices/scan-simple', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({})
-                });
-
-                const response = await currentScanRequest;
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-                }
-                
-                const result = await response.json();
-                scanningOverlay.style.display = 'none';
-                
-                if (result.discovered_devices.length > 0) {
-                    showDiscoveredDevices(result.discovered_devices, result);
-                } else {
-                    showAlert(`Simple scan complete. No ESP32 devices found on network ${result.scan_range}. Scanned ${result.total_scanned} addresses sequentially.`, 'info');
-                }
-                
-            } catch (error) {
-                scanningOverlay.style.display = 'none';
-                if (error.name !== 'AbortError') {
-                    console.error('Error in simple scan:', error);
-                    showAlert('Error in simple scan: ' + error.message, 'danger');
                 }
             }
         }
@@ -552,6 +738,7 @@
         function cancelScan() {
             if (currentScanRequest) {
                 currentScanRequest.abort();
+                currentScanRequest = null;
             }
             scanningOverlay.style.display = 'none';
         }
@@ -616,7 +803,7 @@
                                         <strong>Status:</strong> ${device.status}
                                     </p>
                                     ${device.sample_data && device.sample_data.sensor ? `
-                                        <div class="mt-2 p-2 bg-light rounded">
+                                        <div class="mt-2 p-2 rounded" style="background-color: var(--bs-secondary-bg); border: 1px solid var(--bs-border-color);">
                                             <small class="text-muted">
                                                 <strong>Current Data:</strong><br>
                                                 Temperature: ${device.sample_data.sensor.temperature}°C<br>
@@ -705,31 +892,47 @@
 
         // Edit device
         function editDevice(deviceId) {
-            const device = devices.find(d => d.id === deviceId);
-            if (!device) return;
-
-            document.getElementById('deviceId').value = device.id;
-            document.getElementById('deviceName').value = device.device_name;
-            document.getElementById('deviceIP').value = device.ip;
-            
-            // Handle multiple linked entries
-            const linkedEntriesSelect = document.getElementById('linkedEntries');
-            // Clear all selections first
-            Array.from(linkedEntriesSelect.options).forEach(option => option.selected = false);
-            
-            // Select the linked entries - use the linked_entries array
-            if (device.linked_entries && device.linked_entries.length > 0) {
-                device.linked_entries.forEach(entry => {
-                    const option = linkedEntriesSelect.querySelector(`option[value="${entry.id}"]`);
-                    if (option) option.selected = true;
-                });
+            // Hide the discovery modal first to prevent layering issues
+            if (typeof discoveryModal !== 'undefined' && discoveryModal) {
+                discoveryModal.hide();
             }
             
-            document.getElementById('pollingEnabled').value = device.polling_enabled ? '1' : '0';
-            document.getElementById('pollingInterval').value = device.polling_interval;
+            // Small delay to ensure modal transition completes
+            setTimeout(() => {
+                const device = devices.find(d => d.id === deviceId);
+                if (!device) return;
 
-            document.getElementById('deviceModalLabel').textContent = 'Edit Device';
-            deviceModal.show();
+                document.getElementById('deviceId').value = device.id;
+                document.getElementById('deviceName').value = device.device_name;
+                document.getElementById('deviceIP').value = device.ip;
+                
+                // Handle multiple linked entries - now using checkboxes
+                const entryCheckboxContainer = document.getElementById('entryCheckboxContainer');
+                const countDisplay = document.getElementById('selectedEntriesCount');
+                
+                // Clear all checkbox selections first
+                entryCheckboxContainer.querySelectorAll('.entry-checkbox').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                
+                // Check the linked entries - use the linked_entries array
+                if (device.linked_entries && device.linked_entries.length > 0) {
+                    device.linked_entries.forEach(entry => {
+                        const checkbox = entryCheckboxContainer.querySelector(`input[value="${entry.id}"]`);
+                        if (checkbox) checkbox.checked = true;
+                    });
+                }
+                
+                // Update the count display
+                const checkedCount = entryCheckboxContainer.querySelectorAll('.entry-checkbox:checked').length;
+                countDisplay.textContent = checkedCount;
+                
+                document.getElementById('pollingEnabled').value = device.polling_enabled ? '1' : '0';
+                document.getElementById('pollingInterval').value = device.polling_interval;
+
+                document.getElementById('deviceModalLabel').textContent = 'Edit Device';
+                deviceModal.show();
+            }, 200);
         }
 
         // Save device
@@ -743,9 +946,10 @@
             try {
                 const deviceId = document.getElementById('deviceId').value;
                 
-                // Get selected entry IDs
-                const linkedEntriesSelect = document.getElementById('linkedEntries');
-                const selectedEntries = Array.from(linkedEntriesSelect.selectedOptions).map(option => option.value);
+                // Get selected entry IDs from checkboxes
+                const entryCheckboxContainer = document.getElementById('entryCheckboxContainer');
+                const selectedEntries = Array.from(entryCheckboxContainer.querySelectorAll('.entry-checkbox:checked'))
+                    .map(checkbox => checkbox.value);
                 
                 const data = {
                     device_name: document.getElementById('deviceName').value,
