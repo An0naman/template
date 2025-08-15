@@ -625,12 +625,15 @@ def generate_single_label(entry, params, label_type, rotation=0, for_printing=Fa
         
         img.paste(qr_img, (qr_x, qr_y))
     
-    # Handle rotation for final output - use same approach for both preview and print
+    # Handle rotation for final output
     if rotation == 90:
-        # Always use the same rotation approach for consistency
-        # The image is already laid out in landscape mode (work_width x work_height)
-        # This gives us the proper 90-degree rotated appearance
-        pass  # Keep the image as-is - it's already in the correct rotated layout
+        if for_printing:
+            # For printing, we need to actually rotate the image so it appears correctly on the label sheet
+            # The image was created in landscape layout, now rotate it 90 degrees clockwise
+            img = img.rotate(-90, expand=True)
+        else:
+            # For preview, keep the landscape layout as-is to show how it will look when rotated
+            pass  # Keep the image as-is - it's already in the correct rotated layout
     
     return img
 
@@ -651,20 +654,14 @@ def generate_multiple_labels_page(entry, params, label_type, positions, rotation
     # Generate the single label template - for printing, keep original dimensions
     label_template = generate_single_label(entry, params, label_type, rotation, for_printing=True)
     
-    # Calculate positioning variables - adjust for rotation
+    # Calculate positioning variables - labels are always positioned based on their final dimensions
     margin_left_px = int(config['margin_left_mm'] * mm_to_px)
     margin_top_px = int(config['margin_top_mm'] * mm_to_px)
     
-    # For rotated labels, we need to use the rotated dimensions for positioning
-    if rotation == 90:
-        # For 90-degree rotation, the label template is in landscape mode
-        # So we use height as width and width as height for positioning
-        label_width_px = int(config['label_height_mm'] * mm_to_px)  # Swapped
-        label_height_px = int(config['label_width_mm'] * mm_to_px)  # Swapped
-    else:
-        # Normal orientation
-        label_width_px = int(config['label_width_mm'] * mm_to_px)
-        label_height_px = int(config['label_height_mm'] * mm_to_px)
+    # Label dimensions for positioning are always based on the original label size
+    # because the rotated label will be placed in the same spot as a non-rotated label
+    label_width_px = int(config['label_width_mm'] * mm_to_px)
+    label_height_px = int(config['label_height_mm'] * mm_to_px)
         
     gap_h_px = int(config['gap_horizontal_mm'] * mm_to_px)
     gap_v_px = int(config['gap_vertical_mm'] * mm_to_px)
@@ -720,13 +717,10 @@ def generate_label_page(entry, params, label_type, position, rotation=0):
     margin_left_px = int(config['margin_left_mm'] * mm_to_px)
     margin_top_px = int(config['margin_top_mm'] * mm_to_px)
     
-    # For rotated labels, adjust dimensions for positioning
-    if rotation == 90:
-        label_width_px = int(config['label_height_mm'] * mm_to_px)  # Swapped
-        label_height_px = int(config['label_width_mm'] * mm_to_px)  # Swapped
-    else:
-        label_width_px = int(config['label_width_mm'] * mm_to_px)
-        label_height_px = int(config['label_height_mm'] * mm_to_px)
+    # Label dimensions for positioning are always based on the original label size
+    # because the rotated label will be placed in the same spot as a non-rotated label
+    label_width_px = int(config['label_width_mm'] * mm_to_px)
+    label_height_px = int(config['label_height_mm'] * mm_to_px)
         
     gap_h_px = int(config['gap_horizontal_mm'] * mm_to_px)
     gap_v_px = int(config['gap_vertical_mm'] * mm_to_px)
