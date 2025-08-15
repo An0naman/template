@@ -235,6 +235,73 @@
             }
         }
 
+        /* Enhanced search and filter styling */
+        .input-group-text {
+            background-color: var(--bs-secondary-bg);
+            border-color: var(--bs-border-color);
+            color: var(--bs-body-color);
+        }
+
+        .search-results-info {
+            background: var(--bs-light-bg, rgba(108, 117, 125, 0.1));
+            border-radius: 0.375rem;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .quick-filters {
+            background: var(--bs-secondary-bg);
+            border: 1px solid var(--bs-border-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+
+        .entry-item {
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .entry-item:hover {
+            border-left-color: var(--theme-primary, #0d6efd);
+        }
+
+        /* Advanced filters card */
+        .advanced-filters-card {
+            background: var(--bs-secondary-bg);
+            border: 1px solid var(--bs-border-color);
+        }
+
+        /* Search input enhancements */
+        #quickSearch {
+            border-right: none;
+        }
+
+        #clearSearch {
+            border-left: none;
+            background: var(--bs-secondary-bg);
+            border-color: var(--bs-border-color);
+            color: var(--bs-body-color);
+        }
+
+        #clearSearch:hover {
+            background: var(--bs-danger);
+            border-color: var(--bs-danger);
+            color: white;
+        }
+
+        /* Improved button styling */
+        .btn-theme-primary {
+            background: linear-gradient(135deg, var(--theme-primary, #0d6efd), var(--theme-primary-hover, #0b5ed7));
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.2s ease;
+        }
+
+        .btn-theme-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
         /* ====== SIMPLE DIRECT OPTION STYLING ====== */
         
         /* Direct option hover styling */
@@ -339,133 +406,169 @@
 </head>
 <body>
     <div class="container main-container">
-        <div class="content-card">
-            <!-- Header Section -->
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
-                <div>
-                    <h1 class="h2 mb-2">{{ project_name }}</h1>
-                    <p class="text-muted mb-0">Manage your {{ entry_plural_label.lower() }}</p>
-                </div>
-                    <div class="d-flex gap-2 mt-3 mt-md-0">
-                        <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-theme-secondary">
-                            <i class="fas fa-wrench me-2"></i>Maintenance Module
-                        </a>
-                        <button id="showAddEntryFormBtn" class="btn btn-theme-primary">
-                            <i class="fas fa-plus me-1"></i> Add New {{ entry_singular_label }}
-                        </button>
-                    </div>
+        <!-- Top Header with Settings -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h2 mb-1">{{ project_name }}</h1>
+                <p class="text-muted small mb-0">{{ entry_plural_label }} Management</p>
             </div>
+            <div>
+                <a href="{{ url_for('maintenance.maintenance_module_page') }}" 
+                   class="btn btn-outline-secondary btn-sm" title="Settings">
+                    <i class="fas fa-cog"></i>
+                    <span class="d-none d-md-inline ms-1">Settings</span>
+                </a>
+            </div>
+        </div>
 
-            <!-- Filter Section -->
-            <div class="mb-4 theme-section">
-                <div class="section-header">
-                    <h5 class="section-title">
-                        <i class="fas fa-filter me-2"></i>Filter {{ entry_plural_label }}
+        <div class="content-card">
+            <!-- Smart Search & Filter Section -->
+            <div class="mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-search me-2"></i>Search & Filter
                     </h5>
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" 
+                            data-bs-target="#advancedFilters" aria-expanded="false">
+                        <i class="fas fa-sliders-h me-1"></i>Advanced
+                    </button>
                 </div>
                 
-                <div class="filter-section">
-                    <form method="GET" id="filterForm">
-                        <div class="row g-3">
-                            <div class="col-md-2">
-                                <label for="view_type" class="form-label">View</label>
-                                <select name="view_type" id="view_type" class="form-select">
-                                    <option value="primary" {{ 'selected' if current_view_type == 'primary' else '' }}>Primary Types Only</option>
-                                    <option value="all" {{ 'selected' if current_view_type == 'all' else '' }}>All Types</option>
-                                    <option value="type" {{ 'selected' if current_view_type == 'type' else '' }}>Specific Type</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label for="entry_type" class="form-label">Entry Type</label>
-                                <select name="entry_type" id="entry_type" class="form-select">
-                                    <option value="">All Types</option>
-                                    {% for type in all_entry_types %}
-                                        <option value="{{ type.id }}" {{ 'selected' if current_entry_type == type.id|string else '' }}>
-                                            {{ type.singular_label }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <label for="status" class="form-label">Status</label>
-                                <select name="status" id="status" class="form-select">
-                                    <option value="active" {{ 'selected' if current_status == 'active' else '' }}>Active Only</option>
-                                    <option value="inactive" {{ 'selected' if current_status == 'inactive' else '' }}>Inactive Only</option>
-                                    <option value="all" {{ 'selected' if current_status == 'all' else '' }}>All Status</option>
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <label for="result_limit" class="form-label">Limit</label>
-                                <select name="result_limit" id="result_limit" class="form-select">
-                                    <option value="10" {{ 'selected' if current_result_limit == '10' else '' }}>10</option>
-                                    <option value="25" {{ 'selected' if current_result_limit == '25' else '' }}>25</option>
-                                    <option value="50" {{ 'selected' if current_result_limit == '50' else '' }}>50</option>
-                                    <option value="100" {{ 'selected' if current_result_limit == '100' else '' }}>100</option>
-                                    <option value="250" {{ 'selected' if current_result_limit == '250' else '' }}>250</option>
-                                    <option value="500" {{ 'selected' if current_result_limit == '500' else '' }}>500</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3 d-flex align-items-end gap-2">
-                                <button type="submit" class="btn btn-theme-primary flex-fill">
-                                    <i class="fas fa-filter me-1"></i>Apply
-                                </button>
-                                <button type="submit" name="save_filters" value="true" class="btn btn-theme-accent" title="Save as default filters">
-                                    <i class="fas fa-save me-1"></i>Save
-                                </button>
-                                <a href="{{ url_for('main.index') }}" class="btn btn-theme-secondary">
-                                    <i class="fas fa-times me-1"></i>Clear
-                                </a>
-                            </div>
-                        </div>
-                    </form>
-
-                    <!-- Filter Summary -->
-                    {% if current_view_type != 'primary' or current_status != 'active' or current_entry_type or current_result_limit != '50' %}
-                    <div class="alert alert-info themed-alert-info mt-3 mb-0">
-                        <div class="d-flex align-items-start">
-                            <i class="fas fa-info-circle me-3 mt-1 text-theme-info"></i>
-                            <div class="small">
-                                <strong>Active Filters:</strong>
-                                {% if current_view_type == 'all' %}
-                                    All entry types,
-                                {% elif current_view_type == 'type' and current_entry_type %}
-                                    Specific type only,
-                                {% else %}
-                                    Primary types only,
-                                {% endif %}
-                                {% if current_status == 'active' %}
-                                    Active entries only,
-                                {% elif current_status == 'inactive' %}
-                                    Inactive entries only,
-                                {% else %}
-                                    All statuses,
-                                {% endif %}
-                                Limited to {{ current_result_limit }} most recent results.
-                                ({{ entries|length }} {{ 'entry' if entries|length == 1 else 'entries' }} found)
-                            </div>
+                <div class="row g-3 mb-3">
+                    <!-- Quick Search -->
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="quickSearch" 
+                                   placeholder="Search {{ entry_plural_label.lower() }} by title or description...">
+                            <button class="btn btn-outline-secondary" type="button" id="clearSearch" title="Clear search">
+                                <i class="fas fa-times"></i>
+                            </button>
                         </div>
                     </div>
-                    {% endif %}
+                    
+                    <!-- Quick Type Filter -->
+                    <div class="col-md-3">
+                        <select class="form-select" id="quickTypeFilter" title="Filter by entry type">
+                            <option value="">All Types</option>
+                            {% for type in all_entry_types %}
+                                <option value="{{ type.id }}" {% if type.is_primary %}data-is-primary="true"{% endif %}>
+                                    {{ type.singular_label }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Quick Status Filter -->
+                    <div class="col-md-3">
+                        <select class="form-select" id="quickStatusFilter" title="Filter by status">
+                            <option value="">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Save/Clear Filter Controls -->
+                    <div class="col-12">
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-theme-primary" id="saveFiltersBtn" title="Save current filters as your defaults">
+                                <i class="fas fa-save me-1"></i>Save as Default
+                            </button>
+                            <button type="button" class="btn btn-sm btn-theme-secondary" id="clearFiltersBtn" title="Clear all filters">
+                                <i class="fas fa-times me-1"></i>Clear All
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Advanced Filters (Collapsible) -->
+                <div class="collapse" id="advancedFilters">
+                    <div class="card border-0" style="background-color: var(--bs-secondary-bg);">
+                        <div class="card-body">
+                            <form method="GET" id="filterForm">
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <label for="date_range" class="form-label">Date Range</label>
+                                        <select name="date_range" id="date_range" class="form-select">
+                                            <option value="">All Time</option>
+                                            <option value="today">Today</option>
+                                            <option value="week">This Week</option>
+                                            <option value="month">This Month</option>
+                                            <option value="quarter">Last 3 Months</option>
+                                            <option value="year">This Year</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="sort_by" class="form-label">Sort By</label>
+                                        <select name="sort_by" id="sort_by" class="form-select">
+                                            <option value="created_desc">Newest First</option>
+                                            <option value="created_asc">Oldest First</option>
+                                            <option value="title_asc">Title A-Z</option>
+                                            <option value="title_desc">Title Z-A</option>
+                                            <option value="type_asc">Type A-Z</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="has_description" class="form-label">Content</label>
+                                        <select name="has_description" id="has_description" class="form-select">
+                                            <option value="">All {{ entry_plural_label }}</option>
+                                            <option value="yes">With Description</option>
+                                            <option value="no">Without Description</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="result_limit" class="form-label">Show</label>
+                                        <select name="result_limit" id="result_limit" class="form-select">
+                                            <option value="25">25 results</option>
+                                            <option value="50" selected>50 results</option>
+                                            <option value="100">100 results</option>
+                                            <option value="250">250 results</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <div class="d-flex gap-2">
+                                            <button type="submit" class="btn btn-theme-primary">
+                                                <i class="fas fa-filter me-1"></i>Apply Filters
+                                            </button>
+                                            <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary">
+                                                <i class="fas fa-undo me-1"></i>Reset All
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <!-- Entries List -->
-            <div class="mb-4 theme-section">
-                <div class="section-header">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="section-title mb-0">
+            <div class="mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <h5 class="mb-0">
                             <i class="fas fa-list me-2"></i>{{ entry_plural_label }}
+                            {% if entries %}
+                                <span class="badge bg-secondary ms-2">{{ entries|length }}</span>
+                            {% endif %}
                         </h5>
-                        {% if entries %}
-                            <span class="badge bg-secondary">{{ entries|length }}</span>
-                        {% endif %}
+                        <div id="searchResultsInfo" class="text-muted small"></div>
                     </div>
+                    <button id="showAddEntryFormBtn" class="btn btn-theme-primary">
+                        <i class="fas fa-plus me-1"></i>New {{ entry_singular_label }}
+                    </button>
                 </div>
 
                 <div id="entries-list">
                 {% if entries %}
                     {% for entry in entries %}
-                        <div class="entry-item">
+                        <div class="entry-item" data-title="{{ entry.title|lower }}" 
+                             data-description="{{ entry.description|lower if entry.description else '' }}"
+                             data-type="{{ entry.entry_type_id }}" 
+                             data-type-label="{{ entry.entry_type_label|lower }}"
+                             data-status="{{ entry.status|lower if entry.status else 'active' }}">
                             <div class="d-flex justify-content-between align-items-start">
                                 <div class="flex-grow-1">
                                     <div class="entry-title">
@@ -511,11 +614,7 @@
                         <i class="fas fa-inbox fa-3x mb-3"></i>
                         <h5>No {{ entry_plural_label.lower() }} found</h5>
                         <p class="mb-3">
-                            {% if current_view_type == 'primary' and current_status == 'active' %}
-                                No active primary {{ entry_plural_label.lower() }} yet. Try adding one or adjusting your filters.
-                            {% else %}
-                                No {{ entry_plural_label.lower() }} match your current filters. Try adjusting the filters above.
-                            {% endif %}
+                            Get started by creating your first {{ entry_singular_label.lower() }}.
                         </p>
                         <button id="showAddEntryFormBtn2" class="btn btn-theme-primary">
                             <i class="fas fa-plus me-1"></i> Add Your First {{ entry_singular_label }}
@@ -546,7 +645,9 @@
                             <select class="form-select" id="newEntryType" name="entry_type_id" required>
                                 <option value="">Select a type</option>
                                 {% for type in all_entry_types %}
-                                    <option value="{{ type.id }}">{{ type.singular_label }}</option>
+                                    <option value="{{ type.id }}" {% if type.is_primary %}data-is-primary="true"{% endif %}>
+                                        {{ type.singular_label }}
+                                    </option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -594,15 +695,248 @@
             
             // Add entry button handlers
             document.getElementById('showAddEntryFormBtn').addEventListener('click', function() {
+                // Set default entry type to primary when opening modal
+                const newEntryType = document.getElementById('newEntryType');
+                const primaryOption = newEntryType.querySelector('option[data-is-primary="true"]');
+                if (primaryOption) {
+                    newEntryType.value = primaryOption.value;
+                }
                 addEntryModal.show();
             });
             
             const showAddEntryFormBtn2 = document.getElementById('showAddEntryFormBtn2');
             if (showAddEntryFormBtn2) {
                 showAddEntryFormBtn2.addEventListener('click', function() {
+                    // Set default entry type to primary when opening modal
+                    const newEntryType = document.getElementById('newEntryType');
+                    const primaryOption = newEntryType.querySelector('option[data-is-primary="true"]');
+                    if (primaryOption) {
+                        newEntryType.value = primaryOption.value;
+                    }
                     addEntryModal.show();
                 });
             }
+
+            // Live Search and Filter Functionality
+            const quickSearch = document.getElementById('quickSearch');
+            const quickTypeFilter = document.getElementById('quickTypeFilter');
+            const quickStatusFilter = document.getElementById('quickStatusFilter');
+            const clearSearchBtn = document.getElementById('clearSearch');
+            const searchResultsInfo = document.getElementById('searchResultsInfo');
+            const entryItems = document.querySelectorAll('.entry-item');
+            
+            let searchTimeout;
+            
+            // Load saved search parameters from localStorage
+            function loadSavedSearchParams() {
+                const savedSearch = localStorage.getItem('indexSearch');
+                const savedType = localStorage.getItem('indexTypeFilter');
+                const savedStatus = localStorage.getItem('indexStatusFilter');
+                
+                console.log('Loading saved params:', { savedSearch, savedType, savedStatus });
+                
+                if (savedSearch) {
+                    quickSearch.value = savedSearch;
+                }
+                
+                if (savedType) {
+                    // Check if the saved type still exists in the dropdown
+                    const typeExists = Array.from(quickTypeFilter.options).some(opt => opt.value === savedType);
+                    console.log('Saved type exists:', typeExists, 'for type:', savedType);
+                    
+                    if (typeExists) {
+                        quickTypeFilter.value = savedType;
+                    } else {
+                        console.log('Clearing invalid saved type filter');
+                        localStorage.removeItem('indexTypeFilter');
+                    }
+                }
+                
+                if (savedStatus) {
+                    quickStatusFilter.value = savedStatus;
+                }
+                
+                // Only apply filters if there are actual filter criteria
+                if (quickSearch.value || quickTypeFilter.value || quickStatusFilter.value) {
+                    console.log('Applying saved filters');
+                    performLiveFilter();
+                } else {
+                    console.log('No filters to apply');
+                }
+            }
+            
+            // Save search parameters to localStorage
+            function saveSearchParams() {
+                localStorage.setItem('indexSearch', quickSearch.value);
+                localStorage.setItem('indexTypeFilter', quickTypeFilter.value);
+                localStorage.setItem('indexStatusFilter', quickStatusFilter.value);
+            }
+            
+            function performLiveFilter() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    const searchTerm = quickSearch.value.toLowerCase().trim();
+                    const selectedType = quickTypeFilter.value;
+                    const selectedStatus = quickStatusFilter.value.toLowerCase().trim();
+                    
+                    let visibleCount = 0;
+                    let totalCount = entryItems.length;
+                    
+                    entryItems.forEach(item => {
+                        const title = (item.dataset.title || '').toLowerCase();
+                        const description = (item.dataset.description || '').toLowerCase();
+                        const entryTypeId = item.dataset.type;
+                        const status = (item.dataset.status || 'active').toLowerCase().trim();
+                        
+                        // DEBUG: Log status comparison for first entry when status filter is selected
+                        if (selectedStatus && item === entryItems[0]) {
+                            console.log('STATUS DEBUG:', {
+                                selectedStatus: `"${selectedStatus}"`,
+                                entryStatus: `"${status}"`,
+                                rawStatus: `"${item.dataset.status}"`,
+                                matches: status === selectedStatus
+                            });
+                        }
+                        
+                        // Search: show if no search term OR title/description contains search term
+                        const showForSearch = !searchTerm || title.includes(searchTerm) || description.includes(searchTerm);
+                        
+                        // Type: show if no type selected OR entry type ID matches selected type ID
+                        const showForType = !selectedType || entryTypeId === selectedType;
+                        
+                        // Status: show if no status selected OR entry status matches selected status
+                        const showForStatus = !selectedStatus || status === selectedStatus;
+                        
+                        // Show entry only if ALL criteria match
+                        if (showForSearch && showForType && showForStatus) {
+                            item.style.display = '';
+                            visibleCount++;
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    });
+                    
+                    // Update search results info
+                    if (searchTerm || selectedType || selectedStatus) {
+                        searchResultsInfo.textContent = `Showing ${visibleCount} of ${totalCount} entries`;
+                        searchResultsInfo.style.display = '';
+                    } else {
+                        searchResultsInfo.style.display = 'none';
+                    }
+                    
+                    // Show/hide no results message
+                    const existingNoResults = document.querySelector('.search-no-results');
+                    if (visibleCount === 0 && totalCount > 0) {
+                        if (!existingNoResults) {
+                            const noResultsDiv = document.createElement('div');
+                            noResultsDiv.className = 'no-entries search-no-results';
+                            noResultsDiv.innerHTML = `
+                                <i class="fas fa-search fa-3x mb-3"></i>
+                                <h5>No matching entries found</h5>
+                                <p class="mb-3">Try adjusting your search or filters above.</p>
+                                <button type="button" class="btn btn-outline-secondary" onclick="clearAllFilters()">
+                                    <i class="fas fa-undo me-1"></i>Clear Filters
+                                </button>
+                            `;
+                            document.getElementById('entries-list').appendChild(noResultsDiv);
+                        }
+                    } else {
+                        if (existingNoResults) {
+                            existingNoResults.remove();
+                        }
+                    }
+                    
+                    // Save current filter state to localStorage
+                    saveSearchParams();
+                }, 150);
+            }
+            
+            // Add event listeners for save/clear buttons
+            document.getElementById('saveFiltersBtn').addEventListener('click', function() {
+                // Show confirmation that filters were saved
+                const btn = this;
+                const originalText = btn.innerHTML;
+                
+                // Build description of what was saved
+                const activeFilters = [];
+                if (quickSearch.value.trim()) activeFilters.push(`Search: "${quickSearch.value.trim()}"`);
+                if (quickTypeFilter.value) {
+                    const selectedOption = quickTypeFilter.options[quickTypeFilter.selectedIndex];
+                    activeFilters.push(`Type: ${selectedOption.text}`);
+                }
+                if (quickStatusFilter.value) {
+                    const selectedOption = quickStatusFilter.options[quickStatusFilter.selectedIndex];
+                    activeFilters.push(`Status: ${selectedOption.text}`);
+                }
+                
+                if (activeFilters.length === 0) {
+                    btn.innerHTML = '<i class="fas fa-info-circle me-1"></i>No Filters to Save';
+                    btn.classList.remove('btn-theme-primary');
+                    btn.classList.add('btn-warning');
+                } else {
+                    btn.innerHTML = '<i class="fas fa-check me-1"></i>Saved!';
+                    btn.classList.remove('btn-theme-primary');
+                    btn.classList.add('btn-success');
+                    console.log('Saved filter defaults:', activeFilters.join(', '));
+                }
+                
+                // Save current filters (already happens automatically, but this gives user feedback)
+                saveSearchParams();
+                
+                // Reset button after 2 seconds
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.remove('btn-success', 'btn-warning');
+                    btn.classList.add('btn-theme-primary');
+                }, 2000);
+            });
+            
+            document.getElementById('clearFiltersBtn').addEventListener('click', function() {
+                clearAllFilters();
+            });
+            
+            // Add event listeners for live filtering
+            quickSearch.addEventListener('input', performLiveFilter);
+            quickTypeFilter.addEventListener('change', performLiveFilter);
+            quickStatusFilter.addEventListener('change', performLiveFilter);
+            
+            // Clear search functionality
+            clearSearchBtn.addEventListener('click', function() {
+                quickSearch.value = '';
+                quickTypeFilter.value = '';
+                quickStatusFilter.value = '';
+                performLiveFilter();
+                saveSearchParams();
+            });
+            
+            // Global function to clear all filters
+            window.clearAllFilters = function() {
+                quickSearch.value = '';
+                quickTypeFilter.value = '';
+                quickStatusFilter.value = '';
+                
+                // Clear localStorage
+                localStorage.removeItem('indexSearch');
+                localStorage.removeItem('indexTypeFilter');
+                localStorage.removeItem('indexStatusFilter');
+                
+                console.log('Cleared all filters and localStorage');
+                
+                // Show all entries
+                entryItems.forEach(item => {
+                    item.style.display = '';
+                });
+                
+                // Hide search results info and no results message
+                searchResultsInfo.style.display = 'none';
+                const existingNoResults = document.querySelector('.search-no-results');
+                if (existingNoResults) {
+                    existingNoResults.remove();
+                }
+            };
+
+            // Load saved search parameters on page load
+            loadSavedSearchParams();
             
             // Form submission handler
             document.getElementById('addEntryForm').addEventListener('submit', async function(e) {

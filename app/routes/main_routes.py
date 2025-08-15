@@ -30,11 +30,11 @@ def index():
     
     # If no filters provided, load from saved preferences
     if view_type is None:
-        view_type = get_user_preference('default_view_type', 'primary')
+        view_type = get_user_preference('default_view_type', 'all')  # Changed default from 'primary' to 'all'
     if entry_type_filter is None:
         entry_type_filter = get_user_preference('default_entry_type_filter', '')
     if status_filter is None:
-        status_filter = get_user_preference('default_status_filter', 'active')
+        status_filter = get_user_preference('default_status_filter', 'all')  # Changed from 'active' to 'all' for frontend filtering
     if result_limit is None:
         result_limit = get_user_preference('default_result_limit', '50')
     
@@ -59,6 +59,7 @@ def index():
     base_query = '''
         SELECT
             e.id, e.title, e.description,
+            e.entry_type_id,
             et.singular_label AS entry_type_label,
             et.name AS entry_type_name,
             e.created_at, e.status
@@ -69,12 +70,8 @@ def index():
     # Add WHERE conditions
     conditions = []
     
-    # Status filter (default to active)
-    if status_filter == 'active':
-        conditions.append("(e.status = 'active' OR e.status IS NULL)")
-    elif status_filter == 'inactive':
-        conditions.append("e.status = 'inactive'")
-    # 'all' status means no status filter
+    # For the main index view, don't filter by status in backend - let frontend handle it
+    # Status filtering is now handled by JavaScript live filtering
     
     # View type filter
     if view_type == 'primary':
