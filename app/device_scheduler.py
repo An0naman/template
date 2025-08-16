@@ -5,7 +5,7 @@ import time
 import requests
 import sqlite3
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from .db import get_connection
 
 logger = logging.getLogger(__name__)
@@ -115,7 +115,8 @@ class DevicePollingScheduler:
             response.raise_for_status()
             device_data = response.json()
 
-            timestamp = datetime.now().isoformat()
+            # Use UTC timestamp consistently for all sensor data
+            timestamp = datetime.now(timezone.utc).isoformat()
             stored_count = 0
             
             # Extract and store sensor data based on device type

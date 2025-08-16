@@ -7,7 +7,7 @@ import socket
 import threading
 import ipaddress
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 from ..db import get_connection
 from ..utils.sensor_type_manager import auto_register_sensor_types, get_sensor_types_from_device_data
@@ -445,7 +445,7 @@ def extract_sensor_data_using_mappings(device_id, device_data, cursor):
     
     mappings = cursor.fetchall()
     sensor_data_points = []
-    timestamp = datetime.now().isoformat()
+    timestamp = datetime.now(timezone.utc).isoformat()
     
     def get_nested_value(data, path):
         """Get value from nested dictionary using dot notation path"""
@@ -547,7 +547,7 @@ def poll_device_data(device_id):
                         # Don't fail the data collection if notification checking fails
             
             # Update device last_seen
-            timestamp = datetime.now().isoformat()
+            timestamp = datetime.now(timezone.utc).isoformat()
             cursor.execute('''
                 UPDATE RegisteredDevices 
                 SET last_seen = ?, status = 'online', last_poll_success = ?
@@ -644,7 +644,7 @@ def poll_all_devices():
                             logger.warning(f"Error checking sensor rules for entry {entry_id}: {e}")
                             # Don't fail the data collection if notification checking fails
                 
-                timestamp = datetime.now().isoformat()
+                timestamp = datetime.now(timezone.utc).isoformat()
                 cursor.execute('''
                     UPDATE RegisteredDevices 
                     SET last_seen = ?, status = 'online', last_poll_success = ?
