@@ -119,6 +119,21 @@ class NtfyService:
             if response.status_code == 200:
                 logger.info(f"Successfully sent ntfy notification: {title}")
                 return True, "Notification sent successfully"
+            elif response.status_code == 429:
+                # Rate limit exceeded - provide helpful error message
+                error_msg = f"Rate limit exceeded. Status: {response.status_code}, Response: {response.text}"
+                logger.warning(error_msg)
+                
+                # Try to parse the error response for better user feedback
+                try:
+                    import json
+                    error_data = json.loads(response.text)
+                    if "daily message quota reached" in error_data.get("error", ""):
+                        error_msg = "Daily message quota reached on ntfy.sh. Consider using your own ntfy server or wait until tomorrow for quota reset."
+                except:
+                    pass
+                    
+                return False, error_msg
             else:
                 error_msg = f"Failed to send notification. Status: {response.status_code}, Response: {response.text}"
                 logger.error(error_msg)

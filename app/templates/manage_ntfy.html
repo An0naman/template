@@ -235,7 +235,21 @@
                                     <label for="serverUrl" class="form-label">ntfy Server URL</label>
                                     <input type="url" class="form-control" id="serverUrlInput" 
                                            value="https://ntfy.sh" placeholder="https://ntfy.sh">
-                                    <small class="form-text text-muted">Use https://ntfy.sh for the public server</small>
+                                    <small class="form-text text-muted">
+                                        Use https://ntfy.sh for the public server or your own server URL
+                                        <br><strong>Rate limited?</strong> Consider using your own ntfy server for unlimited notifications
+                                    </small>
+                                    <div class="mt-2">
+                                        <small class="text-muted">Quick options:</small>
+                                        <div class="btn-group-sm">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm me-1" onclick="setServerUrl('https://ntfy.sh')">
+                                                Public (ntfy.sh)
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setServerUrl('https://your-server.com')">
+                                                Self-hosted
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="col-md-6">
                                     <label for="topicInput" class="form-label">Your Topic Name</label>
@@ -297,7 +311,7 @@
         <div class="settings-section">
             <div class="section-card">
                 <div class="section-title">
-                    <i class="fas fa-lightbulb me-2"></i>Usage Tips
+                    <i class="fas fa-lightbulb me-2"></i>Usage Tips & Rate Limits
                 </div>
                 <div class="row">
                     <div class="col-md-6">
@@ -315,9 +329,37 @@
                             <li>Priority levels control notification urgency</li>
                             <li>Click actions will open related entries in your app</li>
                         </ul>
+                    </div>
+                </div>
+                
+                <!-- Rate Limiting Information -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-info-circle me-2"></i>Rate Limiting Information</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Public ntfy.sh Server:</strong>
+                                    <ul class="mb-2">
+                                        <li>Daily message limit (varies)</li>
+                                        <li>Free but shared resources</li>
+                                        <li>Suitable for light usage</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Solutions for Heavy Usage:</strong>
+                                    <ul class="mb-2">
+                                        <li><strong>Self-hosted server</strong> (no limits)</li>
+                                        <li>Alternative public servers</li>
+                                        <li>Paid ntfy.sh plans (coming soon)</li>
+                                    </ul>
+                                </div>
                             </div>
+                            <p class="mb-0"><strong>Getting rate limited?</strong> Change the server URL above to use your own ntfy server or try an alternative server.</p>
                         </div>
                     </div>
+                </div>
+            </div>
                 </div>
             </div>
         </div>
@@ -609,7 +651,25 @@
                 if (result.success) {
                     resultDiv.innerHTML = '<div class="alert alert-success mt-2"><i class="fas fa-check me-2"></i>Test notification sent successfully! Check your iPhone.</div>';
                 } else {
-                    resultDiv.innerHTML = `<div class="alert alert-danger mt-2"><i class="fas fa-exclamation-triangle me-2"></i>Failed to send test notification: ${result.error}</div>`;
+                    let errorMessage = result.error || 'Unknown error';
+                    let alertClass = 'alert-danger';
+                    
+                    // Provide specific guidance for rate limiting
+                    if (errorMessage.includes('daily message quota') || errorMessage.includes('Rate limit exceeded')) {
+                        alertClass = 'alert-warning';
+                        errorMessage = `
+                            <strong>Rate limit reached!</strong><br>
+                            ${errorMessage}<br><br>
+                            <strong>Solutions:</strong>
+                            <ul class="mb-0 mt-2">
+                                <li>Set up your own ntfy server (unlimited messages)</li>
+                                <li>Wait until tomorrow for quota reset</li>
+                                <li>Use a different server URL above</li>
+                            </ul>
+                        `;
+                    }
+                    
+                    resultDiv.innerHTML = `<div class="alert ${alertClass} mt-2"><i class="fas fa-exclamation-triangle me-2"></i>${errorMessage}</div>`;
                 }
                 
             } catch (error) {
@@ -629,6 +689,16 @@
                     button.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Configure Topic First';
                     button.style.cursor = 'not-allowed';
                 }
+            }
+        }
+
+        function setServerUrl(url) {
+            document.getElementById('serverUrlInput').value = url;
+            if (url === 'https://your-server.com') {
+                // Clear the placeholder and focus for user to enter their own URL
+                document.getElementById('serverUrlInput').value = '';
+                document.getElementById('serverUrlInput').placeholder = 'https://your-server.com';
+                document.getElementById('serverUrlInput').focus();
             }
         }
 
