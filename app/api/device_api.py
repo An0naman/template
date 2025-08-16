@@ -28,6 +28,13 @@ def get_db():
 def get_local_network_range():
     """Get the local network range for scanning (Docker-aware)"""
     try:
+        # First check if network range is set via environment variable (for Docker bridge mode)
+        import os
+        env_network = os.getenv('NETWORK_RANGE')
+        if env_network:
+            logger.info(f"Using network range from environment: {env_network}")
+            return env_network
+        
         # First, try to get the default gateway (host network)
         # This is more reliable when running in Docker
         import subprocess
