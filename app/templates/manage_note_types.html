@@ -156,7 +156,22 @@
                             <small class="text-muted">Standard notes and general information</small>
                         </div>
                         <div class="col-md-3 text-end">
-                            <span class="badge bg-orange text-white">Default</span>
+                            <span class="badge bg-orange text-white me-2">Default</span>
+                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#generalAiPrompt" aria-expanded="false">
+                                <i class="fas fa-robot"></i> AI Setup
+                            </button>
+                        </div>
+                    </div>
+                    <div class="collapse mt-3" id="generalAiPrompt">
+                        <div class="card card-body">
+                            <label for="generalBasePrompt" class="form-label"><i class="fas fa-robot me-1"></i> AI Base Prompt for General Notes</label>
+                            <textarea class="form-control" id="generalBasePrompt" rows="3" placeholder="Enter a base prompt that will guide AI when generating General notes..."></textarea>
+                            <small class="form-text text-muted">This prompt will be used as context when AI generates content for General notes.</small>
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-orange" onclick="saveDefaultNoteTypePrompt('General')">
+                                    <i class="fas fa-save me-1"></i> Save AI Prompt
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -173,7 +188,22 @@
                             <small class="text-muted">High priority notes requiring attention</small>
                         </div>
                         <div class="col-md-3 text-end">
-                            <span class="badge bg-orange text-white">Default</span>
+                            <span class="badge bg-orange text-white me-2">Default</span>
+                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#importantAiPrompt" aria-expanded="false">
+                                <i class="fas fa-robot"></i> AI Setup
+                            </button>
+                        </div>
+                    </div>
+                    <div class="collapse mt-3" id="importantAiPrompt">
+                        <div class="card card-body">
+                            <label for="importantBasePrompt" class="form-label"><i class="fas fa-robot me-1"></i> AI Base Prompt for Important Notes</label>
+                            <textarea class="form-control" id="importantBasePrompt" rows="3" placeholder="Enter a base prompt that will guide AI when generating Important notes..."></textarea>
+                            <small class="form-text text-muted">This prompt will be used as context when AI generates content for Important notes.</small>
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-orange" onclick="saveDefaultNoteTypePrompt('Important')">
+                                    <i class="fas fa-save me-1"></i> Save AI Prompt
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -190,7 +220,22 @@
                             <small class="text-muted">Caution notes and warnings</small>
                         </div>
                         <div class="col-md-3 text-end">
-                            <span class="badge bg-orange text-white">Default</span>
+                            <span class="badge bg-orange text-white me-2">Default</span>
+                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#warningAiPrompt" aria-expanded="false">
+                                <i class="fas fa-robot"></i> AI Setup
+                            </button>
+                        </div>
+                    </div>
+                    <div class="collapse mt-3" id="warningAiPrompt">
+                        <div class="card card-body">
+                            <label for="warningBasePrompt" class="form-label"><i class="fas fa-robot me-1"></i> AI Base Prompt for Warning Notes</label>
+                            <textarea class="form-control" id="warningBasePrompt" rows="3" placeholder="Enter a base prompt that will guide AI when generating Warning notes..."></textarea>
+                            <small class="form-text text-muted">This prompt will be used as context when AI generates content for Warning notes.</small>
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-orange" onclick="saveDefaultNoteTypePrompt('Warning')">
+                                    <i class="fas fa-save me-1"></i> Save AI Prompt
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -207,7 +252,22 @@
                             <small class="text-muted">Completed tasks and positive outcomes</small>
                         </div>
                         <div class="col-md-3 text-end">
-                            <span class="badge bg-orange text-white">Default</span>
+                            <span class="badge bg-orange text-white me-2">Default</span>
+                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#successAiPrompt" aria-expanded="false">
+                                <i class="fas fa-robot"></i> AI Setup
+                            </button>
+                        </div>
+                    </div>
+                    <div class="collapse mt-3" id="successAiPrompt">
+                        <div class="card card-body">
+                            <label for="successBasePrompt" class="form-label"><i class="fas fa-robot me-1"></i> AI Base Prompt for Success Notes</label>
+                            <textarea class="form-control" id="successBasePrompt" rows="3" placeholder="Enter a base prompt that will guide AI when generating Success notes..."></textarea>
+                            <small class="form-text text-muted">This prompt will be used as context when AI generates content for Success notes.</small>
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-orange" onclick="saveDefaultNoteTypePrompt('Success')">
+                                    <i class="fas fa-save me-1"></i> Save AI Prompt
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -289,7 +349,7 @@
                 <button type="button" class="remove-btn" onclick="removeNoteType(${id})" title="Remove">
                     <i class="fas fa-times"></i>
                 </button>
-                <div class="row align-items-center">
+                <div class="row align-items-center mb-3">
                     <div class="col-md-4">
                         <label class="form-label">Note Type Name</label>
                         <input type="text" class="form-control" placeholder="e.g., Research, Meeting" data-field="name">
@@ -306,10 +366,23 @@
                         <input type="text" class="form-control" placeholder="Brief description of this note type" data-field="description">
                     </div>
                 </div>
+                <div class="row">
+                    <div class="col-12">
+                        <label class="form-label">
+                            <i class="fas fa-magic me-1 text-primary"></i>AI Base Prompt (Optional)
+                        </label>
+                        <textarea class="form-control" rows="3" 
+                                  placeholder="Custom instructions for AI when generating this type of note. e.g., 'Focus on technical details and include code examples' or 'Write in a professional meeting format with action items'"
+                                  data-field="base_prompt"></textarea>
+                        <small class="text-muted">
+                            This prompt will guide AI content generation for this note type. Leave blank to use the default AI behavior.
+                        </small>
+                    </div>
+                </div>
             `;
             
             container.appendChild(noteTypeItem);
-            customNoteTypes.push({ id: id, name: '', color: '#6f42c1', description: '' });
+            customNoteTypes.push({ id: id, name: '', color: '#6f42c1', description: '', base_prompt: '' });
         }
 
         function removeNoteType(id) {
@@ -326,6 +399,72 @@
             }
         }
 
+        async function saveDefaultNoteTypePrompt(noteTypeName) {
+            const promptId = `${noteTypeName.toLowerCase()}BasePrompt`;
+            const promptTextarea = document.getElementById(promptId);
+            const basePrompt = promptTextarea.value.trim();
+            
+            try {
+                displayStatus(`Saving AI prompt for ${noteTypeName}...`, 'alert-info');
+                
+                // Get existing custom note types configuration
+                const existingResponse = await fetch('/api/system_params/custom_note_types');
+                let existingConfig = {};
+                
+                if (existingResponse.ok) {
+                    const existingData = await existingResponse.json();
+                    if (existingData.value) {
+                        try {
+                            const parsed = JSON.parse(existingData.value);
+                            if (Array.isArray(parsed)) {
+                                // Legacy format - convert to new format
+                                existingConfig = {
+                                    custom_types: parsed,
+                                    default_prompts: {}
+                                };
+                            } else {
+                                // New format
+                                existingConfig = parsed;
+                            }
+                        } catch (e) {
+                            console.warn('Error parsing existing config:', e);
+                            existingConfig = { custom_types: [], default_prompts: {} };
+                        }
+                    }
+                }
+                
+                // Ensure structure exists
+                if (!existingConfig.custom_types) {
+                    existingConfig.custom_types = [];
+                }
+                if (!existingConfig.default_prompts) {
+                    existingConfig.default_prompts = {};
+                }
+                
+                // Update the specific default note type prompt
+                existingConfig.default_prompts[noteTypeName] = basePrompt;
+                
+                const response = await fetch('/api/system_params', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        custom_note_types: JSON.stringify(existingConfig)
+                    })
+                });
+
+                if (response.ok) {
+                    displayStatus(`AI prompt for ${noteTypeName} saved successfully!`, 'alert-success');
+                } else {
+                    throw new Error('Failed to save AI prompt');
+                }
+            } catch (error) {
+                console.error('Error saving default note type prompt:', error);
+                displayStatus(`Error saving AI prompt for ${noteTypeName}. Please try again.`, 'alert-danger');
+            }
+        }
+
         async function saveNoteTypes() {
             // Collect data from all custom note types
             const noteTypesData = [];
@@ -335,12 +474,14 @@
                 const name = element.querySelector('[data-field="name"]').value.trim();
                 const color = element.querySelector('[data-field="color"]').value;
                 const description = element.querySelector('[data-field="description"]').value.trim();
+                const base_prompt = element.querySelector('[data-field="base_prompt"]').value.trim();
                 
                 if (name) {
                     noteTypesData.push({
                         name: name,
                         color: color,
-                        description: description
+                        description: description,
+                        base_prompt: base_prompt
                     });
                 }
             });
@@ -353,13 +494,40 @@
             try {
                 displayStatus('Saving note types...', 'alert-info');
                 
+                // Get existing configuration to preserve default prompts
+                let existingConfig = { custom_types: [], default_prompts: {} };
+                try {
+                    const existingResponse = await fetch('/api/system_params/custom_note_types');
+                    if (existingResponse.ok) {
+                        const existingData = await existingResponse.json();
+                        if (existingData.value) {
+                            const parsed = JSON.parse(existingData.value);
+                            if (Array.isArray(parsed)) {
+                                // Legacy format
+                                existingConfig = { custom_types: parsed, default_prompts: {} };
+                            } else {
+                                // New format - preserve existing default_prompts
+                                existingConfig = parsed;
+                                if (!existingConfig.default_prompts) {
+                                    existingConfig.default_prompts = {};
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Error loading existing config:', e);
+                }
+                
+                // Update custom types while preserving default prompts
+                existingConfig.custom_types = noteTypesData;
+                
                 const response = await fetch('/api/system_params', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        custom_note_types: JSON.stringify(noteTypesData)
+                        custom_note_types: JSON.stringify(existingConfig)
                     })
                 });
 
@@ -399,7 +567,17 @@
                 const params = await response.json();
                 
                 if (params.custom_note_types) {
-                    const customTypes = JSON.parse(params.custom_note_types);
+                    const configData = JSON.parse(params.custom_note_types);
+                    let customTypes = [];
+                    
+                    if (Array.isArray(configData)) {
+                        // Legacy format - array of note types
+                        customTypes = configData;
+                    } else if (configData.custom_types) {
+                        // New format - object with custom_types array
+                        customTypes = configData.custom_types;
+                    }
+                    
                     customTypes.forEach(noteType => {
                         addNoteType();
                         const latestId = Math.max(...customNoteTypes.map(nt => nt.id));
@@ -408,6 +586,7 @@
                         element.querySelector('[data-field="name"]').value = noteType.name;
                         element.querySelector('[data-field="color"]').value = noteType.color;
                         element.querySelector('[data-field="description"]').value = noteType.description || '';
+                        element.querySelector('[data-field="base_prompt"]').value = noteType.base_prompt || '';
                         element.classList.remove('unsaved');
                     });
                 }
@@ -417,7 +596,42 @@
         }
 
         // Initialize on page load
-        document.addEventListener('DOMContentLoaded', loadCustomNoteTypes);
+        async function loadDefaultNoteTypePrompts() {
+            try {
+                const response = await fetch('/api/system_params/custom_note_types');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.value) {
+                        let config = {};
+                        try {
+                            config = JSON.parse(data.value);
+                        } catch (e) {
+                            console.warn('Error parsing note types config:', e);
+                            return;
+                        }
+                        
+                        if (config.default_prompts) {
+                            // Load prompts for each default note type
+                            const defaultTypes = ['General', 'Important', 'Warning', 'Success'];
+                            defaultTypes.forEach(noteType => {
+                                const promptId = `${noteType.toLowerCase()}BasePrompt`;
+                                const textarea = document.getElementById(promptId);
+                                if (textarea && config.default_prompts[noteType]) {
+                                    textarea.value = config.default_prompts[noteType];
+                                }
+                            });
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading default note type prompts:', error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCustomNoteTypes();
+            loadDefaultNoteTypePrompts();
+        });
     </script>
 </body>
 </html>

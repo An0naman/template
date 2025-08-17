@@ -147,6 +147,105 @@
             </div>
         </div>
 
+        <!-- AI Settings -->
+        <div class="settings-section">
+            <div class="section-card">
+                <div class="section-title">
+                    <i class="fas fa-brain me-2"></i>AI Integration Settings
+                </div>
+                <div class="mb-3">
+                    <p class="text-muted">Configure Google Gemini AI for writing assistance with descriptions, notes, and SQL queries.</p>
+                </div>
+                <form id="aiSettingsForm">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="geminiApiKey" class="form-label">
+                                    <i class="fas fa-key me-1"></i>Google Gemini API Key:
+                                </label>
+                                <input type="password" class="form-control" id="geminiApiKey" 
+                                       value="{{ params.gemini_api_key if params.gemini_api_key else '' }}" 
+                                       placeholder="Enter your Google Gemini API key">
+                                <small class="text-muted">
+                                    Get your API key from 
+                                    <a href="https://makersuite.google.com/app/apikey" target="_blank" class="text-decoration-none">
+                                        Google AI Studio <i class="fas fa-external-link-alt"></i>
+                                    </a>
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">AI Service Status:</label>
+                                <div id="aiServiceStatus" class="mt-2">
+                                    <span class="badge bg-secondary">
+                                        <i class="fas fa-spinner fa-spin me-1"></i>Checking...
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="geminiModelName" class="form-label">
+                                    <i class="fas fa-brain me-1"></i>Gemini Model Name:
+                                </label>
+                                <input type="text" class="form-control" id="geminiModelName" 
+                                       value="{{ params.gemini_model_name if params.gemini_model_name else 'gemini-1.5-flash' }}" 
+                                       placeholder="gemini-1.5-flash">
+                                <small class="text-muted">
+                                    Current models: gemini-1.5-flash (fast), gemini-1.5-pro (advanced)
+                                    <br><a href="https://ai.google.dev/gemini-api/docs/models/gemini" target="_blank" class="text-decoration-none">
+                                        View available models <i class="fas fa-external-link-alt"></i>
+                                    </a>
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <!-- Reserved for future AI settings -->
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label for="geminiBasePrompt" class="form-label">
+                                    <i class="fas fa-comment-alt me-1"></i>Base Prompt (Context):
+                                </label>
+                                <textarea class="form-control" id="geminiBasePrompt" rows="3" 
+                                          placeholder="Provide context or instructions that will be included with every AI request">{{ params.gemini_base_prompt if params.gemini_base_prompt else 'You are a helpful assistant for a project management application. Please provide clear, concise, and well-structured responses.' }}</textarea>
+                                <small class="text-muted">
+                                    This text will be prepended to all AI requests to provide consistent context and instructions.
+                                    <br>Example: "You are an expert in [your domain]. Always respond with practical, actionable advice."
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <button type="submit" class="btn btn-purple me-2">
+                                <i class="fas fa-save me-1"></i>Save AI Settings
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="testAiService()">
+                                <i class="fas fa-check-circle me-1"></i>Test Connection
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                <div id="aiStatusMessage" class="mt-3 d-none"></div>
+                
+                <!-- AI Features Info -->
+                <div class="mt-4 p-3 bg-light rounded">
+                    <h6><i class="fas fa-magic me-2"></i>Available AI Features:</h6>
+                    <ul class="mb-0">
+                        <li><strong>Entry Descriptions:</strong> Generate and improve descriptions for entries</li>
+                        <li><strong>SQL Assistance:</strong> Generate SQL queries and explanations in the SQL IDE</li>
+                        <li><strong>Note Enhancement:</strong> Improve existing notes for clarity and structure</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
         <!-- Label Printing Settings -->
         <div class="settings-section">
             <div class="section-card">
@@ -388,6 +487,37 @@
                 
             } catch (error) {
                 displayStatus('labelStatusMessage', 'Failed to save label settings: ' + error.message, 'alert-danger');
+            }
+        });
+
+        // AI Settings Form
+        document.getElementById('aiSettingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                gemini_api_key: document.getElementById('geminiApiKey').value,
+                gemini_model_name: document.getElementById('geminiModelName').value,
+                gemini_base_prompt: document.getElementById('geminiBasePrompt').value
+            };
+            
+            try {
+                displayStatus('aiStatusMessage', 'Saving AI settings...', 'alert-info');
+                
+                const response = await fetch('/api/system_params', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (!response.ok) throw new Error('Failed to save AI settings');
+                
+                displayStatus('aiStatusMessage', 'AI settings saved successfully!', 'alert-success');
+                
+                // Update AI service status after saving
+                checkAiServiceStatus();
+                
+            } catch (error) {
+                displayStatus('aiStatusMessage', 'Failed to save AI settings: ' + error.message, 'alert-danger');
             }
         });
 
@@ -696,6 +826,61 @@
                 }, 3000);
             }
         }
+
+        // AI Service functions
+        async function checkAiServiceStatus() {
+            try {
+                const response = await fetch('/api/ai/status');
+                const data = await response.json();
+                
+                const statusElement = document.getElementById('aiServiceStatus');
+                if (data.available) {
+                    statusElement.innerHTML = '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Available</span>';
+                } else {
+                    statusElement.innerHTML = '<span class="badge bg-warning"><i class="fas fa-exclamation-triangle me-1"></i>Not Configured</span>';
+                }
+            } catch (error) {
+                const statusElement = document.getElementById('aiServiceStatus');
+                statusElement.innerHTML = '<span class="badge bg-danger"><i class="fas fa-times-circle me-1"></i>Error</span>';
+                console.error('Error checking AI service status:', error);
+            }
+        }
+
+        async function testAiService() {
+            try {
+                displayStatus('aiStatusMessage', 'Testing AI connection...', 'alert-info');
+                
+                const response = await fetch('/api/ai/generate_description', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: 'Test Entry',
+                        entry_type: 'test',
+                        context: 'This is a test to verify AI connectivity'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayStatus('aiStatusMessage', '✅ AI service is working correctly! Generated test description successfully.', 'alert-success');
+                } else {
+                    displayStatus('aiStatusMessage', '❌ AI service test failed: ' + (data.error || 'Unknown error'), 'alert-danger');
+                }
+                
+                // Update status badge
+                checkAiServiceStatus();
+                
+            } catch (error) {
+                displayStatus('aiStatusMessage', '❌ Failed to test AI service: ' + error.message, 'alert-danger');
+                console.error('Error testing AI service:', error);
+            }
+        }
+
+        // Check AI service status on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAiServiceStatus();
+        });
     </script>
     <script src="{{ url_for('static', filename='notifications.js') }}"></script>
 </body>

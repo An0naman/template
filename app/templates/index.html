@@ -775,6 +775,12 @@
                                 <button type="button" class="btn btn-sm btn-theme-secondary" id="searchWikipediaModalBtn">
                                     <i class="fab fa-wikipedia-w me-1"></i> Search Wikipedia
                                 </button>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="generateDescriptionModalBtn">
+                                    <i class="fas fa-magic me-1"></i> Generate with AI
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-success" id="improveDescriptionModalBtn">
+                                    <i class="fas fa-star me-1"></i> Improve with AI
+                                </button>
                             </div>
                         </div>
                         <div id="wikipediaModalResults" class="mb-3 d-none">
@@ -1307,6 +1313,108 @@
                     descriptionTextarea.value = extract;
                     // Hide Wikipedia results after use
                     wikipediaResults.classList.add('d-none');
+                }
+            });
+
+            // AI Generate Description functionality for modal
+            document.getElementById('generateDescriptionModalBtn').addEventListener('click', async function() {
+                const titleInput = document.getElementById('newEntryTitle');
+                const typeSelect = document.getElementById('newEntryType');
+                const descriptionTextarea = document.getElementById('newEntryDescription');
+                const generateBtn = this;
+                
+                const entryTitle = titleInput.value.trim();
+                const selectedTypeId = typeSelect.value;
+                
+                if (!entryTitle) {
+                    alert('Please enter a title first to generate description');
+                    return;
+                }
+                
+                if (!selectedTypeId) {
+                    alert('Please select an entry type first');
+                    return;
+                }
+                
+                // Get selected type label
+                const selectedOption = typeSelect.options[typeSelect.selectedIndex];
+                const entryType = selectedOption.text;
+                
+                // Update button state
+                generateBtn.disabled = true;
+                generateBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Generating...';
+                
+                try {
+                    const response = await fetch('/api/ai/generate_description', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            title: entryTitle,
+                            entry_type: entryType,
+                            context: ''
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        descriptionTextarea.value = data.description;
+                    } else {
+                        alert(data.error || 'Failed to generate description');
+                    }
+                } catch (error) {
+                    console.error('AI generation error:', error);
+                    alert('Error generating description with AI');
+                } finally {
+                    // Reset button state
+                    generateBtn.disabled = false;
+                    generateBtn.innerHTML = '<i class="fas fa-magic me-1"></i> Generate with AI';
+                }
+            });
+
+            // AI Improve Description functionality for modal
+            document.getElementById('improveDescriptionModalBtn').addEventListener('click', async function() {
+                const descriptionTextarea = document.getElementById('newEntryDescription');
+                const improveBtn = this;
+                
+                const currentDescription = descriptionTextarea.value.trim();
+                
+                if (!currentDescription) {
+                    alert('Please enter some description text first to improve it');
+                    return;
+                }
+                
+                // Update button state
+                improveBtn.disabled = true;
+                improveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Improving...';
+                
+                try {
+                    const response = await fetch('/api/ai/improve_description', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            description: currentDescription
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        descriptionTextarea.value = data.improved_description;
+                    } else {
+                        alert(data.error || 'Failed to improve description');
+                    }
+                } catch (error) {
+                    console.error('AI improvement error:', error);
+                    alert('Error improving description with AI');
+                } finally {
+                    // Reset button state
+                    improveBtn.disabled = false;
+                    improveBtn.innerHTML = '<i class="fas fa-star me-1"></i> Improve with AI';
                 }
             });
             

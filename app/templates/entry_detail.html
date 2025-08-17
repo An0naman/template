@@ -456,6 +456,56 @@
         #modalNoteContent {
             white-space: pre-wrap; /* Preserves whitespace and wraps text */
         }
+        /* Style for notes list to preserve line breaks */
+        .note-text-preview {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        /* Notes search and filter styling */
+        .notes-filter-controls {
+            gap: 0.5rem;
+        }
+        
+        .notes-filter-controls .form-select-sm {
+            height: 31px; /* Match search input height */
+            font-size: 0.875rem;
+        }
+        
+        /* Ensure consistent sizing for input group elements */
+        #notesSearchFilters .input-group-sm .input-group-text {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            border-radius: 0.375rem;
+            height: 31px;
+            display: flex;
+            align-items: center;
+        }
+        
+        #notesSearchFilters .input-group-sm .input-group-text i {
+            font-size: 12px;
+        }
+        
+        #notesSearchFilters .input-group-sm .form-control {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            height: 31px;
+        }
+        
+        #notesSearchFilters .input-group-sm .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            height: 31px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #notesSearchFilters .input-group-sm .btn i {
+            font-size: 12px;
+        }
         /* Ensure modals are responsive */
         @media (max-width: 576px) {
             .modal-dialog {
@@ -539,6 +589,14 @@
             
             .add-new-btn .fas,
             .add-existing-btn .fas {
+                margin-right: 0 !important;
+            }
+            
+            /* AI assistance buttons */
+            #aiGenerateDescriptionBtn .fas,
+            #aiImproveDescriptionBtn .fas,
+            #aiGenerateBtn .fas,
+            #aiExplainBtn .fas {
                 margin-right: 0 !important;
             }
         }
@@ -2010,6 +2068,14 @@
                                         aria-label="Search Wikipedia for information about this entry">
                                     <i class="fab fa-wikipedia-w me-1" aria-hidden="true"></i>Search Wikipedia
                                 </button>
+                                <button type="button" class="btn btn-outline-warning" id="aiGenerateDescriptionBtn"
+                                        aria-label="Generate description using AI">
+                                    <i class="fas fa-robot me-1" aria-hidden="true"></i><span class="d-none d-md-inline">AI Generate</span>
+                                </button>
+                                <button type="button" class="btn btn-outline-info" id="aiImproveDescriptionBtn"
+                                        aria-label="Improve existing description using AI">
+                                    <i class="fas fa-lightbulb me-1" aria-hidden="true"></i><span class="d-none d-md-inline">AI Improve</span>
+                                </button>
                                 <button type="button" class="btn btn-secondary" id="cancelDescriptionBtn"
                                         aria-label="Cancel editing and discard changes">
                                     <i class="fas fa-times me-1" aria-hidden="true"></i>Cancel
@@ -2185,6 +2251,49 @@
                             </button>
                         </div>
 
+                        <!-- Notes Search and Filter Controls -->
+                        <div class="mb-3" id="notesSearchFilters">
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-search"></i>
+                                        </span>
+                                        <input type="text" 
+                                               class="form-control" 
+                                               id="notesSearchInput" 
+                                               placeholder="Search notes content...">
+                                        <button type="button" 
+                                                class="btn btn-outline-secondary btn-sm" 
+                                                id="clearNotesSearch"
+                                                title="Clear search"
+                                                style="display: none;">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <select class="form-select form-select-sm" id="notesTypeFilter">
+                                        <option value="">All Types</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <select class="form-select form-select-sm" id="notesSortOrder">
+                                        <option value="newest">Newest First</option>
+                                        <option value="oldest">Oldest First</option>
+                                        <option value="title">By Title</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row g-2 mt-1">
+                                <div class="col-12">
+                                    <small class="text-muted" id="notesFilterStatus">
+                                        <span id="notesCount">0</span> notes found
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Reminder Progress Summary -->
                         <div id="reminderProgressSummary" class="alert alert-info mb-3" style="display: none;">
                             <div class="d-flex align-items-center justify-content-between">
@@ -2219,6 +2328,18 @@
                                 <div class="mb-3">
                                     <label for="newNoteTextarea" class="form-label">Notes</label>
                                     <textarea class="form-control" id="newNoteTextarea" rows="4" placeholder="Type your new note here..."></textarea>
+                                    <div class="mt-2">
+                                        <button type="button" class="btn btn-sm btn-outline-primary me-2" id="aiGenerateNoteBtn">
+                                            <i class="fas fa-magic me-1 d-none d-md-inline"></i>
+                                            <span class="d-none d-md-inline">AI Generate</span>
+                                            <i class="fas fa-magic d-md-none"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="aiImproveNoteBtn">
+                                            <i class="fas fa-sparkles me-1 d-none d-md-inline"></i>
+                                            <span class="d-none d-md-inline">AI Improve</span>
+                                            <i class="fas fa-sparkles d-md-none"></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label for="reminderDateInput" class="form-label">
@@ -2376,6 +2497,17 @@
                         <div class="mb-3">
                             <label for="editNoteText" class="form-label">Note Content:</label>
                             <textarea class="form-control" id="editNoteText" rows="4"></textarea>
+                            <!-- AI Assistance Buttons for Note Editing -->
+                            <div class="mt-2 d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-info ai-btn" id="aiEditGenerateNoteBtn" title="Generate note content using AI">
+                                    <i class="fas fa-magic me-1"></i>
+                                    <span class="d-none d-sm-inline">AI Generate</span>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-primary ai-btn" id="aiEditImproveNoteBtn" title="Improve existing note content using AI">
+                                    <i class="fas fa-wand-magic-sparkles me-1"></i>
+                                    <span class="d-none d-sm-inline">AI Improve</span>
+                                </button>
+                            </div>
                         </div>
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-sm btn-success" id="saveNoteContentBtn">
@@ -2638,6 +2770,15 @@
         const notesList = document.getElementById('notesList');
         const noNotesMessage = document.getElementById('noNotesMessage');
         const noteStatusMessage = document.getElementById('noteStatusMessage');
+        
+        // Notes search and filter elements
+        const notesSearchInput = document.getElementById('notesSearchInput');
+        const clearNotesSearch = document.getElementById('clearNotesSearch');
+        const notesTypeFilter = document.getElementById('notesTypeFilter');
+        const notesSortOrder = document.getElementById('notesSortOrder');
+        const notesCount = document.getElementById('notesCount');
+        const notesFilterStatus = document.getElementById('notesFilterStatus');
+        
         const descriptionTextarea = document.getElementById('descriptionTextarea');
         const entryTitleInput = document.getElementById('entryTitleInput');
         const entryTypeSelect = document.getElementById('entryTypeSelect');
@@ -2702,6 +2843,11 @@
         // Map to store fetched notes by ID for quick lookup
         let loadedNotes = new Map();
         let currentNoteIdInModal = null; // To keep track of which note is open in the modal
+        
+        // Store all notes for filtering and searching
+        let allNotes = [];
+        let filteredNotes = [];
+        
         let noteTypeColors = null; // Cache for note type colors
 
         // Function to get note type color
@@ -3209,7 +3355,14 @@
                     loadedNotes.set(parseInt(note.id), note);
                 });
 
-                displayNotes(notes);
+                // Store all notes for filtering
+                allNotes = [...notes];
+                
+                // Initialize note type filter options
+                updateNoteTypeFilter();
+                
+                // Apply current filters and display
+                applyNotesFilter();
                 updateReminderProgressSummary(notes);
             } catch (error) {
                 console.error('Error fetching notes:', error);
@@ -3296,7 +3449,7 @@
                         </h5>
                         <small>${new Date(note.created_at).toLocaleString()}</small>
                     </div>
-                    <p class="mb-1">${note.note_text.substring(0, 100)}${note.note_text.length > 100 ? '...' : ''}</p>
+                    <p class="mb-1 note-text-preview">${note.note_text.substring(0, 100)}${note.note_text.length > 100 ? '...' : ''}</p>
                     <button type="button" class="btn btn-theme-primary btn-sm mt-2 open-note-details-btn" data-note-id="${note.id}">
                         Open Details <i class="fas fa-external-link-alt ms-1"></i>
                     </button>
@@ -3504,6 +3657,79 @@
             } else {
                 return 'very soon';
             }
+        }
+
+        // Notes filtering and searching functions
+        function updateNoteTypeFilter() {
+            // Get unique note types from all notes
+            const noteTypes = [...new Set(allNotes.map(note => note.note_type || 'General'))];
+            noteTypes.sort();
+            
+            // Clear existing options (except "All Types")
+            notesTypeFilter.innerHTML = '<option value="">All Types</option>';
+            
+            // Add options for each note type
+            noteTypes.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type;
+                notesTypeFilter.appendChild(option);
+            });
+        }
+
+        function applyNotesFilter() {
+            const searchTerm = notesSearchInput.value.toLowerCase().trim();
+            const selectedType = notesTypeFilter.value;
+            const sortOrder = notesSortOrder.value;
+            
+            // Filter notes based on search term and type
+            filteredNotes = allNotes.filter(note => {
+                // Search in title and content
+                const matchesSearch = !searchTerm || 
+                    (note.note_title && note.note_title.toLowerCase().includes(searchTerm)) ||
+                    (note.note_text && note.note_text.toLowerCase().includes(searchTerm));
+                
+                // Filter by note type
+                const matchesType = !selectedType || (note.note_type || 'General') === selectedType;
+                
+                return matchesSearch && matchesType;
+            });
+            
+            // Sort filtered notes
+            sortNotes(filteredNotes, sortOrder);
+            
+            // Update count display
+            notesCount.textContent = filteredNotes.length;
+            
+            // Display filtered notes
+            displayNotes(filteredNotes);
+        }
+
+        function sortNotes(notes, sortOrder) {
+            switch (sortOrder) {
+                case 'oldest':
+                    notes.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                    break;
+                case 'title':
+                    notes.sort((a, b) => {
+                        const titleA = (a.note_title || '').toLowerCase();
+                        const titleB = (b.note_title || '').toLowerCase();
+                        return titleA.localeCompare(titleB);
+                    });
+                    break;
+                case 'newest':
+                default:
+                    notes.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                    break;
+            }
+        }
+
+        function clearNotesFilter() {
+            notesSearchInput.value = '';
+            notesTypeFilter.value = '';
+            notesSortOrder.value = 'newest';
+            clearNotesSearch.style.display = 'none';
+            applyNotesFilter();
         }
 
         // Function to display note files in the modal
@@ -3919,6 +4145,37 @@
             }
         });
 
+        // --- Notes Search and Filter Event Listeners ---
+        
+        // Search input with debouncing
+        let searchTimeout;
+        notesSearchInput.addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            
+            // Show/hide clear button based on input value
+            const hasValue = notesSearchInput.value.trim().length > 0;
+            clearNotesSearch.style.display = hasValue ? 'block' : 'none';
+            
+            searchTimeout = setTimeout(() => {
+                applyNotesFilter();
+            }, 300);
+        });
+        
+        // Clear search button
+        clearNotesSearch.addEventListener('click', () => {
+            clearNotesFilter();
+        });
+        
+        // Note type filter
+        notesTypeFilter.addEventListener('change', () => {
+            applyNotesFilter();
+        });
+        
+        // Sort order
+        notesSortOrder.addEventListener('change', () => {
+            applyNotesFilter();
+        });
+
         // --- Entry Editing Section ---
         const originalEntryTypeId = {{ entry.entry_type_id }};
         
@@ -4103,6 +4360,282 @@
             }, 5000);
         }
 
+        // --- AI Description Assistance ---
+        document.getElementById('aiGenerateDescriptionBtn').addEventListener('click', async () => {
+            const entryTitle = entryTitleInput.value.trim() || currentEntryName;
+            const entryType = currentEntryTypeLabel;
+            
+            if (!entryTitle) {
+                displayStatus(descriptionStatusMessage, 'Please enter an entry title first.', 'alert-warning');
+                return;
+            }
+            
+            const generateBtn = document.getElementById('aiGenerateDescriptionBtn');
+            const originalText = generateBtn.innerHTML;
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating...';
+            
+            try {
+                const response = await fetch('/api/ai/generate_description', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title: entryTitle,
+                        entry_type: entryType,
+                        context: descriptionTextarea.value.trim()
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.description) {
+                    descriptionTextarea.value = data.description;
+                    displayStatus(descriptionStatusMessage, 'AI generated description successfully! Remember to save.', 'alert-success');
+                } else {
+                    throw new Error(data.error || 'Failed to generate description');
+                }
+                
+            } catch (error) {
+                console.error('Error generating description:', error);
+                displayStatus(descriptionStatusMessage, 'Error generating description: ' + error.message, 'alert-danger');
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = originalText;
+            }
+        });
+        
+        document.getElementById('aiImproveDescriptionBtn').addEventListener('click', async () => {
+            const currentDescription = descriptionTextarea.value.trim();
+            
+            if (!currentDescription) {
+                displayStatus(descriptionStatusMessage, 'Please enter some description text to improve.', 'alert-warning');
+                return;
+            }
+            
+            const improveBtn = document.getElementById('aiImproveDescriptionBtn');
+            const originalText = improveBtn.innerHTML;
+            improveBtn.disabled = true;
+            improveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Improving...';
+            
+            try {
+                const response = await fetch('/api/ai/improve_note', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: currentDescription,
+                        type: 'description'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.improved_content) {
+                    descriptionTextarea.value = data.improved_content;
+                    displayStatus(descriptionStatusMessage, 'AI improved description successfully! Remember to save.', 'alert-success');
+                } else {
+                    throw new Error(data.error || 'Failed to improve description');
+                }
+                
+            } catch (error) {
+                console.error('Error improving description:', error);
+                displayStatus(descriptionStatusMessage, 'Error improving description: ' + error.message, 'alert-danger');
+            } finally {
+                improveBtn.disabled = false;
+                improveBtn.innerHTML = originalText;
+            }
+        });
+
+        // --- AI Note Assistance ---
+        // AI Note Generation for new notes
+        document.getElementById('aiGenerateNoteBtn').addEventListener('click', async () => {
+            const entryTitle = entryTitleInput.value.trim() || currentEntryName;
+            const entryType = currentEntryTypeLabel;
+            const noteType = document.getElementById('noteTypeSelect').value || 'General';
+            
+            if (!entryTitle) {
+                showAlert('Please enter an entry title first.', 'warning');
+                return;
+            }
+            
+            const generateBtn = document.getElementById('aiGenerateNoteBtn');
+            const originalText = generateBtn.innerHTML;
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating...';
+            
+            try {
+                const response = await fetch('/api/ai/generate_note', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title: entryTitle,
+                        entry_type: entryType,
+                        note_type: noteType,
+                        context: document.getElementById('newNoteTextarea').value.trim()
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.note_content) {
+                    document.getElementById('newNoteTextarea').value = data.note_content;
+                    showAlert('AI generated note content successfully!', 'success');
+                } else {
+                    throw new Error(data.error || 'Failed to generate note content');
+                }
+                
+            } catch (error) {
+                console.error('Error generating note:', error);
+                showAlert('Error generating note: ' + error.message, 'danger');
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = originalText;
+            }
+        });
+
+        // AI Note Improvement for new notes
+        document.getElementById('aiImproveNoteBtn').addEventListener('click', async () => {
+            const currentNote = document.getElementById('newNoteTextarea').value.trim();
+            const noteType = document.getElementById('noteTypeSelect').value || 'General';
+            
+            if (!currentNote) {
+                showAlert('Please enter some note text to improve.', 'warning');
+                return;
+            }
+            
+            const improveBtn = document.getElementById('aiImproveNoteBtn');
+            const originalText = improveBtn.innerHTML;
+            improveBtn.disabled = true;
+            improveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Improving...';
+            
+            try {
+                const response = await fetch('/api/ai/improve_note', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: currentNote,
+                        type: noteType
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.improved_content) {
+                    document.getElementById('newNoteTextarea').value = data.improved_content;
+                    showAlert('AI improved note content successfully!', 'success');
+                } else {
+                    throw new Error(data.error || 'Failed to improve note content');
+                }
+                
+            } catch (error) {
+                console.error('Error improving note:', error);
+                showAlert('Error improving note: ' + error.message, 'danger');
+            } finally {
+                improveBtn.disabled = false;
+                improveBtn.innerHTML = originalText;
+            }
+        });
+
+        // AI Note Generation for editing notes
+        document.getElementById('aiEditGenerateNoteBtn').addEventListener('click', async () => {
+            const entryTitle = entryTitleInput.value.trim() || currentEntryName;
+            const entryType = currentEntryTypeLabel;
+            const noteType = document.getElementById('modalNoteType').textContent || 'General';
+            
+            if (!entryTitle) {
+                showAlert('Please enter an entry title first.', 'warning');
+                return;
+            }
+            
+            const generateBtn = document.getElementById('aiEditGenerateNoteBtn');
+            const originalText = generateBtn.innerHTML;
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating...';
+            
+            try {
+                const response = await fetch('/api/ai/generate_note', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title: entryTitle,
+                        entry_type: entryType,
+                        note_type: noteType,
+                        context: document.getElementById('editNoteText').value.trim()
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.note_content) {
+                    document.getElementById('editNoteText').value = data.note_content;
+                    showAlert('AI generated note content successfully!', 'success');
+                } else {
+                    throw new Error(data.error || 'Failed to generate note content');
+                }
+                
+            } catch (error) {
+                console.error('Error generating note:', error);
+                showAlert('Error generating note: ' + error.message, 'danger');
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = originalText;
+            }
+        });
+
+        // AI Note Improvement for editing notes
+        document.getElementById('aiEditImproveNoteBtn').addEventListener('click', async () => {
+            const currentNote = document.getElementById('editNoteText').value.trim();
+            const noteType = document.getElementById('modalNoteType').textContent || 'General';
+            
+            if (!currentNote) {
+                showAlert('Please enter some note text to improve.', 'warning');
+                return;
+            }
+            
+            const improveBtn = document.getElementById('aiEditImproveNoteBtn');
+            const originalText = improveBtn.innerHTML;
+            improveBtn.disabled = true;
+            improveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Improving...';
+            
+            try {
+                const response = await fetch('/api/ai/improve_note', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: currentNote,
+                        type: noteType
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.improved_content) {
+                    document.getElementById('editNoteText').value = data.improved_content;
+                    showAlert('AI improved note content successfully!', 'success');
+                } else {
+                    throw new Error(data.error || 'Failed to improve note content');
+                }
+                
+            } catch (error) {
+                console.error('Error improving note:', error);
+                showAlert('Error improving note: ' + error.message, 'danger');
+            } finally {
+                improveBtn.disabled = false;
+                improveBtn.innerHTML = originalText;
+            }
+        });
+
         // --- Related Records Functions (NEW) ---
 
         async function loadRelatedRecords() {
@@ -4236,6 +4769,12 @@
                                                     <button type="button" class="btn btn-sm btn-theme-secondary" id="searchWikipediaDynamicBtn">
                                                         <i class="fab fa-wikipedia-w me-1"></i> Search Wikipedia
                                                     </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-primary" id="generateDescriptionDynamicBtn">
+                                                        <i class="fas fa-magic me-1"></i> Generate with AI
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-success" id="improveDescriptionDynamicBtn">
+                                                        <i class="fas fa-star me-1"></i> Improve with AI
+                                                    </button>
                                                 </div>
                                             </div>
                                             <div id="wikipediaDynamicResults" class="mb-3 d-none">
@@ -4326,6 +4865,102 @@
                                 descriptionTextarea.value = extract;
                                 // Hide Wikipedia results after use
                                 wikipediaResults.classList.add('d-none');
+                            }
+                        });
+
+                        // AI Generate Description functionality for dynamic modal
+                        document.getElementById('generateDescriptionDynamicBtn').addEventListener('click', async () => {
+                            const modal = document.getElementById('addNewModal');
+                            const entryNameInput = modal.querySelector('#newEntryName');
+                            const descriptionTextarea = modal.querySelector('#newEntryDescription');
+                            const generateBtn = modal.querySelector('#generateDescriptionDynamicBtn');
+                            
+                            const entryName = entryNameInput.value.trim();
+                            
+                            if (!entryName) {
+                                alert('Please enter an entry name first to generate description');
+                                return;
+                            }
+                            
+                            // Use a generic "Entry" type for now
+                            const targetEntryType = 'Entry';
+                            
+                            // Update button state
+                            generateBtn.disabled = true;
+                            generateBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Generating...';
+                            
+                            try {
+                                const response = await fetch('/api/ai/generate_description', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                        title: entryName,
+                                        entry_type: targetEntryType,
+                                        context: ''
+                                    })
+                                });
+                                
+                                const data = await response.json();
+                                
+                                if (data.success) {
+                                    descriptionTextarea.value = data.description;
+                                } else {
+                                    alert(data.error || 'Failed to generate description');
+                                }
+                            } catch (error) {
+                                console.error('AI generation error:', error);
+                                alert('Error generating description with AI');
+                            } finally {
+                                // Reset button state
+                                generateBtn.disabled = false;
+                                generateBtn.innerHTML = '<i class="fas fa-magic me-1"></i> Generate with AI';
+                            }
+                        });
+
+                        // AI Improve Description functionality for dynamic modal
+                        document.getElementById('improveDescriptionDynamicBtn').addEventListener('click', async () => {
+                            const modal = document.getElementById('addNewModal');
+                            const descriptionTextarea = modal.querySelector('#newEntryDescription');
+                            const improveBtn = modal.querySelector('#improveDescriptionDynamicBtn');
+                            
+                            const currentDescription = descriptionTextarea.value.trim();
+                            
+                            if (!currentDescription) {
+                                alert('Please enter some description text first to improve it');
+                                return;
+                            }
+                            
+                            // Update button state
+                            improveBtn.disabled = true;
+                            improveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Improving...';
+                            
+                            try {
+                                const response = await fetch('/api/ai/improve_description', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                        description: currentDescription
+                                    })
+                                });
+                                
+                                const data = await response.json();
+                                
+                                if (data.success) {
+                                    descriptionTextarea.value = data.improved_description;
+                                } else {
+                                    alert(data.error || 'Failed to improve description');
+                                }
+                            } catch (error) {
+                                console.error('AI improvement error:', error);
+                                alert('Error improving description with AI');
+                            } finally {
+                                // Reset button state
+                                improveBtn.disabled = false;
+                                improveBtn.innerHTML = '<i class="fas fa-star me-1"></i> Improve with AI';
                             }
                         });
 

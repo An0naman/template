@@ -383,7 +383,10 @@ def get_system_parameters():
                 'sensor_types': '',  # Start with empty sensor types - let devices register them dynamically
                 'allowed_file_types': 'txt,pdf,png,jpg,jpeg,gif,webp,svg,doc,docx,xls,xlsx,ppt,pptx,mp4,avi,mov,wmv,flv,webm,mkv,mp3,wav,flac,aac,ogg,zip,rar,7z,tar,gz',
                 'max_file_size': '50',
-                'custom_note_types': '[]'
+                'custom_note_types': '[]',
+                'gemini_api_key': '',  # Google Gemini API key for AI features
+                'gemini_model_name': 'gemini-1.5-flash',  # Google Gemini model name
+                'gemini_base_prompt': 'You are a helpful assistant for a project management application. Please provide clear, concise, and well-structured responses.'  # Base prompt for AI context
             }
             for name, value in default_params.items():
                 try:

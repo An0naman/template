@@ -136,11 +136,6 @@ def manage_devices_page():
                            entry_singular_label=params.get('entry_singular_label'),
                            entry_plural_label=params.get('entry_plural_label'))
 
-@maintenance_bp.route('/sql_ide')
-def sql_ide_page():
-    from ..db import get_system_parameters
-    params = get_system_parameters()
-    return render_template('sql_ide.html',
-                           project_name=params.get('project_name'),
-                           entry_singular_label=params.get('entry_singular_label'),
-                           entry_plural_label=params.get('entry_plural_label'))
+@maintenance_bp.route('/maintenance')
+def maintenance_module():
+    return render_template('maintenance_module.html')

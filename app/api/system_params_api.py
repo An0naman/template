@@ -32,7 +32,8 @@ def api_update_system_params():
         for param_name, param_value in data.items():
             if param_name in ['project_name', 'entry_singular_label', 'entry_plural_label', 'sensor_types', 
                              'project_logo_path', 'label_font_size', 'label_include_qr_code', 'label_include_logo',
-                             'label_qr_code_prefix', 'allowed_file_types', 'max_file_size', 'custom_note_types']:
+                             'label_qr_code_prefix', 'allowed_file_types', 'max_file_size', 'custom_note_types',
+                             'gemini_api_key', 'gemini_model_name', 'gemini_base_prompt']:
                 cursor.execute(
                     "UPDATE SystemParameters SET parameter_value = ? WHERE parameter_name = ?",
                     (param_value, param_name)

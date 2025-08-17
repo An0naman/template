@@ -14,6 +14,7 @@ services:
     environment:
       - FLASK_APP=run.py
       - NETWORK_RANGE=192.168.68.0/24
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
 
     x-casaos:
       envs:
@@ -23,6 +24,9 @@ services:
         - container: NETWORK_RANGE
           description:
             en_us: Network range for ESP32 device discovery (e.g., 192.168.1.0/24)
+        - container: GEMINI_API_KEY
+          description:
+            en_us: Google Gemini API key for AI features (get from https://makersuite.google.com/app/apikey)
       ports:
         - container: "5001"
           description:
