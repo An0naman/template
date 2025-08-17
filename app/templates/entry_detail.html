@@ -7,6 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='notifications_modern.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='mobile.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     
@@ -1833,7 +1834,7 @@
         <div class="content-section theme-section mb-4">
             <div class="section-content">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3">
-                    <h1 class="h3 mb-2 mb-md-0" id="entryTitle">{{ entry.title }}</h1>
+                    <h1 class="h1 mb-2 mb-md-0" id="entryTitle">{{ entry.title }}</h1>
                     <div class="entry-actions d-flex flex-wrap gap-2">
                         <button class="btn btn-sm btn-danger" id="deleteEntryBtn">
                             <i class="fas fa-trash-alt me-1"></i>Delete
@@ -2335,9 +2336,8 @@
                                             <i class="fas fa-magic d-md-none"></i>
                                         </button>
                                         <button type="button" class="btn btn-sm btn-outline-secondary" id="aiImproveNoteBtn">
-                                            <i class="fas fa-sparkles me-1 d-none d-md-inline"></i>
+                                            <i class="fas fa-wand-magic-sparkles me-1"></i>
                                             <span class="d-none d-md-inline">AI Improve</span>
-                                            <i class="fas fa-sparkles d-md-none"></i>
                                         </button>
                                     </div>
                                 </div>
@@ -6940,6 +6940,93 @@
                 // Hide Wikipedia results after use
                 wikipediaResults.classList.add('d-none');
             }
+        });
+
+        // Auto-resize textarea functionality
+        function autoResizeTextarea(textarea) {
+            // Reset height to auto to get the correct scrollHeight
+            textarea.style.height = 'auto';
+            // Set height to scrollHeight plus a small buffer
+            textarea.style.height = (textarea.scrollHeight + 5) + 'px';
+            // Ensure minimum height
+            if (textarea.scrollHeight < 60) {
+                textarea.style.height = '60px';
+            }
+        }
+
+        // Apply auto-resize to all textareas
+        document.addEventListener('DOMContentLoaded', function() {
+            const textareas = document.querySelectorAll('textarea');
+            textareas.forEach(textarea => {
+                // Set initial height
+                autoResizeTextarea(textarea);
+                
+                // Add event listeners for auto-resize
+                textarea.addEventListener('input', () => {
+                    autoResizeTextarea(textarea);
+                });
+                
+                textarea.addEventListener('paste', () => {
+                    // Delay to allow paste content to be processed
+                    setTimeout(() => autoResizeTextarea(textarea), 50);
+                });
+                
+                // Handle focus to ensure proper sizing
+                textarea.addEventListener('focus', () => {
+                    autoResizeTextarea(textarea);
+                });
+                
+                // Handle keyup for better responsiveness
+                textarea.addEventListener('keyup', () => {
+                    autoResizeTextarea(textarea);
+                });
+            });
+            
+            // Watch for dynamically added textareas
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    mutation.addedNodes.forEach(function(node) {
+                        if (node.nodeType === 1) { // Element node
+                            const newTextareas = node.querySelectorAll ? node.querySelectorAll('textarea') : [];
+                            newTextareas.forEach(textarea => {
+                                autoResizeTextarea(textarea);
+                                textarea.addEventListener('input', () => autoResizeTextarea(textarea));
+                                textarea.addEventListener('paste', () => {
+                                    setTimeout(() => autoResizeTextarea(textarea), 50);
+                                });
+                                textarea.addEventListener('focus', () => autoResizeTextarea(textarea));
+                                textarea.addEventListener('keyup', () => autoResizeTextarea(textarea));
+                            });
+                            
+                            // Also check for AI improve buttons that might be missing icons
+                            const aiButtons = node.querySelectorAll ? node.querySelectorAll('button') : [];
+                            aiButtons.forEach(button => {
+                                if (button.textContent.includes('AI Improve') && !button.querySelector('i')) {
+                                    // Add an icon to AI improve buttons that don't have one
+                                    const icon = document.createElement('i');
+                                    icon.className = 'fas fa-magic me-1';
+                                    button.insertBefore(icon, button.firstChild);
+                                }
+                            });
+                        }
+                    });
+                });
+            });
+            
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+            
+            // Check existing AI improve buttons on page load
+            document.querySelectorAll('button').forEach(button => {
+                if (button.textContent.includes('AI Improve') && !button.querySelector('i')) {
+                    // Add an icon to AI improve buttons that don't have one
+                    const icon = document.createElement('i');
+                    icon.className = 'fas fa-magic me-1';
+                    button.insertBefore(icon, button.firstChild);
+                }
+            });
         });
 
     </script>
