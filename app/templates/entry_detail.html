@@ -471,6 +471,167 @@
             opacity: 0.5;
         }
         
+        /* Shared Relationships Styles */
+        .opportunity-group {
+            background: var(--theme-bg-surface, var(--bs-body-bg));
+            border: 1px solid var(--theme-border, var(--bs-border-color)) !important;
+            transition: all 0.3s ease;
+        }
+        
+        .shared-relationship-group {
+            background: var(--bs-body-bg);
+            border: 1px solid var(--bs-border-color);
+            border-left: 4px solid var(--theme-primary, var(--bs-primary));
+            transition: all 0.2s ease;
+        }
+        
+        .shared-relationship-group:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+        }
+        
+        .shared-targets-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .shared-target-item {
+            padding: 0.5rem;
+            border-radius: 6px;
+            transition: background-color 0.2s ease;
+        }
+        
+        .shared-target-item:hover {
+            background-color: var(--bs-secondary-bg);
+        }
+        
+        .shared-target-checkbox {
+            margin-right: 0.75rem;
+        }
+        
+        .create-shared-relationships-btn {
+            min-width: 120px;
+        }
+        
+        /* New shared relationship button styling */
+        .shared-relationship-btn {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        
+        .shared-relationship-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .shared-relationship-btn .fas {
+            font-size: 0.7rem;
+        }
+        
+        /* Mobile-only: remove margin from icon when text is hidden */
+        @media (max-width: 767.98px) {
+            .shared-relationship-btn .fas {
+                margin-right: 0 !important;
+            }
+            
+            .add-new-btn .fas,
+            .add-existing-btn .fas {
+                margin-right: 0 !important;
+            }
+        }
+        
+        .shared-targets-selection {
+            border: 1px solid var(--bs-border-color);
+            border-radius: 0.375rem;
+            padding: 0.75rem;
+            background-color: var(--bs-secondary-bg);
+        }
+        
+        .shared-targets-selection .form-check {
+            background-color: var(--bs-body-bg);
+            transition: all 0.2s ease;
+            margin-bottom: 0.5rem !important;
+            border: 1px solid var(--bs-border-color) !important;
+            color: var(--bs-body-color);
+        }
+        
+        .shared-targets-selection .form-check:hover {
+            background-color: var(--bs-tertiary-bg);
+            border-color: var(--theme-primary, var(--bs-primary)) !important;
+        }
+        
+        .shared-targets-selection .form-check-input {
+            margin-top: 0 !important;
+            margin-right: 0 !important;
+            width: 1.25em;
+            height: 1.25em;
+            flex-shrink: 0;
+            background-color: var(--bs-body-bg);
+            border-color: var(--bs-border-color);
+        }
+        
+        .shared-targets-selection .form-check-input:checked {
+            background-color: var(--theme-primary, var(--bs-primary));
+            border-color: var(--theme-primary, var(--bs-primary));
+        }
+        
+        .shared-targets-selection .form-check-input:focus {
+            box-shadow: 0 0 0 0.25rem rgba(var(--theme-primary-rgb, 13, 110, 253), 0.25);
+        }
+        
+        .shared-targets-selection .form-check-label {
+            cursor: pointer;
+            width: 100%;
+            color: var(--bs-body-color);
+        }
+        
+        .shared-targets-selection .text-muted {
+            color: var(--bs-secondary-color) !important;
+        }
+        
+        .quantity-inputs {
+            min-width: 140px;
+            flex-shrink: 0;
+        }
+        
+        .quantity-inputs .input-group-sm .form-control {
+            font-size: 0.8rem;
+            height: calc(1.5em + 0.5rem + 2px);
+        }
+        
+        .opportunity-group:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-color: var(--theme-primary, var(--bs-primary)) !important;
+        }
+        
+        
+        .target-item {
+            background: var(--theme-bg-card, var(--bs-body-bg));
+            border: 1px solid var(--theme-border-light, #e9ecef) !important;
+            transition: all 0.2s ease;
+        }
+        
+        .target-item:hover {
+            border-color: var(--theme-primary, var(--bs-primary)) !important;
+        }
+        
+        .target-item.bg-light {
+            background: var(--theme-bg-selected, rgba(13, 110, 253, 0.1)) !important;
+            border-color: var(--theme-primary, var(--bs-primary)) !important;
+        }
+        
+        .quantity-inputs .form-control {
+            font-size: 0.85rem;
+        }
+        
+        .targets-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
         .section-content {
             padding: 1rem;
         }
@@ -1995,6 +2156,21 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Shared Relationship Opportunities Section -->
+                <div class="content-section theme-section mb-4" id="sharedRelationshipsSection" style="display: none;">
+                    <div class="section-content">
+                        <div class="section-header mb-3">
+                            <h4 class="section-title">
+                                <i class="fas fa-share-alt me-2"></i>Suggested Relationships
+                            </h4>
+                            <small class="text-muted">Based on relationships from related entries</small>
+                        </div>
+                        <div id="sharedRelationshipsContainer">
+                            <p class="text-muted text-center" id="loadingSharedRelationships">Loading suggestions...</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="col-lg-5">
@@ -2803,7 +2979,8 @@
             initializeNoteTypeDropdown();
             loadNoteTypeColors(); // Load custom note type colors
             fetchNotes();
-            loadRelatedRecords(); // Call the new function to load related records
+            loadRelatedRecords(); // Call the new function to load related records (this will also load shared relationships)
+            loadSharedRelationshipOpportunities(); // Load shared relationship suggestions
             initializeProgressTimeline(); // Initialize progress timeline
             if (hasSensors) {
                 loadSensorData(); // Load sensor data if this entry type supports sensors
@@ -3987,15 +4164,15 @@
                 const canAddMore = relevantCardinality === -1 || relatedEntries.length < relevantCardinality;
 
                 const cardHtml = `
-                    <div class="card mb-3">
+                    <div class="card mb-3" data-definition-id="${def.id}">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">${def.name}</h5>
                             <div class="d-flex gap-2">
                                 <button class="btn btn-sm btn-theme-primary add-new-btn" data-definition-id="${def.id}" ${canAddMore ? '' : 'disabled'} title="Add New ${def.name}">
-                                    <i class="fas fa-plus"></i>
+                                    <i class="fas fa-plus me-1"></i><span class="d-none d-md-inline">New</span>
                                 </button>
                                 <button class="btn btn-sm btn-theme-secondary add-existing-btn" data-definition-id="${def.id}" ${canAddMore ? '' : 'disabled'} title="Add Existing ${def.name}">
-                                    <i class="fas fa-link"></i>
+                                    <i class="fas fa-link me-1"></i><span class="d-none d-md-inline">Link</span>
                                 </button>
                             </div>
                         </div>
@@ -4028,6 +4205,9 @@
             });
 
             attachRelatedRecordEventListeners();
+            
+            // After rendering the related records, integrate shared opportunities
+            loadSharedRelationships();
         }
 
         function attachRelatedRecordEventListeners() {
@@ -4529,6 +4709,603 @@
                 submitButton.disabled = false;
                 submitButton.textContent = 'Add';
             }
+        }
+
+        // --- Shared Relationship Opportunities Functions ---
+
+        async function loadSharedRelationshipOpportunities() {
+            const sharedRelationshipsSection = document.getElementById('sharedRelationshipsSection');
+            const sharedRelationshipsContainer = document.getElementById('sharedRelationshipsContainer');
+            const loadingSharedRelationships = document.getElementById('loadingSharedRelationships');
+            
+            if (!sharedRelationshipsContainer) {
+                console.error('sharedRelationshipsContainer element not found');
+                return;
+            }
+            
+            try {
+                if (loadingSharedRelationships) {
+                    loadingSharedRelationships.style.display = 'block';
+                }
+                
+                const response = await fetch(`/api/entries/${entryId}/shared_relationship_opportunities`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const opportunities = await response.json();
+                
+                if (opportunities.length === 0) {
+                    // Hide the section if no opportunities are available
+                    sharedRelationshipsSection.style.display = 'none';
+                    return;
+                }
+                
+                // Show the section and render opportunities
+                sharedRelationshipsSection.style.display = 'block';
+                renderSharedRelationshipOpportunities(opportunities);
+                
+            } catch (error) {
+                console.error('Error loading shared relationship opportunities:', error);
+                sharedRelationshipsContainer.innerHTML = '<p class="text-danger text-center">Error loading suggestions.</p>';
+            } finally {
+                if (loadingSharedRelationships) {
+                    loadingSharedRelationships.style.display = 'none';
+                }
+            }
+        }
+
+        function renderSharedRelationshipOpportunities(opportunities) {
+            const sharedRelationshipsContainer = document.getElementById('sharedRelationshipsContainer');
+            
+            let html = '';
+            
+            opportunities.forEach((opportunity, index) => {
+                const intermediateEntry = opportunity.intermediate_entry;
+                const relationshipDef = opportunity.relationship_definition;
+                const targets = opportunity.potential_targets;
+                
+                html += `
+                    <div class="opportunity-group mb-4 p-3 border rounded" data-opportunity-index="${index}">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <h6 class="mb-1">
+                                    <i class="fas fa-lightbulb text-warning me-2"></i>
+                                    From <strong>${intermediateEntry.title}</strong>
+                                </h6>
+                                <small class="text-muted">
+                                    Add ${relationshipDef.name} relationships (${targets.length} available)
+                                </small>
+                            </div>
+                            <div>
+                                <button class="btn btn-sm btn-success" onclick="selectAllTargets(${index})">
+                                    <i class="fas fa-check-double me-1"></i>Select All
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary ms-1" onclick="deselectAllTargets(${index})">
+                                    <i class="fas fa-times me-1"></i>Clear
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="targets-list">
+                            ${targets.map((target, targetIndex) => {
+                                const isSelected = true; // Default to selected
+                                const targetEntry = target.target_entry;
+                                const sourceRel = target.source_relationship;
+                                
+                                return `
+                                    <div class="form-check target-item mb-2 p-2 border rounded ${isSelected ? 'bg-light' : ''}" 
+                                         data-target-index="${targetIndex}">
+                                        <input class="form-check-input target-checkbox" 
+                                               type="checkbox" 
+                                               ${isSelected ? 'checked' : ''}
+                                               id="target_${index}_${targetIndex}"
+                                               data-target-id="${targetEntry.id}"
+                                               data-definition-id="${relationshipDef.id}">
+                                        <label class="form-check-label flex-grow-1" for="target_${index}_${targetIndex}">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <strong>${targetEntry.title}</strong>
+                                                    <small class="text-muted d-block">${targetEntry.entry_type_id}</small>
+                                                </div>
+                                                ${sourceRel.quantity || sourceRel.unit ? `
+                                                    <div class="text-end">
+                                                        <small class="text-muted">
+                                                            ${sourceRel.quantity || ''} ${sourceRel.unit || ''}
+                                                        </small>
+                                                        ${relationshipDef.allow_quantity_unit ? `
+                                                            <div class="quantity-inputs mt-1" style="display: ${isSelected ? 'block' : 'none'}">
+                                                                <input type="number" step="any" class="form-control form-control-sm d-inline-block" 
+                                                                       style="width: 80px;" 
+                                                                       placeholder="Qty"
+                                                                       value="${sourceRel.quantity || ''}"
+                                                                       data-type="quantity">
+                                                                <input type="text" class="form-control form-control-sm d-inline-block ms-1" 
+                                                                       style="width: 60px;" 
+                                                                       placeholder="Unit"
+                                                                       value="${sourceRel.unit || ''}"
+                                                                       data-type="unit">
+                                                            </div>
+                                                        ` : ''}
+                                                    </div>
+                                                ` : ''}
+                                            </div>
+                                        </label>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                        
+                        <div class="text-end mt-3">
+                            <button class="btn btn-primary" onclick="createSelectedRelationships(${index})">
+                                <i class="fas fa-plus me-1"></i>Create Selected Relationships
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            sharedRelationshipsContainer.innerHTML = html;
+            
+            // Add event listeners for checkboxes to show/hide quantity inputs
+            attachSharedRelationshipEventListeners();
+        }
+
+        function attachSharedRelationshipEventListeners() {
+            document.querySelectorAll('.target-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const targetItem = this.closest('.target-item');
+                    const quantityInputs = targetItem.querySelector('.quantity-inputs');
+                    
+                    if (this.checked) {
+                        targetItem.classList.add('bg-light');
+                        if (quantityInputs) {
+                            quantityInputs.style.display = 'block';
+                        }
+                    } else {
+                        targetItem.classList.remove('bg-light');
+                        if (quantityInputs) {
+                            quantityInputs.style.display = 'none';
+                        }
+                    }
+                });
+            });
+        }
+
+        function selectAllTargets(opportunityIndex) {
+            const opportunityGroup = document.querySelector(`[data-opportunity-index="${opportunityIndex}"]`);
+            const checkboxes = opportunityGroup.querySelectorAll('.target-checkbox');
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = true;
+                checkbox.dispatchEvent(new Event('change'));
+            });
+        }
+
+        function deselectAllTargets(opportunityIndex) {
+            const opportunityGroup = document.querySelector(`[data-opportunity-index="${opportunityIndex}"]`);
+            const checkboxes = opportunityGroup.querySelectorAll('.target-checkbox');
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = false;
+                checkbox.dispatchEvent(new Event('change'));
+            });
+        }
+
+        async function createSelectedRelationships(opportunityIndex) {
+            const opportunityGroup = document.querySelector(`[data-opportunity-index="${opportunityIndex}"]`);
+            const selectedCheckboxes = opportunityGroup.querySelectorAll('.target-checkbox:checked');
+            
+            if (selectedCheckboxes.length === 0) {
+                alert('Please select at least one relationship to create.');
+                return;
+            }
+            
+            const relationships = [];
+            
+            selectedCheckboxes.forEach(checkbox => {
+                const targetItem = checkbox.closest('.target-item');
+                const quantityInput = targetItem.querySelector('input[data-type="quantity"]');
+                const unitInput = targetItem.querySelector('input[data-type="unit"]');
+                
+                relationships.push({
+                    definition_id: parseInt(checkbox.getAttribute('data-definition-id')),
+                    target_entry_id: parseInt(checkbox.getAttribute('data-target-id')),
+                    quantity: quantityInput ? quantityInput.value : null,
+                    unit: unitInput ? unitInput.value : null
+                });
+            });
+            
+            const createButton = opportunityGroup.querySelector('button[onclick*="createSelectedRelationships"]');
+            const originalText = createButton.innerHTML;
+            createButton.disabled = true;
+            createButton.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Creating...';
+            
+            try {
+                const response = await fetch(`/api/entries/${entryId}/create_shared_relationships`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        relationships: relationships
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to create relationships');
+                }
+                
+                const result = await response.json();
+                
+                if (result.created.length > 0) {
+                    alert(`Successfully created ${result.created.length} relationships!`);
+                    
+                    // Refresh related records and shared opportunities
+                    loadRelatedRecords();
+                    loadSharedRelationshipOpportunities();
+                } else {
+                    alert('No relationships were created. ' + (result.failed.length > 0 ? 'Some failed due to errors.' : ''));
+                }
+                
+                if (result.failed.length > 0) {
+                    console.error('Failed relationships:', result.failed);
+                }
+                
+            } catch (error) {
+                console.error('Error creating shared relationships:', error);
+                alert('Error creating relationships: ' + error.message);
+            } finally {
+                createButton.disabled = false;
+                createButton.innerHTML = originalText;
+            }
+        }
+
+        // --- Shared Relationships Functions ---
+        
+        async function loadSharedRelationships() {
+            try {
+                const response = await fetch(`/api/entries/${entryId}/shared_relationship_opportunities`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const opportunities = await response.json();
+                console.log('Loaded shared relationship opportunities:', opportunities);
+                
+                // Hide the separate shared relationships section since we're integrating into grids
+                const sharedRelationshipsSection = document.getElementById('sharedRelationshipsSection');
+                if (sharedRelationshipsSection) {
+                    sharedRelationshipsSection.style.display = 'none';
+                }
+                
+                // Integrate opportunities into existing relationship grids
+                integrateSharedOpportunitiesIntoGrids(opportunities);
+                
+            } catch (error) {
+                console.error('Error loading shared relationship opportunities:', error);
+            }
+        }
+        
+        function integrateSharedOpportunitiesIntoGrids(opportunities) {
+            console.log('Integrating opportunities into grids:', opportunities);
+            
+            // Group opportunities by relationship definition
+            const opportunitiesByDef = opportunities.reduce((acc, opportunity) => {
+                const defId = opportunity.relationship_definition.id;
+                if (!acc[defId]) {
+                    acc[defId] = opportunity;
+                }
+                return acc;
+            }, {});
+            
+            console.log('Opportunities by definition:', opportunitiesByDef);
+            
+            // For each relationship definition card, check if there are opportunities
+            const cards = document.querySelectorAll('[data-definition-id]');
+            console.log('Found cards with data-definition-id:', cards.length);
+            
+            cards.forEach(card => {
+                const defId = parseInt(card.getAttribute('data-definition-id'));
+                console.log('Checking card for definition ID:', defId);
+                const opportunity = opportunitiesByDef[defId];
+                
+                if (opportunity && opportunity.potential_targets.length > 0) {
+                    console.log('Adding button for definition ID:', defId, opportunity);
+                    addSharedRelationshipButtonToGrid(card, opportunity);
+                } else {
+                    console.log('No opportunities for definition ID:', defId);
+                }
+            });
+        }
+        
+        function addSharedRelationshipButtonToGrid(card, opportunity) {
+            console.log('Adding button to card:', card, opportunity);
+            
+            // Check if button already exists
+            if (card.querySelector('.shared-relationship-btn')) {
+                console.log('Button already exists, skipping');
+                return;
+            }
+            
+            const cardHeader = card.querySelector('.card-header');
+            console.log('Card header found:', cardHeader);
+            if (!cardHeader) return;
+            
+            const headerButtons = cardHeader.querySelector('.header-buttons') || 
+                                 cardHeader.querySelector('.d-flex .ms-auto') ||
+                                 cardHeader.querySelector('.btn-group') ||
+                                 cardHeader.querySelector('.d-flex.gap-2');
+            
+            console.log('Header buttons container found:', headerButtons);
+            if (!headerButtons) {
+                console.log('No header buttons container found');
+                return;
+            }
+            
+            // Create the shared relationship button
+            const sharedBtn = document.createElement('button');
+            sharedBtn.className = 'btn btn-sm btn-theme-secondary shared-relationship-btn ms-1';
+            sharedBtn.innerHTML = `<i class="fas fa-share-alt me-1"></i><span class="d-none d-md-inline">From ${opportunity.intermediate_entry.title}</span>`;
+            sharedBtn.title = `Add ${opportunity.potential_targets.length} ${opportunity.relationship_definition.to_type_label.toLowerCase()}(s) from ${opportunity.intermediate_entry.title}`;
+            
+            console.log('Created button:', sharedBtn);
+            
+            // Add click handler
+            sharedBtn.addEventListener('click', function() {
+                console.log('Shared relationship button clicked');
+                showSharedRelationshipModal(opportunity, card);
+            });
+            
+            headerButtons.appendChild(sharedBtn);
+            console.log('Button added to header');
+        }
+        
+        function showSharedRelationshipModal(opportunity, card) {
+            const modalId = 'sharedRelationshipModal';
+            
+            // Remove existing modal if it exists
+            const existingModal = document.getElementById(modalId);
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            const relationshipDef = opportunity.relationship_definition;
+            const intermediateEntry = opportunity.intermediate_entry;
+            const targets = opportunity.potential_targets;
+            
+            const modalHtml = `
+                <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}Label" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="${modalId}Label">
+                                    <i class="fas fa-share-alt me-2"></i>
+                                    Add ${relationshipDef.to_type_label}s from ${intermediateEntry.title}
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    These ${relationshipDef.to_type_label.toLowerCase()}s are currently related to 
+                                    <strong>${intermediateEntry.title}</strong> and can be added to this ${relationshipDef.from_type_label.toLowerCase()}.
+                                </div>
+                                
+                                <form id="sharedRelationshipForm">
+                                    <div class="mb-3">
+                                        <label class="form-label">
+                                            <strong>Select ${relationshipDef.to_type_label}s to add:</strong>
+                                        </label>
+                                        <div class="shared-targets-selection" style="max-height: 300px; overflow-y: auto;">
+                                            ${targets.map(target => `
+                                                <div class="form-check mb-2 p-3 border rounded">
+                                                    <div class="d-flex align-items-start">
+                                                        <input class="form-check-input shared-modal-checkbox me-3 mt-1" 
+                                                               type="checkbox" 
+                                                               value="${target.target_entry.id}"
+                                                               data-definition-id="${relationshipDef.id}"
+                                                               data-target-title="${target.target_entry.title}"
+                                                               ${relationshipDef.allow_quantity_unit && target.source_relationship.quantity ? 
+                                                                 `data-quantity="${target.source_relationship.quantity}" data-unit="${target.source_relationship.unit || ''}"` : 
+                                                                 ''}
+                                                               id="shared-modal-${target.target_entry.id}"
+                                                               checked>
+                                                        <div class="flex-grow-1">
+                                                            <label class="form-check-label d-block" for="shared-modal-${target.target_entry.id}">
+                                                                <div class="d-flex justify-content-between align-items-start">
+                                                                    <div class="me-3">
+                                                                        <strong>${target.target_entry.title}</strong>
+                                                                        ${target.source_relationship.quantity ? 
+                                                                          `<br><small class="text-muted">Quantity: ${target.source_relationship.quantity}${target.source_relationship.unit ? ' ' + target.source_relationship.unit : ''}</small>` : 
+                                                                          ''}
+                                                                    </div>
+                                                                    ${relationshipDef.allow_quantity_unit ? 
+                                                                      `<div class="quantity-inputs" style="min-width: 160px;">
+                                                                            <div class="input-group input-group-sm">
+                                                                                <input type="number" 
+                                                                                       class="form-control quantity-input" 
+                                                                                       placeholder="Quantity" 
+                                                                                       value="${target.source_relationship.quantity || ''}"
+                                                                                       step="any">
+                                                                                <input type="text" 
+                                                                                       class="form-control unit-input" 
+                                                                                       placeholder="Unit" 
+                                                                                       value="${target.source_relationship.unit || ''}"
+                                                                                       style="max-width: 80px;">
+                                                                            </div>
+                                                                       </div>` : ''}
+                                                                </div>
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="d-flex justify-content-between align-items-center mt-4">
+                                        <div>
+                                            <button type="button" class="btn btn-sm btn-theme-secondary" id="selectAllBtn">
+                                                <i class="fas fa-check-square me-1"></i>Select All
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-theme-secondary ms-2" id="selectNoneBtn">
+                                                <i class="fas fa-square me-1"></i>Select None
+                                            </button>
+                                        </div>
+                                        <div class="d-flex align-items-center">
+                                            <span class="text-muted me-3" id="selectionCount">
+                                                ${targets.length} of ${targets.length} selected
+                                            </span>
+                                            <button type="submit" class="btn btn-theme-primary" id="createRelationshipsBtn">
+                                                <i class="fas fa-plus me-1"></i>Add Selected
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            const modal = new bootstrap.Modal(document.getElementById(modalId));
+            modal.show();
+            
+            // Add event handlers
+            setupSharedRelationshipModalHandlers(modalId, card);
+            
+            // Clean up modal when closed
+            document.getElementById(modalId).addEventListener('hidden.bs.modal', function() {
+                this.remove();
+            });
+        }
+        
+        function setupSharedRelationshipModalHandlers(modalId, card) {
+            const modal = document.getElementById(modalId);
+            const checkboxes = modal.querySelectorAll('.shared-modal-checkbox');
+            const selectAllBtn = modal.querySelector('#selectAllBtn');
+            const selectNoneBtn = modal.querySelector('#selectNoneBtn');
+            const selectionCount = modal.querySelector('#selectionCount');
+            const createBtn = modal.querySelector('#createRelationshipsBtn');
+            const form = modal.querySelector('#sharedRelationshipForm');
+            
+            function updateSelectionCount() {
+                const selectedCount = modal.querySelectorAll('.shared-modal-checkbox:checked').length;
+                const totalCount = checkboxes.length;
+                selectionCount.textContent = `${selectedCount} of ${totalCount} selected`;
+                createBtn.disabled = selectedCount === 0;
+                
+                if (selectedCount === 0) {
+                    createBtn.innerHTML = '<i class="fas fa-plus me-1"></i>Add Selected';
+                } else {
+                    createBtn.innerHTML = `<i class="fas fa-plus me-1"></i>Add ${selectedCount} Selected`;
+                }
+            }
+            
+            // Checkbox change handlers
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', updateSelectionCount);
+            });
+            
+            // Select all button
+            selectAllBtn.addEventListener('click', function() {
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = true;
+                });
+                updateSelectionCount();
+            });
+            
+            // Select none button
+            selectNoneBtn.addEventListener('click', function() {
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                updateSelectionCount();
+            });
+            
+            // Form submission
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const selectedCheckboxes = modal.querySelectorAll('.shared-modal-checkbox:checked');
+                if (selectedCheckboxes.length === 0) {
+                    alert('Please select at least one item to add.');
+                    return;
+                }
+                
+                const relationships = Array.from(selectedCheckboxes).map(checkbox => {
+                    const relationship = {
+                        definition_id: parseInt(checkbox.dataset.definitionId),
+                        target_entry_id: parseInt(checkbox.value)
+                    };
+                    
+                    // Get quantity and unit from the form inputs if they exist
+                    const checkboxContainer = checkbox.closest('.form-check');
+                    const quantityInput = checkboxContainer.querySelector('.quantity-input');
+                    const unitInput = checkboxContainer.querySelector('.unit-input');
+                    
+                    if (quantityInput && quantityInput.value.trim()) {
+                        relationship.quantity = parseFloat(quantityInput.value);
+                    }
+                    if (unitInput && unitInput.value.trim()) {
+                        relationship.unit = unitInput.value.trim();
+                    }
+                    
+                    return relationship;
+                });
+                
+                // Disable form during submission
+                createBtn.disabled = true;
+                const originalBtnText = createBtn.innerHTML;
+                createBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Creating...';
+                
+                try {
+                    const response = await fetch(`/api/entries/${entryId}/create_shared_relationships`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ relationships })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok && result.created && result.created.length > 0) {
+                        const successCount = result.created.length;
+                        const failCount = result.failed ? result.failed.length : 0;
+                        
+                        let message = `Successfully added ${successCount} relationship${successCount !== 1 ? 's' : ''}!`;
+                        if (failCount > 0) {
+                            message += `\n${failCount} relationship${failCount !== 1 ? 's' : ''} failed to create.`;
+                        }
+                        
+                        alert(message);
+                        
+                        // Close modal
+                        bootstrap.Modal.getInstance(modal).hide();
+                        
+                        // Refresh related records and shared opportunities
+                        loadRelatedRecords();
+                        loadSharedRelationships();
+                    } else {
+                        throw new Error(result.error || 'Failed to create relationships');
+                    }
+                } catch (error) {
+                    console.error('Error creating shared relationships:', error);
+                    alert(`Error creating relationships: ${error.message}`);
+                } finally {
+                    // Re-enable form
+                    createBtn.disabled = false;
+                    createBtn.innerHTML = originalBtnText;
+                }
+            });
+            
+            // Initial count update
+            updateSelectionCount();
         }
 
         // --- Sensor Data Functions ---
