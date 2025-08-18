@@ -541,9 +541,9 @@
             </div>
             <div>
                 <a href="{{ url_for('maintenance.maintenance_module_page') }}" 
-                   class="btn btn-outline-secondary btn-sm" title="Settings">
+                   class="btn btn-outline-theme-primary btn-sm" title="Settings">
                     <i class="fas fa-cog"></i>
-                    <span class="d-none d-md-inline ms-1">Settings</span>
+                    <span class="ms-1">Settings</span>
                 </a>
             </div>
         </div>
@@ -555,7 +555,7 @@
                     <h5 class="mb-0">
                         <i class="fas fa-search me-2"></i>Search & Filter
                     </h5>
-                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" 
+                    <button class="btn btn-sm btn-outline-theme-primary" type="button" data-bs-toggle="collapse" 
                             data-bs-target="#advancedFilters" aria-expanded="false">
                         <i class="fas fa-sliders-h me-1"></i>Advanced
                     </button>
@@ -568,7 +568,7 @@
                             <span class="input-group-text"><i class="fas fa-search"></i></span>
                             <input type="text" class="form-control" id="quickSearch" 
                                    placeholder="Search {{ entry_plural_label.lower() }} by title or description...">
-                            <button class="btn btn-outline-secondary" type="button" id="clearSearch" title="Clear search">
+                            <button class="btn btn-outline-theme-primary" type="button" id="clearSearch" title="Clear search">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
@@ -658,7 +658,7 @@
                                             <button type="button" class="btn btn-theme-primary" id="applyAdvancedFilters">
                                                 <i class="fas fa-filter me-1"></i>Apply Filters
                                             </button>
-                                            <button type="button" class="btn btn-outline-secondary" onclick="clearAllFilters()">
+                                            <button type="button" class="btn btn-outline-theme-primary" onclick="clearAllFilters()">
                                                 <i class="fas fa-undo me-1"></i>Reset All
                                             </button>
                                         </div>
@@ -1084,7 +1084,7 @@
                                 <i class="fas fa-search fa-3x mb-3"></i>
                                 <h5>No matching entries found</h5>
                                 <p class="mb-3">Try adjusting your search or filters above.</p>
-                                <button type="button" class="btn btn-outline-secondary" onclick="clearAllFilters()">
+                                <button type="button" class="btn btn-outline-theme-primary" onclick="clearAllFilters()">
                                     <i class="fas fa-undo me-1"></i>Clear Filters
                                 </button>
                             `;

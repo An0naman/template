@@ -4695,16 +4695,20 @@
                 // Check the appropriate cardinality based on the current entry's role in the relationship
                 const relevantCardinality = isFromSide ? def.cardinality_from : def.cardinality_to;
                 const canAddMore = relevantCardinality === -1 || relatedEntries.length < relevantCardinality;
+                
+                // Use the appropriate label based on which side of the relationship we're on
+                const displayLabel = isFromSide ? def.label_from_side : def.label_to_side;
+                const cardTitle = displayLabel || def.name; // Fallback to name if no label is set
 
                 const cardHtml = `
                     <div class="card mb-3" data-definition-id="${def.id}">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">${def.name}</h5>
+                        <div class="card-header d-flex justify-content-between align-items-center" style="background-color: var(--theme-bg-surface, var(--bs-secondary-bg)); border-bottom-color: var(--theme-border, var(--bs-border-color)); color: var(--theme-text, var(--bs-body-color));">
+                            <h5 class="mb-0">${cardTitle}</h5>
                             <div class="d-flex gap-2">
-                                <button class="btn btn-sm btn-theme-primary add-new-btn" data-definition-id="${def.id}" ${canAddMore ? '' : 'disabled'} title="Add New ${def.name}">
+                                <button class="btn btn-sm btn-theme-primary add-new-btn" data-definition-id="${def.id}" ${canAddMore ? '' : 'disabled'} title="Add New ${displayLabel || def.name}">
                                     <i class="fas fa-plus me-1"></i><span class="d-none d-md-inline">New</span>
                                 </button>
-                                <button class="btn btn-sm btn-theme-secondary add-existing-btn" data-definition-id="${def.id}" ${canAddMore ? '' : 'disabled'} title="Add Existing ${def.name}">
+                                <button class="btn btn-sm btn-theme-secondary add-existing-btn" data-definition-id="${def.id}" ${canAddMore ? '' : 'disabled'} title="Add Existing ${displayLabel || def.name}">
                                     <i class="fas fa-link me-1"></i><span class="d-none d-md-inline">Link</span>
                                 </button>
                             </div>

@@ -223,11 +223,13 @@
                         <input type="hidden" id="definitionId">
                         <div class="mb-3">
                             <label for="definitionName" class="form-label">Definition Name:</label>
-                            <input type="text" class="form-control" id="definitionName" required>
+                            <input type="text" class="form-control" id="definitionName" required placeholder="e.g., 'Recipe Ingredients', 'Batch Components'">
+                            <div class="form-text">Internal name for this relationship type (not shown to users).</div>
                         </div>
                         <div class="mb-3">
                             <label for="definitionDescription" class="form-label">Description:</label>
-                            <textarea class="form-control" id="definitionDescription" rows="2"></textarea>
+                            <textarea class="form-control" id="definitionDescription" rows="2" placeholder="Describe how these entry types are related..."></textarea>
+                            <div class="form-text">Optional description of this relationship for documentation purposes.</div>
                         </div>
                         <div class="mb-3">
                             <label for="entryTypeFrom" class="form-label">From Entry Type:</label>
@@ -236,6 +238,7 @@
                                     <option value="{{ type_option.id }}">{{ type_option.singular_label }}</option>
                                 {% endfor %}
                             </select>
+                            <div class="form-text">The entry type that will contain/own the related items.</div>
                         </div>
                         <div class="mb-3">
                             <label for="entryTypeTo" class="form-label">To Entry Type:</label>
@@ -244,6 +247,7 @@
                                     <option value="{{ type_option.id }}">{{ type_option.singular_label }}</option> {# Corrected: changed singular_option back to singular_label #}
                                 {% endfor %}
                             </select>
+                            <div class="form-text">The entry type that will be contained/owned by the From entry type.</div>
                         </div>
                         <div class="row mb-3">
                             <div class="col-md-6">
@@ -262,12 +266,14 @@
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label for="labelFromSide" class="form-label">Label (From side, e.g., "parent of"):</label>
-                            <input type="text" class="form-control" id="labelFromSide" required>
+                            <label for="labelFromSide" class="form-label">Display Label (From Side):</label>
+                            <input type="text" class="form-control" id="labelFromSide" required placeholder="e.g., 'Ingredients', 'Components', 'Parent Batches'">
+                            <div class="form-text">This will be shown as the section header when viewing the "From" entry type. Describe what the related items are from this perspective.</div>
                         </div>
                         <div class="mb-3">
-                            <label for="labelToSide" class="form-label">Label (To side, e.g., "child of"):</label>
-                            <input type="text" class="form-control" id="labelToSide" required>
+                            <label for="labelToSide" class="form-label">Display Label (To Side):</label>
+                            <input type="text" class="form-control" id="labelToSide" required placeholder="e.g., 'Used In', 'Part Of', 'Child Batches'">
+                            <div class="form-text">This will be shown as the section header when viewing the "To" entry type. Describe what the related items are from this perspective.</div>
                         </div>
                         <div class="form-check mb-3">
                             <input class="form-check-input" type="checkbox" id="allowQuantityUnit">
@@ -372,8 +378,8 @@
                                             data-description="${def.description || ''}"
                                             data-entry-type-id-from="${def.entry_type_id_from}"
                                             data-entry-type-id-to="${def.entry_type_id_to}"
-                                            data-cardinality-from="${def.cardinality_from}"
-                                            data-cardinality-to="${def.cardinality_to}"
+                                            data-cardinality-from="${def.cardinality_from === 1 ? 'one' : 'many'}"
+                                            data-cardinality-to="${def.cardinality_to === 1 ? 'one' : 'many'}"
                                             data-label-from-side="${def.label_from_side}"
                                             data-label-to-side="${def.label_to_side}"
                                             data-allow-quantity-unit="${def.allow_quantity_unit ? 1 : 0}"

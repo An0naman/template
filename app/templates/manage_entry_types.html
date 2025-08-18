@@ -419,16 +419,24 @@
                     let customTypes = [];
                     if (params.custom_note_types) {
                         const customTypesData = JSON.parse(params.custom_note_types);
-                        customTypes = customTypesData.map(type => type.name);
+                        // Handle both old format (array) and new format (object with custom_types array)
+                        if (Array.isArray(customTypesData)) {
+                            customTypes = customTypesData.map(type => type.name);
+                        } else if (customTypesData.custom_types && Array.isArray(customTypesData.custom_types)) {
+                            customTypes = customTypesData.custom_types.map(type => type.name);
+                        }
                     }
                     
                     // Combine and deduplicate
                     availableNoteTypes = [...new Set([...defaultTypes, ...customTypes])];
                     
+                    console.log('Note types loaded:', availableNoteTypes.length, 'types'); // Debug
                     renderNoteTypesCheckboxes();
+                    return Promise.resolve(); // Ensure we return a resolved promise
                 } catch (error) {
                     console.error('Error loading note types:', error);
                     noteTypesCheckboxes.innerHTML = '<div class="text-danger text-center py-3"><i class="fas fa-exclamation-triangle"></i> Error loading note types</div>';
+                    return Promise.reject(error); // Return a rejected promise on error
                 }
             }
 
@@ -599,10 +607,17 @@
 
             // Set selected note types from comma-separated string
             function setSelectedNoteTypes(noteTypesString) {
+                console.log('Setting note types:', noteTypesString); // Debug
                 const selectedTypes = noteTypesString ? noteTypesString.split(',').map(type => type.trim()) : [];
+                console.log('Parsed note types:', selectedTypes); // Debug
                 
-                document.querySelectorAll('.note-type-checkbox').forEach(checkbox => {
-                    checkbox.checked = selectedTypes.includes(checkbox.value);
+                const checkboxes = document.querySelectorAll('.note-type-checkbox');
+                console.log('Found note type checkboxes:', checkboxes.length); // Debug
+                
+                checkboxes.forEach(checkbox => {
+                    const isSelected = selectedTypes.includes(checkbox.value);
+                    checkbox.checked = isSelected;
+                    console.log(`Checkbox ${checkbox.value}: ${isSelected ? 'checked' : 'unchecked'}`); // Debug
                 });
                 
                 updateNoteTypesHiddenInput();
@@ -779,10 +794,20 @@
                         sensorTypesSection.style.display = 'none';
                     }
                     
-                    // Set note types selection
-                    setTimeout(() => {
-                        setSelectedNoteTypes(this.dataset.noteTypes);
-                    }, 100);
+                    // Set note types selection - ensure note types are loaded first
+                    if (availableNoteTypes.length === 0) {
+                        // Note types not loaded yet, load them first
+                        loadNoteTypes().then(() => {
+                            setTimeout(() => {
+                                setSelectedNoteTypes(this.dataset.noteTypes);
+                            }, 100);
+                        });
+                    } else {
+                        // Note types already loaded
+                        setTimeout(() => {
+                            setSelectedNoteTypes(this.dataset.noteTypes);
+                        }, 100);
+                    }
                     
                     entryTypeModal.show();
                 });
