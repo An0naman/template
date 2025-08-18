@@ -101,13 +101,66 @@
                 font-size: 0.875rem;
                 overflow-x: auto;
             }
+            .table {
+                table-layout: fixed;
+                width: 100%;
+            }
             .table th, .table td {
-                padding: 0.5rem 0.25rem;
-                min-width: 80px;
+                padding: 0.375rem 0.125rem;
+                font-size: 0.8rem;
+            }
+            .table th {
+                white-space: normal;
+                word-wrap: break-word;
+                line-height: 1.2;
             }
             .action-buttons .btn {
                 padding: 0.25rem 0.5rem;
                 font-size: 0.75rem;
+            }
+            /* Hide columns 2, 3, 4, 5 on mobile */
+            .table th:nth-child(2),
+            .table td:nth-child(2),
+            .table th:nth-child(3),
+            .table td:nth-child(3),
+            .table th:nth-child(4),
+            .table td:nth-child(4),
+            .table th:nth-child(5),
+            .table td:nth-child(5) {
+                display: none;
+            }
+            /* Column width constraints for mobile */
+            .table th:nth-child(1),
+            .table td:nth-child(1) {
+                width: 40%;
+                max-width: 120px;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+            /* Make indicator columns very compact */
+            .table th:nth-child(6),
+            .table td:nth-child(6),
+            .table th:nth-child(7),
+            .table td:nth-child(7) {
+                width: 15%;
+                max-width: 40px;
+                text-align: center;
+                padding: 0.375rem 0.1rem;
+            }
+            /* Status icon styling like manage_entry_types */
+            .status-icon {
+                font-size: 1.1em;
+            }
+            /* Compact action column */
+            .table th:nth-child(8),
+            .table td:nth-child(8) {
+                width: 30%;
+                max-width: 80px;
+                padding: 0.375rem 0.1rem;
+            }
+            /* Right-justify action buttons on mobile */
+            .action-buttons {
+                text-align: right;
             }
         }
     </style>
@@ -144,7 +197,7 @@
                             <th>To Type</th>
                             <th>From Label</th>
                             <th>To Label</th>
-                            <th class="text-center">Quantity/Unit</th>
+                            <th class="text-center">Qty / Unit</th>
                             <th class="text-center">Active</th>
                             <th class="text-center">Actions</th>
                         </tr>
@@ -160,9 +213,9 @@
                                 <td>{{ def.label_to_side }}</td>
                                 <td class="text-center">
                                     {% if def.allow_quantity_unit %}
-                                        <i class="fas fa-check-circle status-icon text-success" title="Allows Quantity/Unit"></i>
+                                        <i class="fas fa-check-circle status-icon text-success" title="Allows Qty / Unit"></i>
                                     {% else %}
-                                        <i class="fas fa-times-circle status-icon text-muted" title="No Quantity/Unit"></i>
+                                        <i class="fas fa-times-circle status-icon text-muted" title="No Qty / Unit"></i>
                                     {% endif %}
                                 </td>
                                 <td class="text-center">
@@ -172,7 +225,7 @@
                                         <i class="fas fa-toggle-off status-icon text-muted" title="Inactive"></i>
                                     {% endif %}
                                 </td>
-                                <td class="action-buttons text-center">
+                                <td class="action-buttons">
                                     <button class="btn btn-sm btn-outline-primary edit-relationship-definition-btn"
                                             data-id="{{ def.id }}"
                                             data-name="{{ def.name }}"
@@ -222,9 +275,9 @@
                     <form id="relationshipDefinitionForm">
                         <input type="hidden" id="definitionId">
                         <div class="mb-3">
-                            <label for="definitionName" class="form-label">Definition Name:</label>
-                            <input type="text" class="form-control" id="definitionName" required placeholder="e.g., 'Recipe Ingredients', 'Batch Components'">
-                            <div class="form-text">Internal name for this relationship type (not shown to users).</div>
+                            <label for="definitionName" class="form-label">Definition Name: <small class="text-muted">(auto-generated)</small></label>
+                            <input type="text" class="form-control" id="definitionName" required readonly placeholder="Will be generated automatically..." style="background-color: #f8f9fa;">
+                            <div class="form-text">Automatically generated based on selected entry types and cardinality.</div>
                         </div>
                         <div class="mb-3">
                             <label for="definitionDescription" class="form-label">Description:</label>
@@ -333,6 +386,41 @@
                 }
             }
 
+            // Function to automatically generate definition name
+            function generateDefinitionName() {
+                const fromSelect = elements.entryTypeFrom;
+                const toSelect = elements.entryTypeTo;
+                const fromCardinality = elements.cardinalityFrom.value;
+                const toCardinality = elements.cardinalityTo.value;
+                
+                if (fromSelect.value && toSelect.value && fromCardinality && toCardinality) {
+                    const fromText = fromSelect.options[fromSelect.selectedIndex].text;
+                    const toText = toSelect.options[toSelect.selectedIndex].text;
+                    
+                    // Generate name based on cardinality pattern
+                    let cardinalityPattern = '';
+                    if (fromCardinality === 'one' && toCardinality === 'one') {
+                        cardinalityPattern = '1:1';
+                    } else if (fromCardinality === 'one' && toCardinality === 'many') {
+                        cardinalityPattern = '1:N';
+                    } else if (fromCardinality === 'many' && toCardinality === 'one') {
+                        cardinalityPattern = 'N:1';
+                    } else {
+                        cardinalityPattern = 'N:N';
+                    }
+                    
+                    // Create systematic name: FromType_ToType_Pattern
+                    const generatedName = `${fromText}_${toText}_${cardinalityPattern}`;
+                    elements.definitionName.value = generatedName;
+                }
+            }
+
+            // Add event listeners to auto-generate name when selections change
+            elements.entryTypeFrom.addEventListener('change', generateDefinitionName);
+            elements.entryTypeTo.addEventListener('change', generateDefinitionName);
+            elements.cardinalityFrom.addEventListener('change', generateDefinitionName);
+            elements.cardinalityTo.addEventListener('change', generateDefinitionName);
+
             // Function to fetch and display relationship definitions
             function fetchRelationshipDefinitions() {
                 fetch('/api/relationship_definitions')
@@ -361,18 +449,18 @@
                                 <td>${def.entry_type_to_label} (${def.cardinality_to})</td>
                                 <td>${def.label_from_side}</td>
                                 <td>${def.label_to_side}</td>
-                                <td>
+                                <td class="text-center">
                                     ${def.allow_quantity_unit ? 
-                                        '<i class="fas fa-check-circle text-success"></i> Yes' : 
-                                        '<i class="fas fa-times-circle text-danger"></i> No'}
+                                        '<i class="fas fa-check-circle status-icon text-success" title="Allows Qty / Unit"></i>' : 
+                                        '<i class="fas fa-times-circle status-icon text-muted" title="No Qty / Unit"></i>'}
                                 </td>
-                                <td>
+                                <td class="text-center">
                                     ${def.is_active ? 
-                                        '<i class="fas fa-check-circle text-success"></i>' : 
-                                        '<i class="fas fa-times-circle text-danger"></i>'}
+                                        '<i class="fas fa-toggle-on status-icon text-success" title="Active"></i>' : 
+                                        '<i class="fas fa-toggle-off status-icon text-muted" title="Inactive"></i>'}
                                 </td>
                                 <td class="action-buttons">
-                                    <button class="btn btn-sm btn-info edit-relationship-definition-btn"
+                                    <button class="btn btn-sm btn-outline-primary edit-relationship-definition-btn"
                                             data-id="${def.id}"
                                             data-name="${def.name}"
                                             data-description="${def.description || ''}"
@@ -383,10 +471,13 @@
                                             data-label-from-side="${def.label_from_side}"
                                             data-label-to-side="${def.label_to_side}"
                                             data-allow-quantity-unit="${def.allow_quantity_unit ? 1 : 0}"
-                                            data-is-active="${def.is_active ? 1 : 0}">
+                                            data-is-active="${def.is_active ? 1 : 0}"
+                                            title="Edit">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <button class="btn btn-sm btn-danger delete-relationship-definition-btn" data-id="${def.id}">
+                                    <button class="btn btn-sm btn-outline-danger delete-relationship-definition-btn ms-1" 
+                                            data-id="${def.id}"
+                                            title="Delete">
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
                                 </td>
@@ -455,7 +546,8 @@
             elements.addButton.addEventListener('click', function() {
                 elements.definitionId.value = '';
                 relationshipDefinitionForm.reset();
-                elements.definitionName.readOnly = false;
+                elements.definitionName.readOnly = true; // Keep readonly for auto-generation
+                elements.definitionName.value = ''; // Clear the field
                 document.getElementById('relationshipDefinitionModalLabel').textContent = 'Add New Relationship Definition';
                 elements.isActive.checked = true;
                 relationshipDefinitionModal.show();
