@@ -29,6 +29,14 @@
         margin-bottom: 0.5rem !important;
     }
     
+    /* Make entry names in results larger on mobile */
+    .entry-item .entry-title h5,
+    .entry-item .entry-title h5 a {
+        font-size: 1.6rem !important;
+        font-weight: 700 !important;
+        line-height: 1.3 !important;
+    }
+    
     /* Make entry detail page title extra large */
     #entryTitle {
         font-size: 1.6rem !important;

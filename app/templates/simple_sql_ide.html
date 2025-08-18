@@ -369,6 +369,16 @@
                 height: auto;
                 min-height: 50vh;
             }
+            
+            /* Make CodeMirror font smaller and more compact on mobile */
+            .CodeMirror {
+                font-size: 10px !important;
+                line-height: 1.2 !important;
+            }
+            
+            .CodeMirror-lines {
+                padding: 4px 8px !important;
+            }
         }
         
         /* Sequence execution styles */
@@ -560,10 +570,11 @@
         let columnsByTable = {};
 
         // Initialize CodeMirror with enhanced SQL IntelliSense
+        const isMobile = window.innerWidth <= 768;
         const sqlEditor = CodeMirror.fromTextArea(document.getElementById('sqlQuery'), {
             mode: 'text/x-sql',
             theme: 'default',
-            lineNumbers: true,
+            lineNumbers: !isMobile, // Disable line numbers on mobile
             indentWithTabs: true,
             smartIndent: true,
             lineWrapping: true,
@@ -587,6 +598,14 @@
                 }
             }
         });
+
+        // Handle window resize to toggle line numbers
+        function handleResize() {
+            const isMobileNow = window.innerWidth <= 768;
+            sqlEditor.setOption('lineNumbers', !isMobileNow);
+        }
+        
+        window.addEventListener('resize', handleResize);
 
         // Enhanced autocomplete functionality
         function setupIntelliSense() {
