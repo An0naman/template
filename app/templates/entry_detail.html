@@ -86,6 +86,205 @@
             box-shadow: var(--shadow-md);
         }
 
+        /* Pattern Styles for Theme Sections */
+        .theme-section.pattern-zigzag {
+            background-image: linear-gradient(135deg, 
+                transparent 0%, 
+                transparent 25%, 
+                rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 25%, 
+                rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 50%, 
+                transparent 50%, 
+                transparent 75%, 
+                rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 75%) !important;
+            background-size: 25px 25px !important;
+        }
+
+        .theme-section.pattern-diagonal-lines {
+            background-image: 
+                linear-gradient(45deg, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 25%, transparent 25%),
+                linear-gradient(-45deg, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 25%, transparent 25%) !important;
+            background-size: 20px 20px !important;
+            background-position: 0 0, 10px 10px !important;
+        }
+
+        .pattern-dots {
+            background-image: radial-gradient(circle, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.2) 2px, transparent 2px);
+            background-size: 15px 15px;
+        }
+
+        .pattern-grid {
+            background-image: 
+                linear-gradient(rgba(var(--theme-border-rgb, 222, 226, 230), 0.2) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(var(--theme-border-rgb, 222, 226, 230), 0.2) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .pattern-zigzag {
+            background-image: linear-gradient(135deg, 
+                transparent 0%, 
+                transparent 25%, 
+                rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 25%, 
+                rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 50%, 
+                transparent 50%, 
+                transparent 75%, 
+                rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 75%);
+            background-size: 25px 25px;
+        }
+
+        .pattern-crosshatch {
+            background-image: 
+                linear-gradient(45deg, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 25%, transparent 25%),
+                linear-gradient(-45deg, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 25%, transparent 25%);
+            background-size: 30px 30px;
+        }
+
+        .pattern-waves {
+            background-image: 
+                radial-gradient(ellipse 50px 20px at 50% 0%, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1), transparent),
+                radial-gradient(ellipse 50px 20px at 50% 100%, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1), transparent);
+            background-size: 100px 60px;
+            background-position: 0 0, 50px 30px;
+        }
+
+        .pattern-hexagon {
+            background-image: 
+                radial-gradient(circle at 25% 25%, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 2px, transparent 2px),
+                radial-gradient(circle at 75% 75%, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 2px, transparent 2px);
+            background-size: 30px 30px;
+        }
+
+        .pattern-triangles {
+            background-image: 
+                linear-gradient(60deg, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 25%, transparent 25%),
+                linear-gradient(-60deg, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 25%, transparent 25%);
+            background-size: 25px 43px;
+        }
+
+        .pattern-circles {
+            background-image: radial-gradient(circle, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 30%, transparent 30%);
+            background-size: 25px 25px;
+        }
+
+        .pattern-squares {
+            background-image: 
+                linear-gradient(90deg, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 50%, transparent 50%),
+                linear-gradient(rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 50%, transparent 50%);
+            background-size: 20px 20px;
+        }
+
+        /* Effect Styles */
+        .theme-section.effect-shadow {
+            box-shadow: 
+                0 10px 25px rgba(0, 0, 0, 0.1),
+                0 20px 48px rgba(0, 0, 0, 0.1),
+                0 1px 4px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .theme-section.effect-glow {
+            box-shadow: 
+                0 0 20px rgba(var(--theme-primary-rgb, 13, 110, 253), 0.3),
+                0 0 40px rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+        }
+
+        .effect-gradient {
+            background: linear-gradient(135deg, 
+                rgba(var(--theme-primary-rgb, 13, 110, 253), 0.05) 0%,
+                rgba(var(--theme-secondary-rgb, 108, 117, 125), 0.05) 100%);
+        }
+
+        .effect-blur {
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            background: rgba(var(--theme-bg-surface-rgb, 255, 255, 255), 0.8);
+        }
+
+        .effect-neon {
+            border: 2px solid rgba(var(--theme-primary-rgb, 13, 110, 253), 0.6);
+            box-shadow: 
+                0 0 5px rgba(var(--theme-primary-rgb, 13, 110, 253), 0.6),
+                inset 0 0 5px rgba(var(--theme-primary-rgb, 13, 110, 253), 0.3);
+        }
+
+        .effect-raised {
+            transform: translateY(-2px);
+            box-shadow: 
+                0 4px 12px rgba(0, 0, 0, 0.15),
+                0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .effect-inset {
+            box-shadow: 
+                inset 0 2px 4px rgba(0, 0, 0, 0.1),
+                inset 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Decoration Styles */
+        .decoration-leaf {
+            position: relative;
+        }
+
+        .decoration-leaf::before {
+            content: "🍃";
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            opacity: 0.3;
+            font-size: 1.2rem;
+        }
+
+        .decoration-star {
+            position: relative;
+        }
+
+        .decoration-star::before {
+            content: "⭐";
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            opacity: 0.4;
+            font-size: 1rem;
+        }
+
+        .decoration-flower {
+            position: relative;
+        }
+
+        .decoration-flower::before {
+            content: "🌸";
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            opacity: 0.4;
+            font-size: 1rem;
+        }
+
+        .decoration-gem {
+            position: relative;
+        }
+
+        .decoration-gem::before {
+            content: "💎";
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            opacity: 0.4;
+            font-size: 1rem;
+        }
+
+        .decoration-crown {
+            position: relative;
+        }
+
+        .decoration-crown::before {
+            content: "👑";
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            opacity: 0.4;
+            font-size: 1rem;
+        }
+
         .section-header {
             border-bottom: 1px solid var(--theme-border, var(--bs-border-color));
             margin-bottom: var(--content-spacing);
@@ -6958,8 +7157,64 @@
             }
         }
 
+        // Apply theme section styles based on current settings
+        function applyThemeSectionStyles() {
+            console.log('applyThemeSectionStyles called');
+            // Fetch theme settings from API instead of template variable
+            fetch('/api/theme_settings')
+                .then(response => {
+                    console.log('API response received:', response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Theme data received:', data);
+                    const sectionStyles = data.section_styles || {};
+                    console.log('Section styles:', sectionStyles);
+                    const themeSections = document.querySelectorAll('.theme-section');
+                    console.log('Found theme sections:', themeSections.length);
+                    
+                    themeSections.forEach((section, index) => {
+                        console.log(`Processing section ${index}:`, section.className);
+                        // Remove existing pattern, effect, and decoration classes
+                        section.className = section.className.replace(/\b(pattern|effect|decoration)-\S+/g, '');
+                        
+                        // Add pattern class if specified and not 'none'
+                        if (sectionStyles.pattern && sectionStyles.pattern !== 'none') {
+                            section.classList.add(`pattern-${sectionStyles.pattern}`);
+                            console.log(`Added pattern-${sectionStyles.pattern} to section ${index}`);
+                        }
+                        
+                        // Add effect class if specified and not 'none'
+                        if (sectionStyles.effect && sectionStyles.effect !== 'none') {
+                            section.classList.add(`effect-${sectionStyles.effect}`);
+                            console.log(`Added effect-${sectionStyles.effect} to section ${index}`);
+                        }
+                        
+                        // Add decoration class if specified and not 'none'
+                        if (sectionStyles.decoration && sectionStyles.decoration !== 'none') {
+                            section.classList.add(`decoration-${sectionStyles.decoration}`);
+                            console.log(`Added decoration-${sectionStyles.decoration} to section ${index}`);
+                        }
+                        
+                        console.log(`Final section ${index} classes:`, section.className);
+                        
+                        // Debug: Check computed styles
+                        const computedStyle = window.getComputedStyle(section);
+                        console.log(`Section ${index} background-image:`, computedStyle.backgroundImage);
+                        console.log(`Section ${index} box-shadow:`, computedStyle.boxShadow);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching theme settings:', error);
+                    // Fallback to empty styles if API fails
+                });
+        }
+
         // Apply auto-resize to all textareas
         document.addEventListener('DOMContentLoaded', function() {
+            // Apply theme section styles first
+            applyThemeSectionStyles();
+            
             const textareas = document.querySelectorAll('textarea');
             textareas.forEach(textarea => {
                 // Set initial height

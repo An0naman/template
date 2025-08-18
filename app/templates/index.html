@@ -75,12 +75,162 @@
             -webkit-backdrop-filter: var(--section-backdrop-filter, none);
             animation: var(--section-animation, none);
             transition: all 0.3s ease;
+            position: relative; /* Required for decoration pseudo-elements */
         }
 
         .theme-section:hover {
             transform: translateY(-1px);
             box-shadow: var(--shadow-md);
         }
+
+        /* Pattern Styles for Theme Sections */
+        .pattern-diagonal-lines {
+            background-image: linear-gradient(45deg, 
+                transparent 0%, 
+                transparent 35%, 
+                rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 35%, 
+                rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 65%, 
+                transparent 65%);
+            background-size: 20px 20px;
+        }
+
+        .pattern-dots {
+            background-image: radial-gradient(circle, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.15) 1px, transparent 1px);
+            background-size: 15px 15px;
+        }
+
+        .pattern-grid {
+            background-image: 
+                linear-gradient(rgba(var(--theme-border-rgb, 222, 226, 230), 0.2) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(var(--theme-border-rgb, 222, 226, 230), 0.2) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .pattern-zigzag {
+            background-image: linear-gradient(135deg, 
+                transparent 0%, 
+                transparent 25%, 
+                rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 25%, 
+                rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 50%, 
+                transparent 50%, 
+                transparent 75%, 
+                rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 75%);
+            background-size: 25px 25px;
+        }
+
+        .pattern-crosshatch {
+            background-image: 
+                linear-gradient(45deg, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 25%, transparent 25%),
+                linear-gradient(-45deg, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 25%, transparent 25%);
+            background-size: 30px 30px;
+        }
+
+        .pattern-waves {
+            background-image: 
+                radial-gradient(ellipse 50px 20px at 50% 0%, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1), transparent),
+                radial-gradient(ellipse 50px 20px at 50% 100%, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1), transparent);
+            background-size: 40px 40px;
+            background-position: 0 0, 20px 20px;
+        }
+
+        .pattern-honeycomb {
+            background-image: 
+                radial-gradient(circle at 10px 10px, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 2px, transparent 2px),
+                radial-gradient(circle at 30px 30px, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 2px, transparent 2px);
+            background-size: 40px 40px;
+        }
+
+        .pattern-checkers {
+            background-image: 
+                linear-gradient(45deg, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.08) 25%, transparent 25%),
+                linear-gradient(-45deg, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.08) 25%, transparent 25%);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+        }
+
+        .pattern-triangles {
+            background-image: 
+                linear-gradient(60deg, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 50%, transparent 50%),
+                linear-gradient(-60deg, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1) 50%, transparent 50%);
+            background-size: 30px 26px;
+        }
+
+        .pattern-stars {
+            background-image: 
+                radial-gradient(2px 2px at 20px 30px, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.2), transparent),
+                radial-gradient(2px 2px at 40px 70px, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.15), transparent),
+                radial-gradient(1px 1px at 90px 40px, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.1), transparent);
+            background-size: 100px 100px;
+        }
+
+        .pattern-circuit {
+            background-image: 
+                linear-gradient(90deg, rgba(var(--theme-border-rgb, 222, 226, 230), 0.2) 1px, transparent 1px),
+                linear-gradient(rgba(var(--theme-border-rgb, 222, 226, 230), 0.2) 1px, transparent 1px),
+                radial-gradient(circle at 20px 20px, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.15) 2px, transparent 2px);
+            background-size: 40px 40px, 40px 40px, 40px 40px;
+        }
+
+        .pattern-noise {
+            background-image: 
+                radial-gradient(circle at 25% 25%, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.05) 1px, transparent 1px),
+                radial-gradient(circle at 75% 25%, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.08) 1px, transparent 1px),
+                radial-gradient(circle at 25% 75%, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.06) 1px, transparent 1px),
+                radial-gradient(circle at 75% 75%, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.04) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* Effect Styles for Theme Sections */
+        .effect-glow {
+            box-shadow: 0 0 20px rgba(var(--theme-primary-rgb, 13, 110, 253), 0.3);
+        }
+
+        .effect-gradient {
+            background: linear-gradient(135deg, 
+                var(--theme-bg-surface, var(--bs-secondary-bg)) 0%, 
+                rgba(var(--theme-primary-rgb, 13, 110, 253), 0.05) 100%);
+        }
+
+        .effect-shadow {
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+        }
+
+        .effect-texture {
+            position: relative;
+        }
+
+        .effect-texture::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                radial-gradient(circle at 25% 25%, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.02) 1px, transparent 1px),
+                radial-gradient(circle at 75% 25%, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.03) 1px, transparent 1px),
+                radial-gradient(circle at 25% 75%, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.02) 1px, transparent 1px),
+                radial-gradient(circle at 75% 75%, rgba(var(--theme-primary-rgb, 13, 110, 253), 0.01) 1px, transparent 1px);
+            background-size: 10px 10px;
+            border-radius: inherit;
+            pointer-events: none;
+        }
+
+        /* Decoration Styles for Theme Sections */
+        .decoration-leaf::before { content: "🍃"; position: absolute; top: 0.5rem; right: 0.5rem; opacity: 0.5; }
+        .decoration-tree::before { content: "🌲"; position: absolute; top: 0.5rem; right: 0.5rem; opacity: 0.5; }
+        .decoration-flower::before { content: "🌸"; position: absolute; top: 0.5rem; right: 0.5rem; opacity: 0.5; }
+        .decoration-sun::before { content: "☀️"; position: absolute; top: 0.5rem; right: 0.5rem; opacity: 0.5; }
+        .decoration-moon::before { content: "🌙"; position: absolute; top: 0.5rem; right: 0.5rem; opacity: 0.5; }
+        .decoration-star::before { content: "⭐"; position: absolute; top: 0.5rem; right: 0.5rem; opacity: 0.5; }
+        .decoration-diamond::before { content: "💎"; position: absolute; top: 0.5rem; right: 0.5rem; opacity: 0.5; }
+        .decoration-shield::before { content: "🛡️"; position: absolute; top: 0.5rem; right: 0.5rem; opacity: 0.5; }
+        .decoration-sword::before { content: "⚔️"; position: absolute; top: 0.5rem; right: 0.5rem; opacity: 0.5; }
+        .decoration-gem::before { content: "💠"; position: absolute; top: 0.5rem; right: 0.5rem; opacity: 0.5; }
+        .decoration-gear::before { content: "⚙️"; position: absolute; top: 0.5rem; right: 0.5rem; opacity: 0.5; }
+        .decoration-lightning::before { content: "⚡"; position: absolute; top: 0.5rem; right: 0.5rem; opacity: 0.5; }
+        .decoration-fire::before { content: "🔥"; position: absolute; top: 0.5rem; right: 0.5rem; opacity: 0.5; }
+        .decoration-rainbow::before { content: "🌈"; position: absolute; top: 0.5rem; right: 0.5rem; opacity: 0.5; }
 
         .entry-item {
             background: var(--theme-bg-card, var(--bs-body-bg));
@@ -548,7 +698,7 @@
             </div>
         </div>
 
-        <div class="content-card">
+        <div class="content-card theme-section">
             <!-- Smart Search & Filter Section -->
             <div class="mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -1440,7 +1590,40 @@
             convertTimestampsToLocalDates();
         });
 
-        // Auto-resize textarea functionality
+            // Apply theme section styles based on current settings
+            function applyThemeSectionStyles() {
+                // Fetch theme settings from API instead of template variable
+                fetch('/api/theme_settings')
+                    .then(response => response.json())
+                    .then(data => {
+                        const sectionStyles = data.section_styles || {};
+                        const themeSections = document.querySelectorAll('.theme-section');
+                        
+                        themeSections.forEach(section => {
+                            // Remove existing pattern, effect, and decoration classes
+                            section.className = section.className.replace(/\b(pattern|effect|decoration)-\S+/g, '');
+                            
+                            // Add pattern class if specified and not 'none'
+                            if (sectionStyles.pattern && sectionStyles.pattern !== 'none') {
+                                section.classList.add(`pattern-${sectionStyles.pattern}`);
+                            }
+                            
+                            // Add effect class if specified and not 'none'
+                            if (sectionStyles.effect && sectionStyles.effect !== 'none') {
+                                section.classList.add(`effect-${sectionStyles.effect}`);
+                            }
+                            
+                            // Add decoration class if specified and not 'none'
+                            if (sectionStyles.decoration && sectionStyles.decoration !== 'none') {
+                                section.classList.add(`decoration-${sectionStyles.decoration}`);
+                            }
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error fetching theme settings:', error);
+                        // Fallback to empty styles if API fails
+                    });
+            }        // Auto-resize textarea functionality
         function autoResizeTextarea(textarea) {
             textarea.style.height = 'auto';
             textarea.style.height = textarea.scrollHeight + 'px';
@@ -1448,6 +1631,9 @@
 
         // Apply auto-resize to all textareas
         document.addEventListener('DOMContentLoaded', function() {
+            // Apply theme section styles first
+            applyThemeSectionStyles();
+            
             const textareas = document.querySelectorAll('textarea');
             textareas.forEach(textarea => {
                 // Set initial height

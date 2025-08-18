@@ -112,7 +112,7 @@ def index():
 @main_bp.route('/entry/<int:entry_id>')
 def entry_detail_page(entry_id):
     from ..db import get_system_parameters # Import locally for function use
-    from ..api.theme_api import generate_theme_css
+    from ..api.theme_api import generate_theme_css, get_current_theme_settings
 
     params = get_system_parameters()
     conn = get_db()
@@ -161,7 +161,8 @@ def entry_detail_page(entry_id):
                            allowed_file_types=params.get('allowed_file_types', 
                                'txt,pdf,png,jpg,jpeg,gif,webp,svg,doc,docx,xls,xlsx,ppt,pptx,mp4,avi,mov,wmv,flv,webm,mkv,mp3,wav,flac,aac,ogg,zip,rar,7z,tar,gz'),
                            max_file_size=params.get('max_file_size', '50'),
-                           theme_css=generate_theme_css())
+                           theme_css=generate_theme_css(),
+                           theme_settings=get_current_theme_settings())
 
 @main_bp.route('/settings')
 def settings():
