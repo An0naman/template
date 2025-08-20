@@ -84,6 +84,7 @@ def init_db():
                 type TEXT DEFAULT 'General',
                 created_at TEXT NOT NULL,
                 file_paths TEXT DEFAULT '[]', -- JSON string of file paths
+                associated_entry_ids TEXT DEFAULT '[]', -- JSON array of associated entry IDs
                 FOREIGN KEY (entry_id) REFERENCES Entry(id) ON DELETE CASCADE
             );
         ''')
@@ -178,6 +179,15 @@ def init_db():
                 # Add file_paths column if it doesn't exist
                 cursor.execute("ALTER TABLE Note ADD COLUMN file_paths TEXT DEFAULT '[]'")
                 logger.info("Added file_paths column to Note table")
+        
+            # Migration for associated_entry_ids column
+            cursor.execute("PRAGMA table_info(Note)")
+            columns = [col[1] for col in cursor.fetchall()]
+            
+            if 'associated_entry_ids' not in columns:
+                # Add associated_entry_ids column if it doesn't exist
+                cursor.execute("ALTER TABLE Note ADD COLUMN associated_entry_ids TEXT DEFAULT '[]'")
+                logger.info("Added associated_entry_ids column to Note table")
                 
         except Exception as e:
             logger.error(f"Error during Note table migration: {e}")

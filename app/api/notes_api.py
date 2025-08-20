@@ -55,6 +55,49 @@ def serialize_note_with_reminder(note):
     
     return base_note
 
+def serialize_note_with_reminder_and_entry_info(note):
+    """Helper to serialize note rows with reminder notification info and entry relationship details."""
+    if note is None:
+        return None
+    
+    # Parse associated_entry_ids as JSON
+    try:
+        associated_entry_ids = json.loads(note['associated_entry_ids']) if note['associated_entry_ids'] else []
+    except (json.JSONDecodeError, TypeError):
+        associated_entry_ids = []
+    
+    base_note = {
+        "id": note['id'],
+        "entry_id": note['entry_id'],
+        "note_title": note['note_title'],
+        "note_text": note['note_text'],
+        "note_type": note['type'],
+        "created_at": note['created_at'],
+        "file_paths": note['file_paths'].split(',') if note['file_paths'] else [],
+        "associated_entry_ids": associated_entry_ids,
+        "relationship_type": note['relationship_type']  # 'primary' or 'associated'
+    }
+    
+    # Add primary entry information (the entry this note belongs to)
+    if note['primary_entry_title'] and note['primary_entry_type']:
+        base_note['primary_entry_display'] = f"{note['primary_entry_title']} - {note['primary_entry_type']}"
+    else:
+        base_note['primary_entry_display'] = "Unknown Entry"
+    
+    # Add reminder information if present
+    if note['notification_id']:
+        base_note['reminder'] = {
+            "notification_id": note['notification_id'],
+            "scheduled_for": note['scheduled_for'],
+            "is_read": bool(note['is_read']),
+            "is_dismissed": bool(note['is_dismissed']),
+            "title": note['notification_title']
+        }
+    else:
+        base_note['reminder'] = None
+    
+    return base_note
+
 # Define a Blueprint for Notes API
 notes_api_bp = Blueprint('notes_api', __name__)
 
@@ -116,6 +159,7 @@ def add_note_to_entry(entry_id):
         note_text = data.get('note_text')
         note_type = data.get('note_type', 'General')
         reminder_date = data.get('reminder_date')
+        associated_entry_ids = data.get('associated_entry_ids', [])
         files = []
     else:
         # Form data with file uploads
@@ -123,18 +167,36 @@ def add_note_to_entry(entry_id):
         note_text = request.form.get('note_text')
         note_type = request.form.get('note_type', 'General')
         reminder_date = request.form.get('reminder_date')
+        # Handle associated_entry_ids from form data (could be JSON string or comma-separated)
+        associated_entry_ids_raw = request.form.get('associated_entry_ids', '[]')
+        try:
+            if associated_entry_ids_raw.startswith('['):
+                # JSON array format
+                associated_entry_ids = json.loads(associated_entry_ids_raw)
+            else:
+                # Comma-separated format
+                associated_entry_ids = [int(x.strip()) for x in associated_entry_ids_raw.split(',') if x.strip()]
+        except (json.JSONDecodeError, ValueError):
+            associated_entry_ids = []
         files = request.files.getlist('files')
 
     if not note_text:
         return jsonify({'message': 'Note content cannot be empty!'}), 400
 
+    # Validate associated_entry_ids are integers
+    if not isinstance(associated_entry_ids, list):
+        associated_entry_ids = []
+    
+    # Convert to JSON string for storage
+    associated_entry_ids_json = json.dumps(associated_entry_ids)
+
     conn = get_db()
     cursor = conn.cursor()
     try:
-        # First create the note without file paths
+        # First create the note with associated entry IDs
         cursor.execute(
-            "INSERT INTO Note (entry_id, note_title, note_text, type, created_at, file_paths) VALUES (?, ?, ?, ?, ?, ?)",
-            (entry_id, note_title, note_text, note_type, datetime.now().isoformat(), '')
+            "INSERT INTO Note (entry_id, note_title, note_text, type, created_at, file_paths, associated_entry_ids) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (entry_id, note_title, note_text, note_type, datetime.now().isoformat(), '', associated_entry_ids_json)
         )
         conn.commit()
         note_id = cursor.lastrowid
@@ -195,18 +257,49 @@ def get_notes_for_entry(entry_id):
     conn = get_db()
     cursor = conn.cursor()
     
-    # Get notes with their associated reminder notifications
+    logger.info(f"Getting notes for entry_id: {entry_id}")
+    
+    # Get notes where this entry is either the primary entry_id OR appears in associated_entry_ids
+    # Include entry information for proper display of associated notes
     cursor.execute("""
-        SELECT n.id, n.entry_id, n.note_title, n.note_text, n.type, n.created_at, n.file_paths,
-               nt.id as notification_id, nt.scheduled_for, nt.is_read, nt.is_dismissed, nt.title as notification_title
+        SELECT DISTINCT n.id, n.entry_id, n.note_title, n.note_text, n.type, n.created_at, n.file_paths, n.associated_entry_ids,
+               nt.id as notification_id, nt.scheduled_for, nt.is_read, nt.is_dismissed, nt.title as notification_title,
+               e.title as primary_entry_title, et.singular_label as primary_entry_type,
+               CASE 
+                   WHEN n.entry_id = ? THEN 'primary'
+                   ELSE 'associated'
+               END as relationship_type
         FROM Note n
         LEFT JOIN Notification nt ON n.id = nt.note_id AND nt.notification_type = 'note_based'
+        LEFT JOIN Entry e ON n.entry_id = e.id
+        LEFT JOIN EntryType et ON e.entry_type_id = et.id
         WHERE n.entry_id = ? 
+           OR (n.associated_entry_ids != '[]' AND (
+               n.associated_entry_ids LIKE '[' || ? || ']' OR              -- Single entry: [123]
+               n.associated_entry_ids LIKE '[' || ? || ',%' OR             -- First in list: [123,...]
+               n.associated_entry_ids LIKE '%,' || ? || ',%' OR            -- Middle of list: [...,123,...]
+               n.associated_entry_ids LIKE '%,' || ? || ']' OR             -- Last in list: [...,123]
+               n.associated_entry_ids LIKE '[' || ? || ' %' OR             -- First with space: [123 ...]
+               n.associated_entry_ids LIKE '%, ' || ? || ',%' OR           -- Middle with space: [..., 123,...]
+               n.associated_entry_ids LIKE '%, ' || ? || ']'               -- Last with space: [..., 123]
+           ))
         ORDER BY n.created_at DESC
-    """, (entry_id,))
+    """, (entry_id, entry_id, entry_id, entry_id, entry_id, entry_id, entry_id, entry_id, entry_id))
     
     notes = cursor.fetchall()
-    return jsonify([serialize_note_with_reminder(note) for note in notes])
+    logger.info(f"Found {len(notes)} raw notes from database")
+    
+    # Log first note details for debugging
+    if notes:
+        logger.info(f"First note raw data: {dict(notes[0])}")
+    
+    serialized_notes = [serialize_note_with_reminder_and_entry_info(note) for note in notes]
+    logger.info(f"Serialized {len(serialized_notes)} notes")
+    
+    if serialized_notes:
+        logger.info(f"First serialized note: {serialized_notes[0]}")
+    
+    return jsonify(serialized_notes)
 
 @notes_api_bp.route('/notes/<int:note_id>', methods=['DELETE'])
 def delete_note(note_id):
@@ -340,25 +433,55 @@ def update_note_content(note_id):
         note_title = request.form.get('note_title', '').strip()
         note_text = request.form.get('note_text', '').strip()
         
+        # Handle associated_entry_ids from form data (could be JSON string or comma-separated)
+        associated_entry_ids_raw = request.form.get('associated_entry_ids', None)
+        associated_entry_ids_json = None
+        
+        if associated_entry_ids_raw is not None:
+            try:
+                if associated_entry_ids_raw.startswith('['):
+                    # JSON array format
+                    associated_entry_ids = json.loads(associated_entry_ids_raw)
+                else:
+                    # Comma-separated format
+                    associated_entry_ids = [int(x.strip()) for x in associated_entry_ids_raw.split(',') if x.strip()]
+                # Convert to JSON string for storage
+                associated_entry_ids_json = json.dumps(associated_entry_ids)
+            except (json.JSONDecodeError, ValueError):
+                associated_entry_ids_json = '[]'
+        
         if not note_text:
             return jsonify({'error': 'Note text is required'}), 400
-            
-        cursor.execute("""
-            UPDATE Note 
-            SET note_title = ?, note_text = ? 
-            WHERE id = ?
-        """, (note_title, note_text, note_id))
+        
+        # Build the update query based on what fields are provided
+        if associated_entry_ids_json is not None:
+            cursor.execute("""
+                UPDATE Note 
+                SET note_title = ?, note_text = ?, associated_entry_ids = ?
+                WHERE id = ?
+            """, (note_title, note_text, associated_entry_ids_json, note_id))
+        else:
+            cursor.execute("""
+                UPDATE Note 
+                SET note_title = ?, note_text = ? 
+                WHERE id = ?
+            """, (note_title, note_text, note_id))
         
         conn.commit()
         
         if cursor.rowcount == 0:
             return jsonify({'error': 'Note not found'}), 404
-            
-        return jsonify({
+        
+        response_data = {
             'message': 'Note updated successfully',
             'note_title': note_title,
             'note_text': note_text
-        }), 200
+        }
+        
+        if associated_entry_ids_json is not None:
+            response_data['associated_entry_ids'] = json.loads(associated_entry_ids_json)
+            
+        return jsonify(response_data), 200
         
     except Exception as e:
         logger.error(f"Error updating note {note_id}: {e}", exc_info=True)

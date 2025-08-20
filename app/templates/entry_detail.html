@@ -2515,6 +2515,7 @@
 
                         <div class="collapse mb-3" id="newNoteForm">
                             <div class="content-subsection">
+                                <!-- Core Note Fields -->
                                 <div class="mb-3">
                                     <label for="noteTitleInput" class="form-label">Title</label>
                                     <input type="text" class="form-control" id="noteTitleInput" placeholder="Provide a title">
@@ -2540,64 +2541,133 @@
                                         </button>
                                     </div>
                                 </div>
+
+                                <!-- Optional Controls Toggle Buttons -->
                                 <div class="mb-3">
-                                    <label for="reminderDateInput" class="form-label">
-                                        <i class="fas fa-bell text-warning me-1"></i>Set Reminder Date & Time
-                                    </label>
-                                    <input type="datetime-local" class="form-control" id="reminderDateInput" 
-                                           min="" placeholder="Choose reminder date and time">
-                                    <div class="form-text">
-                                        <i class="fas fa-info-circle me-1"></i> 
-                                        A notification will appear at this exact date and time. 
-                                        <strong>Note:</strong> If you select a date, you must also select a time (defaults to 1:00 AM if not specified).
-                                    </div>
-                                    <div class="mt-2">
-                                        <button type="button" class="btn btn-sm btn-warning" onclick="clearReminder()">
-                                            <i class="fas fa-times me-1"></i>Clear
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" id="toggleAssociateBtn" 
+                                                data-bs-toggle="collapse" data-bs-target="#associateSection" aria-expanded="false">
+                                            <i class="fas fa-link me-1"></i>Associate <i class="fas fa-chevron-down ms-1"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-warning" id="toggleReminderBtn"
+                                                data-bs-toggle="collapse" data-bs-target="#reminderSection" aria-expanded="false">
+                                            <i class="fas fa-bell me-1"></i>Reminder <i class="fas fa-chevron-down ms-1"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-info" id="toggleUploadBtn"
+                                                data-bs-toggle="collapse" data-bs-target="#uploadSection" aria-expanded="false">
+                                            <i class="fas fa-paperclip me-1"></i>Upload <i class="fas fa-chevron-down ms-1"></i>
                                         </button>
                                     </div>
                                 </div>
-                                <hr>
-                                <div class="mb-3">
-                                    <label for="fileUploadInput" class="form-label">Upload Files (Optional)</label>
-                                    <input type="file" class="form-control" id="fileUploadInput" multiple>
-                                    <div id="selectedFilesInfo" class="mt-2 small text-muted">No files selected.</div>
-                                    <div class="form-text">
-                                        <i class="fas fa-info-circle me-1"></i> 
-                                        <span id="supportedFileTypes">
-                                            {% set file_types = allowed_file_types.split(',') %}
-                                            Supported file types: 
-                                            {% set image_types = [] %}
-                                            {% set doc_types = [] %}
-                                            {% set archive_types = [] %}
-                                            {% set video_types = [] %}
-                                            {% set audio_types = [] %}
-                                            {% set other_types = [] %}
-                                            {% for ext in file_types %}
-                                                {% set ext = ext.strip().upper() %}
-                                                {% if ext in ['JPG', 'JPEG', 'PNG', 'GIF', 'WEBP', 'SVG'] %}
-                                                    {% if image_types.append(ext) %}{% endif %}
-                                                {% elif ext in ['PDF', 'DOC', 'DOCX', 'TXT', 'XLS', 'XLSX', 'PPT', 'PPTX'] %}
-                                                    {% if doc_types.append(ext) %}{% endif %}
-                                                {% elif ext in ['ZIP', 'RAR', '7Z', 'TAR', 'GZ'] %}
-                                                    {% if archive_types.append(ext) %}{% endif %}
-                                                {% elif ext in ['MP4', 'AVI', 'MOV', 'WMV', 'FLV', 'WEBM', 'MKV'] %}
-                                                    {% if video_types.append(ext) %}{% endif %}
-                                                {% elif ext in ['MP3', 'WAV', 'FLAC', 'AAC', 'OGG'] %}
-                                                    {% if audio_types.append(ext) %}{% endif %}
-                                                {% else %}
-                                                    {% if other_types.append(ext) %}{% endif %}
-                                                {% endif %}
-                                            {% endfor %}
-                                            {% if image_types %}Images ({{ image_types|join(', ') }}){% endif %}{% if doc_types %}{% if image_types %}, {% endif %}Documents ({{ doc_types|join(', ') }}){% endif %}{% if archive_types %}{% if image_types or doc_types %}, {% endif %}Archives ({{ archive_types|join(', ') }}){% endif %}{% if video_types %}{% if image_types or doc_types or archive_types %}, {% endif %}Videos ({{ video_types|join(', ') }}){% endif %}{% if audio_types %}{% if image_types or doc_types or archive_types or video_types %}, {% endif %}Audio ({{ audio_types|join(', ') }}){% endif %}{% if other_types %}{% if image_types or doc_types or archive_types or video_types or audio_types %}, {% endif %}Other ({{ other_types|join(', ') }}){% endif %}.
-                                        </span>
-                                        <br><strong>Max file size:</strong> {{ max_file_size }}MB per file
+
+                                <!-- Associated Entries Section (Collapsible) -->
+                                <div class="collapse mb-3" id="associateSection">
+                                    <div class="border rounded p-3 bg-light">
+                                        <div class="mb-3">
+                                            <label for="associatedEntriesSelect" class="form-label">
+                                                <i class="fas fa-link me-1"></i>Associate with Additional Entries
+                                            </label>
+                                            <select class="form-select" id="associatedEntriesSelect" multiple>
+                                                <option value="" disabled>Loading entries...</option>
+                                            </select>
+                                            <div class="form-text">
+                                                <i class="fas fa-info-circle me-1"></i>
+                                                Select additional entries to associate this note with. The note will appear in all selected entries.
+                                            </div>
+                                            <div class="mt-2">
+                                                <div id="selectedAssociationsDisplay" class="small text-info" style="display: none;">
+                                                    <!-- Selected associations will be displayed here -->
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" id="clearAssociationsBtn" style="display: none;">
+                                                    <i class="fas fa-times me-1"></i>Clear All Associations
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <button type="button" class="btn btn-theme-primary" id="addNoteBtn">
-                                    <i class="fas fa-plus-circle me-1"></i>Save Note
-                                </button>
-                                <div id="noteStatusMessage" class="mt-3 d-none"></div>
+
+                                <!-- Reminder Section (Collapsible) -->
+                                <div class="collapse mb-3" id="reminderSection">
+                                    <div class="border rounded p-3 bg-light">
+                                        <div class="mb-3">
+                                            <label for="reminderDateInput" class="form-label">
+                                                <i class="fas fa-bell text-warning me-1"></i>Set Reminder Date & Time
+                                            </label>
+                                            <input type="datetime-local" class="form-control" id="reminderDateInput" 
+                                                   min="" placeholder="Choose reminder date and time">
+                                            <div class="form-text">
+                                                <i class="fas fa-info-circle me-1"></i> 
+                                                A notification will appear at this exact date and time. 
+                                                <strong>Note:</strong> If you select a date, you must also select a time (defaults to 1:00 AM if not specified).
+                                            </div>
+                                            <div class="mt-2">
+                                                <button type="button" class="btn btn-sm btn-warning" onclick="clearReminder()">
+                                                    <i class="fas fa-times me-1"></i>Clear
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Upload Section (Collapsible) -->
+                                <div class="collapse mb-3" id="uploadSection">
+                                    <div class="border rounded p-3 bg-light">
+                                        <div class="mb-3">
+                                            <label for="fileUploadInput" class="form-label">
+                                                <i class="fas fa-paperclip me-1"></i>Upload Files
+                                            </label>
+                                            <input type="file" class="form-control" id="fileUploadInput" multiple>
+                                            <div id="selectedFilesInfo" class="mt-2 small text-muted">No files selected.</div>
+                                            <div class="form-text">
+                                                <i class="fas fa-info-circle me-1"></i> 
+                                                <span id="supportedFileTypes">
+                                                    {% set file_types = allowed_file_types.split(',') %}
+                                                    Supported file types: 
+                                                    {% set image_types = [] %}
+                                                    {% set doc_types = [] %}
+                                                    {% set archive_types = [] %}
+                                                    {% set video_types = [] %}
+                                                    {% set audio_types = [] %}
+                                                    {% set other_types = [] %}
+                                                    {% for ext in file_types %}
+                                                        {% set ext = ext.strip().upper() %}
+                                                        {% if ext in ['JPG', 'JPEG', 'PNG', 'GIF', 'WEBP', 'SVG'] %}
+                                                            {% if image_types.append(ext) %}{% endif %}
+                                                        {% elif ext in ['PDF', 'DOC', 'DOCX', 'TXT', 'XLS', 'XLSX', 'PPT', 'PPTX'] %}
+                                                            {% if doc_types.append(ext) %}{% endif %}
+                                                        {% elif ext in ['ZIP', 'RAR', '7Z', 'TAR', 'GZ'] %}
+                                                            {% if archive_types.append(ext) %}{% endif %}
+                                                        {% elif ext in ['MP4', 'AVI', 'MOV', 'WMV', 'FLV', 'WEBM', 'MKV'] %}
+                                                            {% if video_types.append(ext) %}{% endif %}
+                                                        {% elif ext in ['MP3', 'WAV', 'FLAC', 'AAC', 'OGG'] %}
+                                                            {% if audio_types.append(ext) %}{% endif %}
+                                                        {% else %}
+                                                            {% if other_types.append(ext) %}{% endif %}
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                    
+                                                    {% if image_types %}📷 Images ({{ image_types|join(', ') }}){% endif %}
+                                                    {% if doc_types %}{% if image_types %}, {% endif %}📄 Documents ({{ doc_types|join(', ') }}){% endif %}
+                                                    {% if video_types %}{% if image_types or doc_types %}, {% endif %}🎥 Videos ({{ video_types|join(', ') }}){% endif %}
+                                                    {% if audio_types %}{% if image_types or doc_types or video_types %}, {% endif %}🎵 Audio ({{ audio_types|join(', ') }}){% endif %}
+                                                    {% if archive_types %}{% if image_types or doc_types or video_types or audio_types %}, {% endif %}📦 Archives ({{ archive_types|join(', ') }}){% endif %}
+                                                    {% if other_types %}{% if image_types or doc_types or video_types or audio_types or archive_types %}, {% endif %}{{ other_types|join(', ') }}{% endif %}
+                                                </span>
+                                                Max file size: {{ max_file_size }}MB
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Submit Button -->
+                                <div class="d-grid">
+                                    <button type="button" class="btn btn-theme-primary" id="addNoteBtn">
+                                        <i class="fas fa-plus-circle me-2"></i>Add Note
+                                    </button>
+                                </div>
+
+                                <!-- Status Message -->
+                                <div id="noteStatusMessage" class="mt-3"></div>
                             </div>
                         </div>
 
@@ -2622,6 +2692,21 @@
                     <p><strong>Title:</strong> <span id="modalNoteTitle"></span></p>
                     <p><strong>Type:</strong> <span id="modalNoteType"></span></p>
                     <p><strong>Created On:</strong> <span id="modalNoteCreated"></span></p>
+                    
+                    <!-- Note Relationships Section -->
+                    <div id="modalNoteRelationships" style="display: none;">
+                        <div class="alert alert-info">
+                            <div class="d-flex align-items-center mb-2">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-sitemap me-2"></i>Entry Relationships
+                                </h6>
+                                <span id="modalRelationshipType" class="badge ms-2"></span>
+                            </div>
+                            <div id="modalRelationshipDetails">
+                                <!-- Dynamic relationship details will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
                     
                     <!-- Enhanced Reminder Section -->
                     <div id="modalNoteReminder" style="display: none;">
@@ -2969,6 +3054,11 @@
         const notesList = document.getElementById('notesList');
         const noNotesMessage = document.getElementById('noNotesMessage');
         const noteStatusMessage = document.getElementById('noteStatusMessage');
+        
+        // New DOM elements for Associated Entries
+        const associatedEntriesSelect = document.getElementById('associatedEntriesSelect');
+        const selectedAssociationsDisplay = document.getElementById('selectedAssociationsDisplay');
+        const clearAssociationsBtn = document.getElementById('clearAssociationsBtn');
         
         // Notes search and filter elements
         const notesSearchInput = document.getElementById('notesSearchInput');
@@ -3322,6 +3412,8 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             initializeNoteTypeDropdown();
+            initializeAssociatedEntriesDropdown(); // Initialize the new dropdown
+            loadNoteBindingState(); // Load note binding preferences
             loadNoteTypeColors(); // Load custom note type colors
             fetchNotes();
             loadRelatedRecords(); // Call the new function to load related records (this will also load shared relationships)
@@ -3353,9 +3445,168 @@
             }
         }
 
+        // Initialize Associated Entries Dropdown
+        async function initializeAssociatedEntriesDropdown() {
+            try {
+                const response = await fetch('/api/entries');
+                if (!response.ok) {
+                    throw new Error('Failed to load entries');
+                }
+                const entries = await response.json();
+                
+                // Clear the dropdown
+                associatedEntriesSelect.innerHTML = '';
+                
+                // Add placeholder option
+                const placeholderOption = document.createElement('option');
+                placeholderOption.value = '';
+                placeholderOption.textContent = 'Select entries to associate...';
+                placeholderOption.disabled = true;
+                associatedEntriesSelect.appendChild(placeholderOption);
+                
+                // Filter out the current entry and add the rest
+                entries.filter(entry => entry.id != entryId).forEach(entry => {
+                    const option = document.createElement('option');
+                    option.value = entry.id;
+                    option.textContent = `${entry.title} (${entry.entry_type_label})`;
+                    associatedEntriesSelect.appendChild(option);
+                });
+                
+                // Initialize event listeners for the dropdown
+                initializeAssociatedEntriesEventListeners();
+                
+            } catch (error) {
+                console.error('Error loading entries for association:', error);
+                associatedEntriesSelect.innerHTML = '<option value="" disabled>Error loading entries</option>';
+            }
+        }
+
+        // Initialize event listeners for associated entries functionality
+        function initializeAssociatedEntriesEventListeners() {
+            // Handle selection changes
+            associatedEntriesSelect.addEventListener('change', function() {
+                updateSelectedAssociationsDisplay();
+            });
+            
+            // Handle clear associations button
+            clearAssociationsBtn.addEventListener('click', function() {
+                // Clear all selections
+                Array.from(associatedEntriesSelect.options).forEach(option => {
+                    option.selected = false;
+                });
+                updateSelectedAssociationsDisplay();
+            });
+        }
+
+        // Update the display of selected associations
+        function updateSelectedAssociationsDisplay() {
+            const selectedOptions = Array.from(associatedEntriesSelect.selectedOptions);
+            
+            if (selectedOptions.length === 0) {
+                selectedAssociationsDisplay.style.display = 'none';
+                clearAssociationsBtn.style.display = 'none';
+            } else {
+                selectedAssociationsDisplay.style.display = 'block';
+                clearAssociationsBtn.style.display = 'inline-block';
+                
+                const associationsList = selectedOptions.map(option => option.textContent).join(', ');
+                selectedAssociationsDisplay.innerHTML = `
+                    <i class="fas fa-link me-1"></i>
+                    <strong>Will be associated with:</strong> ${associationsList}
+                `;
+            }
+        }
+
+        // Get selected associated entry IDs
+        function getSelectedAssociatedEntryIds() {
+            return Array.from(associatedEntriesSelect.selectedOptions).map(option => parseInt(option.value));
+        }
+
+        // Toggle button event listeners for collapsible sections
+        const toggleAssociateBtn = document.getElementById('toggleAssociateBtn');
+        const toggleReminderBtn = document.getElementById('toggleReminderBtn');
+        const toggleUploadBtn = document.getElementById('toggleUploadBtn');
+
+        // Associate section events
+        if (toggleAssociateBtn) {
+            const associateSection = document.getElementById('associateSection');
+            
+            associateSection.addEventListener('shown.bs.collapse', () => {
+                toggleAssociateBtn.classList.remove('btn-outline-primary');
+                toggleAssociateBtn.classList.add('btn-primary');
+                const chevron = toggleAssociateBtn.querySelector('.fa-chevron-down, .fa-chevron-up');
+                if (chevron) {
+                    chevron.classList.remove('fa-chevron-down');
+                    chevron.classList.add('fa-chevron-up');
+                }
+            });
+            
+            associateSection.addEventListener('hidden.bs.collapse', () => {
+                toggleAssociateBtn.classList.remove('btn-primary');
+                toggleAssociateBtn.classList.add('btn-outline-primary');
+                const chevron = toggleAssociateBtn.querySelector('.fa-chevron-down, .fa-chevron-up');
+                if (chevron) {
+                    chevron.classList.remove('fa-chevron-up');
+                    chevron.classList.add('fa-chevron-down');
+                }
+            });
+        }
+
+        // Reminder section events
+        if (toggleReminderBtn) {
+            const reminderSection = document.getElementById('reminderSection');
+            
+            reminderSection.addEventListener('shown.bs.collapse', () => {
+                toggleReminderBtn.classList.remove('btn-outline-warning');
+                toggleReminderBtn.classList.add('btn-warning');
+                const chevron = toggleReminderBtn.querySelector('.fa-chevron-down, .fa-chevron-up');
+                if (chevron) {
+                    chevron.classList.remove('fa-chevron-down');
+                    chevron.classList.add('fa-chevron-up');
+                }
+            });
+            
+            reminderSection.addEventListener('hidden.bs.collapse', () => {
+                toggleReminderBtn.classList.remove('btn-warning');
+                toggleReminderBtn.classList.add('btn-outline-warning');
+                const chevron = toggleReminderBtn.querySelector('.fa-chevron-down, .fa-chevron-up');
+                if (chevron) {
+                    chevron.classList.remove('fa-chevron-up');
+                    chevron.classList.add('fa-chevron-down');
+                }
+            });
+        }
+
+        // Upload section events
+        if (toggleUploadBtn) {
+            const uploadSection = document.getElementById('uploadSection');
+            
+            uploadSection.addEventListener('shown.bs.collapse', () => {
+                toggleUploadBtn.classList.remove('btn-outline-info');
+                toggleUploadBtn.classList.add('btn-info');
+                const chevron = toggleUploadBtn.querySelector('.fa-chevron-down, .fa-chevron-up');
+                if (chevron) {
+                    chevron.classList.remove('fa-chevron-down');
+                    chevron.classList.add('fa-chevron-up');
+                }
+            });
+            
+            uploadSection.addEventListener('hidden.bs.collapse', () => {
+                toggleUploadBtn.classList.remove('btn-info');
+                toggleUploadBtn.classList.add('btn-outline-info');
+                const chevron = toggleUploadBtn.querySelector('.fa-chevron-down, .fa-chevron-up');
+                if (chevron) {
+                    chevron.classList.remove('fa-chevron-up');
+                    chevron.classList.add('fa-chevron-down');
+                }
+            });
+        }
+
         // Bootstrap collapse event listener to update button text
         newNoteFormCollapseElement.addEventListener('shown.bs.collapse', () => {
             toggleNewNoteText.textContent = 'Hide New Note Form';
+            // Auto-populate associated entries based on binding state
+            autoPopulateAssociatedEntries();
         });
         newNoteFormCollapseElement.addEventListener('hidden.bs.collapse', () => {
             toggleNewNoteText.textContent = 'Add New Note';
@@ -3498,6 +3749,12 @@
                 formData.append('note_text', noteText);
                 formData.append('note_type', noteType);
                 
+                // Add associated entry IDs if any selected
+                const associatedEntryIds = getSelectedAssociatedEntryIds();
+                if (associatedEntryIds.length > 0) {
+                    formData.append('associated_entry_ids', JSON.stringify(associatedEntryIds));
+                }
+                
                 // Add reminder date if provided
                 if (reminderDate) {
                     formData.append('reminder_date', reminderDate);
@@ -3525,6 +3782,12 @@
                     selectedFilesInfo.textContent = 'No files selected.';
                     selectedFilesInfo.classList.remove('text-info');
                     selectedFilesInfo.classList.add('text-muted');
+
+                    // Clear associated entries selection
+                    Array.from(associatedEntriesSelect.options).forEach(option => {
+                        option.selected = false;
+                    });
+                    updateSelectedAssociationsDisplay();
 
                     const bsCollapse = new bootstrap.Collapse(newNoteFormCollapseElement, { toggle: false });
                     bsCollapse.hide(); // Hide the form after successful submission
@@ -3638,6 +3901,32 @@
                     attachmentIndicator = `<i class="fas fa-paperclip text-info ms-2" title="${title}"></i>`;
                 }
                 
+                // Create relationship indicator if this note is associated with other entries
+                let relationshipIndicator = '';
+                if (note.relationship_type && note.relationship_type !== 'primary') {
+                    let relationshipIcon = 'fas fa-link';
+                    let relationshipColor = 'text-info';
+                    let relationshipText = 'Associated';
+                    
+                    if (note.relationship_type === 'cross_referenced') {
+                        relationshipIcon = 'fas fa-external-link-alt';
+                        relationshipColor = 'text-primary';
+                        relationshipText = 'Cross-referenced';
+                    }
+                    
+                    relationshipIndicator = `<i class="${relationshipIcon} ${relationshipColor} ms-2" title="This note is ${relationshipText.toLowerCase()} with this entry"></i>`;
+                }
+
+                // Create associated entries info if available
+                let associatedEntriesInfo = '';
+                if (note.associated_entry_ids && note.associated_entry_ids.length > 0) {
+                    const associatedCount = note.associated_entry_ids.length;
+                    const title = associatedCount === 1 ? '1 associated entry' : `${associatedCount} associated entries`;
+                    associatedEntriesInfo = `<small class="text-muted d-block mt-1">
+                        <i class="fas fa-sitemap me-1"></i>Associated with ${associatedCount} other ${associatedCount === 1 ? 'entry' : 'entries'}
+                    </small>`;
+                }
+
                 noteItem.innerHTML = `
                     <div class="d-flex w-100 justify-content-between">
                         <h5 class="mb-1">
@@ -3645,10 +3934,12 @@
                             <small class="text-muted">(${note.note_type})</small>
                             ${reminderIndicator}
                             ${attachmentIndicator}
+                            ${relationshipIndicator}
                         </h5>
                         <small>${new Date(note.created_at).toLocaleString()}</small>
                     </div>
                     <p class="mb-1 note-text-preview">${note.note_text.substring(0, 100)}${note.note_text.length > 100 ? '...' : ''}</p>
+                    ${associatedEntriesInfo}
                     <button type="button" class="btn btn-theme-primary btn-sm mt-2 open-note-details-btn" data-note-id="${note.id}">
                         Open Details <i class="fas fa-external-link-alt ms-1"></i>
                     </button>
@@ -3667,6 +3958,52 @@
                         modalNoteType.textContent = note.note_type || 'General';
                         modalNoteCreated.textContent = new Date(note.created_at).toLocaleString();
                         modalNoteContent.textContent = note.note_text;
+                        
+                        // Handle relationship information
+                        const modalNoteRelationships = document.getElementById('modalNoteRelationships');
+                        const modalRelationshipType = document.getElementById('modalRelationshipType');
+                        const modalRelationshipDetails = document.getElementById('modalRelationshipDetails');
+                        
+                        if (note.relationship_type && note.relationship_type !== 'primary') {
+                            modalNoteRelationships.style.display = 'block';
+                            
+                            // Set relationship type badge
+                            let badgeClass = 'bg-info';
+                            let relationshipText = 'Associated';
+                            
+                            if (note.relationship_type === 'cross_referenced') {
+                                badgeClass = 'bg-primary';
+                                relationshipText = 'Cross-referenced';
+                            }
+                            
+                            modalRelationshipType.className = `badge ${badgeClass}`;
+                            modalRelationshipType.textContent = relationshipText;
+                            
+                            // Build relationship details
+                            let detailsHtml = `<small class="text-muted">This note is ${relationshipText.toLowerCase()} with this entry through the associated entries system.</small>`;
+                            
+                            if (note.associated_entry_ids && note.associated_entry_ids.length > 0) {
+                                detailsHtml += `<br><small class="text-muted mt-1 d-block">
+                                    <i class="fas fa-link me-1"></i>This note is also associated with ${note.associated_entry_ids.length} other ${note.associated_entry_ids.length === 1 ? 'entry' : 'entries'}.
+                                </small>`;
+                            }
+                            
+                            modalRelationshipDetails.innerHTML = detailsHtml;
+                        } else if (note.associated_entry_ids && note.associated_entry_ids.length > 0) {
+                            // This is a primary note but has associated entries
+                            modalNoteRelationships.style.display = 'block';
+                            modalRelationshipType.className = 'badge bg-success';
+                            modalRelationshipType.textContent = 'Primary';
+                            
+                            modalRelationshipDetails.innerHTML = `
+                                <small class="text-muted">This is the primary note for this entry.</small>
+                                <br><small class="text-muted mt-1 d-block">
+                                    <i class="fas fa-sitemap me-1"></i>It is also associated with ${note.associated_entry_ids.length} other ${note.associated_entry_ids.length === 1 ? 'entry' : 'entries'}.
+                                </small>
+                            `;
+                        } else {
+                            modalNoteRelationships.style.display = 'none';
+                        }
                         
                         // Handle reminder information
                         const modalNoteReminder = document.getElementById('modalNoteReminder');
@@ -4925,6 +5262,12 @@
                                         <tr>
                                             <td><a href="/entry/${entry.related_entry_id}" class="text-decoration-none">${entry.related_entry_title}</a></td>
                                             <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-primary bind-notes-btn me-1" 
+                                                        data-entry-id="${entry.related_entry_id}" 
+                                                        data-entry-title="${entry.related_entry_title}" 
+                                                        title="Bind notes from this entry">
+                                                    <i class="fas fa-link"></i>
+                                                </button>
                                                 <button class="btn btn-sm btn-outline-danger delete-related-btn" data-relationship-id="${entry.relationship_id}" title="Delete relationship">
                                                     <i class="fas fa-trash-alt"></i>
                                                 </button>
@@ -4941,6 +5284,9 @@
             });
 
             attachRelatedRecordEventListeners();
+            
+            // Apply binding state styling after DOM is updated
+            applyBindingStateToButtons();
             
             // After rendering the related records, integrate shared opportunities
             loadSharedRelationships();
@@ -5422,6 +5768,15 @@
                             alert(`Error: ${error.message}`);
                         }
                     }
+                });
+            });
+
+            // Bind Notes Button
+            document.querySelectorAll('.bind-notes-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const entryId = this.getAttribute('data-entry-id');
+                    const entryTitle = this.getAttribute('data-entry-title');
+                    showBindNotesModal(entryId, entryTitle);
                 });
             });
         }
@@ -6144,6 +6499,192 @@
             
             // Initial count update
             updateSelectionCount();
+        }
+
+        // --- Note Binding Functions ---
+        
+        // Global variables to track note binding state
+        let noteBingingState = new Map(); // Map of entry_id -> boolean (whether binding is enabled)
+
+        // Show Bind Notes Modal
+        function showBindNotesModal(targetEntryId, targetEntryTitle) {
+            const modalId = 'bindNotesModal';
+            
+            // Remove existing modal if it exists
+            const existingModal = document.getElementById(modalId);
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            const currentBindingState = noteBingingState.get(parseInt(targetEntryId)) || false;
+            
+            const modalHtml = `
+                <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}Label" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="${modalId}Label">
+                                    <i class="fas fa-link me-2"></i>
+                                    Bind Notes: ${targetEntryTitle}
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Note Binding:</strong> When enabled, any new notes created in this entry will automatically be associated with <strong>${targetEntryTitle}</strong>.
+                                </div>
+                                
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="bindNotesToggle" ${currentBindingState ? 'checked' : ''}>
+                                    <label class="form-check-label" for="bindNotesToggle">
+                                        <strong>Enable automatic note binding to ${targetEntryTitle}</strong>
+                                    </label>
+                                </div>
+                                
+                                <div class="border-top pt-3">
+                                    <h6><i class="fas fa-question-circle me-2"></i>How it works:</h6>
+                                    <ul class="small text-muted mb-0">
+                                        <li>When enabled, new notes in this entry will automatically include ${targetEntryTitle} in their associations</li>
+                                        <li>You can still manually add/remove associations when creating notes</li>
+                                        <li>This setting only affects new notes - existing notes are not changed</li>
+                                        <li>You can disable this at any time</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" id="saveBindingBtn">
+                                    <i class="fas fa-save me-1"></i>Save Setting
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            const modal = new bootstrap.Modal(document.getElementById(modalId));
+            modal.show();
+            
+            // Add event listeners
+            const saveBtn = document.getElementById('saveBindingBtn');
+            const toggle = document.getElementById('bindNotesToggle');
+            
+            saveBtn.addEventListener('click', function() {
+                const isEnabled = toggle.checked;
+                noteBingingState.set(parseInt(targetEntryId), isEnabled);
+                
+                // Save to localStorage for persistence
+                localStorage.setItem('noteBindingState', JSON.stringify(Array.from(noteBingingState.entries())));
+                
+                // Update UI feedback
+                updateBindNotesButtonState(targetEntryId, isEnabled);
+                
+                // Show success message
+                const alertHtml = `
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <i class="fas fa-check-circle me-2"></i>
+                        Note binding ${isEnabled ? 'enabled' : 'disabled'} for ${targetEntryTitle}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `;
+                
+                // Add alert to the page
+                const alertContainer = document.querySelector('.container-fluid');
+                if (alertContainer) {
+                    alertContainer.insertAdjacentHTML('afterbegin', alertHtml);
+                    
+                    // Auto-dismiss after 3 seconds
+                    setTimeout(() => {
+                        const alert = alertContainer.querySelector('.alert-success');
+                        if (alert) {
+                            const bsAlert = new bootstrap.Alert(alert);
+                            bsAlert.close();
+                        }
+                    }, 3000);
+                }
+                
+                modal.hide();
+            });
+            
+            // Clean up modal when closed
+            document.getElementById(modalId).addEventListener('hidden.bs.modal', function() {
+                this.remove();
+            });
+        }
+
+        // Update bind notes button visual state
+        function updateBindNotesButtonState(entryId, isEnabled) {
+            const button = document.querySelector(`[data-entry-id="${entryId}"].bind-notes-btn`);
+            if (button) {
+                const icon = button.querySelector('i');
+                if (isEnabled) {
+                    // Enabled state - solid blue button with link icon
+                    button.classList.remove('btn-outline-primary');
+                    button.classList.add('btn-primary');
+                    button.title = 'Notes binding enabled - click to configure';
+                    if (icon) {
+                        icon.classList.remove('fa-link');
+                        icon.classList.add('fa-link', 'fa-solid'); // Ensure solid icon
+                    }
+                } else {
+                    // Disabled state - outline button with link icon
+                    button.classList.remove('btn-primary');
+                    button.classList.add('btn-outline-primary');
+                    button.title = 'Bind notes from this entry';
+                    if (icon) {
+                        icon.classList.remove('fa-solid');
+                        icon.classList.add('fa-link'); // Regular link icon
+                    }
+                }
+            }
+        }
+
+        // Load note binding state from localStorage
+        function loadNoteBindingState() {
+            try {
+                const saved = localStorage.getItem('noteBindingState');
+                if (saved) {
+                    const entries = JSON.parse(saved);
+                    noteBingingState = new Map(entries);
+                    
+                    // Update button states
+                    noteBingingState.forEach((isEnabled, entryId) => {
+                        updateBindNotesButtonState(entryId, isEnabled);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading note binding state:', error);
+                noteBingingState = new Map();
+            }
+        }
+
+        // Auto-populate associated entries based on binding state
+        function autoPopulateAssociatedEntries() {
+            const boundEntries = [];
+            noteBingingState.forEach((isEnabled, entryId) => {
+                if (isEnabled) {
+                    boundEntries.push(entryId);
+                }
+            });
+            
+            if (boundEntries.length > 0) {
+                // Select the bound entries in the dropdown
+                Array.from(associatedEntriesSelect.options).forEach(option => {
+                    if (boundEntries.includes(parseInt(option.value))) {
+                        option.selected = true;
+                    }
+                });
+                updateSelectedAssociationsDisplay();
+            }
+        }
+
+        // Apply binding state styling to all bind buttons
+        function applyBindingStateToButtons() {
+            noteBingingState.forEach((isEnabled, entryId) => {
+                updateBindNotesButtonState(entryId, isEnabled);
+            });
         }
 
         // --- Sensor Data Functions ---
