@@ -6094,6 +6094,52 @@
                 return;
             }
             
+            // Get the relationship definition ID from the first checkbox to check cardinality
+            const firstCheckbox = selectedCheckboxes[0];
+            const definitionId = parseInt(firstCheckbox.getAttribute('data-definition-id'));
+            
+            // Find the relationship definition to check cardinality
+            const relationshipDef = allRelationshipDefinitions.find(def => def.id === definitionId);
+            console.log('Debug - relationshipDef:', relationshipDef);
+            console.log('Debug - allRelationshipDefinitions:', allRelationshipDefinitions);
+            
+            if (relationshipDef) {
+                // Count existing relationships for this definition
+                const relatedRecordsResponse = await fetch(`/api/entries/${entryId}/relationships`);
+                const existingRelationships = await relatedRecordsResponse.json();
+                const existingForThisDef = existingRelationships.filter(rel => rel.definition_id === definitionId);
+                
+                // Determine if current entry is the "from" or "to" side of this relationship
+                const isFromSide = relationshipDef.entry_type_id_from == currentEntryTypeId;
+                
+                // Check the appropriate cardinality based on the current entry's role in the relationship
+                const relevantCardinality = isFromSide ? relationshipDef.cardinality_from : relationshipDef.cardinality_to;
+                
+                console.log('Debug - cardinality check:', {
+                    definitionId: definitionId,
+                    currentEntryTypeId: currentEntryTypeId,
+                    isFromSide: isFromSide,
+                    cardinality_from: relationshipDef.cardinality_from,
+                    cardinality_to: relationshipDef.cardinality_to,
+                    relevantCardinality: relevantCardinality,
+                    existingCount: existingForThisDef.length,
+                    selectedCount: selectedCheckboxes.length,
+                    existingRelationships: existingForThisDef
+                });
+                
+                // Check if adding the selected relationships would exceed the limit
+                if (relevantCardinality !== -1) {
+                    const totalAfterAdd = existingForThisDef.length + selectedCheckboxes.length;
+                    if (totalAfterAdd > relevantCardinality) {
+                        const maxCanAdd = relevantCardinality - existingForThisDef.length;
+                        alert(`Cannot create ${selectedCheckboxes.length} relationships. This relationship is limited to ${relevantCardinality} item(s) and you already have ${existingForThisDef.length}. You can add at most ${maxCanAdd} more.`);
+                        return;
+                    }
+                }
+            } else {
+                console.log('Debug - relationshipDef not found for ID:', definitionId);
+            }
+            
             const relationships = [];
             
             selectedCheckboxes.forEach(checkbox => {
@@ -6428,6 +6474,54 @@
                 if (selectedCheckboxes.length === 0) {
                     alert('Please select at least one item to add.');
                     return;
+                }
+                
+                // Check cardinality limits before creating relationships
+                const firstCheckbox = selectedCheckboxes[0];
+                const definitionId = parseInt(firstCheckbox.dataset.definitionId);
+                
+                console.log('Shared relationship cardinality check - definitionId:', definitionId);
+                console.log('Shared relationship cardinality check - selectedCount:', selectedCheckboxes.length);
+                
+                // Find the relationship definition to check cardinality
+                const relationshipDef = allRelationshipDefinitions.find(def => def.id === definitionId);
+                console.log('Shared relationship cardinality check - relationshipDef:', relationshipDef);
+                
+                if (relationshipDef) {
+                    // Count existing relationships for this definition
+                    const relatedRecordsResponse = await fetch(`/api/entries/${entryId}/relationships`);
+                    const existingRelationships = await relatedRecordsResponse.json();
+                    const existingForThisDef = existingRelationships.filter(rel => rel.definition_id === definitionId);
+                    
+                    // Determine if current entry is the "from" or "to" side of this relationship
+                    const isFromSide = relationshipDef.entry_type_id_from == currentEntryTypeId;
+                    
+                    // Check the appropriate cardinality based on the current entry's role in the relationship
+                    const relevantCardinality = isFromSide ? relationshipDef.cardinality_from : relationshipDef.cardinality_to;
+                    
+                    console.log('Shared relationship cardinality check:', {
+                        definitionId: definitionId,
+                        currentEntryTypeId: currentEntryTypeId,
+                        isFromSide: isFromSide,
+                        cardinality_from: relationshipDef.cardinality_from,
+                        cardinality_to: relationshipDef.cardinality_to,
+                        relevantCardinality: relevantCardinality,
+                        existingCount: existingForThisDef.length,
+                        selectedCount: selectedCheckboxes.length,
+                        existingRelationships: existingForThisDef
+                    });
+                    
+                    // Check if adding the selected relationships would exceed the limit
+                    if (relevantCardinality !== -1) {
+                        const totalAfterAdd = existingForThisDef.length + selectedCheckboxes.length;
+                        if (totalAfterAdd > relevantCardinality) {
+                            const maxCanAdd = relevantCardinality - existingForThisDef.length;
+                            alert(`Cannot create ${selectedCheckboxes.length} relationships. This relationship is limited to ${relevantCardinality} item(s) and you already have ${existingForThisDef.length}. You can add at most ${maxCanAdd} more.`);
+                            return;
+                        }
+                    }
+                } else {
+                    console.log('Shared relationship cardinality check - relationshipDef not found for ID:', definitionId);
                 }
                 
                 const relationships = Array.from(selectedCheckboxes).map(checkbox => {
