@@ -1149,6 +1149,42 @@
             color: var(--bs-primary) !important;
         }
         
+        /* Enhanced Anchor/Link theme support */
+        a {
+            color: var(--theme-primary, var(--bs-primary));
+            text-decoration: none;
+            transition: var(--transition-base);
+        }
+        
+        a:hover {
+            color: var(--theme-primary, var(--bs-primary));
+            opacity: 0.8;
+        }
+        
+        a:focus {
+            color: var(--theme-primary, var(--bs-primary));
+            outline: 2px solid var(--theme-primary, var(--bs-primary));
+            outline-offset: 2px;
+        }
+        
+        /* Theme-aware link classes */
+        .link-theme {
+            color: var(--theme-primary, var(--bs-primary)) !important;
+        }
+        
+        .link-theme:hover {
+            color: var(--theme-primary, var(--bs-primary)) !important;
+            opacity: 0.8;
+        }
+        
+        .link-theme-muted {
+            color: var(--theme-text-muted, var(--bs-secondary-color)) !important;
+        }
+        
+        .link-theme-muted:hover {
+            color: var(--theme-text, var(--bs-body-color)) !important;
+        }
+        
         /* Enhanced Button theme support */
         .btn-outline-secondary {
             color: var(--bs-secondary) !important;
@@ -5344,7 +5380,7 @@
                                 <tbody>
                                     ${relatedEntries.map(entry => `
                                         <tr>
-                                            <td><a href="/entry/${entry.related_entry_id}" class="text-decoration-none">${entry.related_entry_title}</a></td>
+                                            <td><a href="/entry/${entry.related_entry_id}" class="link-theme">${entry.related_entry_title}</a></td>
                                             <td class="text-end">
                                                 <button class="btn btn-sm btn-outline-primary bind-notes-btn me-1" 
                                                         data-entry-id="${entry.related_entry_id}" 
@@ -7165,7 +7201,7 @@
                                     </div>
                                     <small class="text-muted">
                                         <i class="fas fa-network-wired me-1"></i>
-                                        <a href="http://${device.device_ip}" target="_blank" class="text-decoration-none" title="Open device web interface">
+                                        <a href="http://${device.device_ip}" target="_blank" class="link-theme" title="Open device web interface">
                                             ${device.device_ip} <i class="fas fa-external-link-alt ms-1"></i>
                                         </a>
                                         <i class="fas fa-microchip me-1 ms-2"></i>${device.device_type}
