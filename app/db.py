@@ -97,6 +97,18 @@ def init_db():
             );
         ''')
 
+        # Create UserPreferences Table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS UserPreferences (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                preference_name TEXT NOT NULL,
+                preference_value TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(preference_name)
+            );
+        ''')
+
         # Create RelationshipDefinition Table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS RelationshipDefinition (
