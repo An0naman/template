@@ -5760,9 +5760,56 @@
             document.querySelectorAll('.delete-related-btn').forEach(button => {
                 button.addEventListener('click', async function() {
                     const relationshipId = this.getAttribute('data-relationship-id');
+                    
+                    // Find the related entry ID from the current row
+                    const row = this.closest('tr');
+                    const bindNotesBtn = row.querySelector('.bind-notes-btn');
+                    const relatedEntryId = bindNotesBtn ? bindNotesBtn.getAttribute('data-entry-id') : null;
+                    const relatedEntryTitle = bindNotesBtn ? bindNotesBtn.getAttribute('data-entry-title') : null;
+                    
                     if (confirm('Are you sure you want to delete this relationship?')) {
                         try {
                             await fetch(`/api/relationships/${relationshipId}`, { method: 'DELETE' });
+                            
+                            // Clean up note binding if it exists for this entry
+                            if (relatedEntryId) {
+                                const entryIdInt = parseInt(relatedEntryId);
+                                
+                                try {
+                                    // Call the cleanup API to remove note bindings if no relationships remain
+                                    const cleanupResponse = await fetch('/api/note_bindings/cleanup', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json'
+                                        },
+                                        body: JSON.stringify({
+                                            source_entry_id: entryId,
+                                            target_entry_id: entryIdInt
+                                        })
+                                    });
+                                    
+                                    if (cleanupResponse.ok) {
+                                        const cleanupResult = await cleanupResponse.json();
+                                        if (cleanupResult.deleted_count > 0) {
+                                            console.log(`Removed note binding for deleted relationship with entry ${relatedEntryTitle} (ID: ${entryIdInt})`);
+                                            
+                                            // Update local state
+                                            noteBingingState.delete(entryIdInt);
+                                            
+                                            // Update UI - remove binding state styling
+                                            updateBindNotesButtonState(entryIdInt, false);
+                                            
+                                            // Show notification
+                                            console.log(`Note binding automatically removed for ${relatedEntryTitle} since relationship was deleted`);
+                                        }
+                                    } else {
+                                        console.error('Failed to cleanup note bindings:', cleanupResponse.statusText);
+                                    }
+                                } catch (cleanupError) {
+                                    console.error('Error cleaning up note bindings:', cleanupError);
+                                }
+                            }
+                            
                             loadRelatedRecords(); // Refresh the records
                         } catch (error) {
                             alert(`Error: ${error.message}`);
@@ -6666,6 +6713,39 @@
         // Global variables to track note binding state
         let noteBingingState = new Map(); // Map of entry_id -> boolean (whether binding is enabled)
 
+        // Load note binding state from database
+        async function loadNoteBindingState() {
+            try {
+                const response = await fetch(`/api/note_bindings?entry_id=${entryId}`);
+                if (response.ok) {
+                    const bindings = await response.json();
+                    
+                    // Clear existing state
+                    noteBingingState.clear();
+                    
+                    // Populate state from database
+                    bindings.forEach(binding => {
+                        if (binding.enabled) {
+                            noteBingingState.set(binding.target_entry_id, true);
+                        }
+                    });
+                    
+                    // Update button states
+                    noteBingingState.forEach((isEnabled, entryId) => {
+                        updateBindNotesButtonState(entryId, isEnabled);
+                    });
+                    
+                    console.log('Loaded note binding state from database:', noteBingingState);
+                } else {
+                    console.error('Failed to load note binding state:', response.statusText);
+                    noteBingingState = new Map();
+                }
+            } catch (error) {
+                console.error('Error loading note binding state:', error);
+                noteBingingState = new Map();
+            }
+        }
+
         // Show Bind Notes Modal
         function showBindNotesModal(targetEntryId, targetEntryTitle) {
             const modalId = 'bindNotesModal';
@@ -6731,41 +6811,74 @@
             const saveBtn = document.getElementById('saveBindingBtn');
             const toggle = document.getElementById('bindNotesToggle');
             
-            saveBtn.addEventListener('click', function() {
+            saveBtn.addEventListener('click', async function() {
                 const isEnabled = toggle.checked;
-                noteBingingState.set(parseInt(targetEntryId), isEnabled);
+                const originalText = saveBtn.innerHTML;
                 
-                // Save to localStorage for persistence
-                localStorage.setItem('noteBindingState', JSON.stringify(Array.from(noteBingingState.entries())));
-                
-                // Update UI feedback
-                updateBindNotesButtonState(targetEntryId, isEnabled);
-                
-                // Show success message
-                const alertHtml = `
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        <i class="fas fa-check-circle me-2"></i>
-                        Note binding ${isEnabled ? 'enabled' : 'disabled'} for ${targetEntryTitle}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                `;
-                
-                // Add alert to the page
-                const alertContainer = document.querySelector('.container-fluid');
-                if (alertContainer) {
-                    alertContainer.insertAdjacentHTML('afterbegin', alertHtml);
+                try {
+                    // Show loading state
+                    saveBtn.disabled = true;
+                    saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
                     
-                    // Auto-dismiss after 3 seconds
-                    setTimeout(() => {
-                        const alert = alertContainer.querySelector('.alert-success');
-                        if (alert) {
-                            const bsAlert = new bootstrap.Alert(alert);
-                            bsAlert.close();
+                    // Save to database via API
+                    const response = await fetch('/api/note_bindings', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            source_entry_id: entryId,
+                            target_entry_id: parseInt(targetEntryId),
+                            enabled: isEnabled
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        // Update local state
+                        noteBingingState.set(parseInt(targetEntryId), isEnabled);
+                        
+                        // Update UI feedback
+                        updateBindNotesButtonState(targetEntryId, isEnabled);
+                        
+                        // Show success message
+                        const alertHtml = `
+                            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                                <i class="fas fa-check-circle me-2"></i>
+                                Note binding ${isEnabled ? 'enabled' : 'disabled'} for ${targetEntryTitle}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        `;
+                        
+                        // Add alert to the page
+                        const alertContainer = document.querySelector('.container-fluid');
+                        if (alertContainer) {
+                            alertContainer.insertAdjacentHTML('afterbegin', alertHtml);
+                            
+                            // Auto-dismiss after 3 seconds
+                            setTimeout(() => {
+                                const alert = alertContainer.querySelector('.alert-success');
+                                if (alert) {
+                                    alert.remove();
+                                }
+                            }, 3000);
                         }
-                    }, 3000);
+                        
+                        // Close modal
+                        modal.hide();
+                        
+                    } else {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Failed to save note binding');
+                    }
+                    
+                } catch (error) {
+                    console.error('Error saving note binding:', error);
+                    alert(`Error saving note binding: ${error.message}`);
+                } finally {
+                    // Restore button state
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = originalText;
                 }
-                
-                modal.hide();
             });
             
             // Clean up modal when closed
@@ -6798,25 +6911,6 @@
                         icon.classList.add('fa-link'); // Regular link icon
                     }
                 }
-            }
-        }
-
-        // Load note binding state from localStorage
-        function loadNoteBindingState() {
-            try {
-                const saved = localStorage.getItem('noteBindingState');
-                if (saved) {
-                    const entries = JSON.parse(saved);
-                    noteBingingState = new Map(entries);
-                    
-                    // Update button states
-                    noteBingingState.forEach((isEnabled, entryId) => {
-                        updateBindNotesButtonState(entryId, isEnabled);
-                    });
-                }
-            } catch (error) {
-                console.error('Error loading note binding state:', error);
-                noteBingingState = new Map();
             }
         }
 

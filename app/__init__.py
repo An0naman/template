@@ -65,6 +65,7 @@ def create_app():
     from .api.entry_api import entry_api_bp
     from .api.entry_type_api import entry_type_api_bp
     from .api.notes_api import notes_api_bp
+    from .api.note_bindings_api import note_bindings_bp
     from .api.system_params_api import system_params_api_bp
     from .api.relationships_api import relationships_api_bp
     from .api.shared_relationships_api import shared_relationships_api_bp
@@ -84,6 +85,7 @@ def create_app():
     app.register_blueprint(entry_api_bp, url_prefix='/api')
     app.register_blueprint(entry_type_api_bp, url_prefix='/api')
     app.register_blueprint(notes_api_bp, url_prefix='/api')
+    app.register_blueprint(note_bindings_bp, url_prefix='/api')
     app.register_blueprint(system_params_api_bp, url_prefix='/api')
     app.register_blueprint(relationships_api_bp, url_prefix='/api')
     app.register_blueprint(shared_relationships_api_bp, url_prefix='/api')

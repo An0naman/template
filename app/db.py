@@ -337,6 +337,21 @@ def init_db():
             )
         ''')
 
+        # Create NoteBinding table for managing automatic note associations
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS NoteBinding (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_entry_id INTEGER NOT NULL, -- The entry where notes are created
+                target_entry_id INTEGER NOT NULL, -- The entry to automatically associate notes with
+                enabled BOOLEAN DEFAULT 1, -- Whether the binding is active
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (source_entry_id) REFERENCES Entry (id) ON DELETE CASCADE,
+                FOREIGN KEY (target_entry_id) REFERENCES Entry (id) ON DELETE CASCADE,
+                UNIQUE(source_entry_id, target_entry_id) -- Prevent duplicate bindings
+            )
+        ''')
+
         # Insert default system parameters if they don't exist
         default_params = {
             # General settings
