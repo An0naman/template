@@ -6231,12 +6231,13 @@
         function integrateSharedOpportunitiesIntoGrids(opportunities) {
             console.log('Integrating opportunities into grids:', opportunities);
             
-            // Group opportunities by relationship definition
+            // Group opportunities by relationship definition, preserving all intermediate entries
             const opportunitiesByDef = opportunities.reduce((acc, opportunity) => {
                 const defId = opportunity.relationship_definition.id;
                 if (!acc[defId]) {
-                    acc[defId] = opportunity;
+                    acc[defId] = [];
                 }
+                acc[defId].push(opportunity);
                 return acc;
             }, {});
             
@@ -6249,19 +6250,25 @@
             cards.forEach(card => {
                 const defId = parseInt(card.getAttribute('data-definition-id'));
                 console.log('Checking card for definition ID:', defId);
-                const opportunity = opportunitiesByDef[defId];
+                const opportunities = opportunitiesByDef[defId];
                 
-                if (opportunity && opportunity.potential_targets.length > 0) {
-                    console.log('Adding button for definition ID:', defId, opportunity);
-                    addSharedRelationshipButtonToGrid(card, opportunity);
+                if (opportunities && opportunities.length > 0) {
+                    // Check if any opportunity has potential targets
+                    const hasTargets = opportunities.some(opp => opp.potential_targets.length > 0);
+                    if (hasTargets) {
+                        console.log('Adding button for definition ID:', defId, opportunities);
+                        addSharedRelationshipButtonToGrid(card, opportunities);
+                    } else {
+                        console.log('No opportunities with targets for definition ID:', defId);
+                    }
                 } else {
                     console.log('No opportunities for definition ID:', defId);
                 }
             });
         }
         
-        function addSharedRelationshipButtonToGrid(card, opportunity) {
-            console.log('Adding button to card:', card, opportunity);
+        function addSharedRelationshipButtonToGrid(card, opportunities) {
+            console.log('Adding button to card:', card, opportunities);
             
             // Check if button already exists
             if (card.querySelector('.shared-relationship-btn')) {
@@ -6284,25 +6291,29 @@
                 return;
             }
             
+            // Calculate total potential targets across all opportunities
+            const totalTargets = opportunities.reduce((sum, opp) => sum + opp.potential_targets.length, 0);
+            const relationshipDef = opportunities[0].relationship_definition;
+            
             // Create the shared relationship button
             const sharedBtn = document.createElement('button');
             sharedBtn.className = 'btn btn-sm btn-theme-secondary shared-relationship-btn ms-1';
-            sharedBtn.innerHTML = `<i class="fas fa-share-alt me-1"></i><span class="d-none d-md-inline">From ${opportunity.intermediate_entry.title}</span>`;
-            sharedBtn.title = `Add ${opportunity.potential_targets.length} ${opportunity.relationship_definition.to_type_label.toLowerCase()}(s) from ${opportunity.intermediate_entry.title}`;
+            sharedBtn.innerHTML = `<i class="fas fa-share-alt me-1"></i><span class="d-none d-md-inline">From ${opportunities.length > 1 ? `${opportunities.length} entries` : opportunities[0].intermediate_entry.title}</span>`;
+            sharedBtn.title = `Add ${totalTargets} ${relationshipDef.to_type_label.toLowerCase()}(s) from ${opportunities.length > 1 ? `${opportunities.length} different entries` : opportunities[0].intermediate_entry.title}`;
             
             console.log('Created button:', sharedBtn);
             
             // Add click handler
             sharedBtn.addEventListener('click', function() {
                 console.log('Shared relationship button clicked');
-                showSharedRelationshipModal(opportunity, card);
+                showSharedRelationshipModal(opportunities, card);
             });
             
             headerButtons.appendChild(sharedBtn);
             console.log('Button added to header');
         }
         
-        function showSharedRelationshipModal(opportunity, card) {
+        function showSharedRelationshipModal(opportunities, card) {
             const modalId = 'sharedRelationshipModal';
             
             // Remove existing modal if it exists
@@ -6311,9 +6322,8 @@
                 existingModal.remove();
             }
             
-            const relationshipDef = opportunity.relationship_definition;
-            const intermediateEntry = opportunity.intermediate_entry;
-            const targets = opportunity.potential_targets;
+            const relationshipDef = opportunities[0].relationship_definition;
+            const multipleIntermediate = opportunities.length > 1;
             
             const modalHtml = `
                 <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}Label" aria-hidden="true">
@@ -6322,66 +6332,58 @@
                             <div class="modal-header">
                                 <h5 class="modal-title" id="${modalId}Label">
                                     <i class="fas fa-share-alt me-2"></i>
-                                    Add ${relationshipDef.to_type_label}s from ${intermediateEntry.title}
+                                    Add ${relationshipDef.to_type_label}s ${multipleIntermediate ? 'from Related Entries' : `from ${opportunities[0].intermediate_entry.title}`}
                                 </h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
-                                <div class="alert alert-info">
-                                    <i class="fas fa-info-circle me-2"></i>
-                                    These ${relationshipDef.to_type_label.toLowerCase()}s are currently related to 
-                                    <strong>${intermediateEntry.title}</strong> and can be added to this ${relationshipDef.from_type_label.toLowerCase()}.
-                                </div>
+                                ${multipleIntermediate ? `
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Multiple entries have ${relationshipDef.to_type_label.toLowerCase()}s that can be added to this ${relationshipDef.from_type_label.toLowerCase()}.
+                                        Select which entry to inherit relationships from.
+                                    </div>
+                                    
+                                    <div class="mb-4">
+                                        <label class="form-label">
+                                            <strong>Select source entry:</strong>
+                                        </label>
+                                        <div class="intermediate-entry-selection">
+                                            ${opportunities.map((opp, index) => `
+                                                <div class="form-check mb-2 p-3 border rounded">
+                                                    <input class="form-check-input intermediate-radio" 
+                                                           type="radio" 
+                                                           name="intermediateEntry" 
+                                                           value="${index}"
+                                                           id="intermediate-${index}"
+                                                           ${index === 0 ? 'checked' : ''}>
+                                                    <label class="form-check-label" for="intermediate-${index}">
+                                                        <div class="d-flex justify-content-between align-items-center">
+                                                            <div>
+                                                                <strong>${opp.intermediate_entry.title}</strong>
+                                                                <br><small class="text-muted">${opp.potential_targets.length} ${relationshipDef.to_type_label.toLowerCase()}(s) available</small>
+                                                            </div>
+                                                        </div>
+                                                    </label>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                ` : `
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        These ${relationshipDef.to_type_label.toLowerCase()}s are currently related to 
+                                        <strong>${opportunities[0].intermediate_entry.title}</strong> and can be added to this ${relationshipDef.from_type_label.toLowerCase()}.
+                                    </div>
+                                `}
                                 
                                 <form id="sharedRelationshipForm">
                                     <div class="mb-3">
                                         <label class="form-label">
                                             <strong>Select ${relationshipDef.to_type_label}s to add:</strong>
                                         </label>
-                                        <div class="shared-targets-selection" style="max-height: 300px; overflow-y: auto;">
-                                            ${targets.map(target => `
-                                                <div class="form-check mb-2 p-3 border rounded">
-                                                    <div class="d-flex align-items-start">
-                                                        <input class="form-check-input shared-modal-checkbox me-3 mt-1" 
-                                                               type="checkbox" 
-                                                               value="${target.target_entry.id}"
-                                                               data-definition-id="${relationshipDef.id}"
-                                                               data-target-title="${target.target_entry.title}"
-                                                               ${relationshipDef.allow_quantity_unit && target.source_relationship.quantity ? 
-                                                                 `data-quantity="${target.source_relationship.quantity}" data-unit="${target.source_relationship.unit || ''}"` : 
-                                                                 ''}
-                                                               id="shared-modal-${target.target_entry.id}"
-                                                               checked>
-                                                        <div class="flex-grow-1">
-                                                            <label class="form-check-label d-block" for="shared-modal-${target.target_entry.id}">
-                                                                <div class="d-flex justify-content-between align-items-start">
-                                                                    <div class="me-3">
-                                                                        <strong>${target.target_entry.title}</strong>
-                                                                        ${target.source_relationship.quantity ? 
-                                                                          `<br><small class="text-muted">Quantity: ${target.source_relationship.quantity}${target.source_relationship.unit ? ' ' + target.source_relationship.unit : ''}</small>` : 
-                                                                          ''}
-                                                                    </div>
-                                                                    ${relationshipDef.allow_quantity_unit ? 
-                                                                      `<div class="quantity-inputs" style="min-width: 160px;">
-                                                                            <div class="input-group input-group-sm">
-                                                                                <input type="number" 
-                                                                                       class="form-control quantity-input" 
-                                                                                       placeholder="Quantity" 
-                                                                                       value="${target.source_relationship.quantity || ''}"
-                                                                                       step="any">
-                                                                                <input type="text" 
-                                                                                       class="form-control unit-input" 
-                                                                                       placeholder="Unit" 
-                                                                                       value="${target.source_relationship.unit || ''}"
-                                                                                       style="max-width: 80px;">
-                                                                            </div>
-                                                                       </div>` : ''}
-                                                                </div>
-                                                            </label>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            `).join('')}
+                                        <div class="shared-targets-selection" style="max-height: 300px; overflow-y: auto;" id="targetsContainer">
+                                            <!-- Targets will be populated dynamically -->
                                         </div>
                                     </div>
                                     
@@ -6396,9 +6398,9 @@
                                         </div>
                                         <div class="d-flex align-items-center">
                                             <span class="text-muted me-3" id="selectionCount">
-                                                ${targets.length} of ${targets.length} selected
+                                                0 of 0 selected
                                             </span>
-                                            <button type="submit" class="btn btn-theme-primary" id="createRelationshipsBtn">
+                                            <button type="submit" class="btn btn-theme-primary" id="createRelationshipsBtn" disabled>
                                                 <i class="fas fa-plus me-1"></i>Add Selected
                                             </button>
                                         </div>
@@ -6415,7 +6417,7 @@
             modal.show();
             
             // Add event handlers
-            setupSharedRelationshipModalHandlers(modalId, card);
+            setupEnhancedSharedRelationshipModalHandlers(modalId, opportunities, card);
             
             // Clean up modal when closed
             document.getElementById(modalId).addEventListener('hidden.bs.modal', function() {
@@ -6423,18 +6425,80 @@
             });
         }
         
-        function setupSharedRelationshipModalHandlers(modalId, card) {
+        function setupEnhancedSharedRelationshipModalHandlers(modalId, opportunities, card) {
             const modal = document.getElementById(modalId);
-            const checkboxes = modal.querySelectorAll('.shared-modal-checkbox');
             const selectAllBtn = modal.querySelector('#selectAllBtn');
             const selectNoneBtn = modal.querySelector('#selectNoneBtn');
             const selectionCount = modal.querySelector('#selectionCount');
             const createBtn = modal.querySelector('#createRelationshipsBtn');
             const form = modal.querySelector('#sharedRelationshipForm');
+            const targetsContainer = modal.querySelector('#targetsContainer');
+            const intermediateRadios = modal.querySelectorAll('.intermediate-radio');
+            
+            let currentTargets = [];
+            
+            function updateTargetsDisplay() {
+                const selectedIntermediateIndex = document.querySelector('.intermediate-radio:checked')?.value || '0';
+                const selectedOpportunity = opportunities[parseInt(selectedIntermediateIndex)];
+                currentTargets = selectedOpportunity.potential_targets;
+                const relationshipDef = selectedOpportunity.relationship_definition;
+                
+                targetsContainer.innerHTML = currentTargets.map(target => `
+                    <div class="form-check mb-2 p-3 border rounded">
+                        <div class="d-flex align-items-start">
+                            <input class="form-check-input shared-modal-checkbox me-3 mt-1" 
+                                   type="checkbox" 
+                                   value="${target.target_entry.id}"
+                                   data-definition-id="${relationshipDef.id}"
+                                   data-target-title="${target.target_entry.title}"
+                                   ${relationshipDef.allow_quantity_unit && target.source_relationship.quantity ? 
+                                     `data-quantity="${target.source_relationship.quantity}" data-unit="${target.source_relationship.unit || ''}"` : 
+                                     ''}
+                                   id="shared-modal-${target.target_entry.id}"
+                                   checked>
+                            <div class="flex-grow-1">
+                                <label class="form-check-label d-block" for="shared-modal-${target.target_entry.id}">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="me-3">
+                                            <strong>${target.target_entry.title}</strong>
+                                            ${target.source_relationship.quantity ? 
+                                              `<br><small class="text-muted">Quantity: ${target.source_relationship.quantity}${target.source_relationship.unit ? ' ' + target.source_relationship.unit : ''}</small>` : 
+                                              ''}
+                                        </div>
+                                        ${relationshipDef.allow_quantity_unit ? 
+                                          `<div class="quantity-inputs" style="min-width: 160px;">
+                                                <div class="input-group input-group-sm">
+                                                    <input type="number" 
+                                                           class="form-control quantity-input" 
+                                                           placeholder="Quantity" 
+                                                           value="${target.source_relationship.quantity || ''}"
+                                                           step="any">
+                                                    <input type="text" 
+                                                           class="form-control unit-input" 
+                                                           placeholder="Unit" 
+                                                           value="${target.source_relationship.unit || ''}"
+                                                           style="max-width: 80px;">
+                                                </div>
+                                           </div>` : ''}
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                
+                // Re-attach event listeners for new checkboxes
+                const checkboxes = modal.querySelectorAll('.shared-modal-checkbox');
+                checkboxes.forEach(checkbox => {
+                    checkbox.addEventListener('change', updateSelectionCount);
+                });
+                
+                updateSelectionCount();
+            }
             
             function updateSelectionCount() {
                 const selectedCount = modal.querySelectorAll('.shared-modal-checkbox:checked').length;
-                const totalCount = checkboxes.length;
+                const totalCount = currentTargets.length;
                 selectionCount.textContent = `${selectedCount} of ${totalCount} selected`;
                 createBtn.disabled = selectedCount === 0;
                 
@@ -6445,13 +6509,14 @@
                 }
             }
             
-            // Checkbox change handlers
-            checkboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', updateSelectionCount);
+            // Intermediate entry radio button handlers (if multiple)
+            intermediateRadios.forEach(radio => {
+                radio.addEventListener('change', updateTargetsDisplay);
             });
             
             // Select all button
             selectAllBtn.addEventListener('click', function() {
+                const checkboxes = modal.querySelectorAll('.shared-modal-checkbox');
                 checkboxes.forEach(checkbox => {
                     checkbox.checked = true;
                 });
@@ -6460,13 +6525,14 @@
             
             // Select none button
             selectNoneBtn.addEventListener('click', function() {
+                const checkboxes = modal.querySelectorAll('.shared-modal-checkbox');
                 checkboxes.forEach(checkbox => {
                     checkbox.checked = false;
                 });
                 updateSelectionCount();
             });
             
-            // Form submission
+            // Form submission with cardinality checking
             form.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 
@@ -6591,8 +6657,8 @@
                 }
             });
             
-            // Initial count update
-            updateSelectionCount();
+            // Initialize the targets display
+            updateTargetsDisplay();
         }
 
         // --- Note Binding Functions ---
