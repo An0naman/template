@@ -96,8 +96,20 @@ def index():
     cursor.execute("SELECT id, name, singular_label, plural_label, is_primary FROM EntryType ORDER BY singular_label")
     entry_types = cursor.fetchall()
 
+    # Get search defaults
+    search_defaults = {
+        'search_term': params.get('default_search_term', ''),
+        'type_filter': params.get('default_type_filter', ''),
+        'status_filter': params.get('default_status_filter', ''),
+        'date_range': params.get('default_date_range', ''),
+        'sort_by': params.get('default_sort_by', 'created_desc'),
+        'content_display': params.get('default_content_display', ''),
+        'result_limit': params.get('default_result_limit', '50')
+    }
+
     return render_template('index.html',
                            project_name=params.get('project_name'),
+                           project_subtitle=params.get('project_subtitle'),
                            entries=entries,
                            entry_singular_label=params.get('entry_singular_label'),
                            entry_plural_label=params.get('entry_plural_label'),
@@ -106,6 +118,7 @@ def index():
                            current_entry_type=entry_type_filter,
                            current_status=status_filter,
                            current_result_limit=result_limit,
+                           search_defaults=search_defaults,
                            theme_css=generate_theme_css(),
                            theme_settings=get_current_theme_settings())
 

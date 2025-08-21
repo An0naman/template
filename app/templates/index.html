@@ -687,7 +687,7 @@
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h1 class="h1 mb-1">{{ project_name }}</h1>
-                <p class="text-muted small mb-0">{{ entry_plural_label }} Management</p>
+                <p class="text-muted small mb-0">{{ project_subtitle if project_subtitle else (entry_plural_label + ' Management') }}</p>
             </div>
             <div>
                 <a href="{{ url_for('maintenance.maintenance_module_page') }}" 
@@ -926,10 +926,10 @@
                                 <button type="button" class="btn btn-sm btn-theme-secondary" id="searchWikipediaModalBtn">
                                     <i class="fab fa-wikipedia-w me-1"></i> Search Wikipedia
                                 </button>
-                                <button type="button" class="btn btn-sm btn-outline-primary" id="generateDescriptionModalBtn">
+                                <button type="button" class="btn btn-sm btn-outline-theme" id="generateDescriptionModalBtn">
                                     <i class="fas fa-magic me-1"></i> Generate with AI
                                 </button>
-                                <button type="button" class="btn btn-sm btn-outline-success" id="improveDescriptionModalBtn">
+                                <button type="button" class="btn btn-sm btn-outline-theme" id="improveDescriptionModalBtn">
                                     <i class="fas fa-star me-1"></i> Improve with AI
                                 </button>
                             </div>
@@ -1007,74 +1007,121 @@
             
             let searchTimeout;
             
-            // Load saved search parameters from localStorage
-            function loadSavedSearchParams() {
-                const savedSearch = localStorage.getItem('indexSearch');
-                const savedType = localStorage.getItem('indexTypeFilter');
-                const savedStatus = localStorage.getItem('indexStatusFilter');
-                const savedDateRange = localStorage.getItem('indexDateRange');
-                const savedSortBy = localStorage.getItem('indexSortBy');
-                const savedHasDescription = localStorage.getItem('indexContentDisplay');
-                const savedResultLimit = localStorage.getItem('indexResultLimit');
-                
-                console.log('Loading saved params:', { savedSearch, savedType, savedStatus, savedDateRange, savedSortBy, savedHasDescription, savedResultLimit });
-                
-                if (savedSearch) {
-                    quickSearch.value = savedSearch;
-                }
-                
-                if (savedType) {
-                    // Check if the saved type still exists in the dropdown
-                    const typeExists = Array.from(quickTypeFilter.options).some(opt => opt.value === savedType);
-                    console.log('Saved type exists:', typeExists, 'for type:', savedType);
-                    
-                    if (typeExists) {
-                        quickTypeFilter.value = savedType;
+            // Load saved search parameters from database
+            async function loadSavedSearchParams() {
+                try {
+                    // Try to load from API first
+                    const response = await fetch('/api/search_defaults');
+                    if (response.ok) {
+                        const savedParams = await response.json();
+                        
+                        console.log('Loading saved params from database:', savedParams);
+                        
+                        if (savedParams.search_term) {
+                            quickSearch.value = savedParams.search_term;
+                        }
+                        
+                        if (savedParams.type_filter) {
+                            // Check if the saved type still exists in the dropdown
+                            const typeExists = Array.from(quickTypeFilter.options).some(opt => opt.value === savedParams.type_filter);
+                            console.log('Saved type exists:', typeExists, 'for type:', savedParams.type_filter);
+                            
+                            if (typeExists) {
+                                quickTypeFilter.value = savedParams.type_filter;
+                            } else {
+                                console.log('Clearing invalid saved type filter');
+                            }
+                        }
+                        
+                        if (savedParams.status_filter) {
+                            quickStatusFilter.value = savedParams.status_filter;
+                        }
+                        
+                        if (savedParams.date_range) {
+                            dateRange.value = savedParams.date_range;
+                        }
+                        
+                        if (savedParams.sort_by) {
+                            sortBy.value = savedParams.sort_by;
+                        }
+                        
+                        if (savedParams.content_display) {
+                            hasDescription.value = savedParams.content_display;
+                        }
+                        
+                        if (savedParams.result_limit) {
+                            resultLimit.value = savedParams.result_limit;
+                        }
+                        
+                        // Only apply filters if there are actual filter criteria
+                        if (quickSearch.value || quickTypeFilter.value || quickStatusFilter.value || 
+                            dateRange.value || hasDescription.value) {
+                            console.log('Applying saved filters from database');
+                            performLiveFilter();
+                        } else {
+                            console.log('No filters to apply');
+                        }
                     } else {
-                        console.log('Clearing invalid saved type filter');
-                        localStorage.removeItem('indexTypeFilter');
+                        console.log('Could not load search defaults from database, using template defaults');
+                        // Fallback to template defaults if API fails
+                        loadTemplateDefaults();
                     }
-                }
-                
-                if (savedStatus) {
-                    quickStatusFilter.value = savedStatus;
-                }
-                
-                if (savedDateRange) {
-                    dateRange.value = savedDateRange;
-                }
-                
-                if (savedSortBy) {
-                    sortBy.value = savedSortBy;
-                }
-                
-                if (savedHasDescription) {
-                    hasDescription.value = savedHasDescription;
-                }
-                
-                if (savedResultLimit) {
-                    resultLimit.value = savedResultLimit;
-                }
-                
-                // Only apply filters if there are actual filter criteria
-                if (quickSearch.value || quickTypeFilter.value || quickStatusFilter.value || 
-                    dateRange.value || hasDescription.value) {
-                    console.log('Applying saved filters');
-                    performLiveFilter();
-                } else {
-                    console.log('No filters to apply');
+                } catch (error) {
+                    console.error('Error loading search defaults:', error);
+                    // Fallback to template defaults on error
+                    loadTemplateDefaults();
                 }
             }
             
-            // Save search parameters to localStorage
-            function saveSearchParams() {
-                localStorage.setItem('indexSearch', quickSearch.value);
-                localStorage.setItem('indexTypeFilter', quickTypeFilter.value);
-                localStorage.setItem('indexStatusFilter', quickStatusFilter.value);
-                localStorage.setItem('indexDateRange', dateRange.value);
-                localStorage.setItem('indexSortBy', sortBy.value);
-                localStorage.setItem('indexContentDisplay', hasDescription.value);
-                localStorage.setItem('indexResultLimit', resultLimit.value);
+            // Load defaults from template (fallback)
+            function loadTemplateDefaults() {
+                const templateDefaults = {{ search_defaults|tojson }};
+                console.log('Loading template defaults:', templateDefaults);
+                
+                if (templateDefaults.search_term) quickSearch.value = templateDefaults.search_term;
+                if (templateDefaults.type_filter) quickTypeFilter.value = templateDefaults.type_filter;
+                if (templateDefaults.status_filter) quickStatusFilter.value = templateDefaults.status_filter;
+                if (templateDefaults.date_range) dateRange.value = templateDefaults.date_range;
+                if (templateDefaults.sort_by) sortBy.value = templateDefaults.sort_by;
+                if (templateDefaults.content_display) hasDescription.value = templateDefaults.content_display;
+                if (templateDefaults.result_limit) resultLimit.value = templateDefaults.result_limit;
+                
+                // Apply filters if needed
+                if (quickSearch.value || quickTypeFilter.value || quickStatusFilter.value || 
+                    dateRange.value || hasDescription.value) {
+                    performLiveFilter();
+                }
+            }
+            
+            // Save search parameters to database
+            async function saveSearchParams() {
+                try {
+                    const searchParams = {
+                        search_term: quickSearch.value,
+                        type_filter: quickTypeFilter.value,
+                        status_filter: quickStatusFilter.value,
+                        date_range: dateRange.value,
+                        sort_by: sortBy.value,
+                        content_display: hasDescription.value,
+                        result_limit: resultLimit.value
+                    };
+                    
+                    const response = await fetch('/api/search_defaults', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(searchParams)
+                    });
+                    
+                    if (!response.ok) {
+                        console.error('Failed to save search parameters');
+                    } else {
+                        console.log('Search parameters saved to database');
+                    }
+                } catch (error) {
+                    console.error('Error saving search parameters:', error);
+                }
             }
             
             // Helper function to check date range
@@ -1246,7 +1293,7 @@
                         }
                     }
                     
-                    // Save current filter state to localStorage
+                    // Save current filter state to database
                     saveSearchParams();
                 }, 150);
             }
@@ -1325,16 +1372,16 @@
             resultLimit.addEventListener('change', performLiveFilter);
             
             // Clear search functionality
-            clearSearchBtn.addEventListener('click', function() {
+            clearSearchBtn.addEventListener('click', async function() {
                 quickSearch.value = '';
                 quickTypeFilter.value = '';
                 quickStatusFilter.value = '';
                 performLiveFilter();
-                saveSearchParams();
+                await saveSearchParams();
             });
             
             // Global function to clear all filters
-            window.clearAllFilters = function() {
+            window.clearAllFilters = async function() {
                 quickSearch.value = '';
                 quickTypeFilter.value = '';
                 quickStatusFilter.value = '';
@@ -1343,16 +1390,13 @@
                 hasDescription.value = '';
                 resultLimit.value = '50';
                 
-                // Clear localStorage
-                localStorage.removeItem('indexSearch');
-                localStorage.removeItem('indexTypeFilter');
-                localStorage.removeItem('indexStatusFilter');
-                localStorage.removeItem('indexDateRange');
-                localStorage.removeItem('indexSortBy');
-                localStorage.removeItem('indexContentDisplay');
-                localStorage.removeItem('indexResultLimit');
-                
-                console.log('Cleared all filters and localStorage');
+                // Clear database
+                try {
+                    await saveSearchParams();
+                    console.log('Cleared all filters and updated database');
+                } catch (error) {
+                    console.error('Error clearing filters in database:', error);
+                }
                 
                 // Show all entries
                 entryItems.forEach(item => {

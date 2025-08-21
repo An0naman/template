@@ -127,13 +127,21 @@
                                 <input type="text" class="form-control" id="projectName" value="{{ params.project_name }}" placeholder="Enter project name">
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="projectSubtitle" class="form-label">Project Subtitle:</label>
+                                <input type="text" class="form-control" id="projectSubtitle" value="{{ params.project_subtitle if params.project_subtitle else 'Management System' }}" placeholder="Enter project subtitle">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="entrySingularLabel" class="form-label">Entry Singular Label:</label>
                                 <input type="text" class="form-control" id="entrySingularLabel" value="{{ params.entry_singular_label }}" placeholder="Entry">
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="entryPluralLabel" class="form-label">Entry Plural Label:</label>
                                 <input type="text" class="form-control" id="entryPluralLabel" value="{{ params.entry_plural_label }}" placeholder="Entries">
@@ -433,6 +441,7 @@
             
             const formData = {
                 project_name: document.getElementById('projectName').value,
+                project_subtitle: document.getElementById('projectSubtitle').value,
                 entry_singular_label: document.getElementById('entrySingularLabel').value,
                 entry_plural_label: document.getElementById('entryPluralLabel').value
             };

@@ -358,6 +358,7 @@ def init_db():
             'project_name': 'My Awesome Project',
             'entry_singular_label': 'Entry',
             'entry_plural_label': 'Entries',
+            'project_subtitle': 'Management System',  # Configurable subtitle
             'sensor_types': '',  # Start with empty sensor types - let devices register them dynamically
             'project_logo_path': '',
             
@@ -369,7 +370,16 @@ def init_db():
             
             # Notification settings
             'overdue_check_enabled': 'true',
-            'overdue_check_schedule': '0 9 * * *'  # Daily at 9:00 AM by default
+            'overdue_check_schedule': '0 9 * * *',  # Daily at 9:00 AM by default
+            
+            # Default search parameters for index page
+            'default_search_term': '',
+            'default_type_filter': '',
+            'default_status_filter': '',
+            'default_date_range': '',
+            'default_sort_by': 'created_desc',
+            'default_content_display': '',
+            'default_result_limit': '50'
         }
         for name, value in default_params.items():
             cursor.execute("INSERT OR IGNORE INTO SystemParameters (parameter_name, parameter_value) VALUES (?, ?)", (name, value))
