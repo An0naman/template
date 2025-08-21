@@ -2341,9 +2341,19 @@
                 <div class="content-section theme-section mb-4">
                     <div class="section-content">
                         <div class="section-header mb-3">
-                            <h4 class="section-title">
-                                <i class="fas fa-chart-line me-2"></i>Sensor Data
-                            </h4>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h4 class="section-title mb-0">
+                                    <i class="fas fa-chart-line me-2"></i>Sensor Data
+                                </h4>
+                                <div class="d-flex align-items-center gap-3">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="loadSensorData()" title="Refresh sensor data and charts now">
+                                        <i class="fas fa-sync me-1"></i>Refresh Now
+                                    </button>
+                                    <small class="text-muted">
+                                        <span id="autoRefreshStatus">Auto-refresh: Every 60s</span>
+                                    </small>
+                                </div>
+                            </div>
                         </div>
                         
                         <!-- Chart/Table Toggle Buttons -->
@@ -3455,6 +3465,7 @@
                 loadSensorData(); // Load sensor data if this entry type supports sensors
                 initializeSensorDataForm(); // Initialize sensor data form
                 await initializeChartControls(); // Initialize chart controls
+                startSensorDataAutoRefresh(); // Start auto-refresh for sensor data and charts
             }
         });
 
@@ -7063,6 +7074,10 @@
 
         // --- Sensor Data Functions ---
         {% if entry.has_sensors %}
+        // Auto-refresh variables
+        let sensorDataRefreshInterval = null;
+        const SENSOR_REFRESH_INTERVAL = 60000; // 60 seconds
+        
         async function loadSensorData() {
             const sensorDataContainer = document.getElementById('sensorDataContainer');
             const loadingSensorData = document.getElementById('loadingSensorData');
@@ -7086,12 +7101,75 @@
                 const sensorData = await response.json();
                 console.log('Loaded sensor data:', sensorData); // Debug log
                 renderSensorData(sensorData);
+                
+                // Update chart immediately if in chart view
+                if (chartViewBtn && chartViewBtn.checked) {
+                    renderChartView();
+                }
             } catch (error) {
                 console.error('Error loading sensor data:', error);
                 sensorDataContainer.innerHTML = '<p class="text-danger">Error loading sensor data.</p>';
             } finally {
                 if (loadingSensorData) {
                     loadingSensorData.style.display = 'none';
+                }
+            }
+        }
+        
+        function startSensorDataAutoRefresh() {
+            // Clear any existing interval
+            if (sensorDataRefreshInterval) {
+                clearInterval(sensorDataRefreshInterval);
+            }
+            
+            // Only start auto-refresh if we have sensor data capability
+            if (document.getElementById('sensorDataContainer')) {
+                console.log('Starting sensor data auto-refresh (every 60 seconds)');
+                
+                // Update status indicator
+                const statusElement = document.getElementById('autoRefreshStatus');
+                if (statusElement) {
+                    statusElement.innerHTML = '<i class="fas fa-sync fa-spin me-1"></i>Auto-refresh: Active (60s)';
+                    statusElement.className = 'text-success';
+                }
+                
+                sensorDataRefreshInterval = setInterval(async () => {
+                    try {
+                        // Add a subtle visual indicator during refresh
+                        if (statusElement) {
+                            statusElement.innerHTML = '<i class="fas fa-sync fa-spin me-1"></i>Refreshing...';
+                        }
+                        
+                        await loadSensorData();
+                        
+                        // Restore normal status
+                        if (statusElement) {
+                            statusElement.innerHTML = '<i class="fas fa-sync fa-spin me-1"></i>Auto-refresh: Active (60s)';
+                            statusElement.className = 'text-success';
+                        }
+                    } catch (error) {
+                        console.error('Error during auto-refresh:', error);
+                        // Show error status
+                        if (statusElement) {
+                            statusElement.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Refresh error';
+                            statusElement.className = 'text-warning';
+                        }
+                    }
+                }, SENSOR_REFRESH_INTERVAL);
+            }
+        }
+        
+        function stopSensorDataAutoRefresh() {
+            if (sensorDataRefreshInterval) {
+                clearInterval(sensorDataRefreshInterval);
+                sensorDataRefreshInterval = null;
+                console.log('Stopped sensor data auto-refresh');
+                
+                // Update status indicator
+                const statusElement = document.getElementById('autoRefreshStatus');
+                if (statusElement) {
+                    statusElement.innerHTML = '<i class="fas fa-pause me-1"></i>Auto-refresh: Stopped';
+                    statusElement.className = 'text-muted';
                 }
             }
         }
@@ -8311,6 +8389,13 @@
                     button.insertBefore(icon, button.firstChild);
                 }
             });
+        });
+        
+        // Cleanup auto-refresh when leaving the page
+        window.addEventListener('beforeunload', function() {
+            {% if entry.has_sensors %}
+            stopSensorDataAutoRefresh();
+            {% endif %}
         });
 
     </script>
