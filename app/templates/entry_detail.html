@@ -7098,13 +7098,16 @@
 
         // Device Management Functions
         function openDeviceManagement() {
-            // Show the device management modal
-            const modal = new bootstrap.Modal(document.getElementById('deviceManagementModal'));
+            // Get or create the device management modal
+            const modalElement = document.getElementById('deviceManagementModal');
+            const modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
             modal.show();
             
             // Load device management content immediately
             loadDeviceManagementContent();
-        }        async function loadDeviceManagementContent() {
+        }
+        
+        async function loadDeviceManagementContent() {
             try {
                 const contentDiv = document.getElementById('deviceManagementContent');
                 contentDiv.innerHTML = `
@@ -7201,8 +7204,8 @@
                                     </div>
                                     <small class="text-muted">
                                         <i class="fas fa-network-wired me-1"></i>
-                                        <a href="http://${device.device_ip}" target="_blank" class="link-theme" title="Open device web interface">
-                                            ${device.device_ip} <i class="fas fa-external-link-alt ms-1"></i>
+                                        <a href="http://${device.ip}" target="_blank" class="link-theme" title="Open device web interface">
+                                            ${device.ip} <i class="fas fa-external-link-alt ms-1"></i>
                                         </a>
                                         <i class="fas fa-microchip me-1 ms-2"></i>${device.device_type}
                                         ${device.last_poll_success ? 
@@ -8094,6 +8097,16 @@
             
             console.log('Chart preferences reset to defaults');
         }
+        
+        // Add event listener for when device management modal is hidden
+        document.getElementById('deviceManagementModal').addEventListener('hidden.bs.modal', function() {
+            // Clear any modal backdrop or state issues
+            document.body.classList.remove('modal-open');
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                backdrop.remove();
+            }
+        });
         
         {% endif %}
 
