@@ -2033,15 +2033,23 @@
         <div class="content-section theme-section mb-4">
             <div class="section-content">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3">
-                    <h1 class="h1 mb-2 mb-md-0" id="entryTitle">{{ entry.title }}</h1>
+                    <!-- Editable Title -->
+                    <div class="flex-grow-1 me-md-3 mb-2 mb-md-0">
+                        <h1 class="h1 mb-0" id="entryTitleDisplay">{{ entry.title }}</h1>
+                        <input type="text" class="form-control form-control-lg d-none" id="entryTitleInput" value="{{ entry.title }}" placeholder="Enter entry title">
+                    </div>
                     <div class="entry-actions d-flex flex-wrap gap-2">
+                        <button class="btn btn-sm btn-success d-none" id="saveEntryBtn">
+                            <i class="fas fa-save me-1"></i>Save
+                        </button>
+                        <button class="btn btn-sm btn-secondary d-none" id="cancelEditBtn">
+                            <i class="fas fa-times me-1"></i>Cancel
+                        </button>
+                        <button class="btn btn-sm btn-theme-primary" id="editEntryBtn">
+                            <i class="fas fa-edit me-1"></i>Edit
+                        </button>
                         <button class="btn btn-sm btn-danger" id="deleteEntryBtn">
                             <i class="fas fa-trash-alt me-1"></i>Delete
-                        </button>
-                        <button class="btn btn-sm btn-theme-primary" id="editDescriptionBtn" type="button"
-                                data-bs-toggle="collapse" data-bs-target="#descriptionEditor" 
-                                aria-expanded="false" aria-controls="descriptionEditor">
-                            <i class="fas fa-edit me-1"></i>Edit Entry
                         </button>
                         {% if entry.show_labels_section %}
                         <button class="btn btn-sm btn-theme-primary" id="manageLabelBtn" type="button" 
@@ -2060,29 +2068,92 @@
                     <div class="col-md-4">
                         <div class="info-card">
                             <div class="info-label">Details</div>
-                            <div class="info-value" id="detailsDisplay">
-                                <div><strong>Type:</strong> <span id="entryTypeDisplay">{{ entry.entry_type_label }}</span></div>
-                                <div><strong>Status:</strong> <span id="statusDisplay">{{ (entry.status or 'active').title() }}</span></div>
+                            <div class="info-value">
+                                <!-- Display Mode -->
+                                <div id="detailsDisplay">
+                                    <div><strong>Type:</strong> <span id="entryTypeDisplay">{{ entry.entry_type_label }}</span></div>
+                                    <div><strong>Status:</strong> <span id="statusDisplay">{{ (entry.status or 'active').title() }}</span></div>
+                                </div>
+                                <!-- Edit Mode -->
+                                <div id="detailsEdit" class="d-none">
+                                    <div class="mb-2">
+                                        <label for="entryTypeSelect" class="form-label small">Entry Type</label>
+                                        <select class="form-select form-select-sm" id="entryTypeSelect">
+                                            <!-- Options will be loaded dynamically -->
+                                        </select>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label for="statusSelect" class="form-label small">Status</label>
+                                        <select class="form-select form-select-sm" id="statusSelect">
+                                            <option value="active" {{ 'selected' if entry.status == 'active' else '' }}>Active</option>
+                                            <option value="inactive" {{ 'selected' if entry.status == 'inactive' else '' }}>Inactive</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-8">
                         <div class="info-card">
                             <div class="info-label">Dates</div>
-                            <div class="info-value" id="datesDisplay">
-                                <div class="mb-2"><strong>Created On:</strong><br class="d-md-none"><span class="ms-md-2" id="created-at">{{ entry.created_at }}</span></div>
-                                {% if entry.intended_end_date and entry.show_end_dates %}
-                                <div class="mb-2"><strong>Intended End:</strong><br class="d-md-none"><span class="ms-md-2" id="intended-end-date-display">{{ entry.intended_end_date[:10] if entry.intended_end_date else '' }}</span></div>
-                                {% endif %}
-                                {% if entry.actual_end_date and entry.show_end_dates %}
-                                <div class="mb-2"><strong>Actual End:</strong><br class="d-md-none"><span class="ms-md-2" id="actual-end-date-display">{{ entry.actual_end_date[:10] if entry.actual_end_date else '' }}</span></div>
+                            <div class="info-value">
+                                <!-- Display Mode -->
+                                <div id="datesDisplay">
+                                    <div class="mb-2"><strong>Created On:</strong><br class="d-md-none"><span class="ms-md-2" id="created-at">{{ entry.created_at }}</span></div>
+                                    {% if entry.intended_end_date and entry.show_end_dates %}
+                                    <div class="mb-2"><strong>Intended End:</strong><br class="d-md-none"><span class="ms-md-2" id="intended-end-date-display">{{ entry.intended_end_date[:10] if entry.intended_end_date else '' }}</span></div>
+                                    {% endif %}
+                                    {% if entry.actual_end_date and entry.show_end_dates %}
+                                    <div class="mb-2"><strong>Actual End:</strong><br class="d-md-none"><span class="ms-md-2" id="actual-end-date-display">{{ entry.actual_end_date[:10] if entry.actual_end_date else '' }}</span></div>
+                                    {% endif %}
+                                </div>
+                                <!-- Edit Mode -->
+                                {% if entry.show_end_dates %}
+                                <div id="datesEdit" class="d-none">
+                                    <div class="mb-2"><strong>Created On:</strong><br class="d-md-none"><span class="ms-md-2 text-muted" id="created-at-edit">{{ entry.created_at }}</span></div>
+                                    <div class="mb-2">
+                                        <label for="intendedEndDateInput" class="form-label small">Intended End Date</label>
+                                        <input type="date" class="form-control form-control-sm" id="intendedEndDateInput" value="{{ entry.intended_end_date[:10] if entry.intended_end_date else '' }}">
+                                    </div>
+                                    <div class="mb-2">
+                                        <label for="actualEndDateInput" class="form-label small">Actual End Date</label>
+                                        <input type="date" class="form-control form-control-sm" id="actualEndDateInput" value="{{ entry.actual_end_date[:10] if entry.actual_end_date else '' }}">
+                                    </div>
+                                </div>
                                 {% endif %}
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Progress Bar Section -->
+                <div class="mt-3">
+                    <div class="info-card">
+                        <div class="info-label">
+                            Description
+                            <div class="float-end d-none" id="descriptionEditActions">
+                                <button class="btn btn-sm btn-outline-warning me-1" id="aiGenerateDescriptionBtn" title="Generate description using AI">
+                                    <i class="fas fa-robot"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-info me-1" id="aiImproveDescriptionBtn" title="Improve existing description using AI">
+                                    <i class="fas fa-lightbulb"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" id="searchWikipediaBtn" title="Search Wikipedia">
+                                    <i class="fab fa-wikipedia-w"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="info-value">
+                            <!-- Display Mode -->
+                            <div id="descriptionDisplay">{{ entry.description or 'No description available' }}</div>
+                            <!-- Edit Mode -->
+                            <div id="descriptionEdit" class="d-none">
+                                <textarea class="form-control" id="descriptionTextarea" rows="4" placeholder="Add a detailed description for this entry...">{{ entry.description if entry.description is not none else '' }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Progress Timeline Section -->
                 {% if entry.intended_end_date and entry.show_end_dates %}
                 <div class="mt-3">
                     <div class="info-card">
@@ -2140,11 +2211,30 @@
                     </div>
                 </div>
                 {% endif %}
-
-                <div class="mt-3">
-                    <div class="info-card">
-                        <div class="info-label">Description</div>
-                        <div class="info-value" id="descriptionDisplay">{{ entry.description or 'No description available' }}</div>
+                
+                <!-- Status Message for Entry Updates -->
+                <div id="entryStatusMessage" class="mt-3 d-none"></div>
+                
+                <!-- Wikipedia Results (only shown during edit) -->
+                <div id="wikipediaResults" class="mt-3 d-none">
+                    <div class="content-section theme-section">
+                        <div class="section-content">
+                            <div class="section-header mb-3">
+                                <h6 class="section-title">
+                                    <i class="fab fa-wikipedia-w me-2"></i>Wikipedia Result
+                                </h6>
+                            </div>
+                            <h6 id="wikipediaTitle" class="fw-bold"></h6>
+                            <p id="wikipediaExtract" class="text-muted"></p>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-sm btn-theme-primary" id="useWikipediaBtn">
+                                    Use This Description
+                                </button>
+                                <a id="wikipediaLink" href="#" target="_blank" class="btn btn-sm btn-theme-secondary" rel="noopener noreferrer">
+                                    <i class="fas fa-external-link-alt me-1"></i>View on Wikipedia
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2210,107 +2300,6 @@
 
         <div class="row g-4">
             <div class="col-lg-7">
-                <!-- Collapsible Entry Editor -->
-                <div class="collapse mb-4" id="descriptionEditor">
-                    <div class="content-section theme-section">
-                        <div class="section-content">
-                            <div class="section-header mb-3">
-                                <h5 class="section-title">
-                                    <i class="fas fa-edit me-2"></i>Edit Entry
-                                </h5>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="entryTitleInput" class="form-label">Entry Title</label>
-                                <input type="text" class="form-control" id="entryTitleInput" value="{{ entry.title }}" placeholder="Enter entry title">
-                            </div>
-                            <div class="mb-3">
-                                <label for="entryTypeSelect" class="form-label">Entry Type</label>
-                                <select class="form-select" id="entryTypeSelect">
-                                    <!-- Options will be loaded dynamically -->
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label for="descriptionTextarea" class="form-label">Entry Description</label>
-                                <textarea class="form-control" id="descriptionTextarea" rows="6" placeholder="Add a detailed description for this entry...">{{ entry.description if entry.description is not none else '' }}</textarea>
-                            </div>
-                            <div class="row g-3">
-                                <div class="col-md-{{ '4' if entry.show_end_dates else '12' }}">
-                                    <div class="mb-3">
-                                        <label for="statusSelect" class="form-label">Status</label>
-                                        <select class="form-select" id="statusSelect">
-                                            <option value="active" {{ 'selected' if entry.status == 'active' else '' }}>Active</option>
-                                            <option value="inactive" {{ 'selected' if entry.status == 'inactive' else '' }}>Inactive</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                {% if entry.show_end_dates %}
-                                <div class="col-md-4">
-                                    <div class="mb-3">
-                                        <label for="intendedEndDateInput" class="form-label">Intended End Date</label>
-                                        <input type="date" class="form-control" id="intendedEndDateInput" value="{{ entry.intended_end_date[:10] if entry.intended_end_date else '' }}">
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="mb-3">
-                                        <label for="actualEndDateInput" class="form-label">Actual End Date</label>
-                                        <input type="date" class="form-control" id="actualEndDateInput" value="{{ entry.actual_end_date[:10] if entry.actual_end_date else '' }}">
-                                    </div>
-                                </div>
-                                {% endif %}
-                            </div>
-                            <div class="d-flex flex-wrap gap-2 mb-3" role="group" aria-label="Entry editing actions">
-                                <button type="button" class="btn btn-theme-primary" id="saveDescriptionBtn" 
-                                        aria-label="Save all changes to this entry">
-                                    <i class="fas fa-save me-1" aria-hidden="true"></i>Save Changes
-                                </button>
-                                <button type="button" class="btn btn-theme-secondary" id="searchWikipediaBtn"
-                                        aria-label="Search Wikipedia for information about this entry">
-                                    <i class="fab fa-wikipedia-w me-1" aria-hidden="true"></i>Search Wikipedia
-                                </button>
-                                <button type="button" class="btn btn-outline-warning" id="aiGenerateDescriptionBtn"
-                                        aria-label="Generate description using AI">
-                                    <i class="fas fa-robot me-1" aria-hidden="true"></i><span class="d-none d-md-inline">AI Generate</span>
-                                </button>
-                                <button type="button" class="btn btn-outline-info" id="aiImproveDescriptionBtn"
-                                        aria-label="Improve existing description using AI">
-                                    <i class="fas fa-lightbulb me-1" aria-hidden="true"></i><span class="d-none d-md-inline">AI Improve</span>
-                                </button>
-                                <button type="button" class="btn btn-secondary" id="cancelDescriptionBtn"
-                                        aria-label="Cancel editing and discard changes">
-                                    <i class="fas fa-times me-1" aria-hidden="true"></i>Cancel
-                                </button>
-                            </div>
-                            <div id="descriptionStatusMessage" class="mt-3 d-none"></div>
-                            
-                            <!-- Wikipedia Results -->
-                            <div id="wikipediaResults" class="mt-3 d-none">
-                                <div class="content-subsection">
-                                    <div class="section-header mb-3">
-                                        <h6 class="section-title">
-                                            <i class="fab fa-wikipedia-w me-2"></i>Wikipedia Result
-                                        </h6>
-                                    </div>
-                                    <h6 id="wikipediaTitle" class="fw-bold"></h6>
-                                    <p id="wikipediaExtract" class="text-muted"></p>
-                                    <div class="d-flex flex-wrap gap-2" role="group" aria-label="Wikipedia actions">
-                                        <button type="button" class="btn btn-sm btn-theme-primary" id="useWikipediaBtn"
-                                                aria-label="Use the Wikipedia description for this entry">
-                                            Use This Description
-                                        </button>
-                                        <a id="wikipediaLink" href="#" target="_blank" class="btn btn-sm btn-theme-secondary"
-                                           aria-label="View this entry on Wikipedia (opens in new tab)"
-                                           rel="noopener noreferrer">
-                                            <i class="fas fa-external-link-alt me-1" aria-hidden="true"></i>View on Wikipedia
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <hr class="my-4">
 
                 {% if entry.has_sensors %}
                 <div class="content-section theme-section mb-4">
@@ -3076,19 +3065,26 @@
         const intendedEndDateInput = document.getElementById('intendedEndDateInput');
         const actualEndDateInput = document.getElementById('actualEndDateInput');
         {% endif %}
-        const saveDescriptionBtn = document.getElementById('saveDescriptionBtn');
-        const editDescriptionBtn = document.getElementById('editDescriptionBtn');
-        const cancelDescriptionBtn = document.getElementById('cancelDescriptionBtn');
-        const descriptionDisplay = document.getElementById('descriptionDisplay');
-        const entryTitle = document.getElementById('entryTitle');
+        
+        // New inline editing elements
+        const editEntryBtn = document.getElementById('editEntryBtn');
+        const saveEntryBtn = document.getElementById('saveEntryBtn');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        const entryTitleDisplay = document.getElementById('entryTitleDisplay');
         const entryTypeDisplay = document.getElementById('entryTypeDisplay');
         const statusDisplay = document.getElementById('statusDisplay');
         const detailsDisplay = document.getElementById('detailsDisplay');
+        const detailsEdit = document.getElementById('detailsEdit');
         const datesDisplay = document.getElementById('datesDisplay');
+        const datesEdit = document.getElementById('datesEdit');
+        const descriptionDisplay = document.getElementById('descriptionDisplay');
+        const descriptionEdit = document.getElementById('descriptionEdit');
+        const descriptionEditActions = document.getElementById('descriptionEditActions');
+        const entryStatusMessage = document.getElementById('entryStatusMessage');
+        
+        // Remove old elements that no longer exist
         const intendedEndDateDisplay = document.getElementById('intended-end-date-display');
         const actualEndDateDisplay = document.getElementById('actual-end-date-display');
-        const descriptionEditor = document.getElementById('descriptionEditor');
-        const descriptionStatusMessage = document.getElementById('descriptionStatusMessage');
         const createdAtSpan = document.getElementById('created-at');
         const newNoteFormCollapseElement = document.getElementById('newNoteForm');
         const toggleNewNoteText = document.getElementById('toggleNewNoteText');
@@ -4712,17 +4708,77 @@
             applyNotesFilter();
         });
 
-        // --- Entry Editing Section ---
+        // --- Inline Entry Editing Section ---
         const originalEntryTypeId = {{ entry.entry_type_id }};
+        let isEditing = false;
         
-        // Toggle entry editor - load entry types when section is shown
-        descriptionEditor.addEventListener('show.bs.collapse', async () => {
-            // Load entry types before showing the editor
+        // Store original values for cancel functionality
+        let originalValues = {
+            title: {{ entry.title|tojson }},
+            description: {{ (entry.description if entry.description is not none else "")|tojson }},
+            entryTypeId: originalEntryTypeId,
+            status: {{ (entry.status if entry.status else "active")|tojson }},
+            {% if entry.show_end_dates %}
+            intendedEndDate: '{{ entry.intended_end_date[:10] if entry.intended_end_date else "" }}',
+            actualEndDate: '{{ entry.actual_end_date[:10] if entry.actual_end_date else "" }}'
+            {% endif %}
+        };
+        
+        // Toggle edit mode
+        function toggleEditMode(editing) {
+            isEditing = editing;
+            
+            if (editing) {
+                // Show edit elements, hide display elements
+                entryTitleDisplay.classList.add('d-none');
+                entryTitleInput.classList.remove('d-none');
+                detailsDisplay.classList.add('d-none');
+                detailsEdit.classList.remove('d-none');
+                {% if entry.show_end_dates %}
+                datesDisplay.classList.add('d-none');
+                datesEdit.classList.remove('d-none');
+                {% endif %}
+                descriptionDisplay.classList.add('d-none');
+                descriptionEdit.classList.remove('d-none');
+                descriptionEditActions.classList.remove('d-none');
+                
+                // Show save/cancel buttons, hide edit button
+                editEntryBtn.classList.add('d-none');
+                saveEntryBtn.classList.remove('d-none');
+                cancelEditBtn.classList.remove('d-none');
+                
+                // Load entry types
+                loadEntryTypes();
+            } else {
+                // Show display elements, hide edit elements
+                entryTitleDisplay.classList.remove('d-none');
+                entryTitleInput.classList.add('d-none');
+                detailsDisplay.classList.remove('d-none');
+                detailsEdit.classList.add('d-none');
+                {% if entry.show_end_dates %}
+                datesDisplay.classList.remove('d-none');
+                datesEdit.classList.add('d-none');
+                {% endif %}
+                descriptionDisplay.classList.remove('d-none');
+                descriptionEdit.classList.add('d-none');
+                descriptionEditActions.classList.add('d-none');
+                
+                // Show edit button, hide save/cancel buttons
+                editEntryBtn.classList.remove('d-none');
+                saveEntryBtn.classList.add('d-none');
+                cancelEditBtn.classList.add('d-none');
+                
+                // Hide Wikipedia results
+                document.getElementById('wikipediaResults').classList.add('d-none');
+            }
+        }
+        
+        // Load entry types for the select dropdown
+        async function loadEntryTypes() {
             try {
                 const response = await fetch('/api/entry_types');
                 const entryTypes = await response.json();
                 
-                // Clear and populate entry type select
                 entryTypeSelect.innerHTML = '';
                 entryTypes.forEach(type => {
                     const option = document.createElement('option');
@@ -4733,34 +4789,37 @@
                     }
                     entryTypeSelect.appendChild(option);
                 });
-                
             } catch (error) {
                 console.error('Error loading entry types:', error);
-                displayStatus(descriptionStatusMessage, 'Error loading entry types', 'alert-danger');
+                displayStatus(entryStatusMessage, 'Error loading entry types', 'alert-danger');
             }
+        }
+        
+        // Edit button click
+        editEntryBtn.addEventListener('click', () => {
+            toggleEditMode(true);
         });
-
-        // Cancel entry editing
-        cancelDescriptionBtn.addEventListener('click', () => {
-            const collapse = new bootstrap.Collapse(descriptionEditor, { show: false });
+        
+        // Cancel edit
+        cancelEditBtn.addEventListener('click', () => {
             // Reset all fields to original values
-            entryTitleInput.value = {{ entry.title|tojson }};
-            descriptionTextarea.value = {{ (entry.description if entry.description is not none else "")|tojson }};
-            // Reset entry type to original
-            entryTypeSelect.value = originalEntryTypeId;
-            // Reset new fields
-            statusSelect.value = {{ (entry.status if entry.status else "active")|tojson }};
+            entryTitleInput.value = originalValues.title;
+            descriptionTextarea.value = originalValues.description;
+            entryTypeSelect.value = originalValues.entryTypeId;
+            statusSelect.value = originalValues.status;
             {% if entry.show_end_dates %}
-            intendedEndDateInput.value = '{{ entry.intended_end_date[:10] if entry.intended_end_date else "" }}';
-            actualEndDateInput.value = '{{ entry.actual_end_date[:10] if entry.actual_end_date else "" }}';
+            intendedEndDateInput.value = originalValues.intendedEndDate;
+            actualEndDateInput.value = originalValues.actualEndDate;
             {% endif %}
+            
             // Clear any status messages
-            descriptionStatusMessage.className = 'mt-3 d-none';
-            // Clear Wikipedia results
-            document.getElementById('wikipediaResults').classList.add('d-none');
+            entryStatusMessage.className = 'mt-3 d-none';
+            
+            toggleEditMode(false);
         });
-
-        saveDescriptionBtn.addEventListener('click', async () => {
+        
+        // Save changes
+        saveEntryBtn.addEventListener('click', async () => {
             const title = entryTitleInput.value.trim();
             const description = descriptionTextarea.value;
             const entryTypeId = parseInt(entryTypeSelect.value);
@@ -4774,12 +4833,14 @@
             {% endif %}
             
             if (!title) {
-                displayStatus(descriptionStatusMessage, 'Entry title is required.', 'alert-danger');
+                displayStatus(entryStatusMessage, 'Entry title is required.', 'alert-danger');
                 return;
             }
             
-            displayStatus(descriptionStatusMessage, 'Saving changes...', 'alert-info');
-
+            // Show loading state
+            saveEntryBtn.disabled = true;
+            saveEntryBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
+            
             try {
                 const response = await fetch(`/api/entries/${entryId}`, {
                     method: 'PATCH',
@@ -4799,34 +4860,57 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    displayStatus(descriptionStatusMessage, 'Entry updated successfully!', 'alert-success');
+                    displayStatus(entryStatusMessage, 'Entry updated successfully!', 'alert-success');
                     
                     // Update the display elements
-                    entryTitle.textContent = title;
+                    entryTitleDisplay.textContent = title;
                     descriptionDisplay.textContent = description || 'No description available';
                     
-                    // Update consolidated details display (type and status)
+                    // Update details display
                     const selectedOption = entryTypeSelect.options[entryTypeSelect.selectedIndex];
                     const entryTypeLabel = selectedOption ? selectedOption.textContent : 'Unknown';
                     const capitalizedStatus = status.charAt(0).toUpperCase() + status.slice(1);
-                    updateDetailsDisplay(entryTypeLabel, capitalizedStatus);
+                    entryTypeDisplay.textContent = entryTypeLabel;
+                    statusDisplay.textContent = capitalizedStatus;
                     
-                    // Update consolidated dates display
-                    updateDatesDisplay(intendedEndDate, actualEndDate);
+                    // Update dates display
+                    {% if entry.show_end_dates %}
+                    if (intendedEndDateDisplay) {
+                        intendedEndDateDisplay.textContent = intendedEndDate || '';
+                    }
+                    if (actualEndDateDisplay) {
+                        actualEndDateDisplay.textContent = actualEndDate || '';
+                    }
+                    {% endif %}
                     
-                    // Update the page title
+                    // Update page title
                     document.title = document.title.replace(/- .+ -/, `- ${title} -`);
                     
-                    // Hide the editor after successful save
+                    // Update original values
+                    originalValues.title = title;
+                    originalValues.description = description;
+                    originalValues.entryTypeId = entryTypeId;
+                    originalValues.status = status;
+                    {% if entry.show_end_dates %}
+                    originalValues.intendedEndDate = intendedEndDate;
+                    originalValues.actualEndDate = actualEndDate;
+                    {% endif %}
+                    
+                    // Exit edit mode after short delay
                     setTimeout(() => {
-                        const collapse = new bootstrap.Collapse(descriptionEditor, { show: false });
+                        toggleEditMode(false);
+                        entryStatusMessage.className = 'mt-3 d-none';
                     }, 1500);
                 } else {
-                    displayStatus(descriptionStatusMessage, `Error: ${data.error || 'Failed to update entry.'}`, 'alert-danger');
+                    displayStatus(entryStatusMessage, `Error: ${data.error || 'Failed to update entry.'}`, 'alert-danger');
                 }
             } catch (error) {
                 console.error('Network or server error:', error);
-                displayStatus(descriptionStatusMessage, 'An unexpected error occurred while updating entry.', 'alert-danger');
+                displayStatus(entryStatusMessage, 'An unexpected error occurred while updating entry.', 'alert-danger');
+            } finally {
+                // Restore button state
+                saveEntryBtn.disabled = false;
+                saveEntryBtn.innerHTML = '<i class="fas fa-save me-1"></i>Save';
             }
         });
 
