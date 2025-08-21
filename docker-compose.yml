@@ -14,7 +14,11 @@ services:
     environment:
       - FLASK_APP=run.py
       - NETWORK_RANGE=192.168.68.0/24
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      # - GEMINI_API_KEY=${GEMINI_API_KEY}
+    
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
 
     x-casaos:
       envs:
