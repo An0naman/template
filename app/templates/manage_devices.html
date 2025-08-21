@@ -383,9 +383,10 @@
                                 </div>
                             </div>
                             <div class="form-text">
-                                <strong>Search and filter entries</strong> that will receive sensor data from this device.
+                                <strong>Link to sensor-enabled entries</strong> that will receive sensor data from this device.
                                 <div class="mt-1">
                                     <small class="text-muted">
+                                        Only entries with sensor-enabled entry types are shown. 
                                         <span id="selectedEntriesCount">0</span> of <span id="totalEntriesCount">0</span> entries selected
                                     </small>
                                 </div>
@@ -403,8 +404,18 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="pollingInterval" class="form-label">Polling Interval (seconds)</label>
-                                    <input type="number" class="form-control" id="pollingInterval" value="60" min="10" max="3600">
+                                    <label for="pollingInterval" class="form-label">Polling Interval</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="pollingInterval" value="60" min="1" max="24">
+                                        <select class="form-select" id="pollingUnit" style="max-width: 120px;">
+                                            <option value="seconds">Seconds</option>
+                                            <option value="minutes">Minutes</option>
+                                            <option value="hours">Hours</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-text">
+                                        <small class="text-muted" id="pollingIntervalPreview">Polling every 60 seconds</small>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -513,6 +524,11 @@
             document.getElementById('entrySearchInput').value = '';
             document.getElementById('entryTypeFilter').value = '';
             
+            // Reset polling interval to default values
+            document.getElementById('pollingInterval').value = '60';
+            document.getElementById('pollingUnit').value = 'seconds';
+            updatePollingPreview();
+            
             // Clear all checkbox selections
             const entryCheckboxContainer = document.getElementById('entryCheckboxContainer');
             entryCheckboxContainer.querySelectorAll('.entry-checkbox').forEach(checkbox => {
@@ -541,7 +557,69 @@
         document.addEventListener('DOMContentLoaded', function() {
             loadDevices();
             loadEntries();
+            
+            // Add event listeners for polling interval updates
+            document.getElementById('pollingInterval').addEventListener('input', updatePollingPreview);
+            document.getElementById('pollingUnit').addEventListener('change', updatePollingPreview);
+            
+            // Initialize the preview
+            updatePollingPreview();
         });
+
+        // Convert polling interval to seconds based on unit
+        function convertToSeconds(value, unit) {
+            switch (unit) {
+                case 'minutes':
+                    return value * 60;
+                case 'hours':
+                    return value * 3600;
+                case 'seconds':
+                default:
+                    return value;
+            }
+        }
+
+        // Convert seconds back to the appropriate unit
+        function convertFromSeconds(seconds) {
+            if (seconds >= 3600 && seconds % 3600 === 0) {
+                return { value: seconds / 3600, unit: 'hours' };
+            } else if (seconds >= 60 && seconds % 60 === 0) {
+                return { value: seconds / 60, unit: 'minutes' };
+            } else {
+                return { value: seconds, unit: 'seconds' };
+            }
+        }
+
+        // Update the polling interval preview text
+        function updatePollingPreview() {
+            const interval = parseInt(document.getElementById('pollingInterval').value) || 0;
+            const unit = document.getElementById('pollingUnit').value;
+            const seconds = convertToSeconds(interval, unit);
+            
+            let previewText = `Polling every ${interval} ${unit}`;
+            if (unit !== 'seconds') {
+                previewText += ` (${seconds} seconds)`;
+            }
+            
+            document.getElementById('pollingIntervalPreview').textContent = previewText;
+            
+            // Update min/max values based on unit
+            const intervalInput = document.getElementById('pollingInterval');
+            switch (unit) {
+                case 'seconds':
+                    intervalInput.min = '10';
+                    intervalInput.max = '3600';
+                    break;
+                case 'minutes':
+                    intervalInput.min = '1';
+                    intervalInput.max = '60';
+                    break;
+                case 'hours':
+                    intervalInput.min = '1';
+                    intervalInput.max = '24';
+                    break;
+            }
+        }
 
         // Load registered devices
         async function loadDevices() {
@@ -560,7 +638,8 @@
         // Load entries for linking
         async function loadEntries() {
             try {
-                const response = await fetch('/api/entries');
+                // Use the new endpoint that only returns entries with sensor-enabled entry types
+                const response = await fetch('/api/entries/sensor-enabled');
                 if (!response.ok) throw new Error('Failed to load entries');
                 
                 entries = await response.json();
@@ -661,6 +740,20 @@
             
             container.innerHTML = '';
             
+            // Check if there are any entries to show
+            if (entries.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No sensor-enabled entries found.<br>
+                        <small>Create entries with sensor-enabled entry types first.</small>
+                    </div>
+                `;
+                // Update total count
+                totalCountDisplay.textContent = '0';
+                return;
+            }
+            
             // Get unique entry types for the filter
             const entryTypes = [...new Set(entries.map(entry => entry.entry_type_label || 'Unknown'))].sort();
             
@@ -678,12 +771,19 @@
                 const checkboxDiv = document.createElement('div');
                 checkboxDiv.className = 'form-check mb-2 entry-checkbox-item';
                 checkboxDiv.dataset.entryType = entry.entry_type_label || 'Unknown';
+                
+                // Show enabled sensor types for this entry
+                const sensorTypesInfo = entry.enabled_sensor_types ? 
+                    `<small class="text-muted d-block">Sensors: ${entry.enabled_sensor_types}</small>` : 
+                    '<small class="text-muted d-block">No sensor types configured</small>';
+                
                 checkboxDiv.innerHTML = `
                     <input class="form-check-input entry-checkbox" type="checkbox" 
                            value="${entry.id}" id="entry_${entry.id}">
                     <label class="form-check-label" for="entry_${entry.id}">
                         <strong>${entry.title}</strong>
                         <span class="badge bg-secondary ms-2">${entry.entry_type_label || 'Unknown'}</span>
+                        ${sensorTypesInfo}
                     </label>
                 `;
                 container.appendChild(checkboxDiv);
@@ -984,7 +1084,14 @@
                 countDisplay.textContent = checkedCount;
                 
                 document.getElementById('pollingEnabled').value = device.polling_enabled ? '1' : '0';
-                document.getElementById('pollingInterval').value = device.polling_interval;
+                
+                // Convert stored seconds to appropriate unit for display
+                const converted = convertFromSeconds(device.polling_interval || 60);
+                document.getElementById('pollingInterval').value = converted.value;
+                document.getElementById('pollingUnit').value = converted.unit;
+                
+                // Update the preview
+                updatePollingPreview();
 
                 document.getElementById('deviceModalLabel').textContent = 'Edit Device';
                 deviceModal.show();
@@ -1007,12 +1114,17 @@
                 const selectedEntries = Array.from(entryCheckboxContainer.querySelectorAll('.entry-checkbox:checked'))
                     .map(checkbox => checkbox.value);
                 
+                // Convert polling interval to seconds for storage
+                const pollingValue = parseInt(document.getElementById('pollingInterval').value);
+                const pollingUnit = document.getElementById('pollingUnit').value;
+                const pollingIntervalInSeconds = convertToSeconds(pollingValue, pollingUnit);
+                
                 const data = {
                     device_name: document.getElementById('deviceName').value,
                     ip: document.getElementById('deviceIP').value,
                     linked_entry_ids: selectedEntries,
                     polling_enabled: document.getElementById('pollingEnabled').value === '1',
-                    polling_interval: parseInt(document.getElementById('pollingInterval').value)
+                    polling_interval: pollingIntervalInSeconds
                 };
 
                 const response = await fetch(`/api/devices/${deviceId}`, {

@@ -54,6 +54,45 @@ def get_all_entries():
         logger.error(f"Error fetching entries: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
+@entry_api_bp.route('/entries/sensor-enabled', methods=['GET'])
+def get_sensor_enabled_entries():
+    """Get entries that belong to entry types with sensors enabled"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT e.id, e.title, e.description, e.intended_end_date, e.actual_end_date, 
+                   e.status, e.created_at, et.singular_label AS entry_type_label, 
+                   et.enabled_sensor_types
+            FROM Entry e
+            JOIN EntryType et ON e.entry_type_id = et.id
+            WHERE et.has_sensors = 1 AND et.enabled_sensor_types IS NOT NULL AND et.enabled_sensor_types != ''
+            ORDER BY e.created_at DESC
+        ''')
+        
+        rows = cursor.fetchall()
+        entries = []
+        for row in rows:
+            entries.append({
+                'id': row['id'],
+                'name': row['title'],  # Using 'name' for consistency with frontend expectations
+                'title': row['title'],
+                'description': row['description'],
+                'intended_end_date': row['intended_end_date'],
+                'actual_end_date': row['actual_end_date'],
+                'status': row['status'],
+                'created_at': row['created_at'],
+                'entry_type_label': row['entry_type_label'],
+                'enabled_sensor_types': row['enabled_sensor_types']
+            })
+        
+        return jsonify(entries)
+        
+    except Exception as e:
+        logger.error(f"Error fetching sensor-enabled entries: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
 @entry_api_bp.route('/entries', methods=['POST'])
 def add_entry():
     data = request.json
