@@ -6545,6 +6545,90 @@
             });
         }
 
+        // Load unit suggestions for shared relationship modal
+        async function loadSharedUnitSuggestions(definitionId, targets) {
+            try {
+                // Get relationship definition for context
+                const relationshipDef = allRelationshipDefinitions.find(def => def.id == definitionId);
+                
+                let unitSuggestions = [];
+                
+                if (relationshipDef) {
+                    // Get contextual suggestions
+                    const response = await fetch('/api/units/suggestions/relationship', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            relationship_name: relationshipDef.name,
+                            from_type: relationshipDef.entry_type_from_label,
+                            to_type: relationshipDef.entry_type_to_label
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        unitSuggestions = data.suggestions;
+                    }
+                }
+                
+                // Fallback to general suggestions if contextual failed
+                if (unitSuggestions.length === 0) {
+                    const generalResponse = await fetch('/api/units/suggestions');
+                    if (generalResponse.ok) {
+                        const data = await generalResponse.json();
+                        unitSuggestions = data.units;
+                    }
+                }
+                
+                // Apply suggestions to all targets
+                targets.forEach(target => {
+                    populateSharedUnitSuggestions(target.target_entry.id, unitSuggestions);
+                });
+                
+            } catch (error) {
+                console.error('Error loading shared unit suggestions:', error);
+                // Use fallback static suggestions for all targets
+                const fallbackUnits = ['g', 'kg', 'ml', 'l', 'cup', 'tbsp', 'tsp', 'pcs', 'units', 'each'];
+                targets.forEach(target => {
+                    populateSharedUnitSuggestions(target.target_entry.id, fallbackUnits);
+                });
+            }
+        }
+        
+        // Populate unit suggestions for shared relationship modal
+        function populateSharedUnitSuggestions(targetId, units) {
+            const dropdown = document.getElementById(`sharedUnitDropdown-${targetId}`);
+            const datalist = document.getElementById(`sharedUnitSuggestions-${targetId}`);
+            const unitInput = document.querySelector(`input[list="sharedUnitSuggestions-${targetId}"]`);
+            
+            if (!dropdown || !datalist || !unitInput) return;
+            
+            // Clear existing suggestions
+            dropdown.innerHTML = '';
+            datalist.innerHTML = '';
+            
+            // Populate dropdown
+            units.forEach(unit => {
+                const li = document.createElement('li');
+                li.innerHTML = `<a class="dropdown-item" href="#" data-unit="${unit}">${unit}</a>`;
+                dropdown.appendChild(li);
+                
+                const option = document.createElement('option');
+                option.value = unit;
+                datalist.appendChild(option);
+            });
+            
+            // Add click handlers for dropdown items
+            dropdown.querySelectorAll('.dropdown-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    unitInput.value = this.getAttribute('data-unit');
+                });
+            });
+        }
+
         // --- Shared Relationship Opportunities Functions ---
 
         async function loadSharedRelationshipOpportunities() {
@@ -7099,26 +7183,46 @@
                                    checked>
                             <div class="flex-grow-1">
                                 <label class="form-check-label d-block" for="shared-modal-${target.target_entry.id}">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <div class="me-3">
+                                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start">
+                                        <div class="me-3 mb-2 mb-md-0 flex-grow-1">
                                             <strong>${target.target_entry.title}</strong>
                                             ${target.source_relationship.quantity ? 
-                                              `<br><small class="text-muted">Quantity: ${target.source_relationship.quantity}${target.source_relationship.unit ? ' ' + target.source_relationship.unit : ''}</small>` : 
+                                              `<br><small class="text-muted">Original: ${target.source_relationship.quantity}${target.source_relationship.unit ? ' ' + target.source_relationship.unit : ''}</small>` : 
                                               ''}
                                         </div>
                                         ${relationshipDef.allow_quantity_unit ? 
-                                          `<div class="quantity-inputs" style="min-width: 160px;">
-                                                <div class="input-group input-group-sm">
-                                                    <input type="number" 
-                                                           class="form-control quantity-input" 
-                                                           placeholder="Quantity" 
-                                                           value="${target.source_relationship.quantity || ''}"
-                                                           step="any">
-                                                    <input type="text" 
-                                                           class="form-control unit-input" 
-                                                           placeholder="Unit" 
-                                                           value="${target.source_relationship.unit || ''}"
-                                                           style="max-width: 80px;">
+                                          `<div class="quantity-inputs">
+                                                <div class="row g-2">
+                                                    <div class="col-12 col-md-6">
+                                                        <input type="number" 
+                                                               class="form-control form-control-sm quantity-input" 
+                                                               placeholder="Quantity" 
+                                                               value="${target.source_relationship.quantity || ''}"
+                                                               step="any">
+                                                    </div>
+                                                    <div class="col-12 col-md-6">
+                                                        <div class="position-relative">
+                                                            <input type="text" 
+                                                                   class="form-control form-control-sm unit-input pe-5" 
+                                                                   placeholder="Unit" 
+                                                                   value="${target.source_relationship.unit || ''}"
+                                                                   list="sharedUnitSuggestions-${target.target_entry.id}">
+                                                            <button class="btn btn-outline-secondary position-absolute top-0 end-0 h-100 px-1 border-start-0" 
+                                                                    type="button" 
+                                                                    data-bs-toggle="dropdown" 
+                                                                    aria-expanded="false" 
+                                                                    title="Common units" 
+                                                                    style="border-top-left-radius: 0; border-bottom-left-radius: 0; margin: 2px 2px 2px 0; height: calc(100% - 4px); width: 32px;">
+                                                                <i class="fas fa-list"></i>
+                                                            </button>
+                                                            <ul class="dropdown-menu dropdown-menu-end" id="sharedUnitDropdown-${target.target_entry.id}">
+                                                                <!-- Unit suggestions will be populated here -->
+                                                            </ul>
+                                                        </div>
+                                                        <datalist id="sharedUnitSuggestions-${target.target_entry.id}">
+                                                            <!-- Unit suggestions for autocomplete -->
+                                                        </datalist>
+                                                    </div>
                                                 </div>
                                            </div>` : ''}
                                     </div>
@@ -7133,6 +7237,11 @@
                 checkboxes.forEach(checkbox => {
                     checkbox.addEventListener('change', updateSelectionCount);
                 });
+                
+                // Load unit suggestions for each target if quantity/unit is allowed
+                if (relationshipDef.allow_quantity_unit) {
+                    loadSharedUnitSuggestions(relationshipDef.id, currentTargets);
+                }
                 
                 updateSelectionCount();
             }
