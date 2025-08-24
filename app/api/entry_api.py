@@ -198,7 +198,7 @@ def search_entries():
         SELECT e.id, e.title, et.singular_label AS entry_type_label
         FROM Entry e
         JOIN EntryType et ON e.entry_type_id = et.id
-        WHERE e.title LIKE ? OR e.description LIKE ?
+        WHERE (e.title LIKE ? OR e.description LIKE ?)
     '''
     params = [search_query_param, search_query_param]
 
