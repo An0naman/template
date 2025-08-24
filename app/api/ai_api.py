@@ -230,3 +230,74 @@ def explain_sql():
     except Exception as e:
         logger.error(f"Error explaining SQL: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+
+@ai_api_bp.route('/ai/generate_theme', methods=['POST'])
+def generate_theme():
+    """Generate theme colors based on description"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        description = data.get('description', '').strip()
+        style_preferences = data.get('style_preferences', '').strip()
+        current_theme = data.get('current_theme')
+        
+        if not description:
+            return jsonify({'error': 'Theme description is required'}), 400
+        
+        ai_service = get_ai_service()
+        
+        if not ai_service.is_available():
+            return jsonify({'error': 'AI service is not available'}), 503
+        
+        theme_data = ai_service.generate_theme(description, style_preferences, current_theme)
+        
+        if theme_data:
+            return jsonify({
+                'success': True,
+                'theme': theme_data
+            })
+        else:
+            return jsonify({'error': 'Failed to generate theme'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error generating theme: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@ai_api_bp.route('/ai/chat_theme', methods=['POST'])
+def chat_theme():
+    """Conversational theme generation with chat history"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        user_message = data.get('message', '').strip()
+        conversation_history = data.get('conversation_history', [])
+        current_theme = data.get('current_theme')
+        
+        if not user_message:
+            return jsonify({'error': 'Message is required'}), 400
+        
+        ai_service = get_ai_service()
+        
+        if not ai_service.is_available():
+            return jsonify({'error': 'AI service is not available'}), 503
+        
+        # Use the chat method for theme generation
+        response = ai_service.chat_theme_generation(user_message, conversation_history, current_theme)
+        
+        if response:
+            return jsonify({
+                'success': True,
+                'response': response
+            })
+        else:
+            return jsonify({'error': 'Failed to generate response'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error in chat theme: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500

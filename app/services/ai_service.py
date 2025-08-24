@@ -9,6 +9,7 @@ from typing import Optional, Dict, Any
 import google.generativeai as genai
 from flask import current_app
 import json
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -175,6 +176,90 @@ class AIService:
         
         return None
     
+    def generate_theme(self, description: str, style_preferences: str = "", current_theme: dict = None) -> Optional[Dict[str, Any]]:
+        """
+        Generate theme colors based on description and preferences
+        
+        Args:
+            description: Description of the desired theme (e.g., "warm sunset colors", "corporate professional")
+            style_preferences: Additional style preferences (e.g., "high contrast", "minimal")
+            current_theme: Current theme settings to reference
+            
+        Returns:
+            Dictionary with theme colors and metadata or None if failed
+        """
+        if not self.is_available():
+            return None
+        
+        try:
+            prompt = self._build_theme_generation_prompt(description, style_preferences, current_theme)
+            response = self.model.generate_content(prompt)
+            
+            if response and response.text:
+                # Parse the JSON response
+                try:
+                    theme_data = json.loads(response.text.strip())
+                    return theme_data
+                except json.JSONDecodeError:
+                    # If JSON parsing fails, try to extract hex colors manually
+                    return self._extract_colors_from_text(response.text)
+                
+        except Exception as e:
+            logger.error(f"Failed to generate theme: {str(e)}")
+        
+        return None
+    
+    def chat_theme_generation(self, user_message: str, conversation_history: list = None, current_theme: dict = None) -> Optional[Dict[str, Any]]:
+        """
+        Generate theme-related responses with conversation context
+        
+        Args:
+            user_message: The user's current message
+            conversation_history: List of previous messages [{'role': 'user'|'assistant', 'content': 'text'}]
+            current_theme: Current theme settings to reference
+            
+        Returns:
+            Dictionary with response and optional theme data or None if failed
+        """
+        if not self.is_available():
+            return None
+        
+        try:
+            prompt = self._build_chat_theme_prompt(user_message, conversation_history or [], current_theme)
+            response = self.model.generate_content(prompt)
+            
+            if response and response.text:
+                response_text = response.text.strip()
+                logger.info(f"AI Chat Response: {response_text[:100]}...")  # Log first 100 chars
+                
+                # Remove markdown code blocks if present
+                if response_text.startswith('```json'):
+                    response_text = response_text.replace('```json', '').replace('```', '').strip()
+                elif response_text.startswith('```'):
+                    response_text = response_text.replace('```', '').strip()
+                
+                # Parse the JSON response (should always be theme JSON now)
+                try:
+                    json_response = json.loads(response_text)
+                    logger.info(f"Successfully parsed theme JSON: {json_response.get('name', 'Unknown')}")
+                    # Ensure it has the correct type
+                    if 'type' not in json_response:
+                        json_response['type'] = 'theme'
+                    return json_response
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse JSON response: {e}")
+                    logger.error(f"Raw response: {response_text}")
+                    # Return an error theme instead
+                    return {
+                        'type': 'message',
+                        'content': f"I generated a theme but there was a formatting issue. Here's what I created: {response_text[:200]}..."
+                    }
+                
+        except Exception as e:
+            logger.error(f"Failed to generate chat response: {str(e)}")
+        
+        return None
+
     def improve_note(self, note_content: str, note_type: str = "general") -> Optional[str]:
         """
         Improve or expand a note's content
@@ -411,6 +496,176 @@ class AIService:
         """
         return prompt
     
+    def _build_theme_generation_prompt(self, description: str, style_preferences: str, current_theme: dict) -> str:
+        """Build prompt for theme generation"""
+        base_prompt = self._get_base_prompt()
+        
+        current_theme_info = ""
+        if current_theme:
+            current_theme_info = f"\nCurrent theme for reference:\n{json.dumps(current_theme, indent=2)}"
+        
+        style_info = f"\nStyle preferences: {style_preferences}" if style_preferences else ""
+        
+        prompt = f"""
+        {base_prompt}
+        
+        Task: Generate a complete color theme based on this description: "{description}"
+        {style_info}
+        {current_theme_info}
+        
+        Requirements:
+        - Generate a cohesive color palette with proper contrast ratios
+        - Include colors for: background, text, primary, secondary, accent, borders, cards, surfaces
+        - All colors must be in HEX format (#RRGGBB)
+        - Ensure accessibility (WCAG 2.1 AA compliance for text contrast)
+        - Create both light and dark mode variations when appropriate
+        - Include a brief explanation of the color choices
+        
+        Respond with ONLY a valid JSON object in this exact format:
+        {{
+            "name": "Theme Name",
+            "description": "Brief description of the theme",
+            "colors": {{
+                "primary": "#hexcode",
+                "secondary": "#hexcode", 
+                "accent": "#hexcode",
+                "background": "#hexcode",
+                "surface": "#hexcode",
+                "text": "#hexcode",
+                "text_secondary": "#hexcode",
+                "border": "#hexcode",
+                "card_bg": "#hexcode",
+                "success": "#hexcode",
+                "warning": "#hexcode",
+                "danger": "#hexcode",
+                "info": "#hexcode"
+            }},
+            "dark_mode_colors": {{
+                "primary": "#hexcode",
+                "secondary": "#hexcode",
+                "accent": "#hexcode", 
+                "background": "#hexcode",
+                "surface": "#hexcode",
+                "text": "#hexcode",
+                "text_secondary": "#hexcode",
+                "border": "#hexcode",
+                "card_bg": "#hexcode",
+                "success": "#hexcode",
+                "warning": "#hexcode",
+                "danger": "#hexcode",
+                "info": "#hexcode"
+            }},
+            "rationale": "Explanation of color choices and design philosophy"
+        }}
+        """
+        return prompt
+    
+    def _build_chat_theme_prompt(self, user_message: str, conversation_history: list, current_theme: dict) -> str:
+        """Build prompt for conversational theme generation"""
+        base_prompt = self._get_base_prompt()
+        
+        current_theme_info = ""
+        if current_theme:
+            current_theme_info = f"\nCurrent theme for reference:\n{json.dumps(current_theme, indent=2)}"
+        
+        # Build conversation context
+        conversation_context = ""
+        if conversation_history:
+            conversation_context = "\nConversation history:\n"
+            for msg in conversation_history[-6:]:  # Keep last 6 messages for context
+                role = msg.get('role', 'user')
+                content = msg.get('content', '')
+                conversation_context += f"{role.title()}: {content}\n"
+        
+        prompt = f"""
+        {base_prompt}
+        
+        You are a theme generation system. Your ONLY job is to generate theme color JSON based on user requests.
+        
+        {conversation_context}
+        {current_theme_info}
+        
+        User request: "{user_message}"
+        
+        CRITICAL: You must ALWAYS respond with ONLY valid JSON in this exact format. Do not include any other text, explanations, or markdown formatting:
+
+        {{
+            "type": "theme",
+            "name": "Theme Name Based On Request",
+            "description": "Brief description of the theme",
+            "colors": {{
+                "primary": "#hexcode",
+                "secondary": "#hexcode",
+                "accent": "#hexcode",
+                "background": "#ffffff",
+                "surface": "#f8f9fa",
+                "text": "#212529",
+                "text_secondary": "#6c757d",
+                "border": "#dee2e6",
+                "card_bg": "#ffffff",
+                "success": "#28a745",
+                "warning": "#ffc107",
+                "danger": "#dc3545",
+                "info": "#17a2b8"
+            }},
+            "dark_mode_colors": {{
+                "primary": "#hexcode",
+                "secondary": "#hexcode",
+                "accent": "#hexcode",
+                "background": "#1a1a1a",
+                "surface": "#2d2d2d",
+                "text": "#ffffff",
+                "text_secondary": "#aaaaaa",
+                "border": "#444444",
+                "card_bg": "#262626",
+                "success": "#198754",
+                "warning": "#ffc107",
+                "danger": "#dc3545",
+                "info": "#0dcaf0"
+            }},
+            "rationale": "Brief explanation of color choices and how they relate to the user's request"
+        }}
+        
+        Rules:
+        1. Always generate both light and dark mode colors
+        2. Ensure good contrast ratios for accessibility
+        3. Use the conversation history to understand context and modifications
+        4. If modifying an existing theme, base changes on the current theme provided
+        5. Make colors cohesive and aesthetically pleasing
+        6. Respond with ONLY the JSON - no other text or formatting
+        """
+        return prompt
+
+    def _extract_colors_from_text(self, text: str) -> Dict[str, Any]:
+        """Extract hex colors from text if JSON parsing fails"""
+        import re
+        hex_pattern = r'#[A-Fa-f0-9]{6}'
+        colors = re.findall(hex_pattern, text)
+        
+        if len(colors) >= 8:
+            return {
+                "name": "AI Generated Theme",
+                "description": "Theme generated from AI response",
+                "colors": {
+                    "primary": colors[0] if len(colors) > 0 else "#007bff",
+                    "secondary": colors[1] if len(colors) > 1 else "#6c757d",
+                    "accent": colors[2] if len(colors) > 2 else "#28a745",
+                    "background": colors[3] if len(colors) > 3 else "#ffffff",
+                    "surface": colors[4] if len(colors) > 4 else "#f8f9fa",
+                    "text": colors[5] if len(colors) > 5 else "#212529",
+                    "text_secondary": colors[6] if len(colors) > 6 else "#6c757d",
+                    "border": colors[7] if len(colors) > 7 else "#dee2e6",
+                    "card_bg": colors[8] if len(colors) > 8 else "#ffffff",
+                    "success": "#28a745",
+                    "warning": "#ffc107", 
+                    "danger": "#dc3545",
+                    "info": "#17a2b8"
+                },
+                "rationale": "Theme colors extracted from AI response"
+            }
+        
+        return None
+
     def _build_sql_prompt(self, description: str, table_info: str) -> str:
         """Build prompt for SQL generation"""
         base_prompt = self._get_base_prompt()

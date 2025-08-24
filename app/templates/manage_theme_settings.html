@@ -592,6 +592,169 @@
         .table td {
             border-color: var(--theme-border, var(--bs-border-color)) !important;
         }
+
+        /* AI Chat Interface Styles */
+        .ai-chat-container {
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            background: var(--theme-bg-surface, var(--bs-tertiary-bg));
+            padding: 1rem;
+        }
+
+        .ai-chat-messages {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            background: var(--theme-bg-card, var(--bs-body-bg));
+        }
+
+        .ai-message {
+            display: flex;
+            margin-bottom: 1rem;
+            opacity: 0;
+            animation: fadeInUp 0.3s ease forwards;
+        }
+
+        .ai-message:last-child {
+            margin-bottom: 0;
+        }
+
+        .ai-message.user {
+            flex-direction: row-reverse;
+        }
+
+        .ai-message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .ai-message.assistant .ai-message-avatar {
+            background: var(--theme-primary, var(--bs-primary));
+            margin-right: 0.75rem;
+        }
+
+        .ai-message.user .ai-message-avatar {
+            background: var(--theme-secondary, var(--bs-secondary));
+            margin-left: 0.75rem;
+        }
+
+        .ai-message-content {
+            background: var(--theme-bg-surface, var(--bs-tertiary-bg));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: 1rem;
+            padding: 0.75rem 1rem;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .ai-message.user .ai-message-content {
+            background: var(--theme-primary, var(--bs-primary));
+            color: white;
+            border-color: var(--theme-primary, var(--bs-primary));
+        }
+
+        .ai-message-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .ai-message-content ul {
+            margin-bottom: 0.5rem;
+            padding-left: 1.2rem;
+        }
+
+        .ai-chat-input-container {
+            margin-top: 1rem;
+        }
+
+        .ai-theme-preview {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            background: var(--theme-bg-card, var(--bs-body-bg));
+        }
+
+        .ai-theme-preview.show {
+            display: block;
+            animation: fadeInUp 0.3s ease forwards;
+        }
+
+        .ai-color-palette {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .ai-color-swatch {
+            width: 40px;
+            height: 40px;
+            border-radius: 0.25rem;
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            cursor: pointer;
+            transition: var(--transition-base);
+            position: relative;
+        }
+
+        .ai-color-swatch:hover {
+            transform: scale(1.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .ai-color-swatch .color-label {
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            white-space: nowrap;
+            color: var(--theme-text-secondary, var(--bs-secondary-color));
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Loading animation for AI generation */
+        .ai-generating {
+            position: relative;
+        }
+
+        .ai-generating::after {
+            content: '';
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--theme-border, var(--bs-border-color));
+            border-top: 2px solid var(--theme-primary, var(--bs-primary));
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: translateY(-50%) rotate(0deg); }
+            100% { transform: translateY(-50%) rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -761,6 +924,61 @@
                                         <input type="checkbox" id="highContrastToggle" {{ 'checked' if high_contrast_enabled else '' }}>
                                         <span class="slider"></span>
                                     </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI Theme Generator -->
+                    <div class="settings-section">
+                        <h5 class="mb-3" style="color: var(--theme-primary, #6f42c1);">
+                            <i class="fas fa-magic me-2"></i>AI Theme Generator
+                        </h5>
+                        
+                        <div class="mb-3">
+                            <p class="text-muted mb-3">
+                                <i class="fas fa-robot me-1"></i>
+                                Describe your ideal theme and let AI generate custom colors for you.
+                            </p>
+                            
+                            <!-- AI Chat Interface -->
+                            <div id="aiThemeChat" class="ai-chat-container">
+                                <div id="aiChatMessages" class="ai-chat-messages mb-3">
+                                    <div class="ai-message assistant">
+                                        <div class="ai-message-avatar">
+                                            <i class="fas fa-robot"></i>
+                                        </div>
+                                        <div class="ai-message-content">
+                                            <p>Hi! I'll help you create custom themes. Just describe what you want and I'll generate the colors!</p>
+                                            <p class="mb-0"><strong>Try these:</strong></p>
+                                            <ul class="mb-0">
+                                                <li>"Create a warm sunset theme"</li>
+                                                <li>"Make a dark forest theme"</li>
+                                                <li>"Generate corporate blue colors"</li>
+                                                <li>"Make it more purple" (to modify the last theme)</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="ai-chat-input-container">
+                                    <div class="input-group">
+                                        <input type="text" id="aiThemeInput" class="form-control" 
+                                               placeholder="Describe your ideal theme or ask follow-up questions..." 
+                                               maxlength="500">
+                                        <button class="btn btn-primary" type="button" id="aiThemeGenerateBtn">
+                                            <i class="fas fa-paper-plane me-1"></i>Send
+                                        </button>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mt-1">
+                                        <small class="text-muted">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Ask questions, request modifications, or describe new themes.
+                                        </small>
+                                        <button class="btn btn-outline-secondary btn-sm" type="button" id="aiClearChatBtn">
+                                            <i class="fas fa-trash me-1"></i>Clear Chat
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1624,6 +1842,284 @@
             if (category === 'root' && key === 'theme') {
                 updateUIFromState();
             }
+        });
+
+        // AI Theme Generation Functionality
+        let currentGeneratedTheme = null;
+        let conversationHistory = [];
+        
+        function initAIThemeChat() {
+            const input = document.getElementById('aiThemeInput');
+            const generateBtn = document.getElementById('aiThemeGenerateBtn');
+            const messagesContainer = document.getElementById('aiChatMessages');
+            
+            // Handle Enter key in input
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    generateTheme();
+                }
+            });
+            
+            // Handle generate button click
+            generateBtn.addEventListener('click', generateTheme);
+            
+            // Handle clear chat button
+            const clearBtn = document.getElementById('aiClearChatBtn');
+            clearBtn.addEventListener('click', clearChat);
+            
+            function clearChat() {
+                // Clear conversation history
+                conversationHistory = [];
+                
+                // Clear chat messages (keep only the initial welcome message)
+                const messagesContainer = document.getElementById('aiChatMessages');
+                const initialMessage = messagesContainer.querySelector('.ai-message.assistant');
+                messagesContainer.innerHTML = '';
+                if (initialMessage) {
+                    messagesContainer.appendChild(initialMessage);
+                }
+                
+                // Clear any existing theme previews
+                const existingPreview = document.querySelector('.ai-theme-preview');
+                if (existingPreview) {
+                    existingPreview.remove();
+                }
+                
+                currentGeneratedTheme = null;
+            }
+            
+            async function generateTheme() {
+                const description = input.value.trim();
+                
+                if (!description) {
+                    showMessage('Please describe your ideal theme first.', 'warning');
+                    return;
+                }
+                
+                // Add user message to chat
+                addChatMessage('user', description);
+                conversationHistory.push({role: 'user', content: description});
+                input.value = '';
+                
+                // Show loading state
+                generateBtn.disabled = true;
+                generateBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating...';
+                input.classList.add('ai-generating');
+                
+                try {
+                    const response = await fetch('/api/ai/chat_theme', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message: description,
+                            conversation_history: conversationHistory,
+                            current_theme: themeManager.exportSettings()
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success && data.response) {
+                        const aiResponse = data.response;
+                        console.log('AI Response:', aiResponse); // Debug logging
+                        
+                        if (aiResponse.type === 'theme' && aiResponse.colors) {
+                            // It's a valid theme response
+                            const responseText = `✨ Created "${aiResponse.name}"! ${aiResponse.rationale || ''}`;
+                            addChatMessage('assistant', responseText);
+                            conversationHistory.push({role: 'assistant', content: `Generated theme: ${aiResponse.name}`});
+                            
+                            // Show theme preview
+                            showThemePreview(aiResponse);
+                            currentGeneratedTheme = aiResponse;
+                            
+                        } else if (aiResponse.type === 'message') {
+                            // Fallback message response
+                            const responseText = aiResponse.content || aiResponse;
+                            addChatMessage('assistant', responseText);
+                            conversationHistory.push({role: 'assistant', content: responseText});
+                        } else {
+                            // Handle malformed responses
+                            console.error('Invalid theme response:', aiResponse);
+                            addChatMessage('assistant', 'I created a theme but had trouble formatting it. Please try again with a clearer description.');
+                            conversationHistory.push({role: 'assistant', content: 'Theme generation error'});
+                        }
+                        
+                    } else {
+                        console.error('API Error:', data);
+                        const errorMsg = `Sorry, I couldn't generate a theme. ${data.error || 'Please try again.'}`;
+                        addChatMessage('assistant', errorMsg);
+                        conversationHistory.push({role: 'assistant', content: errorMsg});
+                    }
+                    
+                } catch (error) {
+                    console.error('AI Theme Chat Error:', error);
+                    const errorMsg = 'Sorry, there was an error processing your request. Please try again.';
+                    addChatMessage('assistant', errorMsg);
+                    conversationHistory.push({role: 'assistant', content: errorMsg});
+                } finally {
+                    // Reset loading state
+                    generateBtn.disabled = false;
+                    generateBtn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Send';
+                    input.classList.remove('ai-generating');
+                }
+            }
+            
+            function addChatMessage(type, content) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `ai-message ${type}`;
+                
+                const avatar = document.createElement('div');
+                avatar.className = 'ai-message-avatar';
+                avatar.innerHTML = type === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
+                
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'ai-message-content';
+                contentDiv.innerHTML = `<p>${content}</p>`;
+                
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(contentDiv);
+                
+                messagesContainer.appendChild(messageDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+            
+            function showThemePreview(theme) {
+                // Remove existing preview
+                const existingPreview = document.querySelector('.ai-theme-preview');
+                if (existingPreview) {
+                    existingPreview.remove();
+                }
+                
+                // Create new preview
+                const previewDiv = document.createElement('div');
+                previewDiv.className = 'ai-theme-preview';
+                
+                let colorsHtml = '<div class="ai-color-palette">';
+                if (theme.colors) {
+                    Object.entries(theme.colors).forEach(([name, color]) => {
+                        colorsHtml += `
+                            <div class="ai-color-swatch" style="background-color: ${color}" title="${name}: ${color}">
+                                <div class="color-label">${name}</div>
+                            </div>
+                        `;
+                    });
+                }
+                colorsHtml += '</div>';
+                
+                previewDiv.innerHTML = `
+                    <h6><i class="fas fa-eye me-2"></i>Theme Preview: ${theme.name}</h6>
+                    <p class="text-muted">${theme.description || ''}</p>
+                    ${colorsHtml}
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-success btn-sm" onclick="applyGeneratedTheme()">
+                            <i class="fas fa-check me-1"></i>Apply Theme
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="this.closest('.ai-theme-preview').remove()">
+                            <i class="fas fa-times me-1"></i>Dismiss
+                        </button>
+                    </div>
+                `;
+                
+                // Insert after the chat container
+                const chatContainer = document.getElementById('aiThemeChat');
+                chatContainer.parentNode.insertBefore(previewDiv, chatContainer.nextSibling);
+                
+                // Show with animation
+                setTimeout(() => previewDiv.classList.add('show'), 10);
+            }
+        }
+        
+        function applyGeneratedTheme() {
+            const theme = currentGeneratedTheme;
+            if (!theme || !theme.colors) {
+                showMessage('Invalid theme data', 'danger');
+                return;
+            }
+            
+            // Apply the generated colors to the theme manager
+            if (theme.colors.primary) {
+                themeManager.updateSetting('customColors', 'primary', theme.colors.primary);
+            }
+            if (theme.colors.secondary) {
+                themeManager.updateSetting('customColors', 'secondary', theme.colors.secondary);
+            }
+            if (theme.colors.success) {
+                themeManager.updateSetting('customColors', 'success', theme.colors.success);
+            }
+            if (theme.colors.warning) {
+                themeManager.updateSetting('customColors', 'warning', theme.colors.warning);
+            }
+            if (theme.colors.danger) {
+                themeManager.updateSetting('customColors', 'danger', theme.colors.danger);
+            }
+            if (theme.colors.info) {
+                themeManager.updateSetting('customColors', 'info', theme.colors.info);
+            }
+            
+            // Apply light mode colors if available
+            if (theme.colors.background || theme.colors.surface || theme.colors.text) {
+                if (theme.colors.background) {
+                    themeManager.updateSetting('customLightMode', 'bg_body', theme.colors.background);
+                }
+                if (theme.colors.card_bg || theme.colors.surface) {
+                    themeManager.updateSetting('customLightMode', 'bg_card', theme.colors.card_bg || theme.colors.surface);
+                }
+                if (theme.colors.surface) {
+                    themeManager.updateSetting('customLightMode', 'bg_surface', theme.colors.surface);
+                }
+                if (theme.colors.text) {
+                    themeManager.updateSetting('customLightMode', 'text', theme.colors.text);
+                }
+                if (theme.colors.text_secondary) {
+                    themeManager.updateSetting('customLightMode', 'text_muted', theme.colors.text_secondary);
+                }
+                if (theme.colors.border) {
+                    themeManager.updateSetting('customLightMode', 'border', theme.colors.border);
+                }
+            }
+            
+            // Apply dark mode colors if available
+            if (theme.dark_mode_colors) {
+                if (theme.dark_mode_colors.background) {
+                    themeManager.updateSetting('customDarkMode', 'bg_body', theme.dark_mode_colors.background);
+                }
+                if (theme.dark_mode_colors.card_bg || theme.dark_mode_colors.surface) {
+                    themeManager.updateSetting('customDarkMode', 'bg_card', theme.dark_mode_colors.card_bg || theme.dark_mode_colors.surface);
+                }
+                if (theme.dark_mode_colors.surface) {
+                    themeManager.updateSetting('customDarkMode', 'bg_surface', theme.dark_mode_colors.surface);
+                }
+                if (theme.dark_mode_colors.text) {
+                    themeManager.updateSetting('customDarkMode', 'text', theme.dark_mode_colors.text);
+                }
+                if (theme.dark_mode_colors.text_secondary) {
+                    themeManager.updateSetting('customDarkMode', 'text_muted', theme.dark_mode_colors.text_secondary);
+                }
+                if (theme.dark_mode_colors.border) {
+                    themeManager.updateSetting('customDarkMode', 'border', theme.dark_mode_colors.border);
+                }
+            }
+            
+            // Update UI to reflect changes
+            updateUIFromState();
+            
+            // Remove the preview
+            const preview = document.querySelector('.ai-theme-preview');
+            if (preview) {
+                preview.remove();
+            }
+            
+            // Show success message
+            showMessage(`Applied "${theme.name}" theme! Don't forget to save your settings.`, 'success');
+        }
+        
+        // Initialize AI chat when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            initAIThemeChat();
         });
     </script>
 </body>
