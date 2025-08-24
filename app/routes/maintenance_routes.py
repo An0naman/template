@@ -49,6 +49,15 @@ def manage_relationships_page():
                            entry_singular_label=params.get('entry_singular_label'),
                            entry_plural_label=params.get('entry_plural_label'))
 
+@maintenance_bp.route('/manage_units')
+def manage_units_page():
+    from ..db import get_system_parameters
+    params = get_system_parameters()
+    return render_template('manage_units.html',
+                           project_name=params.get('project_name'),
+                           entry_singular_label=params.get('entry_singular_label'),
+                           entry_plural_label=params.get('entry_plural_label'))
+
 @maintenance_bp.route('/manage_sensor_types')
 def manage_sensor_types_page():
     from ..db import get_system_parameters

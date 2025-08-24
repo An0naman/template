@@ -218,6 +218,14 @@
                     <div class="setting-title">Relationships</div>
                     <p class="setting-description">Configure how different {{ entry_plural_label.lower() }} can be related to each other (e.g., "Parent of", "Authored by").</p>
                 </a>
+
+                <a href="{{ url_for('maintenance.manage_units_page') }}" class="setting-card">
+                    <div class="setting-icon">
+                        <i class="fas fa-ruler-combined"></i>
+                    </div>
+                    <div class="setting-title">Units of Measurement</div>
+                    <p class="setting-description">Manage available units for relationships with quantity support (g, kg, ml, l, cup, etc.).</p>
+                </a>
             </div>
         </section>
 

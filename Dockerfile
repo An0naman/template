@@ -27,6 +27,9 @@ COPY run.py .
 # Copy scripts directory
 COPY scripts/ scripts/
 
+# Copy migrations directory
+COPY migrations/ migrations/
+
 # Expose the port your Flask app runs on (from app/config.py's PORT)
 # We'll standardize this to 5001 for the container's internal port.
 EXPOSE 5001

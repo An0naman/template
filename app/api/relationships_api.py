@@ -328,3 +328,55 @@ def add_new_entry_relationship(entry_id):
         conn.rollback()
         logger.error(f"Error adding new entry and relationship: {e}", exc_info=True)
         return jsonify({"error": f"An internal error occurred: {e}"}), 500
+
+
+@relationships_api_bp.route('/relationships/<int:relationship_id>', methods=['PUT'])
+def update_relationship_quantity_unit(relationship_id):
+    """Update the quantity and unit for a specific relationship"""
+    data = request.get_json()
+    quantity = data.get('quantity')
+    unit = data.get('unit')
+
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        # Check if relationship exists
+        cursor.execute("SELECT id FROM EntryRelationship WHERE id = ?", (relationship_id,))
+        if not cursor.fetchone():
+            return jsonify({"error": "Relationship not found."}), 404
+
+        # Convert quantity to float if provided
+        if quantity is not None and quantity != '':
+            try:
+                quantity = float(quantity)
+            except (ValueError, TypeError):
+                return jsonify({"error": "Quantity must be a valid number."}), 400
+        else:
+            quantity = None
+
+        # Clean up unit string
+        if unit is not None:
+            unit = unit.strip()
+            if unit == '':
+                unit = None
+
+        # Update the relationship
+        cursor.execute('''
+            UPDATE EntryRelationship 
+            SET quantity = ?, unit = ? 
+            WHERE id = ?
+        ''', (quantity, unit, relationship_id))
+        
+        conn.commit()
+        
+        return jsonify({
+            "message": "Relationship quantity and unit updated successfully!",
+            "relationship_id": relationship_id,
+            "quantity": quantity,
+            "unit": unit
+        }), 200
+        
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error updating relationship quantity/unit: {e}", exc_info=True)
+        return jsonify({"error": f"An internal error occurred: {e}"}), 500

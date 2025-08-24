@@ -80,6 +80,8 @@ def create_app():
     from .api.ntfy_api import ntfy_api_bp
     from .api.ai_api import ai_api_bp
     from .api.user_preferences_api import user_preferences_api_bp
+    from .api.units_api import units_api_bp
+    from .api.units_management_api import units_management_bp
 
     # Register all blueprints
     app.register_blueprint(main_bp)
@@ -102,6 +104,8 @@ def create_app():
     app.register_blueprint(ntfy_api_bp, url_prefix='/api')
     app.register_blueprint(ai_api_bp, url_prefix='/api')
     app.register_blueprint(user_preferences_api_bp, url_prefix='/api')
+    app.register_blueprint(units_api_bp)
+    app.register_blueprint(units_management_bp)
 
     app.logger.info("Blueprints registered.")
 

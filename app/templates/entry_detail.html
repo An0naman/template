@@ -3034,6 +3034,54 @@
         </div>
     </div>
 
+    <!-- Edit Quantity/Unit Modal -->
+    <div class="modal fade" id="editQuantityUnitModal" tabindex="-1" aria-labelledby="editQuantityUnitModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editQuantityUnitModalLabel">Edit Quantity and Unit</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editQuantityUnitForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editQuantityInput" class="form-label">Quantity:</label>
+                                    <input type="number" step="any" class="form-control" id="editQuantityInput" placeholder="e.g., 2.5">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editUnitInput" class="form-label">Unit:</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="editUnitInput" placeholder="e.g., kg, cups" list="unitSuggestions">
+                                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Common units">
+                                            <i class="fas fa-list"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end" id="unitSuggestionsDropdown">
+                                            <!-- Unit suggestions will be populated here -->
+                                        </ul>
+                                    </div>
+                                    <datalist id="unitSuggestions">
+                                        <!-- Unit suggestions for autocomplete -->
+                                    </datalist>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <small class="text-muted">
+                                <strong>Common units:</strong> g, kg, ml, l, cup, tbsp, tsp, pcs, units, each
+                            </small>
+                        </div>
+                        <input type="hidden" id="editRelationshipId">
+                        <button type="submit" class="btn btn-theme-primary">Update</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Sensor Data Modal -->
     {% if entry.has_sensors %}
     <div class="modal fade" id="addSensorDataModal" tabindex="-1" aria-labelledby="addSensorDataModalLabel" aria-hidden="true">
@@ -5385,23 +5433,46 @@
                                 <thead>
                                     <tr>
                                         <th>Related Entry</th>
-                                        <th width="100" class="text-end">Actions</th>
+                                        ${def.allow_quantity_unit ? '<th width="120" class="text-center">Quantity</th><th width="100" class="text-center">Unit</th>' : ''}
+                                        <th width="${def.allow_quantity_unit ? '140' : '100'}" class="text-end">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     ${relatedEntries.map(entry => `
                                         <tr>
                                             <td><a href="/entry/${entry.related_entry_id}" class="link-theme">${entry.related_entry_title}</a></td>
+                                            ${def.allow_quantity_unit ? `
+                                                <td class="text-center">
+                                                    <span class="quantity-display">${entry.quantity || '-'}</span>
+                                                </td>
+                                                <td class="text-center">
+                                                    <span class="unit-display">${entry.unit || '-'}</span>
+                                                </td>
+                                            ` : ''}
                                             <td class="text-end">
-                                                <button class="btn btn-sm btn-outline-primary bind-notes-btn me-1" 
-                                                        data-entry-id="${entry.related_entry_id}" 
-                                                        data-entry-title="${entry.related_entry_title}" 
-                                                        title="Bind notes from this entry">
-                                                    <i class="fas fa-link"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-danger delete-related-btn" data-relationship-id="${entry.relationship_id}" title="Delete relationship">
-                                                    <i class="fas fa-trash-alt"></i>
-                                                </button>
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    ${def.allow_quantity_unit ? `
+                                                        <button class="btn btn-outline-secondary edit-quantity-btn" 
+                                                                data-relationship-id="${entry.relationship_id}" 
+                                                                data-quantity="${entry.quantity || ''}"
+                                                                data-unit="${entry.unit || ''}"
+                                                                data-definition-id="${def.id}"
+                                                                title="Edit quantity/unit">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                    ` : ''}
+                                                    <button class="btn btn-outline-primary bind-notes-btn" 
+                                                            data-entry-id="${entry.related_entry_id}" 
+                                                            data-entry-title="${entry.related_entry_title}" 
+                                                            title="Bind notes from this entry">
+                                                        <i class="fas fa-link"></i>
+                                                    </button>
+                                                    <button class="btn btn-outline-danger delete-related-btn" 
+                                                            data-relationship-id="${entry.relationship_id}" 
+                                                            title="Delete relationship">
+                                                        <i class="fas fa-trash-alt"></i>
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     `).join('')}
@@ -5428,6 +5499,11 @@
             document.querySelectorAll('.add-new-btn').forEach(button => {
                 button.addEventListener('click', async function() {
                     const definitionId = this.getAttribute('data-definition-id');
+                    
+                    // Get relationship definition to check if quantity/unit is allowed
+                    const relationshipDef = allRelationshipDefinitions.find(def => def.id == definitionId);
+                    const allowQuantityUnit = relationshipDef ? relationshipDef.allow_quantity_unit : false;
+                    
                     const modalHtml = `
                         <div class="modal fade" id="addNewModal" tabindex="-1" aria-labelledby="addNewModalLabel" aria-hidden="true">
                             <div class="modal-dialog">
@@ -5457,6 +5533,29 @@
                                                     </button>
                                                 </div>
                                             </div>
+                                            ${allowQuantityUnit ? `
+                                                <div class="row mb-3">
+                                                    <div class="col-md-6">
+                                                        <label for="newEntryQuantity" class="form-label">Quantity:</label>
+                                                        <input type="number" step="any" class="form-control" id="newEntryQuantity" placeholder="e.g., 2.5">
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label for="newEntryUnit" class="form-label">Unit:</label>
+                                                        <div class="position-relative">
+                                                            <input type="text" class="form-control pe-5" id="newEntryUnit" placeholder="e.g., kg, cups" list="newEntryUnitSuggestions">
+                                                            <button class="btn btn-outline-secondary position-absolute top-0 end-0 h-100 px-1 border-start-0" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Common units" style="border-top-left-radius: 0; border-bottom-left-radius: 0; margin: 2px 2px 2px 0; height: calc(100% - 4px); width: 32px;">
+                                                                <i class="fas fa-list"></i>
+                                                            </button>
+                                                            <ul class="dropdown-menu dropdown-menu-end" id="newEntryUnitDropdown">
+                                                                <!-- Unit suggestions will be populated here -->
+                                                            </ul>
+                                                        </div>
+                                                        <datalist id="newEntryUnitSuggestions">
+                                                            <!-- Unit suggestions for autocomplete -->
+                                                        </datalist>
+                                                    </div>
+                                                </div>
+                                            ` : ''}
                                             <div id="wikipediaDynamicResults" class="mb-3 d-none">
                                                 <div class="card border-info">
                                                     <div class="card-header" style="background-color: var(--theme-bg-surface, #f8f9fa); border-bottom: 1px solid var(--bs-border-color, #dee2e6);">
@@ -5486,6 +5585,11 @@
 
                     // Wait for modal to be fully rendered before adding event listener
                     addNewModal._element.addEventListener('shown.bs.modal', function() {
+                        // Load unit suggestions if quantity/unit is allowed
+                        if (allowQuantityUnit) {
+                            loadNewEntryUnitSuggestions(definitionId);
+                        }
+                        
                         // Add Wikipedia search functionality for dynamic modal
                         document.getElementById('searchWikipediaDynamicBtn').addEventListener('click', async () => {
                             const modal = document.getElementById('addNewModal');
@@ -5680,13 +5784,19 @@
                         const descriptionField = modal.querySelector('#newEntryDescription');
                         const description = descriptionField.value.trim();
 
+                        // Get quantity and unit if fields exist (when relationship allows it)
+                        const quantityField = modal.querySelector('#newEntryQuantity');
+                        const unitField = modal.querySelector('#newEntryUnit');
+                        const quantity = quantityField ? quantityField.value : null;
+                        const unit = unitField ? unitField.value : null;
+
                         // Disable the submit button to prevent double submission
                         const submitButton = modal.querySelector('button[type="submit"]');
                         submitButton.disabled = true;
                         submitButton.textContent = 'Creating...';
 
                         // Create the new entry and relationship
-                        createNewEntryAndRelationship(definitionId, name, description, addNewModal, submitButton);
+                        createNewEntryAndRelationship(definitionId, name, description, addNewModal, submitButton, quantity, unit);
                     });
                 });
                 });
@@ -5732,6 +5842,29 @@
                                                     <button type="button" class="btn btn-sm btn-warning mt-1" id="clearSelection">Clear Selection</button>
                                                 </div>
                                             </div>
+                                            ${relationshipDef.allow_quantity_unit ? `
+                                                <div class="row mb-3">
+                                                    <div class="col-md-6">
+                                                        <label for="existingEntryQuantity" class="form-label">Quantity:</label>
+                                                        <input type="number" step="any" class="form-control" id="existingEntryQuantity" placeholder="e.g., 2.5">
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label for="existingEntryUnit" class="form-label">Unit:</label>
+                                                        <div class="position-relative">
+                                                            <input type="text" class="form-control pe-5" id="existingEntryUnit" placeholder="e.g., kg, cups" list="existingEntryUnitSuggestions">
+                                                            <button class="btn btn-outline-secondary position-absolute top-0 end-0 h-100 px-1 border-start-0" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Common units" style="border-top-left-radius: 0; border-bottom-left-radius: 0; margin: 2px 2px 2px 0; height: calc(100% - 4px); width: 32px;">
+                                                                <i class="fas fa-list"></i>
+                                                            </button>
+                                                            <ul class="dropdown-menu dropdown-menu-end" id="existingEntryUnitDropdown">
+                                                                <!-- Unit suggestions will be populated here -->
+                                                            </ul>
+                                                        </div>
+                                                        <datalist id="existingEntryUnitSuggestions">
+                                                            <!-- Unit suggestions for autocomplete -->
+                                                        </datalist>
+                                                    </div>
+                                                </div>
+                                            ` : ''}
                                             <button type="submit" class="btn btn-theme-primary w-100" id="addExistingSubmitBtn" disabled>Add Relationship</button>
                                         </form>
                                     </div>
@@ -5743,6 +5876,11 @@
                     document.body.insertAdjacentHTML('beforeend', modalHtml);
                     const addExistingModal = new bootstrap.Modal(document.getElementById('addExistingModal'));
                     addExistingModal.show();
+
+                    // Load unit suggestions if quantity/unit is allowed
+                    if (relationshipDef.allow_quantity_unit) {
+                        loadExistingEntryUnitSuggestions(definitionId);
+                    }
 
                     // Get already related entry IDs for this definition to exclude them
                     const alreadyRelatedIds = new Set();
@@ -5858,10 +5996,28 @@
                         submitBtn.textContent = 'Adding...';
 
                         try {
+                            const requestBody = { 
+                                definition_id: parseInt(definitionId), 
+                                related_entry_id: parseInt(relatedEntryId) 
+                            };
+                            
+                            // Add quantity and unit if the relationship allows it
+                            if (relationshipDef.allow_quantity_unit) {
+                                const quantity = document.getElementById('existingEntryQuantity').value;
+                                const unit = document.getElementById('existingEntryUnit').value;
+                                
+                                if (quantity) {
+                                    requestBody.quantity = parseFloat(quantity);
+                                }
+                                if (unit) {
+                                    requestBody.unit = unit;
+                                }
+                            }
+
                             const response = await fetch(`/api/entries/${entryId}/relationships`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ definition_id: parseInt(definitionId), related_entry_id: parseInt(relatedEntryId) })
+                                body: JSON.stringify(requestBody)
                             });
 
                             if (response.ok) {
@@ -5957,10 +6113,22 @@
                     showBindNotesModal(entryId, entryTitle);
                 });
             });
+
+            // Edit Quantity/Unit Button
+            document.querySelectorAll('.edit-quantity-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const relationshipId = this.getAttribute('data-relationship-id');
+                    const quantity = this.getAttribute('data-quantity');
+                    const unit = this.getAttribute('data-unit');
+                    const definitionId = this.getAttribute('data-definition-id');
+                    
+                    showEditQuantityUnitModal(relationshipId, quantity, unit, definitionId);
+                });
+            });
         }
 
         // Function to create new entry and establish relationship
-        async function createNewEntryAndRelationship(definitionId, entryName, entryDescription, modal, submitButton) {
+        async function createNewEntryAndRelationship(definitionId, entryName, entryDescription, modal, submitButton, quantity = null, unit = null) {
             try {
                 // Find the relationship definition from the already loaded definitions
                 let relationshipDef = allRelationshipDefinitions.find(def => def.id == definitionId);
@@ -6027,18 +6195,27 @@
                 console.log('Extracted new entry ID:', newEntryId);
 
                 // Create the relationship between the current entry and the new entry
-                console.log('Creating relationship with data:', {
+                const relationshipData = {
                     definition_id: parseInt(definitionId),
                     related_entry_id: parseInt(newEntryId)
-                });
+                };
+                
+                // Add quantity and unit if provided and allowed
+                if (relationshipDef.allow_quantity_unit) {
+                    if (quantity !== null && quantity !== '') {
+                        relationshipData.quantity = parseFloat(quantity);
+                    }
+                    if (unit && unit.trim()) {
+                        relationshipData.unit = unit.trim();
+                    }
+                }
+                
+                console.log('Creating relationship with data:', relationshipData);
                 
                 const createRelationshipResponse = await fetch(`/api/entries/${entryId}/relationships`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        definition_id: parseInt(definitionId),
-                        related_entry_id: parseInt(newEntryId)
-                    })
+                    body: JSON.stringify(relationshipData)
                 });
 
                 if (!createRelationshipResponse.ok) {
@@ -6080,6 +6257,292 @@
                 submitButton.disabled = false;
                 submitButton.textContent = 'Add';
             }
+        }
+
+        // Edit Quantity/Unit Modal Function
+        async function showEditQuantityUnitModal(relationshipId, currentQuantity, currentUnit, definitionId) {
+            // Get the modal elements
+            const modal = new bootstrap.Modal(document.getElementById('editQuantityUnitModal'));
+            const quantityInput = document.getElementById('editQuantityInput');
+            const unitInput = document.getElementById('editUnitInput');
+            const relationshipIdInput = document.getElementById('editRelationshipId');
+            const form = document.getElementById('editQuantityUnitForm');
+            
+            // Populate current values
+            quantityInput.value = currentQuantity || '';
+            unitInput.value = currentUnit || '';
+            relationshipIdInput.value = relationshipId;
+            
+            // Load unit suggestions
+            await loadUnitSuggestions(definitionId);
+            
+            // Show modal
+            modal.show();
+            
+            // Handle form submission
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                
+                const submitBtn = form.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Updating...';
+                
+                try {
+                    const response = await fetch(`/api/relationships/${relationshipId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            quantity: quantityInput.value ? parseFloat(quantityInput.value) : null,
+                            unit: unitInput.value.trim() || null
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Failed to update quantity/unit');
+                    }
+                    
+                    // Close modal and refresh
+                    modal.hide();
+                    loadRelatedRecords();
+                    
+                } catch (error) {
+                    console.error('Error updating quantity/unit:', error);
+                    alert('Error updating quantity/unit: ' + error.message);
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            };
+            
+            // Remove any existing listeners and add new one
+            form.removeEventListener('submit', handleSubmit);
+            form.addEventListener('submit', handleSubmit);
+            
+            // Clean up when modal is hidden
+            modal._element.addEventListener('hidden.bs.modal', function() {
+                form.removeEventListener('submit', handleSubmit);
+            }, { once: true });
+        }
+
+        // Load unit suggestions for the edit modal
+        async function loadUnitSuggestions(definitionId) {
+            try {
+                // Get relationship definition for context
+                const relationshipDef = allRelationshipDefinitions.find(def => def.id == definitionId);
+                
+                if (relationshipDef) {
+                    // Get contextual suggestions
+                    const response = await fetch('/api/units/suggestions/relationship', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            relationship_name: relationshipDef.name,
+                            from_type: relationshipDef.entry_type_from_label,
+                            to_type: relationshipDef.entry_type_to_label
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        populateUnitSuggestions(data.suggestions);
+                        return;
+                    }
+                }
+                
+                // Fallback to general suggestions
+                const generalResponse = await fetch('/api/units/suggestions');
+                if (generalResponse.ok) {
+                    const data = await generalResponse.json();
+                    populateUnitSuggestions(data.units);
+                }
+                
+            } catch (error) {
+                console.error('Error loading unit suggestions:', error);
+                // Use fallback static suggestions
+                populateUnitSuggestions(['g', 'kg', 'ml', 'l', 'cup', 'tbsp', 'tsp', 'pcs', 'units', 'each']);
+            }
+        }
+        
+        // Populate unit suggestions in dropdown and datalist
+        function populateUnitSuggestions(units) {
+            const dropdown = document.getElementById('unitSuggestionsDropdown');
+            const datalist = document.getElementById('unitSuggestions');
+            const unitInput = document.getElementById('editUnitInput');
+            
+            // Clear existing suggestions
+            dropdown.innerHTML = '';
+            datalist.innerHTML = '';
+            
+            // Populate dropdown
+            units.forEach(unit => {
+                const li = document.createElement('li');
+                li.innerHTML = `<a class="dropdown-item" href="#" data-unit="${unit}">${unit}</a>`;
+                dropdown.appendChild(li);
+                
+                const option = document.createElement('option');
+                option.value = unit;
+                datalist.appendChild(option);
+            });
+            
+            // Add click handlers for dropdown items
+            dropdown.querySelectorAll('.dropdown-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    unitInput.value = this.getAttribute('data-unit');
+                });
+            });
+        }
+
+        // Load unit suggestions for the new entry modal
+        async function loadNewEntryUnitSuggestions(definitionId) {
+            try {
+                // Get relationship definition for context
+                const relationshipDef = allRelationshipDefinitions.find(def => def.id == definitionId);
+                
+                if (relationshipDef) {
+                    // Get contextual suggestions
+                    const response = await fetch('/api/units/suggestions/relationship', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            relationship_name: relationshipDef.name,
+                            from_type: relationshipDef.entry_type_from_label,
+                            to_type: relationshipDef.entry_type_to_label
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        populateNewEntryUnitSuggestions(data.suggestions);
+                        return;
+                    }
+                }
+                
+                // Fallback to general suggestions
+                const generalResponse = await fetch('/api/units/suggestions');
+                if (generalResponse.ok) {
+                    const data = await generalResponse.json();
+                    populateNewEntryUnitSuggestions(data.units);
+                }
+                
+            } catch (error) {
+                console.error('Error loading unit suggestions:', error);
+                // Use fallback static suggestions
+                populateNewEntryUnitSuggestions(['g', 'kg', 'ml', 'l', 'cup', 'tbsp', 'tsp', 'pcs', 'units', 'each']);
+            }
+        }
+        
+        // Populate unit suggestions for new entry modal
+        function populateNewEntryUnitSuggestions(units) {
+            const dropdown = document.getElementById('newEntryUnitDropdown');
+            const datalist = document.getElementById('newEntryUnitSuggestions');
+            const unitInput = document.getElementById('newEntryUnit');
+            
+            if (!dropdown || !datalist || !unitInput) return;
+            
+            // Clear existing suggestions
+            dropdown.innerHTML = '';
+            datalist.innerHTML = '';
+            
+            // Populate dropdown
+            units.forEach(unit => {
+                const li = document.createElement('li');
+                li.innerHTML = `<a class="dropdown-item" href="#" data-unit="${unit}">${unit}</a>`;
+                dropdown.appendChild(li);
+                
+                const option = document.createElement('option');
+                option.value = unit;
+                datalist.appendChild(option);
+            });
+            
+            // Add click handlers for dropdown items
+            dropdown.querySelectorAll('.dropdown-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    unitInput.value = this.getAttribute('data-unit');
+                });
+            });
+        }
+
+        // Load unit suggestions for the existing entry modal
+        async function loadExistingEntryUnitSuggestions(definitionId) {
+            try {
+                // Get relationship definition for context
+                const relationshipDef = allRelationshipDefinitions.find(def => def.id == definitionId);
+                
+                if (relationshipDef) {
+                    // Get contextual suggestions
+                    const response = await fetch('/api/units/suggestions/relationship', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            relationship_name: relationshipDef.name,
+                            from_type: relationshipDef.entry_type_from_label,
+                            to_type: relationshipDef.entry_type_to_label
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        populateExistingEntryUnitSuggestions(data.suggestions);
+                        return;
+                    }
+                }
+                
+                // Fallback to general suggestions
+                const generalResponse = await fetch('/api/units/suggestions');
+                if (generalResponse.ok) {
+                    const data = await generalResponse.json();
+                    populateExistingEntryUnitSuggestions(data.units);
+                }
+                
+            } catch (error) {
+                console.error('Error loading unit suggestions:', error);
+                // Use fallback static suggestions
+                populateExistingEntryUnitSuggestions(['g', 'kg', 'ml', 'l', 'cup', 'tbsp', 'tsp', 'pcs', 'units', 'each']);
+            }
+        }
+        
+        // Populate unit suggestions for existing entry modal
+        function populateExistingEntryUnitSuggestions(units) {
+            const dropdown = document.getElementById('existingEntryUnitDropdown');
+            const datalist = document.getElementById('existingEntryUnitSuggestions');
+            const unitInput = document.getElementById('existingEntryUnit');
+            
+            if (!dropdown || !datalist || !unitInput) return;
+            
+            // Clear existing suggestions
+            dropdown.innerHTML = '';
+            datalist.innerHTML = '';
+            
+            // Populate dropdown
+            units.forEach(unit => {
+                const li = document.createElement('li');
+                li.innerHTML = `<a class="dropdown-item" href="#" data-unit="${unit}">${unit}</a>`;
+                dropdown.appendChild(li);
+                
+                const option = document.createElement('option');
+                option.value = unit;
+                datalist.appendChild(option);
+            });
+            
+            // Add click handlers for dropdown items
+            dropdown.querySelectorAll('.dropdown-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    unitInput.value = this.getAttribute('data-unit');
+                });
+            });
         }
 
         // --- Shared Relationship Opportunities Functions ---

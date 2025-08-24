@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="{{ 'dark' if theme_settings.dark_mode_enabled else 'light' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ project_name }} - Manage Units</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='mobile.css') }}">
+    <style>
+        body {
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
+        }
+        .main-container {
+            margin-top: 30px;
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+            border: 1px solid var(--bs-border-color);
+        }
+        .category-section {
+            margin-bottom: 2rem;
+            background: var(--bs-secondary-bg);
+            border: 1px solid var(--bs-border-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .category-header {
+            background: var(--bs-primary);
+            color: white;
+            padding: 0.75rem 1rem;
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+        .units-grid {
+            padding: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .unit-badge {
+            background: var(--bs-light);
+            border: 1px solid var(--bs-border-color);
+            color: var(--bs-body-color);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .unit-badge.inactive {
+            opacity: 0.5;
+            text-decoration: line-through;
+        }
+        .unit-actions {
+            display: flex;
+            gap: 0.25rem;
+        }
+        .btn-unit-action {
+            border: none;
+            background: none;
+            padding: 0.125rem 0.25rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            line-height: 1;
+        }
+        .btn-unit-edit:hover {
+            background: var(--bs-warning);
+            color: white;
+        }
+        .btn-unit-delete:hover {
+            background: var(--bs-danger);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-container">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2><i class="fas fa-ruler-combined me-2"></i>Manage Units</h2>
+                    <p class="text-muted">Add, edit, and organize units of measurement for relationships</p>
+                </div>
+                <div>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUnitModal">
+                        <i class="fas fa-plus me-1"></i>Add Unit
+                    </button>
+                    <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Back to Settings
+                    </a>
+                </div>
+            </div>
+
+            <!-- Units by Category -->
+            <div id="unitsContainer">
+                <!-- Units will be loaded here via JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Unit Modal -->
+    <div class="modal fade" id="addUnitModal" tabindex="-1" aria-labelledby="addUnitModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addUnitModalLabel">Add New Unit</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addUnitForm">
+                        <div class="mb-3">
+                            <label for="unitName" class="form-label">Unit Name</label>
+                            <input type="text" class="form-control" id="unitName" required placeholder="e.g., kg, cups, pieces">
+                        </div>
+                        <div class="mb-3">
+                            <label for="unitCategory" class="form-label">Category</label>
+                            <select class="form-select" id="unitCategory" required>
+                                <option value="">Select category...</option>
+                                <option value="mass">Mass</option>
+                                <option value="volume">Volume</option>
+                                <option value="length">Length</option>
+                                <option value="temperature">Temperature</option>
+                                <option value="time">Time</option>
+                                <option value="count">Count</option>
+                                <option value="percentage">Percentage</option>
+                                <option value="energy">Energy</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="displayOrder" class="form-label">Display Order</label>
+                            <input type="number" class="form-control" id="displayOrder" value="0" min="0">
+                            <div class="form-text">Units with lower numbers appear first in their category</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveUnitBtn">Save Unit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Unit Modal -->
+    <div class="modal fade" id="editUnitModal" tabindex="-1" aria-labelledby="editUnitModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editUnitModalLabel">Edit Unit</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editUnitForm">
+                        <input type="hidden" id="editUnitId">
+                        <div class="mb-3">
+                            <label for="editUnitName" class="form-label">Unit Name</label>
+                            <input type="text" class="form-control" id="editUnitName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editUnitCategory" class="form-label">Category</label>
+                            <select class="form-select" id="editUnitCategory" required>
+                                <option value="mass">Mass</option>
+                                <option value="volume">Volume</option>
+                                <option value="length">Length</option>
+                                <option value="temperature">Temperature</option>
+                                <option value="time">Time</option>
+                                <option value="count">Count</option>
+                                <option value="percentage">Percentage</option>
+                                <option value="energy">Energy</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editDisplayOrder" class="form-label">Display Order</label>
+                            <input type="number" class="form-control" id="editDisplayOrder" min="0">
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="editIsActive">
+                                <label class="form-check-label" for="editIsActive">
+                                    Active (unchecked units are hidden but not deleted)
+                                </label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="updateUnitBtn">Update Unit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            loadUnits();
+
+            // Add Unit
+            document.getElementById('saveUnitBtn').addEventListener('click', async function() {
+                const formData = {
+                    name: document.getElementById('unitName').value,
+                    category: document.getElementById('unitCategory').value,
+                    display_order: parseInt(document.getElementById('displayOrder').value) || 0
+                };
+
+                try {
+                    const response = await fetch('/api/units-management', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        bootstrap.Modal.getInstance(document.getElementById('addUnitModal')).hide();
+                        document.getElementById('addUnitForm').reset();
+                        loadUnits();
+                        showAlert('Unit added successfully', 'success');
+                    } else {
+                        showAlert(result.error || 'Failed to add unit', 'danger');
+                    }
+                } catch (error) {
+                    showAlert('Error adding unit: ' + error.message, 'danger');
+                }
+            });
+
+            // Update Unit
+            document.getElementById('updateUnitBtn').addEventListener('click', async function() {
+                const unitId = document.getElementById('editUnitId').value;
+                const formData = {
+                    name: document.getElementById('editUnitName').value,
+                    category: document.getElementById('editUnitCategory').value,
+                    display_order: parseInt(document.getElementById('editDisplayOrder').value) || 0,
+                    is_active: document.getElementById('editIsActive').checked
+                };
+
+                try {
+                    const response = await fetch(`/api/units-management/${unitId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        bootstrap.Modal.getInstance(document.getElementById('editUnitModal')).hide();
+                        loadUnits();
+                        showAlert('Unit updated successfully', 'success');
+                    } else {
+                        showAlert(result.error || 'Failed to update unit', 'danger');
+                    }
+                } catch (error) {
+                    showAlert('Error updating unit: ' + error.message, 'danger');
+                }
+            });
+        });
+
+        async function loadUnits() {
+            try {
+                const response = await fetch('/api/units-management?active_only=false');
+                const result = await response.json();
+                
+                if (result.success) {
+                    renderUnits(result.units_by_category);
+                } else {
+                    showAlert('Failed to load units', 'danger');
+                }
+            } catch (error) {
+                showAlert('Error loading units: ' + error.message, 'danger');
+            }
+        }
+
+        function renderUnits(unitsByCategory) {
+            const container = document.getElementById('unitsContainer');
+            container.innerHTML = '';
+
+            for (const [category, units] of Object.entries(unitsByCategory)) {
+                const categoryDiv = document.createElement('div');
+                categoryDiv.className = 'category-section';
+                
+                categoryDiv.innerHTML = `
+                    <h3 class="category-header">${category} (${units.length} units)</h3>
+                    <div class="units-grid">
+                        ${units.map(unit => `
+                            <div class="unit-badge ${unit.is_active ? '' : 'inactive'}">
+                                <span>${unit.name}</span>
+                                <div class="unit-actions">
+                                    <button class="btn-unit-action btn-unit-edit" onclick="editUnit(${unit.id}, '${unit.name}', '${unit.category}', ${unit.display_order}, ${unit.is_active})" title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn-unit-action btn-unit-delete" onclick="deleteUnit(${unit.id}, '${unit.name}')" title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                
+                container.appendChild(categoryDiv);
+            }
+        }
+
+        function editUnit(id, name, category, displayOrder, isActive) {
+            document.getElementById('editUnitId').value = id;
+            document.getElementById('editUnitName').value = name;
+            document.getElementById('editUnitCategory').value = category;
+            document.getElementById('editDisplayOrder').value = displayOrder;
+            document.getElementById('editIsActive').checked = isActive;
+            
+            new bootstrap.Modal(document.getElementById('editUnitModal')).show();
+        }
+
+        async function deleteUnit(id, name) {
+            if (!confirm(`Are you sure you want to delete the unit "${name}"? This will hide it from selection but preserve existing data.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/units-management/${id}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    loadUnits();
+                    showAlert('Unit deleted successfully', 'success');
+                } else {
+                    showAlert(result.error || 'Failed to delete unit', 'danger');
+                }
+            } catch (error) {
+                showAlert('Error deleting unit: ' + error.message, 'danger');
+            }
+        }
+
+        function showAlert(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            
+            document.querySelector('.main-container').insertBefore(alertDiv, document.querySelector('.main-container').firstChild);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
