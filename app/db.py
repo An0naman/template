@@ -85,6 +85,7 @@ def init_db():
                 created_at TEXT NOT NULL,
                 file_paths TEXT DEFAULT '[]', -- JSON string of file paths
                 associated_entry_ids TEXT DEFAULT '[]', -- JSON array of associated entry IDs
+                url_bookmarks TEXT DEFAULT '[]', -- JSON array of objects with url and friendly_name
                 FOREIGN KEY (entry_id) REFERENCES Entry(id) ON DELETE CASCADE
             );
         ''')
@@ -200,6 +201,52 @@ def init_db():
                 # Add associated_entry_ids column if it doesn't exist
                 cursor.execute("ALTER TABLE Note ADD COLUMN associated_entry_ids TEXT DEFAULT '[]'")
                 logger.info("Added associated_entry_ids column to Note table")
+            
+            # Migration for url_bookmarks column
+            cursor.execute("PRAGMA table_info(Note)")
+            columns = [col[1] for col in cursor.fetchall()]
+            
+            if 'url_bookmarks' not in columns:
+                # Add url_bookmarks column if it doesn't exist
+                cursor.execute("ALTER TABLE Note ADD COLUMN url_bookmarks TEXT DEFAULT '[]'")
+                logger.info("Added url_bookmarks column to Note table")
+                
+                # If there's an existing 'urls' column, migrate data to the new format
+                if 'urls' in columns:
+                    cursor.execute("SELECT id, urls FROM Note WHERE urls IS NOT NULL AND urls != '[]'")
+                    notes_with_urls = cursor.fetchall()
+                    
+                    for note in notes_with_urls:
+                        try:
+                            old_urls = json.loads(note['urls']) if note['urls'] else []
+                            # Convert simple URL strings to the new format with friendly names
+                            new_bookmarks = []
+                            for url in old_urls:
+                                if isinstance(url, str):
+                                    # Extract domain name as friendly name
+                                    from urllib.parse import urlparse
+                                    parsed = urlparse(url)
+                                    friendly_name = parsed.netloc or url
+                                    new_bookmarks.append({
+                                        'url': url,
+                                        'friendly_name': friendly_name
+                                    })
+                                elif isinstance(url, dict) and 'url' in url:
+                                    # Already in the correct format
+                                    new_bookmarks.append({
+                                        'url': url['url'],
+                                        'friendly_name': url.get('friendly_name', url['url'])
+                                    })
+                            
+                            # Update the note with the new format
+                            cursor.execute(
+                                "UPDATE Note SET url_bookmarks = ? WHERE id = ?",
+                                (json.dumps(new_bookmarks), note['id'])
+                            )
+                        except (json.JSONDecodeError, Exception) as e:
+                            logger.warning(f"Error migrating URLs for note {note['id']}: {e}")
+                    
+                    logger.info(f"Migrated URLs to url_bookmarks format for {len(notes_with_urls)} notes")
                 
         except Exception as e:
             logger.error(f"Error during Note table migration: {e}")

@@ -31,6 +31,12 @@ def serialize_note_with_reminder(note):
     if note is None:
         return None
     
+    # Parse url_bookmarks as JSON
+    try:
+        url_bookmarks = json.loads(note['url_bookmarks']) if note['url_bookmarks'] else []
+    except (json.JSONDecodeError, TypeError):
+        url_bookmarks = []
+    
     base_note = {
         "id": note['id'],
         "entry_id": note['entry_id'],
@@ -38,7 +44,8 @@ def serialize_note_with_reminder(note):
         "note_text": note['note_text'],
         "note_type": note['type'],
         "created_at": note['created_at'],
-        "file_paths": note['file_paths'].split(',') if note['file_paths'] else []
+        "file_paths": note['file_paths'].split(',') if note['file_paths'] else [],
+        "url_bookmarks": url_bookmarks
     }
     
     # Add reminder information if present
@@ -66,6 +73,12 @@ def serialize_note_with_reminder_and_entry_info(note):
     except (json.JSONDecodeError, TypeError):
         associated_entry_ids = []
     
+    # Parse url_bookmarks as JSON
+    try:
+        url_bookmarks = json.loads(note['url_bookmarks']) if note['url_bookmarks'] else []
+    except (json.JSONDecodeError, TypeError):
+        url_bookmarks = []
+    
     base_note = {
         "id": note['id'],
         "entry_id": note['entry_id'],
@@ -75,6 +88,7 @@ def serialize_note_with_reminder_and_entry_info(note):
         "created_at": note['created_at'],
         "file_paths": note['file_paths'].split(',') if note['file_paths'] else [],
         "associated_entry_ids": associated_entry_ids,
+        "url_bookmarks": url_bookmarks,
         "relationship_type": note['relationship_type']  # 'primary' or 'associated'
     }
     
@@ -160,6 +174,7 @@ def add_note_to_entry(entry_id):
         note_type = data.get('note_type', 'General')
         reminder_date = data.get('reminder_date')
         associated_entry_ids = data.get('associated_entry_ids', [])
+        url_bookmarks = data.get('url_bookmarks', [])
         files = []
     else:
         # Form data with file uploads
@@ -178,6 +193,13 @@ def add_note_to_entry(entry_id):
                 associated_entry_ids = [int(x.strip()) for x in associated_entry_ids_raw.split(',') if x.strip()]
         except (json.JSONDecodeError, ValueError):
             associated_entry_ids = []
+        
+        # Handle URLs from form data
+        url_bookmarks_raw = request.form.get('url_bookmarks', '[]')
+        try:
+            url_bookmarks = json.loads(url_bookmarks_raw) if url_bookmarks_raw else []
+        except json.JSONDecodeError:
+            url_bookmarks = []
         files = request.files.getlist('files')
 
     if not note_text:
@@ -189,14 +211,15 @@ def add_note_to_entry(entry_id):
     
     # Convert to JSON string for storage
     associated_entry_ids_json = json.dumps(associated_entry_ids)
+    url_bookmarks_json = json.dumps(url_bookmarks)
 
     conn = get_db()
     cursor = conn.cursor()
     try:
-        # First create the note with associated entry IDs
+        # First create the note with associated entry IDs and URL bookmarks
         cursor.execute(
-            "INSERT INTO Note (entry_id, note_title, note_text, type, created_at, file_paths, associated_entry_ids) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (entry_id, note_title, note_text, note_type, datetime.now().isoformat(), '', associated_entry_ids_json)
+            "INSERT INTO Note (entry_id, note_title, note_text, type, created_at, file_paths, associated_entry_ids, url_bookmarks) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (entry_id, note_title, note_text, note_type, datetime.now().isoformat(), '', associated_entry_ids_json, url_bookmarks_json)
         )
         conn.commit()
         note_id = cursor.lastrowid
@@ -262,7 +285,7 @@ def get_notes_for_entry(entry_id):
     # Get notes where this entry is either the primary entry_id OR appears in associated_entry_ids
     # Include entry information for proper display of associated notes
     cursor.execute("""
-        SELECT DISTINCT n.id, n.entry_id, n.note_title, n.note_text, n.type, n.created_at, n.file_paths, n.associated_entry_ids,
+        SELECT DISTINCT n.id, n.entry_id, n.note_title, n.note_text, n.type, n.created_at, n.file_paths, n.associated_entry_ids, n.url_bookmarks,
                nt.id as notification_id, nt.scheduled_for, nt.is_read, nt.is_dismissed, nt.title as notification_title,
                e.title as primary_entry_title, et.singular_label as primary_entry_type,
                CASE 
@@ -450,22 +473,39 @@ def update_note_content(note_id):
             except (json.JSONDecodeError, ValueError):
                 associated_entry_ids_json = '[]'
         
+        # Handle url_bookmarks from form data
+        url_bookmarks_raw = request.form.get('url_bookmarks', None)
+        url_bookmarks_json = None
+        
+        if url_bookmarks_raw is not None:
+            try:
+                url_bookmarks = json.loads(url_bookmarks_raw)
+                url_bookmarks_json = json.dumps(url_bookmarks)
+            except (json.JSONDecodeError, ValueError):
+                url_bookmarks_json = '[]'
+        
         if not note_text:
             return jsonify({'error': 'Note text is required'}), 400
         
         # Build the update query based on what fields are provided
+        update_fields = []
+        update_values = []
+        
+        update_fields.extend(['note_title = ?', 'note_text = ?'])
+        update_values.extend([note_title, note_text])
+        
         if associated_entry_ids_json is not None:
-            cursor.execute("""
-                UPDATE Note 
-                SET note_title = ?, note_text = ?, associated_entry_ids = ?
-                WHERE id = ?
-            """, (note_title, note_text, associated_entry_ids_json, note_id))
-        else:
-            cursor.execute("""
-                UPDATE Note 
-                SET note_title = ?, note_text = ? 
-                WHERE id = ?
-            """, (note_title, note_text, note_id))
+            update_fields.append('associated_entry_ids = ?')
+            update_values.append(associated_entry_ids_json)
+            
+        if url_bookmarks_json is not None:
+            update_fields.append('url_bookmarks = ?')
+            update_values.append(url_bookmarks_json)
+        
+        update_values.append(note_id)  # Add note_id for WHERE clause
+        
+        query = f"UPDATE Note SET {', '.join(update_fields)} WHERE id = ?"
+        cursor.execute(query, update_values)
         
         conn.commit()
         
@@ -480,6 +520,9 @@ def update_note_content(note_id):
         
         if associated_entry_ids_json is not None:
             response_data['associated_entry_ids'] = json.loads(associated_entry_ids_json)
+            
+        if url_bookmarks_json is not None:
+            response_data['url_bookmarks'] = json.loads(url_bookmarks_json)
             
         return jsonify(response_data), 200
         

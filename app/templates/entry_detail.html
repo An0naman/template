@@ -2592,6 +2592,10 @@
                                                 data-bs-toggle="collapse" data-bs-target="#uploadSection" aria-expanded="false">
                                             <i class="fas fa-paperclip me-1"></i>Upload <i class="fas fa-chevron-down ms-1"></i>
                                         </button>
+                                        <button type="button" class="btn btn-sm btn-outline-success" id="toggleBookmarksBtn"
+                                                data-bs-toggle="collapse" data-bs-target="#bookmarksSection" aria-expanded="false">
+                                            <i class="fas fa-bookmark me-1"></i>Bookmarks <i class="fas fa-chevron-down ms-1"></i>
+                                        </button>
                                     </div>
                                 </div>
 
@@ -2689,6 +2693,27 @@
                                                     {% if other_types %}{% if image_types or doc_types or video_types or audio_types or archive_types %}, {% endif %}{{ other_types|join(', ') }}{% endif %}
                                                 </span>
                                                 Max file size: {{ max_file_size }}MB
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- URL Bookmarks Section (Collapsible) -->
+                                <div class="collapse mb-3" id="bookmarksSection">
+                                    <div class="border rounded p-3 bg-light">
+                                        <div class="mb-3">
+                                            <label class="form-label">
+                                                <i class="fas fa-bookmark text-success me-1"></i>URL Bookmarks
+                                            </label>
+                                            <div id="urlBookmarksList">
+                                                <!-- Dynamic bookmark entries will be inserted here -->
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-success" id="addBookmarkBtn">
+                                                <i class="fas fa-plus me-1"></i>Add Bookmark
+                                            </button>
+                                            <div class="form-text">
+                                                <i class="fas fa-info-circle me-1"></i> 
+                                                Add reference links with friendly names for easy access.
                                             </div>
                                         </div>
                                     </div>
@@ -2802,6 +2827,15 @@
                     <h6>Content:</h6>
                     <div id="noteContentDisplay">
                         <p id="modalNoteContent"></p>
+                        
+                        <!-- URL Bookmarks Display -->
+                        <div id="modalBookmarksDisplay" style="display: none;">
+                            <h6 class="mt-3">URL Bookmarks:</h6>
+                            <div id="modalBookmarksList" class="list-group list-group-flush">
+                                <!-- Bookmarks will be populated here -->
+                            </div>
+                        </div>
+                        
                         <button type="button" class="btn btn-sm btn-primary" id="editNoteContentBtn">
                             <i class="fas fa-edit me-1"></i>Edit Note
                         </button>
@@ -2825,6 +2859,19 @@
                                 <button type="button" class="btn btn-sm btn-outline-primary ai-btn" id="aiEditImproveNoteBtn" title="Improve existing note content using AI">
                                     <i class="fas fa-wand-magic-sparkles me-1"></i>
                                     <span class="d-none d-sm-inline">AI Improve</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- URL Bookmarks for Edit Mode -->
+                        <div class="mb-3">
+                            <label class="form-label">URL Bookmarks:</label>
+                            <div id="editUrlBookmarksContainer">
+                                <div id="editUrlBookmarksList">
+                                    <!-- Dynamic bookmark fields will be added here -->
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="editAddBookmarkBtn">
+                                    <i class="fas fa-plus me-1"></i>Add Bookmark
                                 </button>
                             </div>
                         </div>
@@ -3774,6 +3821,210 @@
         window.setReminderToTomorrow = setReminderToTomorrow;
         window.clearReminder = clearReminder;
         
+        // URL Bookmarks functionality
+        let urlBookmarks = [];
+        let bookmarkCounter = 0;
+        
+        function addBookmarkField(url = '', friendlyName = '') {
+            const bookmarkId = ++bookmarkCounter;
+            const bookmarkDiv = document.createElement('div');
+            bookmarkDiv.className = 'bookmark-entry mb-2 p-2 border rounded';
+            bookmarkDiv.dataset.bookmarkId = bookmarkId;
+            
+            bookmarkDiv.innerHTML = `
+                <div class="row g-2">
+                    <div class="col-md-5">
+                        <input type="text" class="form-control form-control-sm bookmark-name" 
+                               placeholder="Friendly name (e.g., GitHub Repo)" value="${friendlyName}">
+                    </div>
+                    <div class="col-md-6">
+                        <input type="url" class="form-control form-control-sm bookmark-url" 
+                               placeholder="https://example.com" value="${url}">
+                    </div>
+                    <div class="col-md-1">
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-bookmark-btn" 
+                                onclick="removeBookmark(${bookmarkId})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('urlBookmarksList').appendChild(bookmarkDiv);
+            return bookmarkDiv;
+        }
+        
+        function removeBookmark(bookmarkId) {
+            const bookmarkDiv = document.querySelector(`[data-bookmark-id="${bookmarkId}"]`);
+            if (bookmarkDiv) {
+                bookmarkDiv.remove();
+            }
+        }
+        
+        function getUrlBookmarks() {
+            const bookmarks = [];
+            document.querySelectorAll('.bookmark-entry').forEach(entry => {
+                const nameInput = entry.querySelector('.bookmark-name');
+                const urlInput = entry.querySelector('.bookmark-url');
+                
+                const friendlyName = nameInput.value.trim();
+                const url = urlInput.value.trim();
+                
+                if (url && friendlyName) {
+                    bookmarks.push({
+                        url: url,
+                        friendly_name: friendlyName
+                    });
+                }
+            });
+            return bookmarks;
+        }
+        
+        function clearAllBookmarks() {
+            document.getElementById('urlBookmarksList').innerHTML = '';
+            bookmarkCounter = 0;
+        }
+        
+        // Display URL bookmarks in the modal
+        function displayUrlBookmarks(urlBookmarks) {
+            const modalBookmarksDisplay = document.getElementById('modalBookmarksDisplay');
+            const modalBookmarksList = document.getElementById('modalBookmarksList');
+            
+            // Clear existing bookmarks
+            modalBookmarksList.innerHTML = '';
+            
+            if (urlBookmarks && urlBookmarks.length > 0) {
+                modalBookmarksDisplay.style.display = 'block';
+                
+                urlBookmarks.forEach(bookmark => {
+                    const bookmarkItem = document.createElement('div');
+                    bookmarkItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    
+                    const displayName = bookmark.friendly_name && bookmark.friendly_name.trim() 
+                        ? bookmark.friendly_name.trim() 
+                        : bookmark.url;
+                    
+                    bookmarkItem.innerHTML = `
+                        <div>
+                            <a href="${bookmark.url}" target="_blank" class="text-decoration-none">
+                                <i class="fas fa-external-link-alt me-2"></i>
+                                ${displayName}
+                            </a>
+                            ${bookmark.friendly_name && bookmark.friendly_name.trim() ? `<br><small class="text-muted">${bookmark.url}</small>` : ''}
+                        </div>
+                    `;
+                    
+                    modalBookmarksList.appendChild(bookmarkItem);
+                });
+            } else {
+                modalBookmarksDisplay.style.display = 'none';
+            }
+        }
+        
+        // Edit mode bookmark functions
+        let editBookmarkCounter = 0;
+        
+        function addEditBookmarkField(url = '', friendlyName = '') {
+            editBookmarkCounter++;
+            const container = document.getElementById('editUrlBookmarksList');
+            
+            const bookmarkDiv = document.createElement('div');
+            bookmarkDiv.className = 'edit-bookmark-field mb-2 p-2 border rounded';
+            bookmarkDiv.innerHTML = `
+                <div class="row g-2">
+                    <div class="col-md-5">
+                        <input type="url" class="form-control form-control-sm" placeholder="https://example.com" 
+                               name="edit_bookmark_url_${editBookmarkCounter}" value="${url}">
+                    </div>
+                    <div class="col-md-5">
+                        <input type="text" class="form-control form-control-sm" placeholder="Friendly Name" 
+                               name="edit_bookmark_name_${editBookmarkCounter}" value="${friendlyName}">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="removeEditBookmark(this)">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(bookmarkDiv);
+        }
+        
+        function removeEditBookmark(button) {
+            button.closest('.edit-bookmark-field').remove();
+        }
+        
+        function getEditUrlBookmarks() {
+            const bookmarks = [];
+            const container = document.getElementById('editUrlBookmarksList');
+            const bookmarkFields = container.querySelectorAll('.edit-bookmark-field');
+            
+            bookmarkFields.forEach(field => {
+                const urlInput = field.querySelector('input[name^="edit_bookmark_url_"]');
+                const nameInput = field.querySelector('input[name^="edit_bookmark_name_"]');
+                
+                if (urlInput && urlInput.value.trim()) {
+                    bookmarks.push({
+                        url: urlInput.value.trim(),
+                        friendly_name: nameInput ? nameInput.value.trim() : ''
+                    });
+                }
+            });
+            return bookmarks;
+        }
+        
+        function clearEditBookmarks() {
+            document.getElementById('editUrlBookmarksList').innerHTML = '';
+            editBookmarkCounter = 0;
+        }
+        
+        function populateEditBookmarks(urlBookmarks) {
+            clearEditBookmarks();
+            if (urlBookmarks && urlBookmarks.length > 0) {
+                urlBookmarks.forEach(bookmark => {
+                    addEditBookmarkField(bookmark.url, bookmark.friendly_name);
+                });
+            }
+        }
+        
+        // Create bookmarks display for note list items
+        function createBookmarksListDisplay(urlBookmarks) {
+            if (!urlBookmarks || urlBookmarks.length === 0) {
+                return '';
+            }
+            
+            let bookmarksHtml = '<div class="mt-2"><small class="text-muted"><i class="fas fa-bookmark me-1"></i>Bookmarks:</small><br>';
+            
+            urlBookmarks.forEach((bookmark, index) => {
+                const displayName = bookmark.friendly_name && bookmark.friendly_name.trim() 
+                    ? bookmark.friendly_name.trim() 
+                    : bookmark.url;
+                
+                bookmarksHtml += `
+                    <a href="${bookmark.url}" target="_blank" class="text-decoration-none me-3 d-inline-block">
+                        <small><i class="fas fa-external-link-alt me-1"></i>${displayName}</small>
+                    </a>
+                `;
+            });
+            
+            bookmarksHtml += '</div>';
+            return bookmarksHtml;
+        }
+        
+        // Event listeners
+        document.getElementById('addBookmarkBtn').addEventListener('click', () => {
+            addBookmarkField();
+        });
+        
+        // Edit mode bookmark event listener
+        document.getElementById('editAddBookmarkBtn').addEventListener('click', () => {
+            addEditBookmarkField();
+        });
+        
+        // Make removeBookmark globally accessible
+        window.removeBookmark = removeBookmark;
+        
         addNoteBtn.addEventListener('click', async () => {
             const noteTitle = noteTitleInput.value.trim();
             const noteText = newNoteTextarea.value.trim();
@@ -3846,6 +4097,12 @@
                     formData.append('associated_entry_ids', JSON.stringify(associatedEntryIds));
                 }
                 
+                // Add URL bookmarks if any
+                const bookmarks = getUrlBookmarks();
+                if (bookmarks.length > 0) {
+                    formData.append('url_bookmarks', JSON.stringify(bookmarks));
+                }
+                
                 // Add reminder date if provided
                 if (reminderDate) {
                     formData.append('reminder_date', reminderDate);
@@ -3879,6 +4136,9 @@
                         option.selected = false;
                     });
                     updateSelectedAssociationsDisplay();
+                    
+                    // Clear URL bookmarks
+                    clearAllBookmarks();
 
                     const bsCollapse = new bootstrap.Collapse(newNoteFormCollapseElement, { toggle: false });
                     bsCollapse.hide(); // Hide the form after successful submission
@@ -4018,6 +4278,9 @@
                     </small>`;
                 }
 
+                // Create bookmarks display
+                const bookmarksDisplay = createBookmarksListDisplay(note.url_bookmarks);
+
                 noteItem.innerHTML = `
                     <div class="d-flex w-100 justify-content-between">
                         <h5 class="mb-1">
@@ -4031,6 +4294,7 @@
                     </div>
                     <p class="mb-1 note-text-preview">${note.note_text.substring(0, 100)}${note.note_text.length > 100 ? '...' : ''}</p>
                     ${associatedEntriesInfo}
+                    ${bookmarksDisplay}
                     <button type="button" class="btn btn-theme-primary btn-sm mt-2 open-note-details-btn" data-note-id="${note.id}">
                         Open Details <i class="fas fa-external-link-alt ms-1"></i>
                     </button>
@@ -4049,6 +4313,9 @@
                         modalNoteType.textContent = note.note_type || 'General';
                         modalNoteCreated.textContent = new Date(note.created_at).toLocaleString();
                         modalNoteContent.textContent = note.note_text;
+                        
+                        // Display URL bookmarks if they exist
+                        displayUrlBookmarks(note.url_bookmarks);
                         
                         // Handle relationship information
                         const modalNoteRelationships = document.getElementById('modalNoteRelationships');
@@ -4621,6 +4888,10 @@
             if (currentNote) {
                 editNoteTitle.value = currentNote.note_title || '';
                 editNoteText.value = currentNote.note_text || '';
+                
+                // Populate edit bookmarks
+                populateEditBookmarks(currentNote.url_bookmarks);
+                
                 noteContentDisplay.style.display = 'none';
                 noteContentEditMode.style.display = 'block';
             }
@@ -4636,6 +4907,10 @@
                 const formData = new FormData();
                 formData.append('note_title', editNoteTitle.value.trim());
                 formData.append('note_text', editNoteText.value.trim());
+                
+                // Add URL bookmarks
+                const editBookmarks = getEditUrlBookmarks();
+                formData.append('url_bookmarks', JSON.stringify(editBookmarks));
 
                 const response = await fetch(`/api/notes/${currentNoteIdInModal}`, {
                     method: 'PUT',
@@ -4650,11 +4925,15 @@
                     if (updatedNote) {
                         updatedNote.note_title = result.note_title;
                         updatedNote.note_text = result.note_text;
+                        updatedNote.url_bookmarks = result.url_bookmarks;
                         loadedNotes.set(currentNoteIdInModal, updatedNote);
                         
                         // Update modal display
                         modalNoteTitle.textContent = result.note_title || 'No Title';
                         modalNoteContent.textContent = result.note_text;
+                        
+                        // Update URL bookmarks display
+                        displayUrlBookmarks(result.url_bookmarks);
                         
                         // Refresh notes list to show updated content
                         await fetchNotes();

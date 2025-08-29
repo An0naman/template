@@ -29,7 +29,8 @@ def serialize_note(note):
         "note_type": note['type'], # Ensure this matches your DB column name for note type
         "created_at": note['created_at'],
         "file_paths": json.loads(note['file_paths']) if note['file_paths'] else [],
-        "associated_entry_ids": json.loads(note['associated_entry_ids']) if note['associated_entry_ids'] else []
+        "associated_entry_ids": json.loads(note['associated_entry_ids']) if note['associated_entry_ids'] else [],
+        "urls": json.loads(note['urls']) if note.get('urls') else []
     }
 
 def serialize_relationship_definition(definition):

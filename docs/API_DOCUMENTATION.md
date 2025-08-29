@@ -299,13 +299,30 @@ GET /api/notes
         {
             "id": 1,
             "entry_id": 1,
-            "title": "Reading Notes",
-            "content": "This book is excellent...",
+            "note_title": "Reading Notes",
+            "note_text": "This book is excellent...",
             "note_type": "general",
-            "has_attachments": true,
-            "has_reminder": false,
             "created_at": "2025-08-03T10:00:00Z",
-            "updated_at": "2025-08-03T10:00:00Z"
+            "file_paths": ["uploads/note_1_screenshot.png"],
+            "associated_entry_ids": [2, 3],
+            "url_bookmarks": [
+                {
+                    "url": "https://example.com/book-review",
+                    "friendly_name": "Book Review Article"
+                },
+                {
+                    "url": "https://author-website.com",
+                    "friendly_name": "Author's Website"
+                }
+            ],
+            "reminder": {
+                "notification_id": 5,
+                "scheduled_for": "2025-09-01T10:00:00Z",
+                "is_read": false,
+                "is_dismissed": false,
+                "title": "Reminder: Reading Notes"
+            },
+            "relationship_type": "primary"
         }
     ]
 }
@@ -313,22 +330,73 @@ GET /api/notes
 
 ### **Create Note**
 ```http
-POST /api/notes
+POST /api/entries/{entry_id}/notes
+```
+
+**Request Body (JSON):**
+```json
+{
+    "note_title": "Research Notes",
+    "note_text": "Important research findings",
+    "note_type": "general",
+    "associated_entry_ids": [2, 3],
+    "url_bookmarks": [
+        {
+            "url": "https://example.com/research",
+            "friendly_name": "Research Article"
+        },
+        {
+            "url": "https://github.com/user/repo",
+            "friendly_name": "Code Repository"
+        }
+    ],
+    "reminder_date": "2025-09-01T10:00:00"
+}
 ```
 
 **Request Body (multipart/form-data):**
-- `entry_id` - Entry ID
 - `note_title` - Note title
-- `note_text` - Note content
+- `note_text` - Note content  
 - `note_type` - Note type (general, important, warning, etc.)
+- `associated_entry_ids` - JSON array of related entry IDs
+- `url_bookmarks` - JSON array of bookmark objects with url and friendly_name
 - `files` - File attachments (optional)
-- `reminder_datetime` - ISO datetime for reminder (optional)
+- `reminder_date` - ISO datetime for reminder (optional)
 
 **Response:**
 ```json
 {
     "message": "Note added successfully",
-    "note_id": 1
+    "note_id": 1,
+    "file_paths": ["uploads/note_1_document.pdf"],
+    "files_uploaded": 1
+}
+```
+
+### **Update Note**
+```http
+PUT /api/notes/{note_id}
+```
+
+**Request Body (form-data):**
+- `note_title` - Updated note title
+- `note_text` - Updated note content
+- `associated_entry_ids` - JSON array of related entry IDs
+- `url_bookmarks` - JSON array of bookmark objects
+
+**Response:**
+```json
+{
+    "message": "Note updated successfully",
+    "note_title": "Updated Research Notes",
+    "note_text": "Updated content",
+    "associated_entry_ids": [2, 3],
+    "url_bookmarks": [
+        {
+            "url": "https://updated-example.com",
+            "friendly_name": "Updated Research Link"
+        }
+    ]
 }
 ```
 
