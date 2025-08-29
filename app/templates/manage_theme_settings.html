@@ -1738,6 +1738,13 @@
                 if (success) {
                     statusMsg.className = 'alert alert-success status-message';
                     statusMsg.textContent = 'Theme settings saved successfully!';
+                    
+                    // Notify global theme manager of settings change
+                    if (window.parent && window.parent.globalThemeManager) {
+                        await window.parent.globalThemeManager.refreshSettings();
+                    } else if (window.globalThemeManager) {
+                        await window.globalThemeManager.refreshSettings();
+                    }
                 } else {
                     statusMsg.className = 'alert alert-danger status-message';
                     statusMsg.textContent = 'Failed to save theme settings. Please try again.';
@@ -2122,5 +2129,6 @@
             initAIThemeChat();
         });
     </script>
+    <script src="{{ url_for('static', filename='global-theme-manager.js') }}"></script>
 </body>
 </html>
