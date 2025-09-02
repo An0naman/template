@@ -2340,6 +2340,17 @@
                 {% if entry.has_sensors %}
                 <div class="content-section theme-section mb-4">
                     <div class="section-content">
+                        <!-- Performance Alert (hidden by default, shown by JavaScript when needed) -->
+                        <div id="performanceAlert" class="alert alert-info d-none mb-3">
+                            <div class="d-flex align-items-start">
+                                <i class="fas fa-info-circle me-2 mt-1"></i>
+                                <div>
+                                    <strong>Performance Tip:</strong> 
+                                    <span id="performanceMessage">Loading large datasets may be slower on mobile devices. Consider using the data limit or time range filters for better performance.</span>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div class="section-header mb-3">
                             <div class="d-flex justify-content-between align-items-center">
                                 <h4 class="section-title mb-0">
@@ -2403,7 +2414,7 @@
                                     <label for="timeRangeFilter" class="form-label">Time Range</label>
                                     <select class="form-select form-select-sm" id="timeRangeFilter">
                                         <option value="all">All Time</option>
-                                        <option value="24h">Last 24 Hours</option>
+                                        <option value="24h" selected>Last 24 Hours</option>
                                         <option value="7d">Last 7 Days</option>
                                         <option value="30d">Last 30 Days</option>
                                     </select>
@@ -2418,6 +2429,9 @@
                                            title="Enter number of most recent data points to display (1-10000), or leave empty for all data">
                                     <div class="form-text">
                                         <small>Number of most recent data points to show (leave empty for all)</small>
+                                        <small class="d-block d-md-none text-info mt-1">
+                                            <i class="fas fa-mobile-alt me-1"></i>Mobile: Auto-limited to 50 points for better performance
+                                        </small>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
@@ -7928,8 +7942,18 @@
         // Auto-refresh variables
         let sensorDataRefreshInterval = null;
         const SENSOR_REFRESH_INTERVAL = 60000; // 60 seconds
+        let isLoadingSensorData = false; // Flag to prevent multiple simultaneous requests
         
         async function loadSensorData() {
+            console.log('loadSensorData() called');
+            
+            // Prevent multiple simultaneous requests
+            if (isLoadingSensorData) {
+                console.log('Already loading sensor data, skipping...');
+                return;
+            }
+            
+            isLoadingSensorData = true;
             const sensorDataContainer = document.getElementById('sensorDataContainer');
             const loadingSensorData = document.getElementById('loadingSensorData');
             
@@ -7943,6 +7967,7 @@
                 if (loadingSensorData) {
                     loadingSensorData.style.display = 'block';
                 }
+                console.log('Fetching sensor data from API...');
                 const response = await fetch(`/api/entries/${entryId}/sensor_data`);
                 
                 if (!response.ok) {
@@ -7951,6 +7976,7 @@
                 
                 const sensorData = await response.json();
                 console.log('Loaded sensor data:', sensorData); // Debug log
+                console.log('Sensor data length:', sensorData.length);
                 renderSensorData(sensorData);
                 
                 // Update chart immediately if in chart view
@@ -7964,6 +7990,7 @@
                 if (loadingSensorData) {
                     loadingSensorData.style.display = 'none';
                 }
+                isLoadingSensorData = false; // Reset loading flag
             }
         }
         
@@ -8226,6 +8253,9 @@
             
             // Store data globally for chart functionality
             allSensorData = sensorData;
+            
+            // Manage performance alert
+            showPerformanceAlertIfNeeded(sensorData.length);
             
             if (sensorData.length === 0) {
                 sensorDataContainer.innerHTML = '<p class="text-muted">No sensor data recorded yet.</p>';
@@ -8496,6 +8526,16 @@
 
         // Chart Functions
         async function initializeChartControls() {
+            console.log('initializeChartControls() called');
+            
+            // Check if Chart.js is loaded
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js library is not loaded!');
+                return;
+            } else {
+                console.log('Chart.js version:', Chart.version);
+            }
+            
             // Initialize DOM element references
             chartTypeSelect = document.getElementById('chartTypeSelect');
             sensorTypeFilter = document.getElementById('sensorTypeFilter');
@@ -8503,6 +8543,15 @@
             tableViewBtn = document.getElementById('tableView');
             chartViewBtn = document.getElementById('chartView');
             sensorChartContainer = document.getElementById('sensorChartContainer');
+            
+            console.log('Chart controls elements:', {
+                chartTypeSelect,
+                sensorTypeFilter,
+                timeRangeFilter,
+                tableViewBtn,
+                chartViewBtn,
+                sensorChartContainer
+            });
             
             // Set initial visibility based on default selection (chart view)
             if (sensorDataContainer && sensorChartContainer) {
@@ -8578,6 +8627,10 @@
                 sensorTypeFilter.appendChild(option);
             });
         }
+        
+        function isMobileDevice() {
+            return window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
 
         function getFilteredSensorData() {
             let filteredData = [...allSensorData];
@@ -8612,13 +8665,18 @@
             // Sort by recorded_at (most recent first for limiting)
             filteredData.sort((a, b) => new Date(b.recorded_at) - new Date(a.recorded_at));
             
-            // Apply data limit
+            // Apply data limit with mobile-specific defaults
             const dataLimitFilter = document.getElementById('dataLimitFilter');
+            
             if (dataLimitFilter && dataLimitFilter.value.trim() !== '') {
                 const limit = parseInt(dataLimitFilter.value);
                 if (!isNaN(limit) && limit > 0) {
                     filteredData = filteredData.slice(0, limit);
                 }
+            } else if (isMobileDevice() && filteredData.length > 50) {
+                // Auto-limit data on mobile for better performance
+                filteredData = filteredData.slice(0, 50);
+                console.log('Auto-limited data to 50 points for mobile performance');
             }
             
             // Sort again by recorded_at for chart display (oldest first)
@@ -8628,31 +8686,47 @@
         }
 
         function renderChartView() {
-            const canvas = document.getElementById('sensorChart');
-            const loadingChart = document.getElementById('loadingChart');
-            if (!canvas) return;
-            
-            const ctx = canvas.getContext('2d');
-            const filteredData = getFilteredSensorData();
-            
-            // Hide loading message
-            if (loadingChart) {
-                loadingChart.style.display = 'none';
-            }
-            
-            if (filteredData.length === 0) {
-                // Clear chart and show message
-                if (sensorChart) {
-                    sensorChart.destroy();
-                    sensorChart = null;
+            console.log('renderChartView() called');
+            try {
+                const canvas = document.getElementById('sensorChart');
+                const loadingChart = document.getElementById('loadingChart');
+                
+                console.log('Canvas element:', canvas);
+                console.log('Loading element:', loadingChart);
+                
+                if (!canvas) {
+                    console.error('Canvas element not found!');
+                    return;
                 }
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.font = '16px Arial';
-                ctx.fillStyle = '#6c757d';
-                ctx.textAlign = 'center';
-                ctx.fillText('No data available for the selected filters', canvas.width / 2, canvas.height / 2);
-                return;
-            }
+                
+                const startTime = performance.now();
+                const ctx = canvas.getContext('2d');
+                const filteredData = getFilteredSensorData();
+                
+                console.log('Filtered data length:', filteredData.length);
+                
+                // Performance logging
+                console.log(`Chart rendering started: ${filteredData.length} data points, Mobile: ${isMobileDevice()}`);
+                
+                // Hide loading message
+                if (loadingChart) {
+                    loadingChart.style.display = 'none';
+                }
+                
+                if (filteredData.length === 0) {
+                    console.log('No data available, showing empty message');
+                    // Clear chart and show message
+                    if (sensorChart) {
+                        sensorChart.destroy();
+                        sensorChart = null;
+                    }
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.font = '16px Arial';
+                    ctx.fillStyle = '#6c757d';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('No data available for the selected filters', canvas.width / 2, canvas.height / 2);
+                    return;
+                }
             
             // Group data by sensor type for multiple datasets
             const groupedData = {};
@@ -8662,6 +8736,10 @@
                 }
                 groupedData[d.sensor_type].push(d);
             });
+            
+            // Detect mobile device for performance optimizations (move this up)
+            const isMobile = isMobileDevice();
+            const dataPointCount = filteredData.length;
             
             // Create datasets
             const datasets = [];
@@ -8695,7 +8773,8 @@
                 const data = groupedData[sensorType];
                 const color = colors[colorIndex % colors.length];
                 
-                datasets.push({
+                // Optimize dataset configuration for performance
+                const dataset = {
                     label: sensorType,
                     data: data.map(d => ({
                         x: new Date(d.recorded_at),
@@ -8703,17 +8782,52 @@
                     })),
                     backgroundColor: color,
                     borderColor: color.replace('0.8', '1'),
-                    borderWidth: 2,
+                    borderWidth: isMobile ? 1 : 2,
                     fill: false,
-                    tension: 0.1
-                });
+                    tension: 0, // Disable Bézier curves for better performance
+                    pointRadius: isMobile ? 1 : 2,
+                    pointHoverRadius: isMobile ? 3 : 4,
+                    pointHitRadius: 10, // Explicitly set hit radius to fix Chart.js error
+                    pointBorderWidth: 1,
+                    pointHoverBorderWidth: 2,
+                    parsing: false, // Data is already in the correct format
+                    normalized: true // Data is sorted by time
+                };
                 
+                // For very large datasets on mobile, consider hiding points
+                if (isMobile && dataPointCount > 100) {
+                    dataset.pointRadius = 0;
+                    dataset.pointHoverRadius = 2;
+                }
+                
+                datasets.push(dataset);
                 colorIndex++;
             });
             
             // Destroy existing chart
-            if (sensorChart) {
+            if (sensorChart && typeof sensorChart.destroy === 'function') {
+                console.log('Destroying existing chart instance');
                 sensorChart.destroy();
+                sensorChart = null;
+            }
+            
+            // Clear canvas to ensure clean state
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Calculate time axis bounds based on actual data
+            let timeAxisMin, timeAxisMax;
+            if (filteredData.length > 0) {
+                const allTimestamps = filteredData.map(d => new Date(d.recorded_at).getTime());
+                timeAxisMin = new Date(Math.min(...allTimestamps));
+                timeAxisMax = new Date(Math.max(...allTimestamps));
+                
+                // Add a small buffer (5% of the time range) for better visual spacing
+                const timeRange = timeAxisMax.getTime() - timeAxisMin.getTime();
+                const buffer = timeRange * 0.05;
+                timeAxisMin = new Date(timeAxisMin.getTime() - buffer);
+                timeAxisMax = new Date(timeAxisMax.getTime() + buffer);
+                
+                console.log('Auto-scaling time axis from', timeAxisMin.toISOString(), 'to', timeAxisMax.toISOString());
             }
             
             // Create new chart
@@ -8728,30 +8842,56 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     color: primaryColor, // Set default text color to primary theme color
+                    // Disable animations on mobile or with large datasets
+                    animation: !isMobile && dataPointCount <= 50,
+                    // Optimize elements for mobile
+                    elements: {
+                        point: {
+                            radius: isMobile ? 2 : 3,
+                            hoverRadius: isMobile ? 4 : 6,
+                            hitRadius: 10, // Explicitly set hit radius
+                            borderWidth: 1,
+                            hoverBorderWidth: 2
+                        },
+                        line: {
+                            borderWidth: isMobile ? 1 : 2,
+                            tension: 0 // Disable Bézier curves for better performance
+                        }
+                    },
                     scales: {
                         x: {
                             type: 'time',
+                            adapters: {
+                                date: {
+                                    zone: 'UTC'
+                                }
+                            },
                             time: {
                                 parser: 'YYYY-MM-DDTHH:mm:ss.sssZ',
                                 displayFormats: {
                                     millisecond: 'HH:mm:ss.SSS',
                                     second: 'HH:mm:ss',
                                     minute: 'HH:mm',
-                                    hour: 'MM/DD HH:mm',
-                                    day: 'MM/DD',
-                                    week: 'MM/DD',
-                                    month: 'MM/YY',
-                                    quarter: 'MM/YY',
-                                    year: 'YYYY'
+                                    hour: 'MM/dd HH:mm',
+                                    day: 'MM/dd',
+                                    week: 'MM/dd',
+                                    month: 'MM/yy',
+                                    quarter: 'MM/yy',
+                                    year: 'yyyy'
                                 }
                             },
+                            // Auto-scale to fit the actual data range
+                            min: timeAxisMin,
+                            max: timeAxisMax,
                             title: {
                                 display: true,
                                 text: 'Time',
                                 color: primaryColor
                             },
                             ticks: {
-                                color: hexToRgba(primaryColor, 0.7)
+                                color: hexToRgba(primaryColor, 0.7),
+                                autoSkip: true,
+                                maxTicksLimit: isMobile ? 5 : 10
                             },
                             grid: {
                                 color: hexToRgba(primaryColor, 0.2)
@@ -8772,19 +8912,29 @@
                         }
                     },
                     plugins: {
+                        decimation: {
+                            enabled: false, // Temporarily disable to test hitRadius fix
+                            algorithm: 'lttb',
+                            samples: isMobile ? Math.min(100, Math.floor(ctx.canvas.width / 2)) : Math.min(200, ctx.canvas.width),
+                            threshold: dataPointCount > 20 ? 20 : 0
+                        },
                         title: {
                             display: true,
                             text: 'Sensor Data Over Time',
                             color: primaryColor,
                             font: {
-                                size: 16,
+                                size: isMobile ? 14 : 16,
                                 weight: 'bold'
                             }
                         },
                         legend: {
                             display: Object.keys(groupedData).length > 1,
                             labels: {
-                                color: primaryColor
+                                color: primaryColor,
+                                font: {
+                                    size: isMobile ? 11 : 12
+                                },
+                                boxWidth: isMobile ? 15 : 20
                             }
                         },
                         tooltip: {
@@ -8795,6 +8945,12 @@
                             bodyColor: '#ffffff',
                             borderColor: primaryColor,
                             borderWidth: 1,
+                            titleFont: {
+                                size: isMobile ? 12 : 14
+                            },
+                            bodyFont: {
+                                size: isMobile ? 11 : 12
+                            },
                             callbacks: {
                                 title: function(context) {
                                     if (context[0]) {
@@ -8807,11 +8963,53 @@
                     },
                     interaction: {
                         mode: 'nearest',
-                        axis: 'x',
                         intersect: false
                     }
                 }
             });
+            
+            // Performance logging
+            const endTime = performance.now();
+            const renderTime = endTime - startTime;
+            console.log(`Chart rendered in ${renderTime.toFixed(2)}ms with ${dataPointCount} data points (Mobile: ${isMobile})`);
+            
+            if (renderTime > 1000) {
+                console.warn('Chart rendering took longer than 1 second. Consider reducing data points or optimizing settings.');
+            }
+            
+            } catch (error) {
+                console.error('Error in renderChartView:', error);
+                console.error('Error stack:', error.stack);
+                
+                // Show error message on canvas
+                const canvas = document.getElementById('sensorChart');
+                if (canvas) {
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.font = '16px Arial';
+                    ctx.fillStyle = '#dc3545';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Error loading chart. Check console for details.', canvas.width / 2, canvas.height / 2);
+                }
+            }
+        }
+        
+        function showPerformanceAlertIfNeeded(dataCount) {
+            const performanceAlert = document.getElementById('performanceAlert');
+            const performanceMessage = document.getElementById('performanceMessage');
+            
+            if (!performanceAlert || !performanceMessage) return;
+            
+            // Show alert for mobile devices with many data points
+            if (isMobileDevice() && dataCount > 20) {
+                performanceMessage.textContent = `You have ${dataCount} sensor readings. On mobile devices, consider using the data limit filter (set to 50 or less) for better chart performance.`;
+                performanceAlert.classList.remove('d-none');
+            } else if (!isMobileDevice() && dataCount > 100) {
+                performanceMessage.textContent = `You have ${dataCount} sensor readings. For better performance, consider using the time range or data limit filters.`;
+                performanceAlert.classList.remove('d-none');
+            } else {
+                performanceAlert.classList.add('d-none');
+            }
         }
         
         // Chart preference persistence functions
@@ -8836,6 +9034,9 @@
                     }
                     if (timeRangeFilter && prefs.timeRange) {
                         timeRangeFilter.value = prefs.timeRange;
+                    } else if (timeRangeFilter) {
+                        // Default to 24h if no preference is saved
+                        timeRangeFilter.value = '24h';
                     }
                     const dataLimitFilter = document.getElementById('dataLimitFilter');
                     if (dataLimitFilter && prefs.dataLimit) {
@@ -8870,6 +9071,9 @@
                         }
                         if (timeRangeFilter && prefs.timeRange) {
                             timeRangeFilter.value = prefs.timeRange;
+                        } else if (timeRangeFilter) {
+                            // Default to 24h if no preference is saved
+                            timeRangeFilter.value = '24h';
                         }
                         const dataLimitFilter = document.getElementById('dataLimitFilter');
                         if (dataLimitFilter && prefs.dataLimit) {
