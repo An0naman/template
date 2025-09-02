@@ -9013,10 +9013,6 @@
         }
         
         // Chart preference persistence functions
-        function getChartPreferenceKey() {
-            return `chart_preferences_entry_{{ entry.id }}`;
-        }
-        
         async function loadChartPreferences() {
             try {
                 const response = await fetch(`/api/user_preferences/chart/{{ entry.id }}`);
@@ -9049,44 +9045,28 @@
                     }
                     
                     console.log('Loaded chart preferences from database:', prefs);
+                    
+                    // Re-render chart with loaded preferences
+                    if (typeof renderChartView === 'function') {
+                        renderChartView();
+                    }
                 } else {
                     console.log('No saved chart preferences found, using defaults');
+                    // Apply default 24h time range
+                    if (timeRangeFilter) {
+                        timeRangeFilter.value = '24h';
+                        if (typeof renderChartView === 'function') {
+                            renderChartView();
+                        }
+                    }
                 }
             } catch (error) {
                 console.error('Error loading chart preferences:', error);
-                // Fallback to localStorage if API fails
-                const prefsKey = getChartPreferenceKey();
-                const savedPrefs = localStorage.getItem(prefsKey);
-                
-                if (savedPrefs) {
-                    try {
-                        const prefs = JSON.parse(savedPrefs);
-                        
-                        // Apply saved preferences to the form controls
-                        if (chartTypeSelect && prefs.chartType) {
-                            chartTypeSelect.value = prefs.chartType;
-                        }
-                        if (sensorTypeFilter && prefs.sensorType) {
-                            sensorTypeFilter.value = prefs.sensorType;
-                        }
-                        if (timeRangeFilter && prefs.timeRange) {
-                            timeRangeFilter.value = prefs.timeRange;
-                        } else if (timeRangeFilter) {
-                            // Default to 24h if no preference is saved
-                            timeRangeFilter.value = '24h';
-                        }
-                        const dataLimitFilter = document.getElementById('dataLimitFilter');
-                        if (dataLimitFilter && prefs.dataLimit) {
-                            if (prefs.dataLimit === 'all') {
-                                dataLimitFilter.value = '';
-                            } else {
-                                dataLimitFilter.value = prefs.dataLimit;
-                            }
-                        }
-                        
-                        console.log('Loaded chart preferences from localStorage (fallback):', prefs);
-                    } catch (e) {
-                        console.error('Error loading chart preferences from localStorage:', e);
+                // Set defaults on error
+                if (timeRangeFilter) {
+                    timeRangeFilter.value = '24h';
+                    if (typeof renderChartView === 'function') {
+                        renderChartView();
                     }
                 }
             }
@@ -9098,7 +9078,7 @@
             const prefs = {
                 chartType: chartTypeSelect ? chartTypeSelect.value : 'line',
                 sensorType: sensorTypeFilter ? sensorTypeFilter.value : 'all',
-                timeRange: timeRangeFilter ? timeRangeFilter.value : 'all',
+                timeRange: timeRangeFilter ? timeRangeFilter.value : '24h',
                 dataLimit: dataLimitFilter ? (dataLimitFilter.value.trim() || 'all') : 'all'
             };
             
@@ -9117,23 +9097,9 @@
                     console.log('Auto-saved chart preferences to database:', prefs);
                 } else {
                     console.error('Failed to save chart preferences:', data.message);
-                    // Fallback to localStorage
-                    const prefsKey = getChartPreferenceKey();
-                    const prefsWithTimestamp = { ...prefs, savedAt: new Date().toISOString() };
-                    localStorage.setItem(prefsKey, JSON.stringify(prefsWithTimestamp));
-                    console.log('Auto-saved chart preferences to localStorage (fallback):', prefsWithTimestamp);
                 }
             } catch (error) {
                 console.error('Error saving chart preferences:', error);
-                // Fallback to localStorage
-                const prefsKey = getChartPreferenceKey();
-                const prefsWithTimestamp = { ...prefs, savedAt: new Date().toISOString() };
-                try {
-                    localStorage.setItem(prefsKey, JSON.stringify(prefsWithTimestamp));
-                    console.log('Auto-saved chart preferences to localStorage (fallback):', prefsWithTimestamp);
-                } catch (e) {
-                    console.error('Error saving chart preferences to localStorage:', e);
-                }
             }
         }
         
@@ -9192,19 +9158,10 @@
                 console.error('Error deleting chart preferences:', error);
             }
             
-            // Also clear localStorage fallback
-            const prefsKey = getChartPreferenceKey();
-            try {
-                localStorage.removeItem(prefsKey);
-                console.log('Chart preferences deleted from localStorage');
-            } catch (e) {
-                console.error('Error deleting chart preferences from localStorage:', e);
-            }
-            
             // Reset form controls to defaults
             if (chartTypeSelect) chartTypeSelect.value = 'line';
             if (sensorTypeFilter) sensorTypeFilter.value = 'all';
-            if (timeRangeFilter) timeRangeFilter.value = 'all';
+            if (timeRangeFilter) timeRangeFilter.value = '24h'; // Use 24h as default
             const dataLimitFilter = document.getElementById('dataLimitFilter');
             if (dataLimitFilter) dataLimitFilter.value = '';
             
