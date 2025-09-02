@@ -5,8 +5,7 @@ services:
     build: .
     container_name: template
     restart: always
-    ports:
-      - "5001:5001"
+    network_mode: host
     
     volumes:
       - template_db_data:/app/data
