@@ -314,6 +314,7 @@ def entry_chat():
         entry_id = data.get('entry_id')
         user_message = data.get('message', '').strip()
         is_first_message = data.get('is_first_message', False)
+        include_all_notes = data.get('include_all_notes', False)
         
         if not entry_id:
             return jsonify({'error': 'Entry ID is required'}), 400
@@ -327,7 +328,7 @@ def entry_chat():
             return jsonify({'error': 'AI service is not available. Please configure Gemini API key in settings.'}), 503
         
         # Chat about the entry with full context
-        response = ai_service.chat_about_entry(entry_id, user_message, is_first_message)
+        response = ai_service.chat_about_entry(entry_id, user_message, is_first_message, include_all_notes)
         
         if response:
             return jsonify({

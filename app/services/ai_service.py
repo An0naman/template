@@ -688,13 +688,14 @@ class AIService:
         """
         return prompt
 
-    def _gather_entry_context(self, entry_id: int) -> Dict[str, Any]:
+    def _gather_entry_context(self, entry_id: int, include_all_notes: bool = False) -> Dict[str, Any]:
         """Gather comprehensive context about an entry for AI chat"""
         from flask import g
         from datetime import datetime, timedelta
         import json
         
         context = {}
+        context['include_all_notes'] = include_all_notes
         
         try:
             conn = g.get('db')
@@ -770,36 +771,82 @@ class AIService:
                     except:
                         pass
             
-            # Get notes count and types
+            # Get notes count and types (including shared notes)
+            # Notes are associated with this entry if:
+            # 1. entry_id matches, OR
+            # 2. entry_id is in the associated_entry_ids JSON array
             cursor.execute('''
                 SELECT COUNT(*) as count, type
                 FROM Note
-                WHERE entry_id = ?
+                WHERE entry_id = ? 
+                   OR (associated_entry_ids IS NOT NULL 
+                       AND associated_entry_ids != '[]' 
+                       AND json_array_length(associated_entry_ids) > 0
+                       AND EXISTS (
+                           SELECT 1 FROM json_each(associated_entry_ids) 
+                           WHERE value = ?
+                       ))
                 GROUP BY type
-            ''', (entry_id,))
+            ''', (entry_id, entry_id))
             
             notes_by_type = cursor.fetchall()
             context['total_notes'] = sum(row['count'] for row in notes_by_type)
             context['notes_by_type'] = {row['type']: row['count'] for row in notes_by_type}
             
-            # Get recent notes
+            # Get recent notes (including shared notes)
             cursor.execute('''
-                SELECT note_title, note_text, type, created_at
+                SELECT note_title, note_text, type, created_at, entry_id, associated_entry_ids
                 FROM Note
-                WHERE entry_id = ?
+                WHERE entry_id = ? 
+                   OR (associated_entry_ids IS NOT NULL 
+                       AND associated_entry_ids != '[]' 
+                       AND json_array_length(associated_entry_ids) > 0
+                       AND EXISTS (
+                           SELECT 1 FROM json_each(associated_entry_ids) 
+                           WHERE value = ?
+                       ))
                 ORDER BY created_at DESC
                 LIMIT 5
-            ''', (entry_id,))
+            ''', (entry_id, entry_id))
             
             recent_notes = cursor.fetchall()
             context['recent_notes'] = [
                 {
                     'title': note['note_title'] or 'Untitled',
                     'type': note['type'],
-                    'preview': note['note_text'][:100] + '...' if len(note['note_text']) > 100 else note['note_text']
+                    'preview': note['note_text'][:100] + '...' if len(note['note_text']) > 100 else note['note_text'],
+                    'is_shared': note['entry_id'] != entry_id  # Mark if it's a shared note
                 }
                 for note in recent_notes
             ]
+            
+            # Get all notes content if requested (including shared notes)
+            if include_all_notes and context['total_notes'] > 0:
+                cursor.execute('''
+                    SELECT note_title, note_text, type, created_at, entry_id, associated_entry_ids
+                    FROM Note
+                    WHERE entry_id = ? 
+                       OR (associated_entry_ids IS NOT NULL 
+                           AND associated_entry_ids != '[]' 
+                           AND json_array_length(associated_entry_ids) > 0
+                           AND EXISTS (
+                               SELECT 1 FROM json_each(associated_entry_ids) 
+                               WHERE value = ?
+                           ))
+                    ORDER BY created_at DESC
+                ''', (entry_id, entry_id))
+                
+                all_notes = cursor.fetchall()
+                context['all_notes'] = [
+                    {
+                        'title': note['note_title'] or 'Untitled',
+                        'type': note['type'],
+                        'content': note['note_text'],
+                        'created_at': note['created_at'],
+                        'is_shared': note['entry_id'] != entry_id  # Mark if it's a shared note
+                    }
+                    for note in all_notes
+                ]
             
             # Get relationships with descriptions (both directions)
             # First get outgoing relationships (where this entry is the source)
@@ -1012,14 +1059,14 @@ class AIService:
         message_lower = message.lower()
         return any(keyword in message_lower for keyword in sensor_keywords)
 
-    def chat_about_entry(self, entry_id: int, user_message: str, is_first_message: bool = False) -> Optional[str]:
+    def chat_about_entry(self, entry_id: int, user_message: str, is_first_message: bool = False, include_all_notes: bool = False) -> Optional[str]:
         """Chat with AI about a specific entry with full context"""
         if not self.is_available():
             return None
         
         try:
             # Gather entry context
-            context = self._gather_entry_context(entry_id)
+            context = self._gather_entry_context(entry_id, include_all_notes)
             
             if 'error' in context:
                 return f"I apologize, but I encountered an error accessing this entry: {context['error']}"
@@ -1074,10 +1121,20 @@ You are currently discussing the following entry:
                     context_prompt += f" ({types_str})"
                 context_prompt += "\n"
                 
-                if context.get('recent_notes'):
-                    context_prompt += "\n**Recent Notes:**\n"
+                # If user requested all notes, include full content
+                if context.get('all_notes'):
+                    context_prompt += "\n**All Notes (Full Content - includes shared notes):**\n"
+                    for note in context['all_notes']:
+                        shared_indicator = " [SHARED]" if note.get('is_shared') else ""
+                        context_prompt += f"\n  [{note['type']}] {note['title']}{shared_indicator}\n"
+                        context_prompt += f"  Created: {note['created_at']}\n"
+                        context_prompt += f"  Content: {note['content']}\n"
+                        context_prompt += "  " + "-" * 50 + "\n"
+                elif context.get('recent_notes'):
+                    context_prompt += "\n**Recent Notes (Preview - includes shared notes):**\n"
                     for note in context['recent_notes'][:3]:
-                        context_prompt += f"  - [{note['type']}] {note['title']}: {note['preview']}\n"
+                        shared_indicator = " [SHARED]" if note.get('is_shared') else ""
+                        context_prompt += f"  - [{note['type']}] {note['title']}{shared_indicator}: {note['preview']}\n"
             
             # Add relationships with descriptions
             if context['relationships_count'] > 0:
