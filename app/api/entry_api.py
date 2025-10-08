@@ -226,16 +226,75 @@ def search_entries():
 
 @entry_api_bp.route('/entries/<int:entry_id>/sensor_data', methods=['GET'])
 def get_sensor_data_for_entry(entry_id):
-    """Get all sensor data for a specific entry"""
+    """Get all sensor data for a specific entry (supports legacy, shared, and range-based data)"""
     try:
         conn = get_db()
         cursor = conn.cursor()
+        all_data = []
+        
+        # 1. Try to get data from range-based sensor model first (most efficient)
+        try:
+            from ..services.range_based_sensor_service import RangeBasedSensorService
+            range_data = RangeBasedSensorService.get_sensor_data_for_entry(entry_id)
+            
+            if range_data:
+                # Convert to format expected by frontend
+                for item in range_data:
+                    all_data.append({
+                        'id': item['id'],
+                        'sensor_type': item['sensor_type'],
+                        'value': item['value'],
+                        'recorded_at': item['recorded_at'],
+                        'source': 'range_based',
+                        'link_type': 'primary',  # Range-based doesn't store link_type per reading
+                        'total_linked_entries': 1  # Will be calculated if needed
+                    })
+        except ImportError:
+            pass  # Range-based service not available
+        
+        # 2. Try to get data from shared sensor model (fallback)
+        try:
+            from ..services.shared_sensor_service import SharedSensorDataService
+            shared_data = SharedSensorDataService.get_sensor_data_for_entry(entry_id)
+            
+            if shared_data:
+                # Convert to format expected by frontend
+                for item in shared_data:
+                    all_data.append({
+                        'id': item['id'],
+                        'sensor_type': item['sensor_type'],
+                        'value': item['value'],
+                        'recorded_at': item['recorded_at'],
+                        'source': 'shared',
+                        'link_type': item.get('link_type', 'primary'),
+                        'total_linked_entries': item.get('total_linked_entries', 1)
+                    })
+        except ImportError:
+            pass  # Fall back to legacy model
+        
+        # 3. Fall back to legacy SensorData table
         cursor.execute(
             "SELECT id, sensor_type, value, recorded_at FROM SensorData WHERE entry_id = ? ORDER BY recorded_at DESC", 
             (entry_id,)
         )
         sensor_data = cursor.fetchall()
-        return jsonify([dict(row) for row in sensor_data])
+        
+        # Add source info for legacy data
+        for row in sensor_data:
+            all_data.append({
+                'id': row['id'],
+                'sensor_type': row['sensor_type'],
+                'value': row['value'],
+                'recorded_at': row['recorded_at'],
+                'source': 'legacy',
+                'link_type': 'primary',
+                'total_linked_entries': 1
+            })
+        
+        # Sort all data by recorded_at descending
+        all_data.sort(key=lambda x: x['recorded_at'], reverse=True)
+        
+        return jsonify(all_data)
     except Exception as e:
         logger.error(f"Error fetching sensor data for entry {entry_id}: {e}", exc_info=True)
         return jsonify({'error': 'An internal error occurred while fetching sensor data.'}), 500
@@ -248,6 +307,7 @@ def add_sensor_data_to_entry(entry_id):
         sensor_type = data.get('sensor_type')
         value = data.get('value')
         recorded_at = data.get('recorded_at', datetime.now(timezone.utc).isoformat())
+        additional_entry_ids = data.get('additional_entry_ids', [])  # New: support multiple entries
 
         if not sensor_type or not value:
             return jsonify({'error': 'Sensor type and value are required.'}), 400
@@ -255,13 +315,51 @@ def add_sensor_data_to_entry(entry_id):
         conn = get_db()
         cursor = conn.cursor()
         
-        # Check if the entry is active - don't allow sensor data for inactive entries
+        # Check if the primary entry is active
         cursor.execute('SELECT status FROM Entry WHERE id = ?', (entry_id,))
         entry_result = cursor.fetchone()
         if not entry_result:
             return jsonify({'error': 'Entry not found.'}), 404
         if entry_result['status'] == 'inactive':
             return jsonify({'error': 'Cannot add sensor data to inactive entries.'}), 400
+
+        # Prepare all entry IDs (primary + additional)
+        all_entry_ids = [entry_id] + [int(eid) for eid in additional_entry_ids if eid != entry_id]
+        
+        # Try to use shared sensor data service if available
+        try:
+            from ..services.shared_sensor_service import SharedSensorDataService
+            
+            shared_sensor_id = SharedSensorDataService.add_sensor_data(
+                sensor_type=sensor_type,
+                value=value,
+                entry_ids=all_entry_ids,
+                recorded_at=recorded_at,
+                source_type='manual',
+                source_id=f"entry_{entry_id}"
+            )
+            
+            # Check sensor notification rules for primary entry
+            try:
+                from ..api.notifications_api import check_sensor_rules
+                check_sensor_rules(entry_id, sensor_type, value, recorded_at)
+            except Exception as e:
+                logger.warning(f"Error checking sensor rules for entry {entry_id}: {e}")
+            
+            message = f'Sensor data added successfully to {len(all_entry_ids)} entries!'
+            return jsonify({
+                'message': message, 
+                'shared_sensor_id': shared_sensor_id,
+                'linked_entries': all_entry_ids
+            }), 201
+            
+        except ImportError:
+            # Fall back to legacy single-entry model
+            pass
+
+        # Legacy fallback - only support single entry
+        if additional_entry_ids:
+            return jsonify({'error': 'Multiple entry linking not supported in legacy mode.'}), 400
 
         # Auto-register the sensor type if it doesn't exist
         sensor_data_points = [{'sensor_type': sensor_type}]

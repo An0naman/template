@@ -82,6 +82,8 @@ def create_app():
     from .api.user_preferences_api import user_preferences_api_bp
     from .api.units_api import units_api_bp
     from .api.units_management_api import units_management_bp
+    from .api.shared_sensor_api import shared_sensor_api_bp
+    from .api.range_sensor_api import range_sensor_api
 
     # Register all blueprints
     app.register_blueprint(main_bp)
@@ -106,6 +108,8 @@ def create_app():
     app.register_blueprint(user_preferences_api_bp, url_prefix='/api')
     app.register_blueprint(units_api_bp)
     app.register_blueprint(units_management_bp)
+    app.register_blueprint(shared_sensor_api_bp, url_prefix='/api')
+    app.register_blueprint(range_sensor_api, url_prefix='/api')
 
     app.logger.info("Blueprints registered.")
 

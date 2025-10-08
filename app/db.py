@@ -268,7 +268,7 @@ def init_db():
             );
         ''')
 
-        # Create SensorData Table
+        # Create SensorData Table (legacy - for backward compatibility)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS SensorData (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -279,6 +279,68 @@ def init_db():
                 FOREIGN KEY (entry_id) REFERENCES Entry(id) ON DELETE CASCADE
             );
         ''')
+
+        # Create SharedSensorData Table (new efficient model)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS SharedSensorData (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sensor_type TEXT NOT NULL,
+                value TEXT NOT NULL,
+                recorded_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                source_type TEXT DEFAULT 'manual', -- 'device', 'manual', 'api'
+                source_id TEXT, -- device_id if from device, user_id if manual, etc.
+                metadata TEXT DEFAULT '{}', -- JSON for additional sensor metadata
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+        ''')
+        
+        # Create range-based linking table for sensor data to entries
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS SensorDataEntryRanges (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                entry_id INTEGER NOT NULL,
+                sensor_type TEXT NOT NULL,
+                start_sensor_id INTEGER NOT NULL, -- First sensor ID in range
+                end_sensor_id INTEGER NOT NULL,   -- Last sensor ID in range (inclusive)
+                link_type TEXT DEFAULT 'primary', -- 'primary', 'secondary', 'reference'
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                metadata TEXT DEFAULT '{}', -- JSON for additional range metadata
+                FOREIGN KEY (entry_id) REFERENCES Entry(id) ON DELETE CASCADE,
+                FOREIGN KEY (start_sensor_id) REFERENCES SharedSensorData(id) ON DELETE CASCADE,
+                FOREIGN KEY (end_sensor_id) REFERENCES SharedSensorData(id) ON DELETE CASCADE,
+                CHECK (end_sensor_id >= start_sensor_id) -- Ensure valid range
+            );
+        ''')
+        
+        # Keep the old SensorDataEntryLinks for backwards compatibility (will be migrated)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS SensorDataEntryLinks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                shared_sensor_data_id INTEGER NOT NULL,
+                entry_id INTEGER NOT NULL,
+                link_type TEXT DEFAULT 'primary', -- 'primary', 'secondary', 'reference'
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (shared_sensor_data_id) REFERENCES SharedSensorData(id) ON DELETE CASCADE,
+                FOREIGN KEY (entry_id) REFERENCES Entry(id) ON DELETE CASCADE,
+                UNIQUE(shared_sensor_data_id, entry_id) -- Prevent duplicate links
+            );
+        ''')
+        
+        # Create indexes for performance
+        try:
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_shared_sensor_data_type_time ON SharedSensorData(sensor_type, recorded_at)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_sensor_entry_links_entry ON SensorDataEntryLinks(entry_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_sensor_entry_links_sensor ON SensorDataEntryLinks(shared_sensor_data_id)')
+            # Range-based indexes
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_sensor_ranges_entry ON SensorDataEntryRanges(entry_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_sensor_ranges_type ON SensorDataEntryRanges(sensor_type)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_sensor_ranges_start ON SensorDataEntryRanges(start_sensor_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_sensor_ranges_end ON SensorDataEntryRanges(end_sensor_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_sensor_ranges_entry_type ON SensorDataEntryRanges(entry_id, sensor_type)')
+        except Exception as e:
+            # Indexes might already exist, ignore errors
+            pass
 
         # Create Notification Table
         cursor.execute('''
