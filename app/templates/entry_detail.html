@@ -2519,6 +2519,55 @@
             </div>
 
             <div class="col-lg-5">
+                <!-- AI Assistant Section -->
+                <div class="content-section theme-section mb-4">
+                    <div class="section-content">
+                        <div class="section-header mb-3">
+                            <h4 class="section-title">
+                                <i class="fas fa-robot me-2"></i>AI Assistant
+                            </h4>
+                            <button class="btn btn-theme-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#aiChatSection" aria-expanded="false" aria-controls="aiChatSection">
+                                <i class="fas fa-comments me-2"></i><span id="toggleAiChatText">Start Chat</span>
+                            </button>
+                        </div>
+
+                        <div class="collapse" id="aiChatSection">
+                            <div class="content-subsection">
+                                <!-- AI Status Indicator -->
+                                <div id="aiChatStatus" class="alert alert-info small mb-3" style="display: none;">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <span id="aiStatusMessage">Checking AI availability...</span>
+                                </div>
+
+                                <!-- Chat Messages Container -->
+                                <div id="aiChatMessages" class="border rounded p-3 mb-3" style="height: 400px; overflow-y: auto; background-color: var(--theme-bg-surface, #f8f9fa);">
+                                    <div class="text-center text-muted py-5">
+                                        <i class="fas fa-robot fa-3x mb-3"></i>
+                                        <p>Ask me anything about this entry!</p>
+                                        <p class="small">I can help you understand the entry's status, relationships, notes, and more.</p>
+                                    </div>
+                                </div>
+
+                                <!-- Chat Input -->
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="aiChatInput" placeholder="Type your message..." disabled>
+                                    <button class="btn btn-theme-primary" type="button" id="aiChatSendBtn" disabled>
+                                        <i class="fas fa-paper-plane me-1"></i>Send
+                                    </button>
+                                    <button class="btn btn-outline-secondary" type="button" id="aiChatClearBtn" title="Clear chat history" disabled>
+                                        <i class="fas fa-eraser"></i>
+                                    </button>
+                                </div>
+                                <div class="form-text mt-2">
+                                    <i class="fas fa-lightbulb me-1"></i>
+                                    <span id="aiChatHint">Press Enter to send</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notes Section -->
                 <div class="content-section theme-section">
                     <div class="section-content">
                         <div class="section-header mb-3">
@@ -9486,6 +9535,242 @@
             stopSensorDataAutoRefresh();
             {% endif %}
         });
+
+        // =====================================
+        // AI Chat Functionality
+        // =====================================
+        let isFirstAIMessage = true;
+        let aiChatAvailable = false;
+
+        // Check AI availability on page load
+        async function checkAIAvailability() {
+            try {
+                const response = await fetch('/api/ai/status');
+                const data = await response.json();
+                
+                aiChatAvailable = data.available;
+                
+                const statusEl = document.getElementById('aiChatStatus');
+                const messageEl = document.getElementById('aiStatusMessage');
+                const chatInput = document.getElementById('aiChatInput');
+                const sendBtn = document.getElementById('aiChatSendBtn');
+                const clearBtn = document.getElementById('aiChatClearBtn');
+                
+                if (aiChatAvailable) {
+                    statusEl.className = 'alert alert-success small mb-3';
+                    messageEl.innerHTML = '<i class="fas fa-check-circle me-2"></i>AI Assistant is ready!';
+                    chatInput.disabled = false;
+                    sendBtn.disabled = false;
+                    clearBtn.disabled = false;
+                    
+                    // Hide status after 2 seconds
+                    setTimeout(() => {
+                        statusEl.style.display = 'none';
+                    }, 2000);
+                } else {
+                    statusEl.className = 'alert alert-warning small mb-3';
+                    messageEl.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>AI Assistant is not configured. Please set up Gemini API key in settings.';
+                    chatInput.disabled = true;
+                    sendBtn.disabled = true;
+                    clearBtn.disabled = true;
+                }
+                
+                statusEl.style.display = 'block';
+            } catch (error) {
+                console.error('Error checking AI availability:', error);
+            }
+        }
+
+        // Initialize AI chat when section is expanded
+        document.getElementById('aiChatSection').addEventListener('shown.bs.collapse', function() {
+            checkAIAvailability();
+        });
+
+        // Send message to AI
+        async function sendAIMessage() {
+            const input = document.getElementById('aiChatInput');
+            const message = input.value.trim();
+            
+            if (!message || !aiChatAvailable) return;
+            
+            // Add user message to chat
+            addMessageToChat('user', message);
+            
+            // Clear input
+            input.value = '';
+            
+            // Show typing indicator
+            const typingId = addTypingIndicator();
+            
+            try {
+                const response = await fetch('/api/ai/entry-chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        entry_id: {{ entry.id }},
+                        message: message,
+                        is_first_message: isFirstAIMessage
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // Remove typing indicator
+                removeTypingIndicator(typingId);
+                
+                if (data.success) {
+                    addMessageToChat('ai', data.response);
+                    isFirstAIMessage = false;
+                } else {
+                    addMessageToChat('error', data.error || 'Failed to get response from AI');
+                }
+            } catch (error) {
+                removeTypingIndicator(typingId);
+                addMessageToChat('error', 'Error communicating with AI: ' + error.message);
+                console.error('AI chat error:', error);
+            }
+        }
+
+        // Add message to chat UI
+        function addMessageToChat(type, text) {
+            const messagesContainer = document.getElementById('aiChatMessages');
+            
+            // Clear welcome message if it's the first message
+            if (messagesContainer.querySelector('.text-center.text-muted')) {
+                messagesContainer.innerHTML = '';
+            }
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message mb-3 ${type}-message`;
+            
+            let iconClass = '';
+            let bgClass = '';
+            let textClass = '';
+            
+            if (type === 'user') {
+                iconClass = 'fas fa-user';
+                bgClass = 'bg-primary';
+                textClass = 'text-white';
+            } else if (type === 'ai') {
+                iconClass = 'fas fa-robot';
+                bgClass = 'bg-light';
+                textClass = 'text-dark';
+            } else if (type === 'error') {
+                iconClass = 'fas fa-exclamation-triangle';
+                bgClass = 'bg-danger';
+                textClass = 'text-white';
+            }
+            
+            messageDiv.innerHTML = `
+                <div class="d-flex ${type === 'user' ? 'justify-content-end' : 'justify-content-start'}">
+                    <div class="message-bubble ${bgClass} ${textClass} p-3 rounded" style="max-width: 80%;">
+                        <div class="d-flex align-items-start">
+                            <i class="${iconClass} me-2 mt-1"></i>
+                            <div style="white-space: pre-wrap;">${escapeHtml(text)}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            messagesContainer.appendChild(messageDiv);
+            
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Add typing indicator
+        function addTypingIndicator() {
+            const messagesContainer = document.getElementById('aiChatMessages');
+            const typingDiv = document.createElement('div');
+            const typingId = 'typing-' + Date.now();
+            typingDiv.id = typingId;
+            typingDiv.className = 'typing-indicator mb-3';
+            typingDiv.innerHTML = `
+                <div class="d-flex justify-content-start">
+                    <div class="message-bubble bg-light text-dark p-3 rounded">
+                        <i class="fas fa-robot me-2"></i>
+                        <span class="typing-dots">
+                            <span>.</span><span>.</span><span>.</span>
+                        </span>
+                    </div>
+                </div>
+            `;
+            
+            messagesContainer.appendChild(typingDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            return typingId;
+        }
+
+        // Remove typing indicator
+        function removeTypingIndicator(typingId) {
+            const typingDiv = document.getElementById(typingId);
+            if (typingDiv) {
+                typingDiv.remove();
+            }
+        }
+
+        // Clear chat
+        function clearAIChat() {
+            const messagesContainer = document.getElementById('aiChatMessages');
+            messagesContainer.innerHTML = `
+                <div class="text-center text-muted py-5">
+                    <i class="fas fa-robot fa-3x mb-3"></i>
+                    <p>Ask me anything about this entry!</p>
+                    <p class="small">I can help you understand the entry's status, relationships, notes, and more.</p>
+                </div>
+            `;
+            isFirstAIMessage = true;
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Event listeners for AI chat
+        document.getElementById('aiChatSendBtn').addEventListener('click', sendAIMessage);
+        document.getElementById('aiChatClearBtn').addEventListener('click', clearAIChat);
+        document.getElementById('aiChatInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendAIMessage();
+            }
+        });
+
+        // Add CSS for typing animation
+        const style = document.createElement('style');
+        style.textContent = `
+            .typing-dots span {
+                animation: typingDot 1.4s infinite;
+            }
+            .typing-dots span:nth-child(2) {
+                animation-delay: 0.2s;
+            }
+            .typing-dots span:nth-child(3) {
+                animation-delay: 0.4s;
+            }
+            @keyframes typingDot {
+                0%, 60%, 100% { opacity: 0; }
+                30% { opacity: 1; }
+            }
+            .message-bubble {
+                word-wrap: break-word;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            }
+            .user-message .message-bubble {
+                background-color: var(--theme-primary, #0d6efd) !important;
+            }
+            .ai-message .message-bubble {
+                background-color: var(--theme-bg-surface, #f8f9fa) !important;
+                border: 1px solid var(--theme-border, #dee2e6);
+            }
+        `;
+        document.head.appendChild(style);
 
     </script>
     <script src="{{ url_for('static', filename='label_printing.js') }}"></script>

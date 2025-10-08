@@ -301,3 +301,42 @@ def chat_theme():
     except Exception as e:
         logger.error(f"Error in chat theme: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+
+@ai_api_bp.route('/ai/entry-chat', methods=['POST'])
+def entry_chat():
+    """Chat with AI about a specific entry with full context"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        entry_id = data.get('entry_id')
+        user_message = data.get('message', '').strip()
+        is_first_message = data.get('is_first_message', False)
+        
+        if not entry_id:
+            return jsonify({'error': 'Entry ID is required'}), 400
+        
+        if not user_message:
+            return jsonify({'error': 'Message is required'}), 400
+        
+        ai_service = get_ai_service()
+        
+        if not ai_service.is_available():
+            return jsonify({'error': 'AI service is not available. Please configure Gemini API key in settings.'}), 503
+        
+        # Chat about the entry with full context
+        response = ai_service.chat_about_entry(entry_id, user_message, is_first_message)
+        
+        if response:
+            return jsonify({
+                'success': True,
+                'response': response
+            })
+        else:
+            return jsonify({'error': 'Failed to generate response'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error in entry chat: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500

@@ -688,6 +688,470 @@ class AIService:
         """
         return prompt
 
+    def _gather_entry_context(self, entry_id: int) -> Dict[str, Any]:
+        """Gather comprehensive context about an entry for AI chat"""
+        from flask import g
+        from datetime import datetime, timedelta
+        import json
+        
+        context = {}
+        
+        try:
+            conn = g.get('db')
+            if not conn:
+                from ..db import get_connection
+                conn = get_connection()
+            
+            cursor = conn.cursor()
+            
+            # Get entry details
+            cursor.execute('''
+                SELECT 
+                    e.id, e.title, e.description, e.created_at,
+                    e.intended_end_date, e.actual_end_date, e.status,
+                    et.name AS entry_type_name, et.singular_label, et.plural_label,
+                    et.has_sensors, et.show_end_dates
+                FROM Entry e
+                JOIN EntryType et ON e.entry_type_id = et.id
+                WHERE e.id = ?
+            ''', (entry_id,))
+            
+            entry = cursor.fetchone()
+            if not entry:
+                return {'error': 'Entry not found'}
+            
+            # Convert Row to dict for easier access
+            entry_dict = dict(entry)
+            
+            context['title'] = entry_dict['title']
+            context['description'] = entry_dict['description'] or 'No description provided'
+            context['entry_type'] = entry_dict['singular_label']
+            context['entry_type_name'] = entry_dict['entry_type_name']
+            context['status'] = entry_dict.get('status', 'active')
+            context['created_at'] = entry_dict['created_at']
+            
+            # Get entry type description for additional context
+            cursor.execute('''
+                SELECT description
+                FROM EntryType
+                WHERE name = ?
+            ''', (entry_dict['entry_type_name'],))
+            
+            entry_type_row = cursor.fetchone()
+            if entry_type_row:
+                entry_type_dict = dict(entry_type_row)
+                context['entry_type_description'] = entry_type_dict.get('description', '')
+            
+            # Calculate how long the entry has been active
+            try:
+                created_date = datetime.fromisoformat(entry_dict['created_at'])
+                days_active = (datetime.now() - created_date).days
+                context['days_active'] = days_active
+                context['created_date_formatted'] = created_date.strftime('%B %d, %Y')
+            except:
+                context['days_active'] = 0
+                context['created_date_formatted'] = 'Unknown'
+            
+            # Check for end dates
+            if entry_dict.get('show_end_dates'):
+                context['has_end_dates'] = True
+                context['intended_end_date'] = entry_dict.get('intended_end_date')
+                context['actual_end_date'] = entry_dict.get('actual_end_date')
+                
+                # Calculate days until/past intended end date
+                if entry_dict.get('intended_end_date'):
+                    try:
+                        intended_date = datetime.fromisoformat(entry_dict['intended_end_date'])
+                        days_diff = (intended_date - datetime.now()).days
+                        if days_diff > 0:
+                            context['days_until_end'] = days_diff
+                        elif days_diff < 0:
+                            context['days_overdue'] = abs(days_diff)
+                    except:
+                        pass
+            
+            # Get notes count and types
+            cursor.execute('''
+                SELECT COUNT(*) as count, type
+                FROM Note
+                WHERE entry_id = ?
+                GROUP BY type
+            ''', (entry_id,))
+            
+            notes_by_type = cursor.fetchall()
+            context['total_notes'] = sum(row['count'] for row in notes_by_type)
+            context['notes_by_type'] = {row['type']: row['count'] for row in notes_by_type}
+            
+            # Get recent notes
+            cursor.execute('''
+                SELECT note_title, note_text, type, created_at
+                FROM Note
+                WHERE entry_id = ?
+                ORDER BY created_at DESC
+                LIMIT 5
+            ''', (entry_id,))
+            
+            recent_notes = cursor.fetchall()
+            context['recent_notes'] = [
+                {
+                    'title': note['note_title'] or 'Untitled',
+                    'type': note['type'],
+                    'preview': note['note_text'][:100] + '...' if len(note['note_text']) > 100 else note['note_text']
+                }
+                for note in recent_notes
+            ]
+            
+            # Get relationships with descriptions (both directions)
+            # First get outgoing relationships (where this entry is the source)
+            cursor.execute('''
+                SELECT 
+                    er.id, er.target_entry_id as related_id, er.relationship_type,
+                    e2.title AS related_title, 
+                    e2.description AS related_description,
+                    et2.singular_label AS related_type,
+                    rd.name AS relationship_name,
+                    'outgoing' as direction
+                FROM EntryRelationship er
+                JOIN Entry e2 ON er.target_entry_id = e2.id
+                JOIN EntryType et2 ON e2.entry_type_id = et2.id
+                LEFT JOIN RelationshipDefinition rd ON er.relationship_type = rd.id
+                WHERE er.source_entry_id = ?
+            ''', (entry_id,))
+            
+            outgoing_relationships = cursor.fetchall()
+            
+            # Then get incoming relationships (where this entry is the target)
+            cursor.execute('''
+                SELECT 
+                    er.id, er.source_entry_id as related_id, er.relationship_type,
+                    e2.title AS related_title, 
+                    e2.description AS related_description,
+                    et2.singular_label AS related_type,
+                    rd.name AS relationship_name,
+                    'incoming' as direction
+                FROM EntryRelationship er
+                JOIN Entry e2 ON er.source_entry_id = e2.id
+                JOIN EntryType et2 ON e2.entry_type_id = et2.id
+                LEFT JOIN RelationshipDefinition rd ON er.relationship_type = rd.id
+                WHERE er.target_entry_id = ?
+            ''', (entry_id,))
+            
+            incoming_relationships = cursor.fetchall()
+            
+            # Combine both directions
+            all_relationships = list(outgoing_relationships) + list(incoming_relationships)
+            context['relationships_count'] = len(all_relationships)
+            context['relationships'] = [
+                {
+                    'title': dict(rel)['related_title'],
+                    'type': dict(rel)['related_type'],
+                    'relationship_type': dict(rel).get('relationship_name', 'Related to'),
+                    'description': dict(rel).get('related_description', '')[:200] + '...' if dict(rel).get('related_description') and len(dict(rel).get('related_description', '')) > 200 else dict(rel).get('related_description', ''),
+                    'direction': dict(rel).get('direction', 'unknown')
+                }
+                for rel in all_relationships  # Include all relationships
+            ]
+            
+            # Get sensor data if applicable
+            if entry_dict.get('has_sensors'):
+                cursor.execute('''
+                    SELECT COUNT(*) as count, sensor_type
+                    FROM SensorData
+                    WHERE entry_id = ?
+                    GROUP BY sensor_type
+                ''', (entry_id,))
+                
+                sensor_data = cursor.fetchall()
+                context['has_sensor_data'] = True
+                context['sensor_types'] = {row['sensor_type']: row['count'] for row in sensor_data}
+                context['total_sensor_readings'] = sum(row['count'] for row in sensor_data)
+            
+            # Get project description from system parameters
+            try:
+                cursor.execute('''
+                    SELECT parameter_value 
+                    FROM SystemParameters 
+                    WHERE parameter_name = 'project_description'
+                ''')
+                project_desc = cursor.fetchone()
+                if project_desc:
+                    context['project_description'] = project_desc['parameter_value']
+            except:
+                pass
+            
+            return context
+            
+        except Exception as e:
+            logger.error(f"Error gathering entry context: {str(e)}")
+            return {'error': str(e)}
+
+    def _get_sensor_data_details(self, entry_id: int, sensor_type: str = None, limit: int = 100) -> Dict[str, Any]:
+        """Get detailed sensor data for analysis"""
+        from flask import g
+        import statistics
+        
+        try:
+            conn = g.get('db')
+            if not conn:
+                from ..db import get_connection
+                conn = get_connection()
+            
+            cursor = conn.cursor()
+            
+            # Build query based on whether sensor_type is specified
+            if sensor_type:
+                cursor.execute('''
+                    SELECT sensor_type, value, recorded_at
+                    FROM SensorData
+                    WHERE entry_id = ? AND sensor_type = ?
+                    ORDER BY recorded_at DESC
+                    LIMIT ?
+                ''', (entry_id, sensor_type, limit))
+            else:
+                cursor.execute('''
+                    SELECT sensor_type, value, recorded_at
+                    FROM SensorData
+                    WHERE entry_id = ?
+                    ORDER BY recorded_at DESC
+                    LIMIT ?
+                ''', (entry_id, limit))
+            
+            readings = cursor.fetchall()
+            
+            if not readings:
+                return {'error': 'No sensor data found'}
+            
+            # Organize data by sensor type
+            sensor_data = {}
+            for reading in readings:
+                reading_dict = dict(reading)
+                s_type = reading_dict['sensor_type']
+                
+                if s_type not in sensor_data:
+                    sensor_data[s_type] = {
+                        'values': [],
+                        'timestamps': [],
+                        'count': 0,
+                        'unit': None
+                    }
+                
+                try:
+                    # Try to extract numeric value from string (e.g., "24.05C" -> 24.05)
+                    value_str = str(reading_dict['value']).strip()
+                    
+                    # Try direct conversion first
+                    try:
+                        value = float(value_str)
+                        sensor_data[s_type]['values'].append(value)
+                        sensor_data[s_type]['timestamps'].append(reading_dict['recorded_at'])
+                        sensor_data[s_type]['count'] += 1
+                    except ValueError:
+                        # Extract numeric part using regex
+                        import re
+                        # Match numeric value (including decimals and negative numbers)
+                        match = re.search(r'[-+]?\d*\.?\d+', value_str)
+                        if match:
+                            value = float(match.group())
+                            sensor_data[s_type]['values'].append(value)
+                            sensor_data[s_type]['timestamps'].append(reading_dict['recorded_at'])
+                            sensor_data[s_type]['count'] += 1
+                            
+                            # Try to extract unit (everything after the number)
+                            unit_match = re.search(r'[-+]?\d*\.?\d+\s*([A-Za-z%°]+)', value_str)
+                            if unit_match and not sensor_data[s_type]['unit']:
+                                sensor_data[s_type]['unit'] = unit_match.group(1)
+                        else:
+                            # Really not numeric, just count it
+                            sensor_data[s_type]['count'] += 1
+                except (ValueError, TypeError, AttributeError):
+                    # If not numeric, just count it
+                    sensor_data[s_type]['count'] += 1
+            
+            # Calculate statistics for each sensor type
+            result = {}
+            for s_type, data in sensor_data.items():
+                if data['values']:
+                    result[s_type] = {
+                        'count': data['count'],
+                        'latest': data['values'][0] if data['values'] else None,
+                        'average': statistics.mean(data['values']),
+                        'min': min(data['values']),
+                        'max': max(data['values']),
+                        'median': statistics.median(data['values']),
+                        'unit': data.get('unit', '')
+                    }
+                    
+                    # Add standard deviation if we have enough data
+                    if len(data['values']) > 1:
+                        result[s_type]['std_dev'] = statistics.stdev(data['values'])
+                    
+                    # Add recent readings (last 5)
+                    result[s_type]['recent_readings'] = [
+                        {'value': v, 'time': t} 
+                        for v, t in zip(data['values'][:5], data['timestamps'][:5])
+                    ]
+                else:
+                    result[s_type] = {
+                        'count': data['count'],
+                        'note': 'Non-numeric data'
+                    }
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error getting sensor data details: {str(e)}")
+            return {'error': str(e)}
+
+    def _should_fetch_sensor_details(self, message: str) -> bool:
+        """Determine if the user's message requires detailed sensor data"""
+        sensor_keywords = [
+            'average', 'mean', 'median', 'temperature', 'humidity', 'pressure',
+            'sensor', 'reading', 'value', 'data', 'min', 'max', 'highest', 'lowest',
+            'recent', 'latest', 'current', 'measurement', 'statistics', 'trend'
+        ]
+        message_lower = message.lower()
+        return any(keyword in message_lower for keyword in sensor_keywords)
+
+    def chat_about_entry(self, entry_id: int, user_message: str, is_first_message: bool = False) -> Optional[str]:
+        """Chat with AI about a specific entry with full context"""
+        if not self.is_available():
+            return None
+        
+        try:
+            # Gather entry context
+            context = self._gather_entry_context(entry_id)
+            
+            if 'error' in context:
+                return f"I apologize, but I encountered an error accessing this entry: {context['error']}"
+            
+            # Build context prompt
+            base_prompt = self._get_base_prompt()
+            project_desc = context.get('project_description', 'a project management application')
+            
+            # Get current date/time for the AI
+            from datetime import datetime
+            current_datetime = datetime.now()
+            current_date_str = current_datetime.strftime('%Y-%m-%d')
+            current_time_str = current_datetime.strftime('%H:%M:%S')
+            current_full_str = current_datetime.strftime('%Y-%m-%d %H:%M:%S')
+            
+            context_prompt = f"""
+{base_prompt}
+
+You are an AI assistant helping with {project_desc}.
+
+**Current Date/Time:** {current_full_str} (Use this for any date/time calculations)
+
+You are currently discussing the following entry:
+
+**Entry Title:** {context['title']}
+**Type:** {context['entry_type']}
+**Status:** {context['status']}
+**Description:** {context['description']}
+**Created Date:** {context['created_at']} (formatted: {context['created_date_formatted']}, which was {context['days_active']} days ago)
+"""
+            
+            # Add entry type description if available
+            if context.get('entry_type_description'):
+                context_prompt += f"\n**About {context['entry_type']} entries:** {context['entry_type_description']}\n"
+            
+            # Add end date information if applicable
+            if context.get('has_end_dates'):
+                if context.get('intended_end_date'):
+                    context_prompt += f"**Intended End Date:** {context['intended_end_date']}\n"
+                    if context.get('days_until_end'):
+                        context_prompt += f"  → {context['days_until_end']} days remaining\n"
+                    elif context.get('days_overdue'):
+                        context_prompt += f"  → {context['days_overdue']} days overdue\n"
+                if context.get('actual_end_date'):
+                    context_prompt += f"**Actual End Date:** {context['actual_end_date']}\n"
+            
+            # Add notes information
+            if context['total_notes'] > 0:
+                context_prompt += f"\n**Notes:** {context['total_notes']} total notes"
+                if context['notes_by_type']:
+                    types_str = ', '.join([f"{count} {type_name}" for type_name, count in context['notes_by_type'].items()])
+                    context_prompt += f" ({types_str})"
+                context_prompt += "\n"
+                
+                if context.get('recent_notes'):
+                    context_prompt += "\n**Recent Notes:**\n"
+                    for note in context['recent_notes'][:3]:
+                        context_prompt += f"  - [{note['type']}] {note['title']}: {note['preview']}\n"
+            
+            # Add relationships with descriptions
+            if context['relationships_count'] > 0:
+                context_prompt += f"\n**Related Entries:** {context['relationships_count']} relationships (both incoming and outgoing)"
+                if context.get('relationships'):
+                    context_prompt += "\n"
+                    for rel in context['relationships']:
+                        direction_indicator = "→" if rel.get('direction') == 'outgoing' else "←"
+                        context_prompt += f"  {direction_indicator} {rel['relationship_type']}: {rel['title']} ({rel['type']})"
+                        if rel.get('description'):
+                            context_prompt += f" - {rel['description']}"
+                        context_prompt += "\n"
+            
+            # Add sensor data - fetch detailed data if user is asking sensor-related questions
+            if context.get('has_sensor_data') and context['total_sensor_readings'] > 0:
+                context_prompt += f"\n**Sensor Data:** {context['total_sensor_readings']} total readings"
+                if context.get('sensor_types'):
+                    types_str = ', '.join([f"{count} {sensor_type}" for sensor_type, count in context['sensor_types'].items()])
+                    context_prompt += f" ({types_str})"
+                context_prompt += "\n"
+                
+                # If user is asking about sensor data, fetch detailed statistics
+                if self._should_fetch_sensor_details(user_message):
+                    sensor_details = self._get_sensor_data_details(entry_id, limit=100)
+                    if 'error' not in sensor_details:
+                        context_prompt += "\n**Detailed Sensor Statistics:**\n"
+                        for sensor_type, stats in sensor_details.items():
+                            context_prompt += f"\n  {sensor_type}:\n"
+                            if 'average' in stats:
+                                unit = stats.get('unit', '')
+                                context_prompt += f"    - Latest: {stats['latest']:.2f}{unit}\n"
+                                context_prompt += f"    - Average: {stats['average']:.2f}{unit} (based on {stats['count']} readings)\n"
+                                context_prompt += f"    - Min: {stats['min']:.2f}{unit}, Max: {stats['max']:.2f}{unit}\n"
+                                context_prompt += f"    - Median: {stats['median']:.2f}{unit}\n"
+                                if 'std_dev' in stats:
+                                    context_prompt += f"    - Std Dev: {stats['std_dev']:.2f}{unit}\n"
+                                if 'recent_readings' in stats:
+                                    context_prompt += f"    - Recent readings (with timestamps):\n"
+                                    for r in stats['recent_readings'][:5]:
+                                        # Format timestamp nicely
+                                        try:
+                                            from datetime import datetime
+                                            dt = datetime.fromisoformat(r['time'])
+                                            time_str = dt.strftime('%Y-%m-%d %H:%M:%S')
+                                        except:
+                                            time_str = r['time']
+                                        context_prompt += f"      • {r['value']:.2f}{unit} at {time_str}\n"
+                            else:
+                                context_prompt += f"    - {stats.get('note', 'Data available')}\n"
+            
+            # Add greeting for first message
+            if is_first_message:
+                context_prompt += f"\n\nUser's first message: {user_message}\n\n"
+                context_prompt += """Please provide a helpful, friendly response that:
+1. Briefly acknowledges the entry details
+2. Highlights interesting or important aspects (like overdue dates, recent activity, etc.)
+3. Offers to help with questions or provide insights
+4. Keep your response concise but informative"""
+            else:
+                context_prompt += f"\n\nUser's question: {user_message}\n\n"
+                context_prompt += "Please provide a helpful response based on the entry context above."
+            
+            # Generate response
+            response = self.model.generate_content(context_prompt)
+            
+            if response and response.text:
+                return response.text.strip()
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error in chat_about_entry: {str(e)}")
+            return f"I apologize, but I encountered an error: {str(e)}"
+
 # Global AI service instance
 ai_service = AIService()
 
