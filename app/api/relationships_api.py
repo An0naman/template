@@ -251,13 +251,17 @@ def add_entry_relationship(entry_id):
         if source_entry_id == target_entry_id:
              return jsonify({"error": "Cannot create a relationship to the same entry."}), 400
 
-        # Check for existing relationship (same source, target, and definition)
+        # Check for existing relationship in BOTH directions (same source, target, and definition)
+        # A relationship between Entry A and Entry B should only exist once, regardless of direction
         cursor.execute(
-            "SELECT COUNT(*) FROM EntryRelationship WHERE source_entry_id = ? AND target_entry_id = ? AND relationship_type = ?",
-            (source_entry_id, target_entry_id, definition_id)
+            """SELECT COUNT(*) FROM EntryRelationship 
+               WHERE relationship_type = ? 
+               AND ((source_entry_id = ? AND target_entry_id = ?) 
+                    OR (source_entry_id = ? AND target_entry_id = ?))""",
+            (definition_id, source_entry_id, target_entry_id, target_entry_id, source_entry_id)
         )
         if cursor.fetchone()[0] > 0:
-            return jsonify({"error": "This specific relationship already exists."}), 409
+            return jsonify({"error": "This relationship already exists (possibly in the opposite direction)."}), 409
 
         # Server-side cardinality validation disabled - handled by frontend
         # The frontend already prevents adding relationships when cardinality limits are reached

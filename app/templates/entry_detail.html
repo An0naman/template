@@ -5819,7 +5819,7 @@
             
             // Filter definitions to only show those relevant to the current entry type
             const relevantDefinitions = definitions.filter(def => 
-                def.entry_type_id_from == currentEntryTypeId || def.entry_type_id_to == currentEntryTypeId
+                def.entry_type_id_from === parseInt(currentEntryTypeId) || def.entry_type_id_to === parseInt(currentEntryTypeId)
             );
             
             // Show or hide the Related Records section based on whether there are relevant definitions
@@ -5835,7 +5835,7 @@
                 const relatedEntries = groupedEntries[def.id] || [];
                 
                 // Determine if current entry is the "from" or "to" side of this relationship
-                const isFromSide = def.entry_type_id_from == currentEntryTypeId;
+                const isFromSide = def.entry_type_id_from === parseInt(currentEntryTypeId);
                 
                 // Check the appropriate cardinality based on the current entry's role in the relationship
                 const relevantCardinality = isFromSide ? def.cardinality_from : def.cardinality_to;
@@ -6245,9 +6245,20 @@
                     }
                     
                     // Determine which entry type the related entry should be
-                    const isCurrentEntryFromSide = relationshipDef.entry_type_id_from == currentEntryTypeId;
+                    const isCurrentEntryFromSide = relationshipDef.entry_type_id_from === parseInt(currentEntryTypeId);
                     const targetEntryTypeId = isCurrentEntryFromSide ? relationshipDef.entry_type_id_to : relationshipDef.entry_type_id_from;
                     const targetEntryTypeLabel = isCurrentEntryFromSide ? relationshipDef.entry_type_to_label : relationshipDef.entry_type_from_label;
+                    
+                    console.log('Add Existing Modal - Debug Info:', {
+                        definitionId: definitionId,
+                        relationshipDef: relationshipDef,
+                        currentEntryTypeId: currentEntryTypeId,
+                        isCurrentEntryFromSide: isCurrentEntryFromSide,
+                        targetEntryTypeId: targetEntryTypeId,
+                        targetEntryTypeLabel: targetEntryTypeLabel,
+                        entry_type_id_from: relationshipDef.entry_type_id_from,
+                        entry_type_id_to: relationshipDef.entry_type_id_to
+                    });
                     
                     const modalHtml = `
                         <div class="modal fade" id="addExistingModal" tabindex="-1" aria-labelledby="addExistingModalLabel" aria-hidden="true">
@@ -6260,16 +6271,16 @@
                                     <div class="modal-body">
                                         <form id="addExistingForm">
                                             <div class="mb-3">
-                                                <label for="entrySearchInput" class="form-label">Search for ${targetEntryTypeLabel}:</label>
-                                                <input type="text" class="form-control" id="entrySearchInput" placeholder="Type to search..." autocomplete="off">
-                                                <div id="searchResults" class="mt-2" style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; display: none;">
+                                                <label for="modalEntrySearchInput" class="form-label">Search for ${targetEntryTypeLabel}:</label>
+                                                <input type="text" class="form-control" id="modalEntrySearchInput" placeholder="Type to search..." autocomplete="off">
+                                                <div id="modalSearchResults" class="mt-2" style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; display: none;">
                                                     <!-- Search results will appear here -->
                                                 </div>
-                                                <input type="hidden" id="selectedEntryId" required>
-                                                <div id="selectedEntryDisplay" class="mt-2 p-2 rounded" style="display: none; background-color: var(--theme-bg-surface, #f8f9fa);">
+                                                <input type="hidden" id="modalSelectedEntryId" required>
+                                                <div id="modalSelectedEntryDisplay" class="mt-2 p-2 rounded" style="display: none; background-color: var(--theme-bg-surface, #f8f9fa);">
                                                     <small class="text-muted">Selected:</small>
-                                                    <div id="selectedEntryName" class="fw-bold"></div>
-                                                    <button type="button" class="btn btn-sm btn-warning mt-1" id="clearSelection">Clear Selection</button>
+                                                    <div id="modalSelectedEntryName" class="fw-bold"></div>
+                                                    <button type="button" class="btn btn-sm btn-warning mt-1" id="modalClearSelection">Clear Selection</button>
                                                 </div>
                                             </div>
                                             ${relationshipDef.allow_quantity_unit ? `
@@ -6328,29 +6339,49 @@
                         console.error('Error fetching existing relationships:', error);
                     }
 
-                    // Search functionality
-                    const searchInput = document.getElementById('entrySearchInput');
-                    const searchResults = document.getElementById('searchResults');
-                    const selectedEntryId = document.getElementById('selectedEntryId');
-                    const selectedEntryDisplay = document.getElementById('selectedEntryDisplay');
-                    const selectedEntryName = document.getElementById('selectedEntryName');
+                    // Search functionality - Wait for modal to be fully shown
+                    const searchInput = document.getElementById('modalEntrySearchInput');
+                    const searchResults = document.getElementById('modalSearchResults');
+                    const selectedEntryId = document.getElementById('modalSelectedEntryId');
+                    const selectedEntryDisplay = document.getElementById('modalSelectedEntryDisplay');
+                    const selectedEntryName = document.getElementById('modalSelectedEntryName');
                     const submitBtn = document.getElementById('addExistingSubmitBtn');
-                    const clearBtn = document.getElementById('clearSelection');
+                    const clearBtn = document.getElementById('modalClearSelection');
+                    
+                    console.log('Search input element found:', searchInput);
+                    console.log('Search input element ID:', searchInput?.id);
+                    console.log('targetEntryTypeId for search:', targetEntryTypeId);
                     
                     let searchTimeout;
                     
+                    if (!searchInput) {
+                        console.error('Search input element not found!');
+                        return;
+                    }
+                    
+                    console.log('Attaching event listener to search input...');
+                    
                     searchInput.addEventListener('input', function() {
+                        console.log('Search input triggered, value:', this.value);
                         clearTimeout(searchTimeout);
                         const query = this.value.trim();
                         
                         if (query.length < 2) {
+                            console.log('Query too short, skipping search');
                             searchResults.style.display = 'none';
                             return;
                         }
                         
+                        console.log('Query long enough, setting timeout for search');
                         searchTimeout = setTimeout(async () => {
                             try {
-                                const response = await fetch(`/api/search_entries?q=${encodeURIComponent(query)}&entry_type_id=${targetEntryTypeId}`);
+                                const searchUrl = `/api/search_entries?q=${encodeURIComponent(query)}&entry_type_id=${targetEntryTypeId}`;
+                                console.log('Search Entry - Making request:', {
+                                    query: query,
+                                    targetEntryTypeId: targetEntryTypeId,
+                                    url: searchUrl
+                                });
+                                const response = await fetch(searchUrl);
                                 const entries = await response.json();
                                 
                                 // Filter out already related entries
@@ -6580,7 +6611,7 @@
                 console.log('Found relationship definition:', relationshipDef);
                 
                 // Determine which entry type the new entry should be based on the current entry's role
-                const isCurrentEntryFromSide = relationshipDef.entry_type_id_from == currentEntryTypeId;
+                const isCurrentEntryFromSide = relationshipDef.entry_type_id_from === parseInt(currentEntryTypeId);
                 const newEntryTypeId = isCurrentEntryFromSide ? relationshipDef.entry_type_id_to : relationshipDef.entry_type_id_from;
                 
                 console.log('Creating entry with:', {
@@ -7265,7 +7296,7 @@
                 const existingForThisDef = existingRelationships.filter(rel => rel.definition_id === definitionId);
                 
                 // Determine if current entry is the "from" or "to" side of this relationship
-                const isFromSide = relationshipDef.entry_type_id_from == currentEntryTypeId;
+                const isFromSide = relationshipDef.entry_type_id_from === parseInt(currentEntryTypeId);
                 
                 // Check the appropriate cardinality based on the current entry's role in the relationship
                 const relevantCardinality = isFromSide ? relationshipDef.cardinality_from : relationshipDef.cardinality_to;
@@ -7740,7 +7771,7 @@
                     const existingForThisDef = existingRelationships.filter(rel => rel.definition_id === definitionId);
                     
                     // Determine if current entry is the "from" or "to" side of this relationship
-                    const isFromSide = relationshipDef.entry_type_id_from == currentEntryTypeId;
+                    const isFromSide = relationshipDef.entry_type_id_from === parseInt(currentEntryTypeId);
                     
                     // Check the appropriate cardinality based on the current entry's role in the relationship
                     const relevantCardinality = isFromSide ? relationshipDef.cardinality_from : relationshipDef.cardinality_to;
