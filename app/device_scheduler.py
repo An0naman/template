@@ -185,12 +185,35 @@ class DevicePollingScheduler:
             entry_ids = [row['entry_id'] for row in linked_entries]
             logger.debug(f"Storing data for device {device['device_name']} to entries: {entry_ids} using {len(sensor_mappings)} sensor mappings")
             
+            # Get enabled sensor types for each entry
+            entry_sensor_types = {}
+            for entry_id in entry_ids:
+                cursor.execute('''
+                    SELECT et.enabled_sensor_types
+                    FROM Entry e
+                    JOIN EntryType et ON e.entry_type_id = et.id
+                    WHERE e.id = ?
+                ''', (entry_id,))
+                result = cursor.fetchone()
+                if result and result['enabled_sensor_types']:
+                    enabled_types = [t.strip() for t in result['enabled_sensor_types'].split(',')]
+                    entry_sensor_types[entry_id] = enabled_types
+                else:
+                    entry_sensor_types[entry_id] = []
+            
             # Store data for each linked entry using sensor mappings
             for entry_id in entry_ids:
+                enabled_types = entry_sensor_types.get(entry_id, [])
+                
                 for mapping in sensor_mappings:
                     sensor_name = mapping['sensor_name']
                     sensor_type = mapping['entry_field']
                     unit = mapping['unit'] or ''
+                    
+                    # Check if this sensor type is enabled for this entry
+                    if sensor_type not in enabled_types:
+                        logger.debug(f"Skipping {sensor_type} for entry {entry_id} - not in enabled types: {enabled_types}")
+                        continue
                     
                     # Extract value based on sensor name from device data
                     value = self._extract_sensor_value(device_data, sensor_name, unit)
@@ -221,13 +244,31 @@ class DevicePollingScheduler:
         stored_count = 0
         entry_ids = [row['entry_id'] for row in linked_entries]
         
+        # Get enabled sensor types for each entry
+        entry_sensor_types = {}
+        for entry_id in entry_ids:
+            cursor.execute('''
+                SELECT et.enabled_sensor_types
+                FROM Entry e
+                JOIN EntryType et ON e.entry_type_id = et.id
+                WHERE e.id = ?
+            ''', (entry_id,))
+            result = cursor.fetchone()
+            if result and result['enabled_sensor_types']:
+                enabled_types = [t.strip() for t in result['enabled_sensor_types'].split(',')]
+                entry_sensor_types[entry_id] = enabled_types
+            else:
+                entry_sensor_types[entry_id] = []
+        
         try:
             # Store data for each linked entry
             for entry_id in entry_ids:
+                enabled_types = entry_sensor_types.get(entry_id, [])
                 # Temperature data
                 if ('sensor' in device_data and 
                     device_data['sensor'].get('valid') and
-                    'temperature' in device_data['sensor']):
+                    'temperature' in device_data['sensor'] and
+                    'Temperature' in enabled_types):
                     
                     temp_value = device_data['sensor']['temperature']
                     temp_formatted = f"{temp_value}°C"
@@ -251,7 +292,8 @@ class DevicePollingScheduler:
                 
                 # Target temperature (if different from current)
                 if ('sensor' in device_data and 
-                    'target' in device_data['sensor']):
+                    'target' in device_data['sensor'] and
+                    'Target Temperature' in enabled_types):
                     
                     target_temp = device_data['sensor']['target']
                     target_formatted = f"{target_temp}°C"
@@ -274,7 +316,9 @@ class DevicePollingScheduler:
                         logger.warning(f"Error checking sensor rules for Target Temperature: {e}")
                 
                 # Relay/Heating status
-                if 'relay' in device_data and 'state' in device_data['relay']:
+                if ('relay' in device_data and 
+                    'state' in device_data['relay'] and
+                    'Heating Status' in enabled_types):
                     relay_state = device_data['relay']['state']
                     cursor.execute('''
                         INSERT INTO SensorData (entry_id, sensor_type, value, recorded_at)
@@ -299,7 +343,8 @@ class DevicePollingScheduler:
                     system_data = device_data['system']
                     
                     # WiFi signal strength
-                    if 'wifi_rssi' in system_data:
+                    if ('wifi_rssi' in system_data and
+                        'WiFi Signal' in enabled_types):
                         wifi_rssi = system_data['wifi_rssi']
                         wifi_formatted = f"{wifi_rssi} dBm"
                         cursor.execute('''
@@ -321,7 +366,8 @@ class DevicePollingScheduler:
                             logger.warning(f"Error checking sensor rules for WiFi Signal: {e}")
                         
                         # Free heap (memory)
-                        if 'free_heap' in system_data:
+                        if ('free_heap' in system_data and
+                            'Free Memory' in enabled_types):
                             free_heap = system_data['free_heap']
                             heap_formatted = f"{free_heap} bytes"
                             cursor.execute('''
@@ -343,17 +389,18 @@ class DevicePollingScheduler:
                                 logger.warning(f"Error checking sensor rules for Free Memory: {e}")
                     
                     # Store device status
-                    device_status = device_data.get('device_status', 'unknown')
-                    cursor.execute('''
-                        INSERT INTO SensorData (entry_id, sensor_type, value, recorded_at)
-                        VALUES (?, ?, ?, ?)
-                    ''', (
-                        entry_id,
-                        'Device Status',
-                        device_status,
-                        timestamp
-                    ))
-                    stored_count += 1
+                    if 'Device Status' in enabled_types:
+                        device_status = device_data.get('device_status', 'unknown')
+                        cursor.execute('''
+                            INSERT INTO SensorData (entry_id, sensor_type, value, recorded_at)
+                            VALUES (?, ?, ?, ?)
+                        ''', (
+                            entry_id,
+                            'Device Status',
+                            device_status,
+                            timestamp
+                        ))
+                        stored_count += 1
                     
                     # Check sensor notification rules
                     try:

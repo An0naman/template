@@ -315,13 +315,27 @@ def add_sensor_data_to_entry(entry_id):
         conn = get_db()
         cursor = conn.cursor()
         
-        # Check if the primary entry is active
-        cursor.execute('SELECT status FROM Entry WHERE id = ?', (entry_id,))
+        # Check if the primary entry is active and supports this sensor type
+        cursor.execute('''
+            SELECT e.status, et.enabled_sensor_types, et.singular_label
+            FROM Entry e
+            JOIN EntryType et ON e.entry_type_id = et.id
+            WHERE e.id = ?
+        ''', (entry_id,))
         entry_result = cursor.fetchone()
         if not entry_result:
             return jsonify({'error': 'Entry not found.'}), 404
         if entry_result['status'] == 'inactive':
             return jsonify({'error': 'Cannot add sensor data to inactive entries.'}), 400
+        
+        # Validate sensor type is enabled for this entry
+        if entry_result['enabled_sensor_types']:
+            enabled_types = [t.strip() for t in entry_result['enabled_sensor_types'].split(',')]
+            if sensor_type not in enabled_types:
+                return jsonify({
+                    'error': f'Sensor type "{sensor_type}" is not enabled for {entry_result["singular_label"]}.',
+                    'enabled_types': enabled_types
+                }), 400
 
         # Prepare all entry IDs (primary + additional)
         all_entry_ids = [entry_id] + [int(eid) for eid in additional_entry_ids if eid != entry_id]

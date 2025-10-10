@@ -70,6 +70,7 @@ class SharedSensorDataService:
                 raise ValueError(f"Entry IDs not found: {missing_ids}")
             
             # Check if entries support sensors and the specific sensor type
+            valid_entry_ids = []
             for entry in entries:
                 if not entry['has_sensors']:
                     raise ValueError(f"Entry {entry['id']} does not support sensors")
@@ -77,7 +78,17 @@ class SharedSensorDataService:
                 if entry['enabled_sensor_types']:
                     enabled_types = [t.strip() for t in entry['enabled_sensor_types'].split(',')]
                     if sensor_type not in enabled_types:
-                        logger.warning(f"Entry {entry['id']} doesn't have {sensor_type} enabled, but allowing anyway")
+                        logger.warning(f"Skipping entry {entry['id']} - sensor type '{sensor_type}' not enabled (enabled types: {enabled_types})")
+                        continue
+                
+                valid_entry_ids.append(entry['id'])
+            
+            # If no entries are valid for this sensor type, raise an error
+            if not valid_entry_ids:
+                raise ValueError(f"Sensor type '{sensor_type}' is not enabled for any of the specified entries")
+            
+            # Update entry_ids to only include valid ones
+            entry_ids = valid_entry_ids
             
             # Create shared sensor data record
             cursor.execute('''
