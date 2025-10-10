@@ -455,14 +455,33 @@ def extract_sensor_data_using_mappings(device_id, device_data, cursor):
     timestamp = datetime.now(timezone.utc).isoformat()
     
     def get_nested_value(data, path):
-        """Get value from nested dictionary using dot notation path"""
-        keys = path.split('.')
-        current = data
-        for key in keys:
-            if isinstance(current, dict) and key in current:
-                current = current[key]
+        """Get value from nested dictionary using dot notation and array notation path"""
+        import re
+        # Split path by dots, but handle array notation like sensors[0]
+        parts = []
+        for part in path.split('.'):
+            # Check if this part has array notation
+            array_match = re.match(r'([^\[]+)\[(\d+)\]', part)
+            if array_match:
+                key_name = array_match.group(1)
+                index = int(array_match.group(2))
+                parts.append((key_name, 'dict'))
+                parts.append((index, 'list'))
             else:
-                return None
+                parts.append((part, 'dict'))
+        
+        current = data
+        for key, key_type in parts:
+            if key_type == 'dict':
+                if isinstance(current, dict) and key in current:
+                    current = current[key]
+                else:
+                    return None
+            elif key_type == 'list':
+                if isinstance(current, list) and 0 <= key < len(current):
+                    current = current[key]
+                else:
+                    return None
         return current
     
     # Process each configured mapping
@@ -839,7 +858,8 @@ def get_sensor_mappings(device_id):
         available_sensors = []
         try:
             # Poll device for current data
-            endpoint = f"http://{device['device_ip']}/api"
+            logger.info(f"Polling device {device_id} at IP: {device['ip']}")
+            endpoint = f"http://{device['ip']}/api"
             response = requests.get(endpoint, timeout=5)
             
             if response.status_code == 200:
@@ -887,8 +907,8 @@ def get_sensor_mappings(device_id):
         return jsonify({
             'sensor_mappings': sensor_mappings,
             'available_sensors': available_sensors,
-            'device_name': device['device_name'],
-            'device_type': device['device_type']
+            'device_name': device['device_name'] if 'device_name' in device.keys() else 'Unknown',
+            'device_type': device['device_type'] if 'device_type' in device.keys() else 'Unknown'
         })
         
     except Exception as e:
@@ -1017,8 +1037,18 @@ def debug_device_data(device_id):
         return jsonify({'error': f'Failed to debug device data: {str(e)}'}), 500
 
 
-def _analyze_data_structure(data, prefix=""):
-    """Recursively analyze data structure to find all available paths"""
+def _analyze_data_structure(data, prefix="", max_array_items=5):
+    """
+    Recursively analyze data structure to find all available paths
+    
+    Args:
+        data: The data structure to analyze
+        prefix: Current path prefix
+        max_array_items: Maximum number of array items to analyze (default 5)
+    
+    Returns:
+        Dictionary of paths with their metadata
+    """
     paths = {}
     
     if isinstance(data, dict):
@@ -1026,7 +1056,7 @@ def _analyze_data_structure(data, prefix=""):
             current_path = f"{prefix}.{key}" if prefix else key
             
             if isinstance(value, (dict, list)):
-                paths.update(_analyze_data_structure(value, current_path))
+                paths.update(_analyze_data_structure(value, current_path, max_array_items))
             else:
                 # Enhanced analysis for ESP32 fermentation controller data
                 data_type = "numeric" if isinstance(value, (int, float)) else "text"
@@ -1113,8 +1143,10 @@ def _analyze_data_structure(data, prefix=""):
                 }
     
     elif isinstance(data, list) and data:
-        # Analyze first item in list
-        paths.update(_analyze_data_structure(data[0], f"{prefix}[0]"))
+        # Analyze multiple items in list (up to max_array_items)
+        items_to_analyze = min(len(data), max_array_items)
+        for i in range(items_to_analyze):
+            paths.update(_analyze_data_structure(data[i], f"{prefix}[{i}]", max_array_items))
     
     return paths
 
