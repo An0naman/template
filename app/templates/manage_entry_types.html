@@ -310,7 +310,13 @@
                                         {% endif %}
                                     </td>
                                     <td class="action-buttons text-center">
-                                        <button class="btn btn-sm btn-outline-primary edit-entry-type-btn"
+                                        <button class="btn btn-sm btn-outline-info manage-states-btn"
+                                                data-id="{{ type.id }}"
+                                                data-name="{{ type.name }}"
+                                                title="Manage States">
+                                            <i class="fas fa-list-check"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-primary edit-entry-type-btn ms-1"
                                                 data-id="{{ type.id }}"
                                                 data-name="{{ type.name }}"
                                                 data-singular="{{ type.singular_label }}"
@@ -490,6 +496,91 @@
                             <i class="fas fa-save me-2"></i>Save Entry Type
                         </button>
                     </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manage States Modal -->
+    <div class="modal fade" id="statesModal" tabindex="-1" aria-labelledby="statesModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="statesModalLabel">Manage States</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-primary" onclick="openAddStateForm()">
+                            <i class="fas fa-plus me-2"></i>Add New State
+                        </button>
+                    </div>
+
+                    <!-- State Form (Hidden by default) -->
+                    <div id="stateFormContainer" style="display: none;" class="mb-3">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0" id="stateFormTitle">Add New State</h6>
+                            </div>
+                            <div class="card-body">
+                                <form id="stateForm" onsubmit="event.preventDefault(); saveState();">
+                                    <input type="hidden" id="stateId">
+                                    
+                                    <div class="mb-3">
+                                        <label for="stateName" class="form-label">State Name <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="stateName" required 
+                                               placeholder="e.g., Primary Ferment, Racked, Consumed">
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="stateCategory" class="form-label">Category <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="stateCategory" required>
+                                            <option value="active">Active</option>
+                                            <option value="inactive">Inactive</option>
+                                        </select>
+                                        <small class="text-muted">Active states represent ongoing entries, Inactive states represent completed/archived entries</small>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="stateColor" class="form-label">Display Color</label>
+                                            <input type="color" class="form-control form-control-color" id="stateColor" value="#6c757d">
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="stateDisplayOrder" class="form-label">Display Order</label>
+                                            <input type="number" class="form-control" id="stateDisplayOrder" value="0" min="0">
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3 form-check">
+                                        <input type="checkbox" class="form-check-input" id="stateIsDefault">
+                                        <label class="form-check-label" for="stateIsDefault">
+                                            Set as default state for new entries
+                                        </label>
+                                    </div>
+
+                                    <div class="d-flex gap-2">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save me-2"></i>Save State
+                                        </button>
+                                        <button type="button" class="btn btn-secondary" onclick="cancelStateForm()">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- States List -->
+                    <div id="statesListContainer">
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-spinner fa-spin"></i> Loading states...
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -1036,7 +1127,178 @@
                     }
                 });
             });
+
+            // Handle Manage States Buttons
+            document.querySelectorAll('.manage-states-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const entryTypeId = this.dataset.id;
+                    const entryTypeName = this.dataset.name;
+                    openStatesModal(entryTypeId, entryTypeName);
+                });
+            });
         });
+
+        // States Management Functions
+        let currentEntryTypeId = null;
+        let currentStates = [];
+
+        function openStatesModal(entryTypeId, entryTypeName) {
+            currentEntryTypeId = entryTypeId;
+            document.getElementById('statesModalLabel').textContent = `Manage States for ${entryTypeName}`;
+            loadStates(entryTypeId);
+            const statesModal = new bootstrap.Modal(document.getElementById('statesModal'));
+            statesModal.show();
+        }
+
+        function loadStates(entryTypeId) {
+            fetch(`/api/entry_types/${entryTypeId}/states`)
+                .then(response => response.json())
+                .then(states => {
+                    currentStates = states;
+                    renderStates(states);
+                })
+                .catch(error => {
+                    console.error('Error loading states:', error);
+                    alert('Error loading states.');
+                });
+        }
+
+        function renderStates(states) {
+            const container = document.getElementById('statesListContainer');
+            if (states.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center py-3">No states defined yet.</p>';
+                return;
+            }
+
+            let html = '<div class="list-group">';
+            states.forEach(state => {
+                const categoryBadge = state.category === 'active' 
+                    ? '<span class="badge bg-success">Active</span>' 
+                    : '<span class="badge bg-secondary">Inactive</span>';
+                const defaultBadge = state.is_default 
+                    ? '<span class="badge bg-primary ms-1">Default</span>' 
+                    : '';
+                
+                html += `
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="color-preview" style="background-color: ${state.color}; width: 24px; height: 24px; border-radius: 4px; border: 1px solid #ddd;"></div>
+                            <div>
+                                <strong>${state.name}</strong>
+                                <div class="small">
+                                    ${categoryBadge}
+                                    ${defaultBadge}
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-outline-primary" onclick="editState(${state.id})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger ms-1" onclick="deleteState(${state.id})">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function openAddStateForm() {
+            document.getElementById('stateFormTitle').textContent = 'Add New State';
+            document.getElementById('stateForm').reset();
+            document.getElementById('stateId').value = '';
+            document.getElementById('stateFormContainer').style.display = 'block';
+        }
+
+        function editState(stateId) {
+            const state = currentStates.find(s => s.id === stateId);
+            if (!state) return;
+
+            document.getElementById('stateFormTitle').textContent = 'Edit State';
+            document.getElementById('stateId').value = state.id;
+            document.getElementById('stateName').value = state.name;
+            document.getElementById('stateCategory').value = state.category;
+            document.getElementById('stateColor').value = state.color;
+            document.getElementById('stateDisplayOrder').value = state.display_order;
+            document.getElementById('stateIsDefault').checked = state.is_default;
+            document.getElementById('stateFormContainer').style.display = 'block';
+        }
+
+        function cancelStateForm() {
+            document.getElementById('stateFormContainer').style.display = 'none';
+            document.getElementById('stateForm').reset();
+        }
+
+        function saveState() {
+            const stateId = document.getElementById('stateId').value;
+            const name = document.getElementById('stateName').value.trim();
+            const category = document.getElementById('stateCategory').value;
+            const color = document.getElementById('stateColor').value;
+            const displayOrder = document.getElementById('stateDisplayOrder').value;
+            const isDefault = document.getElementById('stateIsDefault').checked;
+
+            if (!name || !category) {
+                alert('Name and category are required.');
+                return;
+            }
+
+            const data = {
+                name: name,
+                category: category,
+                color: color,
+                display_order: parseInt(displayOrder),
+                is_default: isDefault
+            };
+
+            const url = stateId 
+                ? `/api/entry_types/${currentEntryTypeId}/states/${stateId}`
+                : `/api/entry_types/${currentEntryTypeId}/states`;
+            const method = stateId ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message || data.state_id) {
+                    cancelStateForm();
+                    loadStates(currentEntryTypeId);
+                } else if (data.error) {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An unexpected error occurred.');
+            });
+        }
+
+        function deleteState(stateId) {
+            if (!confirm('Are you sure you want to delete this state?')) {
+                return;
+            }
+
+            fetch(`/api/entry_types/${currentEntryTypeId}/states/${stateId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    loadStates(currentEntryTypeId);
+                } else if (data.error) {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An unexpected error occurred.');
+            });
+        }
     </script>
 </body>
 </html>

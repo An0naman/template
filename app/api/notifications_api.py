@@ -650,6 +650,7 @@ def check_overdue_end_dates():
         current_date = datetime.now().strftime('%Y-%m-%d')
         
         # Find entries with intended_end_date that has passed and don't already have an overdue notification
+        # Only check entries with ACTIVE state category (not completed/inactive entries)
         query = '''
             SELECT DISTINCT 
                 e.id as entry_id,
@@ -658,11 +659,12 @@ def check_overdue_end_dates():
                 et.singular_label as entry_type
             FROM Entry e
             JOIN EntryType et ON e.entry_type_id = et.id
+            LEFT JOIN EntryState es ON es.entry_type_id = e.entry_type_id AND es.name = e.status
             WHERE 
                 e.intended_end_date IS NOT NULL 
                 AND e.intended_end_date != ''
                 AND date(e.intended_end_date) < date(?)
-                AND e.status != 'inactive'
+                AND COALESCE(es.category, 'active') = 'active'
                 AND et.show_end_dates = 1
                 AND NOT EXISTS (
                     SELECT 1 FROM Notification n 

@@ -62,9 +62,12 @@ def index():
             e.entry_type_id,
             et.singular_label AS entry_type_label,
             et.name AS entry_type_name,
-            e.created_at, e.status
+            e.created_at, e.status,
+            COALESCE(es.category, 'active') AS status_category,
+            COALESCE(es.color, '#28a745') AS status_color
         FROM Entry e
         JOIN EntryType et ON e.entry_type_id = et.id
+        LEFT JOIN EntryState es ON es.entry_type_id = e.entry_type_id AND es.name = e.status
     '''
     
     # Add WHERE conditions
@@ -138,9 +141,12 @@ def entry_detail_page(entry_id):
             et.singular_label AS entry_type_label,
             et.name AS entry_type_name,
             et.note_types, et.has_sensors, et.enabled_sensor_types, et.show_labels_section, 
-            et.show_end_dates, e.created_at
+            et.show_end_dates, e.created_at,
+            COALESCE(es.category, 'active') AS status_category,
+            COALESCE(es.color, '#28a745') AS status_color
         FROM Entry e
         JOIN EntryType et ON e.entry_type_id = et.id
+        LEFT JOIN EntryState es ON es.entry_type_id = e.entry_type_id AND es.name = e.status
         WHERE e.id = ?
     ''', (entry_id,))
     entry = cursor.fetchone()
@@ -162,7 +168,9 @@ def entry_detail_page(entry_id):
         'show_end_dates': bool(entry['show_end_dates']) if entry['show_end_dates'] is not None else False,
         'intended_end_date': entry['intended_end_date'] if 'intended_end_date' in entry.keys() else None,
         'actual_end_date': entry['actual_end_date'] if 'actual_end_date' in entry.keys() else None,
-        'status': entry['status'] if 'status' in entry.keys() else 'active',
+        'status': entry['status'] if 'status' in entry.keys() else 'Active',
+        'status_category': entry['status_category'] if 'status_category' in entry.keys() else 'active',
+        'status_color': entry['status_color'] if 'status_color' in entry.keys() else '#28a745',
         'created_at': entry['created_at']
     }
 

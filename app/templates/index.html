@@ -613,6 +613,29 @@
             background-size: 16px 12px !important;
         }
 
+        /* Multi-select styling */
+        .form-select[multiple] {
+            background-image: none !important;
+            padding: 0.25rem !important;
+        }
+
+        .form-select[multiple] option {
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.25rem;
+            margin: 0.125rem 0;
+        }
+
+        .form-select[multiple] option:checked {
+            background-color: var(--theme-primary, #0d6efd) !important;
+            color: white !important;
+        }
+
+        .form-select[multiple] optgroup {
+            font-weight: bold;
+            padding: 0.5rem 0.75rem 0.25rem;
+            margin-top: 0.25rem;
+        }
+
         /* Focus state */
         .form-select:focus {
             border-color: var(--theme-primary, #0d6efd) !important;
@@ -740,14 +763,26 @@
                     <div class="col-6 col-md-3">
                         <select class="form-select" id="quickStatusFilter" title="Filter by status">
                             <option value="">All Status</option>
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
+                            <option value="active">✓ Active (Ongoing)</option>
+                            <option value="inactive">✕ Inactive (Completed)</option>
                         </select>
                     </div>
                     
                     <!-- Save/Clear Filter Controls -->
                     <div class="col-12">
                         <div class="d-flex flex-column flex-sm-row gap-2">
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-theme-primary dropdown-toggle" type="button" id="savedSearchDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-bookmark me-1"></i>Saved Searches
+                                </button>
+                                <ul class="dropdown-menu" id="savedSearchList" aria-labelledby="savedSearchDropdown">
+                                    <li><h6 class="dropdown-header">Load Search</h6></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="#" id="saveNewSearch"><i class="fas fa-plus me-2"></i>Save Current Search...</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <!-- Saved searches will be loaded here -->
+                                </ul>
+                            </div>
                             <button type="button" class="btn btn-sm btn-theme-primary" id="saveFiltersBtn" title="Save current filters as your defaults">
                                 <i class="fas fa-save me-1"></i>Save as Default
                             </button>
@@ -774,6 +809,13 @@
                                             <option value="quarter">Last 3 Months</option>
                                             <option value="year">This Year</option>
                                         </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="specific_state" class="form-label">Specific State(s)</label>
+                                        <select name="specific_state" id="specific_state" class="form-select" multiple size="5">
+                                            <!-- States will be loaded dynamically -->
+                                        </select>
+                                        <small class="text-muted">Hold Ctrl/Cmd to select multiple</small>
                                     </div>
                                     <div class="col-md-3">
                                         <label for="sort_by" class="form-label">Sort By</label>
@@ -845,6 +887,7 @@
                              data-type="{{ entry.entry_type_id }}" 
                              data-type-label="{{ entry.entry_type_label|lower }}"
                              data-status="{{ entry.status|lower if entry.status else 'active' }}"
+                             data-status-category="{{ entry.status_category|lower if entry.status_category else 'active' }}"
                              data-created="{{ entry.created_at }}"
                              data-has-description="{{ 'yes' if entry.description else 'no' }}">
                             <div class="entry-content">
@@ -858,7 +901,7 @@
                                 <div class="entry-meta mb-2">
                                     <span class="badge bg-secondary me-2">{{ entry.entry_type_label }}</span>
                                     {% if entry.status %}
-                                        <span class="badge {{ 'bg-success' if entry.status == 'active' else 'bg-warning text-dark' }} me-2">
+                                        <span class="badge me-2" style="background-color: {{ entry.status_color if entry.status_color else '#28a745' }}; color: white;">
                                             {{ entry.status|title }}
                                         </span>
                                     {% endif %}
@@ -961,6 +1004,32 @@
         </div>
     </div>
 
+    <!-- Save Search Modal -->
+    <div class="modal fade" id="saveSearchModal" tabindex="-1" aria-labelledby="saveSearchModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="saveSearchModalLabel">Save Search</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="saveSearchForm">
+                        <div class="mb-3">
+                            <label for="searchName" class="form-label">Search Name</label>
+                            <input type="text" class="form-control" id="searchName" name="searchName" required placeholder="e.g., Active Beers, Completed Projects">
+                            <div class="form-text">Give this search configuration a memorable name</div>
+                        </div>
+                        <input type="hidden" id="editSearchId" value="">
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirmSaveSearch">Save Search</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Initialize modals and event listeners
@@ -1001,21 +1070,138 @@
             
             // Advanced filter elements
             const dateRange = document.getElementById('date_range');
+            const specificStateFilter = document.getElementById('specific_state');
             const sortBy = document.getElementById('sort_by');
             const hasDescription = document.getElementById('has_description');
             const resultLimit = document.getElementById('result_limit');
             
             let searchTimeout;
             
+            // Load available states for the specific state filter, optionally filtered by entry type and status category
+            async function loadAllStates(entryTypeId = null, statusCategory = null) {
+                try {
+                    // Save the current selected values (for multi-select)
+                    const currentValues = Array.from(specificStateFilter.selectedOptions).map(opt => opt.value);
+                    
+                    const statesMap = new Map();
+                    
+                    if (entryTypeId) {
+                        // Load states only for the selected entry type
+                        const statesResponse = await fetch(`/api/entry_types/${entryTypeId}/states`);
+                        const states = await statesResponse.json();
+                        
+                        states.forEach(state => {
+                            // Filter by status category if specified
+                            if (!statusCategory || state.category === statusCategory) {
+                                if (!statesMap.has(state.name)) {
+                                    statesMap.set(state.name, {
+                                        name: state.name,
+                                        category: state.category,
+                                        color: state.color
+                                    });
+                                }
+                            }
+                        });
+                    } else {
+                        // Load states from all entry types
+                        const response = await fetch('/api/entry_types');
+                        const entryTypes = await response.json();
+                        
+                        for (const entryType of entryTypes) {
+                            const statesResponse = await fetch(`/api/entry_types/${entryType.id}/states`);
+                            const states = await statesResponse.json();
+                            
+                            states.forEach(state => {
+                                // Filter by status category if specified
+                                if (!statusCategory || state.category === statusCategory) {
+                                    if (!statesMap.has(state.name)) {
+                                        statesMap.set(state.name, {
+                                            name: state.name,
+                                            category: state.category,
+                                            color: state.color
+                                        });
+                                    }
+                                }
+                            });
+                        }
+                    }
+                    
+                    // Populate the dropdown (no default option for multi-select)
+                    specificStateFilter.innerHTML = '';
+                    
+                    // Group by category
+                    const activeStates = Array.from(statesMap.values()).filter(s => s.category === 'active');
+                    const inactiveStates = Array.from(statesMap.values()).filter(s => s.category === 'inactive');
+                    
+                    if (activeStates.length > 0) {
+                        const activeGroup = document.createElement('optgroup');
+                        activeGroup.label = '✓ Active States';
+                        activeStates.sort((a, b) => a.name.localeCompare(b.name)).forEach(state => {
+                            const option = document.createElement('option');
+                            option.value = state.name.toLowerCase();
+                            option.textContent = state.name;
+                            option.dataset.category = state.category;
+                            activeGroup.appendChild(option);
+                        });
+                        specificStateFilter.appendChild(activeGroup);
+                    }
+                    
+                    if (inactiveStates.length > 0) {
+                        const inactiveGroup = document.createElement('optgroup');
+                        inactiveGroup.label = '✕ Inactive States';
+                        inactiveStates.sort((a, b) => a.name.localeCompare(b.name)).forEach(state => {
+                            const option = document.createElement('option');
+                            option.value = state.name.toLowerCase();
+                            option.textContent = state.name;
+                            option.dataset.category = state.category;
+                            inactiveGroup.appendChild(option);
+                        });
+                        specificStateFilter.appendChild(inactiveGroup);
+                    }
+                    
+                    // Restore the previous selected values if they still exist
+                    if (currentValues.length > 0) {
+                        currentValues.forEach(value => {
+                            const option = Array.from(specificStateFilter.options).find(opt => opt.value === value);
+                            if (option) {
+                                option.selected = true;
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error loading states:', error);
+                }
+            }
+            
+            // Function to initialize states based on current filters
+            async function initializeStates() {
+                const selectedTypeId = quickTypeFilter.value;
+                const selectedStatusCategory = quickStatusFilter.value;
+                await loadAllStates(selectedTypeId || null, selectedStatusCategory || null);
+            }
+            
             // Load saved search parameters from database
             async function loadSavedSearchParams() {
                 try {
-                    // Try to load from API first
+                    // First, try to load the default saved search
+                    const searchesResponse = await fetch('/api/saved_searches');
+                    if (searchesResponse.ok) {
+                        const searches = await searchesResponse.json();
+                        const defaultSearch = searches.find(s => s.is_default);
+                        
+                        if (defaultSearch) {
+                            console.log('Loading default saved search:', defaultSearch.name);
+                            await loadSearchParams(defaultSearch);
+                            return;
+                        }
+                    }
+                    
+                    // Fallback to SystemParameters if no default saved search
                     const response = await fetch('/api/search_defaults');
                     if (response.ok) {
                         const savedParams = await response.json();
                         
-                        console.log('Loading saved params from database:', savedParams);
+                        console.log('Loading saved params from SystemParameters:', savedParams);
                         
                         if (savedParams.search_term) {
                             quickSearch.value = savedParams.search_term;
@@ -1053,9 +1239,23 @@
                             resultLimit.value = savedParams.result_limit;
                         }
                         
+                        // Initialize states with current filter values
+                        await initializeStates();
+                        
+                        // Restore specific state selections after states are loaded
+                        if (savedParams.specific_states) {
+                            const savedStates = savedParams.specific_states.split(',').filter(s => s.trim());
+                            savedStates.forEach(stateValue => {
+                                const option = Array.from(specificStateFilter.options).find(opt => opt.value === stateValue);
+                                if (option) {
+                                    option.selected = true;
+                                }
+                            });
+                        }
+                        
                         // Only apply filters if there are actual filter criteria
                         if (quickSearch.value || quickTypeFilter.value || quickStatusFilter.value || 
-                            dateRange.value || hasDescription.value) {
+                            dateRange.value || hasDescription.value || specificStateFilter.selectedOptions.length > 0) {
                             console.log('Applying saved filters from database');
                             performLiveFilter();
                         } else {
@@ -1074,7 +1274,7 @@
             }
             
             // Load defaults from template (fallback)
-            function loadTemplateDefaults() {
+            async function loadTemplateDefaults() {
                 const templateDefaults = {{ search_defaults|tojson }};
                 console.log('Loading template defaults:', templateDefaults);
                 
@@ -1086,9 +1286,23 @@
                 if (templateDefaults.content_display) hasDescription.value = templateDefaults.content_display;
                 if (templateDefaults.result_limit) resultLimit.value = templateDefaults.result_limit;
                 
+                // Initialize states with current filter values
+                await initializeStates();
+                
+                // Restore specific state selections after states are loaded
+                if (templateDefaults.specific_states) {
+                    const savedStates = templateDefaults.specific_states.split(',').filter(s => s.trim());
+                    savedStates.forEach(stateValue => {
+                        const option = Array.from(specificStateFilter.options).find(opt => opt.value === stateValue);
+                        if (option) {
+                            option.selected = true;
+                        }
+                    });
+                }
+                
                 // Apply filters if needed
                 if (quickSearch.value || quickTypeFilter.value || quickStatusFilter.value || 
-                    dateRange.value || hasDescription.value) {
+                    dateRange.value || hasDescription.value || specificStateFilter.selectedOptions.length > 0) {
                     performLiveFilter();
                 }
             }
@@ -1096,10 +1310,14 @@
             // Save search parameters to database
             async function saveSearchParams() {
                 try {
+                    // Get selected states as comma-separated string
+                    const selectedStates = Array.from(specificStateFilter.selectedOptions).map(opt => opt.value);
+                    
                     const searchParams = {
                         search_term: quickSearch.value,
                         type_filter: quickTypeFilter.value,
                         status_filter: quickStatusFilter.value,
+                        specific_states: selectedStates.join(','),
                         date_range: dateRange.value,
                         sort_by: sortBy.value,
                         content_display: hasDescription.value,
@@ -1194,12 +1412,14 @@
                     const searchTerm = quickSearch.value.toLowerCase().trim();
                     const selectedType = quickTypeFilter.value;
                     const selectedStatus = quickStatusFilter.value.toLowerCase().trim();
+                    const selectedSpecificStates = Array.from(specificStateFilter.selectedOptions).map(opt => opt.value.toLowerCase());
                     const selectedDateRange = dateRange.value;
                     const selectedHasDescription = hasDescription.value;
                     const selectedSortBy = sortBy.value;
                     
                     console.log('Advanced filters:', {
                         dateRange: selectedDateRange,
+                        specificStates: selectedSpecificStates,
                         contentDisplay: selectedHasDescription,
                         sortBy: selectedSortBy
                     });
@@ -1213,6 +1433,7 @@
                         const description = (item.dataset.description || '').toLowerCase();
                         const entryTypeId = item.dataset.type;
                         const status = (item.dataset.status || 'active').toLowerCase().trim();
+                        const statusCategory = (item.dataset.statusCategory || 'active').toLowerCase().trim();
                         const createdAt = item.dataset.created;
                         
                         // Search: show if no search term OR title/description contains search term
@@ -1221,14 +1442,17 @@
                         // Type: show if no type selected OR entry type ID matches selected type ID
                         const showForType = !selectedType || entryTypeId === selectedType;
                         
-                        // Status: show if no status selected OR entry status matches selected status
-                        const showForStatus = !selectedStatus || status === selectedStatus;
+                        // Status category: show if no status selected OR entry status category matches selected status category
+                        const showForStatus = !selectedStatus || statusCategory === selectedStatus;
+                        
+                        // Specific state: show if no specific states selected OR entry status matches any selected state
+                        const showForSpecificState = selectedSpecificStates.length === 0 || selectedSpecificStates.includes(status);
                         
                         // Date range filtering
                         const showForDateRange = !selectedDateRange || checkDateRange(createdAt, selectedDateRange);
                         
                         // Show entry only if ALL criteria match
-                        if (showForSearch && showForType && showForStatus && showForDateRange) {
+                        if (showForSearch && showForType && showForStatus && showForSpecificState && showForDateRange) {
                             item.style.display = '';
                             visibleCount++;
                             visibleEntries.push({
@@ -1362,10 +1586,23 @@
             
             // Add event listeners for live filtering
             quickSearch.addEventListener('input', performLiveFilter);
-            quickTypeFilter.addEventListener('change', performLiveFilter);
-            quickStatusFilter.addEventListener('change', performLiveFilter);
+            quickTypeFilter.addEventListener('change', function() {
+                // Reload states when type changes
+                const selectedTypeId = quickTypeFilter.value;
+                const selectedStatusCategory = quickStatusFilter.value;
+                loadAllStates(selectedTypeId || null, selectedStatusCategory || null);
+                performLiveFilter();
+            });
+            quickStatusFilter.addEventListener('change', function() {
+                // Reload states when status category changes
+                const selectedTypeId = quickTypeFilter.value;
+                const selectedStatusCategory = quickStatusFilter.value;
+                loadAllStates(selectedTypeId || null, selectedStatusCategory || null);
+                performLiveFilter();
+            });
             
             // Add event listeners for advanced filters
+            specificStateFilter.addEventListener('change', performLiveFilter);
             dateRange.addEventListener('change', performLiveFilter);
             sortBy.addEventListener('change', performLiveFilter);
             hasDescription.addEventListener('change', performLiveFilter);
@@ -1376,6 +1613,9 @@
                 quickSearch.value = '';
                 quickTypeFilter.value = '';
                 quickStatusFilter.value = '';
+                // Clear all selections in multi-select
+                Array.from(specificStateFilter.options).forEach(opt => opt.selected = false);
+                await loadAllStates(); // Reload all states when clearing type filter
                 performLiveFilter();
                 await saveSearchParams();
             });
@@ -1385,10 +1625,15 @@
                 quickSearch.value = '';
                 quickTypeFilter.value = '';
                 quickStatusFilter.value = '';
+                // Clear all selections in multi-select
+                Array.from(specificStateFilter.options).forEach(opt => opt.selected = false);
                 dateRange.value = '';
                 sortBy.value = 'created_desc';
                 hasDescription.value = '';
                 resultLimit.value = '50';
+                
+                // Reload all states (no type filter)
+                await loadAllStates();
                 
                 // Clear database
                 try {
@@ -1411,6 +1656,227 @@
                 }
             };
 
+            // ========================================
+            // Saved Searches Management
+            // ========================================
+            
+            const saveSearchModal = new bootstrap.Modal(document.getElementById('saveSearchModal'));
+            const savedSearchList = document.getElementById('savedSearchList');
+            
+            // Load all saved searches
+            async function loadSavedSearches() {
+                try {
+                    const response = await fetch('/api/saved_searches');
+                    const searches = await response.json();
+                    
+                    // Clear existing items (keep headers and save button)
+                    const existingItems = savedSearchList.querySelectorAll('.saved-search-item');
+                    existingItems.forEach(item => item.remove());
+                    
+                    if (searches.length === 0) {
+                        const li = document.createElement('li');
+                        li.innerHTML = '<span class="dropdown-item-text text-muted"><i>No saved searches yet</i></span>';
+                        savedSearchList.appendChild(li);
+                    } else {
+                        searches.forEach(search => {
+                            const li = document.createElement('li');
+                            li.className = 'saved-search-item';
+                            const defaultBadge = search.is_default ? '<span class="badge bg-primary ms-2">Default</span>' : '';
+                            const starIcon = search.is_default ? 'fas fa-star text-warning' : 'far fa-star';
+                            li.innerHTML = `
+                                <div class="dropdown-item d-flex justify-content-between align-items-center gap-2">
+                                    <a href="#" class="flex-grow-1 text-decoration-none load-search" data-search-id="${search.id}">
+                                        <i class="fas fa-search me-2"></i>${search.name}${defaultBadge}
+                                    </a>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-sm btn-outline-primary set-default-search" data-search-id="${search.id}" title="Set as default">
+                                            <i class="${starIcon}"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger delete-search" data-search-id="${search.id}" data-search-name="${search.name}" title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                            savedSearchList.appendChild(li);
+                        });
+                    }
+                    
+                    // Attach event listeners
+                    document.querySelectorAll('.load-search').forEach(link => {
+                        link.addEventListener('click', async function(e) {
+                            e.preventDefault();
+                            const searchId = this.dataset.searchId;
+                            await loadSearch(searchId);
+                        });
+                    });
+                    
+                    document.querySelectorAll('.set-default-search').forEach(btn => {
+                        btn.addEventListener('click', async function(e) {
+                            e.stopPropagation();
+                            const searchId = this.dataset.searchId;
+                            await setDefaultSearch(searchId);
+                        });
+                    });
+                    
+                    document.querySelectorAll('.delete-search').forEach(btn => {
+                        btn.addEventListener('click', async function(e) {
+                            e.stopPropagation();
+                            const searchId = this.dataset.searchId;
+                            const searchName = this.dataset.searchName;
+                            if (confirm(`Delete saved search "${searchName}"?`)) {
+                                await deleteSearch(searchId);
+                            }
+                        });
+                    });
+                    
+                } catch (error) {
+                    console.error('Error loading saved searches:', error);
+                }
+            }
+            
+            // Helper function to apply search parameters
+            async function loadSearchParams(search) {
+                // Apply search parameters
+                quickSearch.value = search.search_term || '';
+                quickTypeFilter.value = search.type_filter || '';
+                quickStatusFilter.value = search.status_filter || '';
+                dateRange.value = search.date_range || '';
+                sortBy.value = search.sort_by || 'created_desc';
+                hasDescription.value = search.content_display || '';
+                resultLimit.value = search.result_limit || '50';
+                
+                // Load states and select the saved ones
+                await initializeStates();
+                
+                if (search.specific_states) {
+                    const stateValues = search.specific_states.split(',').filter(s => s.trim());
+                    Array.from(specificStateFilter.options).forEach(opt => {
+                        opt.selected = stateValues.includes(opt.value);
+                    });
+                }
+                
+                // Apply filters if there are any
+                if (quickSearch.value || quickTypeFilter.value || quickStatusFilter.value || 
+                    dateRange.value || hasDescription.value || search.specific_states) {
+                    performLiveFilter();
+                }
+            }
+            
+            // Load a specific search
+            async function loadSearch(searchId) {
+                try {
+                    const response = await fetch('/api/saved_searches');
+                    const searches = await response.json();
+                    const search = searches.find(s => s.id == searchId);
+                    
+                    if (!search) {
+                        alert('Search not found');
+                        return;
+                    }
+                    
+                    await loadSearchParams(search);
+                    
+                } catch (error) {
+                    console.error('Error loading search:', error);
+                    alert('Failed to load search');
+                }
+            }
+            
+            // Save a new search
+            document.getElementById('saveNewSearch').addEventListener('click', function(e) {
+                e.preventDefault();
+                document.getElementById('searchName').value = '';
+                document.getElementById('editSearchId').value = '';
+                document.getElementById('saveSearchModalLabel').textContent = 'Save Search';
+                saveSearchModal.show();
+            });
+            
+            document.getElementById('confirmSaveSearch').addEventListener('click', async function() {
+                const searchName = document.getElementById('searchName').value.trim();
+                
+                if (!searchName) {
+                    alert('Please enter a name for this search');
+                    return;
+                }
+                
+                const selectedStates = Array.from(specificStateFilter.selectedOptions).map(opt => opt.value);
+                
+                const searchData = {
+                    name: searchName,
+                    search_term: quickSearch.value,
+                    type_filter: quickTypeFilter.value,
+                    status_filter: quickStatusFilter.value,
+                    specific_states: selectedStates.join(','),
+                    date_range: dateRange.value,
+                    sort_by: sortBy.value,
+                    content_display: hasDescription.value,
+                    result_limit: resultLimit.value
+                };
+                
+                try {
+                    const response = await fetch('/api/saved_searches', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(searchData)
+                    });
+                    
+                    if (response.ok) {
+                        saveSearchModal.hide();
+                        await loadSavedSearches();
+                        alert('Search saved successfully!');
+                    } else {
+                        const error = await response.json();
+                        alert(error.error || 'Failed to save search');
+                    }
+                } catch (error) {
+                    console.error('Error saving search:', error);
+                    alert('Failed to save search');
+                }
+            });
+            
+            // Set a search as default
+            async function setDefaultSearch(searchId) {
+                try {
+                    const response = await fetch(`/api/saved_searches/${searchId}/set_default`, {
+                        method: 'POST'
+                    });
+                    
+                    if (response.ok) {
+                        await loadSavedSearches();
+                        alert('Default search updated!');
+                    } else {
+                        alert('Failed to set default search');
+                    }
+                } catch (error) {
+                    console.error('Error setting default search:', error);
+                    alert('Failed to set default search');
+                }
+            }
+            
+            // Delete a search
+            async function deleteSearch(searchId) {
+                try {
+                    const response = await fetch(`/api/saved_searches/${searchId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (response.ok) {
+                        await loadSavedSearches();
+                    } else {
+                        alert('Failed to delete search');
+                    }
+                } catch (error) {
+                    console.error('Error deleting search:', error);
+                    alert('Failed to delete search');
+                }
+            }
+            
+            // Load saved searches on page load
+            loadSavedSearches();
+            
             // Load saved search parameters on page load
             loadSavedSearchParams();
             

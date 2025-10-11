@@ -64,6 +64,7 @@ def create_app():
     # Import all API blueprints
     from .api.entry_api import entry_api_bp
     from .api.entry_type_api import entry_type_api_bp
+    from .api.entry_state_api import entry_state_api_bp
     from .api.notes_api import notes_api_bp
     from .api.note_bindings_api import note_bindings_bp
     from .api.system_params_api import system_params_api_bp
@@ -84,12 +85,14 @@ def create_app():
     from .api.units_management_api import units_management_bp
     from .api.shared_sensor_api import shared_sensor_api_bp
     from .api.range_sensor_api import range_sensor_api
+    from .api.saved_search_api import saved_search_api_bp
 
     # Register all blueprints
     app.register_blueprint(main_bp)
     app.register_blueprint(maintenance_bp)
     app.register_blueprint(entry_api_bp, url_prefix='/api')
     app.register_blueprint(entry_type_api_bp, url_prefix='/api')
+    app.register_blueprint(entry_state_api_bp, url_prefix='/api')
     app.register_blueprint(notes_api_bp, url_prefix='/api')
     app.register_blueprint(note_bindings_bp, url_prefix='/api')
     app.register_blueprint(system_params_api_bp, url_prefix='/api')
@@ -110,6 +113,7 @@ def create_app():
     app.register_blueprint(units_management_bp)
     app.register_blueprint(shared_sensor_api_bp, url_prefix='/api')
     app.register_blueprint(range_sensor_api, url_prefix='/api')
+    app.register_blueprint(saved_search_api_bp, url_prefix='/api')
 
     app.logger.info("Blueprints registered.")
 

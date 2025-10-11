@@ -2108,7 +2108,11 @@
                                 <!-- Display Mode -->
                                 <div id="detailsDisplay">
                                     <div><strong>Type:</strong> <span id="entryTypeDisplay">{{ entry.entry_type_label }}</span></div>
-                                    <div><strong>Status:</strong> <span id="statusDisplay">{{ (entry.status or 'active').title() }}</span></div>
+                                    <div><strong>Status:</strong> 
+                                        <span class="badge" style="background-color: {{ entry.status_color }}; color: white;" id="statusDisplay">
+                                            {{ (entry.status or 'Active').title() }}
+                                        </span>
+                                    </div>
                                 </div>
                                 <!-- Edit Mode -->
                                 <div id="detailsEdit" class="d-none">
@@ -5314,11 +5318,79 @@
                     }
                     entryTypeSelect.appendChild(option);
                 });
+                
+                // Load states for the current entry type
+                await loadStatesForEntry();
             } catch (error) {
                 console.error('Error loading entry types:', error);
                 displayStatus(entryStatusMessage, 'Error loading entry types', 'alert-danger');
             }
         }
+        
+        // Load available states for the current entry
+        async function loadStatesForEntry() {
+            try {
+                const response = await fetch(`/api/entries/{{ entry.id }}/available_states`);
+                const states = await response.json();
+                
+                const currentStatus = statusSelect.value || '{{ entry.status }}';
+                statusSelect.innerHTML = '';
+                
+                // Group states by category
+                const activeStates = states.filter(s => s.category === 'active');
+                const inactiveStates = states.filter(s => s.category === 'inactive');
+                
+                // Add active states
+                if (activeStates.length > 0) {
+                    const activeGroup = document.createElement('optgroup');
+                    activeGroup.label = '✓ Active (Ongoing)';
+                    activeStates.forEach(state => {
+                        const option = document.createElement('option');
+                        option.value = state.name;
+                        option.textContent = state.name;
+                        option.dataset.category = state.category;
+                        option.dataset.color = state.color;
+                        if (state.name.toLowerCase() === currentStatus.toLowerCase()) {
+                            option.selected = true;
+                        }
+                        activeGroup.appendChild(option);
+                    });
+                    statusSelect.appendChild(activeGroup);
+                }
+                
+                // Add inactive states
+                if (inactiveStates.length > 0) {
+                    const inactiveGroup = document.createElement('optgroup');
+                    inactiveGroup.label = '✕ Inactive (Completed)';
+                    inactiveStates.forEach(state => {
+                        const option = document.createElement('option');
+                        option.value = state.name;
+                        option.textContent = state.name;
+                        option.dataset.category = state.category;
+                        option.dataset.color = state.color;
+                        if (state.name.toLowerCase() === currentStatus.toLowerCase()) {
+                            option.selected = true;
+                        }
+                        inactiveGroup.appendChild(option);
+                    });
+                    statusSelect.appendChild(inactiveGroup);
+                }
+            } catch (error) {
+                console.error('Error loading states:', error);
+                // Fallback to default options
+                statusSelect.innerHTML = `
+                    <optgroup label="✓ Active (Ongoing)">
+                        <option value="Active">Active</option>
+                    </optgroup>
+                    <optgroup label="✕ Inactive (Completed)">
+                        <option value="Inactive">Inactive</option>
+                    </optgroup>
+                `;
+            }
+        }
+        
+        // Listen for entry type changes to update available states
+        entryTypeSelect.addEventListener('change', loadStatesForEntry);
         
         // Edit button click
         editEntryBtn.addEventListener('click', () => {
@@ -5396,7 +5468,13 @@
                     const entryTypeLabel = selectedOption ? selectedOption.textContent : 'Unknown';
                     const capitalizedStatus = status.charAt(0).toUpperCase() + status.slice(1);
                     entryTypeDisplay.textContent = entryTypeLabel;
+                    
+                    // Update status display with color
+                    const selectedStatusOption = statusSelect.options[statusSelect.selectedIndex];
+                    const statusColor = selectedStatusOption ? selectedStatusOption.dataset.color : '#28a745';
                     statusDisplay.textContent = capitalizedStatus;
+                    statusDisplay.style.backgroundColor = statusColor;
+                    statusDisplay.style.color = 'white';
                     
                     // Update dates display
                     {% if entry.show_end_dates %}

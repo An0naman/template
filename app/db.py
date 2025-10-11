@@ -62,6 +62,22 @@ def init_db():
             # Columns might already exist, ignore error
             pass
 
+        # Create EntryState Table for configurable status states
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS EntryState (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                entry_type_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                category TEXT NOT NULL CHECK(category IN ('active', 'inactive')), -- Whether this state represents active or inactive
+                color TEXT DEFAULT '#6c757d', -- Hex color for display
+                display_order INTEGER DEFAULT 0, -- Order in which states should be displayed
+                is_default INTEGER DEFAULT 0, -- 1 if this is the default state for new entries
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(entry_type_id, name),
+                FOREIGN KEY (entry_type_id) REFERENCES EntryType(id) ON DELETE CASCADE
+            );
+        ''')
+
         # Create Entry Table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Entry (
@@ -109,6 +125,33 @@ def init_db():
                 UNIQUE(preference_name)
             );
         ''')
+
+        # Create SavedSearch Table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS SavedSearch (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                search_term TEXT DEFAULT '',
+                type_filter TEXT DEFAULT '',
+                status_filter TEXT DEFAULT '',
+                specific_states TEXT DEFAULT '',
+                date_range TEXT DEFAULT '',
+                sort_by TEXT DEFAULT 'created_desc',
+                content_display TEXT DEFAULT '',
+                result_limit TEXT DEFAULT '50',
+                is_default INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        ''')
+        
+        # Migration: Add is_default column if it doesn't exist
+        try:
+            cursor.execute("ALTER TABLE SavedSearch ADD COLUMN is_default INTEGER DEFAULT 0")
+            conn.commit()
+            logger.info("Added is_default column to SavedSearch table")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
 
         # Create RelationshipDefinition Table
         cursor.execute('''
@@ -504,6 +547,34 @@ def init_db():
         }
         for name, value in default_params.items():
             cursor.execute("INSERT OR IGNORE INTO SystemParameters (parameter_name, parameter_value) VALUES (?, ?)", (name, value))
+
+        # Migration: Add default states for all entry types that don't have any states yet
+        try:
+            cursor.execute("SELECT id FROM EntryType")
+            entry_types = cursor.fetchall()
+            
+            for entry_type_row in entry_types:
+                entry_type_id = entry_type_row[0]
+                
+                # Check if this entry type already has states
+                cursor.execute("SELECT COUNT(*) FROM EntryState WHERE entry_type_id = ?", (entry_type_id,))
+                state_count = cursor.fetchone()[0]
+                
+                if state_count == 0:
+                    # Add default active and inactive states
+                    cursor.execute('''
+                        INSERT INTO EntryState (entry_type_id, name, category, color, display_order, is_default)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ''', (entry_type_id, 'Active', 'active', '#28a745', 0, 1))
+                    
+                    cursor.execute('''
+                        INSERT INTO EntryState (entry_type_id, name, category, color, display_order, is_default)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ''', (entry_type_id, 'Inactive', 'inactive', '#6c757d', 1, 0))
+                    
+                    logger.info(f"Added default states for entry type ID {entry_type_id}")
+        except Exception as e:
+            logger.error(f"Error during EntryState migration: {e}")
 
         conn.commit()
         if not db_exists:

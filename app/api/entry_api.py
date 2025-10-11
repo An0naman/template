@@ -100,7 +100,7 @@ def add_entry():
     description = data.get('description')
     entry_type_id = data.get('entry_type_id')
     intended_end_date = data.get('intended_end_date')
-    status = data.get('status', 'active')
+    status = data.get('status')
 
     if not title or not entry_type_id:
         return jsonify({'error': 'Title and Entry Type are required.'}), 400
@@ -108,6 +108,17 @@ def add_entry():
     conn = get_db()
     cursor = conn.cursor()
     try:
+        # If no status provided, get the default state for this entry type
+        if not status:
+            cursor.execute('''
+                SELECT name FROM EntryState
+                WHERE entry_type_id = ? AND is_default = 1
+                ORDER BY display_order ASC
+                LIMIT 1
+            ''', (entry_type_id,))
+            default_state = cursor.fetchone()
+            status = default_state['name'] if default_state else 'Active'
+        
         cursor.execute(
             "INSERT INTO Entry (title, description, entry_type_id, intended_end_date, status, created_at) VALUES (?, ?, ?, ?, ?, ?)",
             (title, description, entry_type_id, intended_end_date, status, datetime.now(timezone.utc).isoformat())
