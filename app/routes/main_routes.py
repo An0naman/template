@@ -1,5 +1,5 @@
 # template_app/app/routes/main_routes.py
-from flask import Blueprint, render_template, request, g, current_app
+from flask import Blueprint, render_template, request, g, current_app, redirect, url_for
 import sqlite3
 
 # Define a Blueprint for main routes
@@ -14,6 +14,11 @@ def get_db():
 
 @main_bp.route('/')
 def index():
+    # Redirect to dashboard as the default page
+    return redirect(url_for('main.dashboard'))
+
+@main_bp.route('/entries')
+def entries():
     from ..db import get_system_parameters, get_user_preference, set_user_preference # Import locally for function use
     from ..api.theme_api import generate_theme_css, get_current_theme_settings
 
@@ -212,3 +217,18 @@ def sql_ide():
     
     return render_template('simple_sql_ide.html',
                           project_name=params.get('project_name'))
+
+@main_bp.route('/dashboard')
+def dashboard():
+    """Dashboard route for configurable analytics dashboard"""
+    from ..db import get_system_parameters
+    from ..api.theme_api import generate_theme_css, get_current_theme_settings
+    
+    params = get_system_parameters()
+    theme_settings = get_current_theme_settings()
+    theme_css = generate_theme_css(theme_settings)
+    
+    return render_template('dashboard.html',
+                          project_name=params.get('project_name'),
+                          theme_settings=theme_settings,
+                          theme_css=theme_css)

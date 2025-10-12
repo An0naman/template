@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="{{ 'dark' if theme_settings.dark_mode_enabled else 'light' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ project_name }} - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='notifications_modern.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='mobile.css') }}">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- Gridstack for drag-and-drop dashboard -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10.1.2/dist/gridstack.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/gridstack@10.1.2/dist/gridstack-all.js"></script>
+    
+    <!-- Dynamic Theme CSS -->
+    <style id="theme-styles">
+        {{ theme_css|safe }}
+    </style>
+    
+    <style>
+        :root {
+            --content-spacing: 1.5rem;
+            --border-radius: 0.5rem;
+            --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        body {
+            background-color: var(--theme-bg-body, var(--bs-body-bg));
+            color: var(--theme-text, var(--bs-body-color));
+        }
+
+        .main-container {
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Dashboard Widgets */
+        .dashboard-widget {
+            background: var(--theme-bg-card, var(--bs-body-bg));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-md);
+            padding: 1rem;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .widget-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--theme-border, var(--bs-border-color));
+        }
+
+        .widget-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 0;
+            color: var(--theme-text, var(--bs-body-color));
+        }
+
+        .widget-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .widget-body {
+            flex: 1;
+            overflow: auto;
+            min-height: 0;
+        }
+
+        .widget-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--theme-text-muted, #6c757d);
+        }
+
+        /* Entry List Widget */
+        .entry-list-item {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            background: var(--theme-bg-surface, var(--bs-secondary-bg));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: 0.375rem;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .entry-list-item:hover {
+            transform: translateX(4px);
+            border-color: var(--theme-primary, var(--bs-primary));
+        }
+
+        .entry-list-item .entry-title {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .entry-list-item .entry-meta {
+            font-size: 0.875rem;
+            color: var(--theme-text-muted, #6c757d);
+        }
+
+        /* Stat Card Widget */
+        .stat-card {
+            text-align: center;
+            padding: 2rem 1rem;
+        }
+
+        .stat-value {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--theme-primary, var(--bs-primary));
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 1rem;
+            color: var(--theme-text-muted, #6c757d);
+            margin-top: 0.5rem;
+        }
+
+        /* AI Summary Widget */
+        .ai-summary {
+            line-height: 1.6;
+        }
+
+        .ai-summary p {
+            margin-bottom: 1rem;
+        }
+
+        .ai-summary-loading {
+            text-align: center;
+            padding: 2rem;
+        }
+
+        /* Chart Containers */
+        .chart-container {
+            position: relative;
+            height: 100%;
+            min-height: 200px;
+        }
+
+        /* Gridstack Customization */
+        .grid-stack-item {
+            touch-action: none;
+        }
+
+        .grid-stack-item-content {
+            background: transparent;
+            overflow: hidden;
+        }
+
+        /* Dashboard Controls */
+        .dashboard-controls {
+            background: var(--theme-bg-card, var(--bs-body-bg));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .dashboard-selector {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        /* Empty State */
+        .empty-dashboard {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--theme-text-muted, #6c757d);
+        }
+
+        .empty-dashboard i {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .stat-value {
+                font-size: 2rem;
+            }
+            
+            .dashboard-widget {
+                padding: 0.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Main Container -->
+    <div class="container-fluid main-container">
+        <!-- Top Header with Navigation -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h2 mb-1">{{ project_name }} - Dashboard</h1>
+                <p class="text-muted small mb-0">Analytics and insights for your entries</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('main.entries') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-list me-1"></i>All Entries
+                </a>
+                <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary btn-sm" title="Settings">
+                    <i class="fas fa-cog me-1"></i>Settings
+                </a>
+            </div>
+        </div>
+
+        <!-- Dashboard Controls -->
+        <div class="dashboard-controls">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h1 class="mb-0">
+                    <i class="fas fa-chart-line me-2"></i>Dashboard
+                </h1>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-primary" id="editModeBtn">
+                        <i class="fas fa-edit me-1"></i>Edit Layout
+                    </button>
+                    <button class="btn btn-sm btn-outline-success" id="addWidgetBtn">
+                        <i class="fas fa-plus me-1"></i>Add Widget
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" id="refreshAllBtn">
+                        <i class="fas fa-sync me-1"></i>Refresh All
+                    </button>
+                </div>
+            </div>
+
+            <div class="dashboard-selector">
+                <select class="form-select form-select-sm" id="dashboardSelect" style="max-width: 300px;">
+                    <option value="">Select a dashboard...</option>
+                </select>
+                <button class="btn btn-sm btn-outline-primary" id="newDashboardBtn">
+                    <i class="fas fa-plus me-1"></i>New Dashboard
+                </button>
+                <button class="btn btn-sm btn-outline-warning" id="setDefaultDashboardBtn" style="display: none;">
+                    <i class="fas fa-star me-1"></i>Set as Default
+                </button>
+                <button class="btn btn-sm btn-outline-danger" id="deleteDashboardBtn" style="display: none;">
+                    <i class="fas fa-trash me-1"></i>Delete
+                </button>
+            </div>
+        </div>
+
+        <!-- Dashboard Grid -->
+        <div id="dashboardGrid" class="grid-stack">
+            <!-- Widgets will be dynamically added here -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="empty-dashboard" style="display: none;">
+            <i class="fas fa-chart-bar"></i>
+            <h3>No Dashboard Selected</h3>
+            <p>Select an existing dashboard or create a new one to get started.</p>
+            <button class="btn btn-primary" id="createFirstDashboard">
+                <i class="fas fa-plus me-2"></i>Create Your First Dashboard
+            </button>
+        </div>
+    </div>
+
+    <!-- New Dashboard Modal -->
+    <div class="modal fade" id="newDashboardModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Dashboard</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="newDashboardForm">
+                        <div class="mb-3">
+                            <label for="dashboardName" class="form-label">Dashboard Name</label>
+                            <input type="text" class="form-control" id="dashboardName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="dashboardDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="dashboardDescription" rows="3"></textarea>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="dashboardIsDefault">
+                            <label class="form-check-label" for="dashboardIsDefault">
+                                Set as default dashboard
+                            </label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveDashboardBtn">Create Dashboard</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Widget Modal -->
+    <div class="modal fade" id="addWidgetModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Widget</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addWidgetForm">
+                        <div class="mb-3">
+                            <label for="widgetType" class="form-label">Widget Type</label>
+                            <select class="form-select" id="widgetType" required>
+                                <option value="">Select widget type...</option>
+                                <option value="list">Entry List</option>
+                                <option value="pie_chart">Pie Chart (States)</option>
+                                <option value="line_chart">Line Chart (Sensor Data)</option>
+                                <option value="stat_card">Stat Card</option>
+                                <option value="ai_summary">AI Summary</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="widgetTitle" class="form-label">Widget Title</label>
+                            <input type="text" class="form-control" id="widgetTitle" required>
+                        </div>
+
+                        <!-- Data Source Configuration -->
+                        <div id="dataSourceConfig" style="display: none;">
+                            <hr>
+                            <h6>Data Source</h6>
+                            
+                            <div id="savedSearchConfig" style="display: none;">
+                                <div class="mb-3">
+                                    <label for="savedSearchSelect" class="form-label">Saved Search</label>
+                                    <select class="form-select" id="savedSearchSelect">
+                                        <option value="">Select saved search...</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div id="sensorDataConfig" style="display: none;">
+                                <div class="mb-3">
+                                    <label for="sensorTypeSelect" class="form-label">Sensor Type</label>
+                                    <select class="form-select" id="sensorTypeSelect">
+                                        <option value="">Select sensor type...</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="timeRangeSelect" class="form-label">Time Range</label>
+                                    <select class="form-select" id="timeRangeSelect">
+                                        <option value="1d">Last 24 Hours</option>
+                                        <option value="7d" selected>Last 7 Days</option>
+                                        <option value="30d">Last 30 Days</option>
+                                        <option value="90d">Last 90 Days</option>
+                                        <option value="all">All Time</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+                        <h6>Layout</h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="widgetWidth" class="form-label">Width (columns)</label>
+                                <input type="number" class="form-control" id="widgetWidth" min="1" max="12" value="4">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="widgetHeight" class="form-label">Height (rows)</label>
+                                <input type="number" class="form-control" id="widgetHeight" min="1" max="10" value="2">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveWidgetBtn">Add Widget</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

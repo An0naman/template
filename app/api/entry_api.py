@@ -27,7 +27,7 @@ def get_all_entries():
         
         cursor.execute('''
             SELECT e.id, e.title, e.description, e.intended_end_date, e.actual_end_date, 
-                   e.status, e.created_at, et.singular_label AS entry_type_label
+                   e.status, e.created_at, e.entry_type_id, et.singular_label AS entry_type_label
             FROM Entry e
             JOIN EntryType et ON e.entry_type_id = et.id
             ORDER BY e.created_at DESC
@@ -45,6 +45,7 @@ def get_all_entries():
                 'actual_end_date': row['actual_end_date'],
                 'status': row['status'],
                 'created_at': row['created_at'],
+                'entry_type_id': row['entry_type_id'],
                 'entry_type_label': row['entry_type_label']
             })
         
@@ -436,3 +437,168 @@ def delete_sensor_data(sensor_id):
         logger.error(f"Error deleting sensor data {sensor_id}: {e}", exc_info=True)
         conn.rollback()
         return jsonify({'error': 'An internal error occurred.'}), 500
+
+
+@entry_api_bp.route('/filter_by_relationships', methods=['POST'])
+def filter_by_relationships():
+    """
+    Filter entries based on their relationships with other entries.
+    
+    Request body format:
+    {
+        "filters": [
+            {
+                "relationship_def_id": 16,  // Relationship definition ID
+                "target_entry_id": 5,        // Target entry ID
+                "direction": "to"            // "to" or "from"
+            }
+        ],
+        "logic": "AND"  // "AND" or "OR" - how to combine multiple filters
+    }
+    
+    Returns entry IDs that match the specified relationship filters.
+    """
+    try:
+        data = request.json
+        filters = data.get('filters', [])
+        logic = data.get('logic', 'AND').upper()
+        
+        if not filters:
+            # No filters, return all entries
+            conn = get_db()
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM Entry")
+            entry_ids = [row['id'] for row in cursor.fetchall()]
+            return jsonify({'entry_ids': entry_ids}), 200
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Collect results from each filter
+        filter_result_sets = []
+        
+        for filter_spec in filters:
+            rel_def_id = filter_spec.get('relationship_def_id')
+            target_entry_id = filter_spec.get('target_entry_id')
+            direction = filter_spec.get('direction', 'to')
+            
+            if not rel_def_id or not target_entry_id:
+                continue
+            
+            # Query depends on direction
+            if direction == 'to':
+                # Find entries that have a relationship TO the target
+                # (source_entry_id is what we're looking for, target_entry_id is the filter)
+                query = """
+                    SELECT DISTINCT source_entry_id as entry_id
+                    FROM EntryRelationship
+                    WHERE relationship_type = ? AND target_entry_id = ?
+                """
+                cursor.execute(query, (rel_def_id, target_entry_id))
+            else:  # direction == 'from'
+                # Find entries that have a relationship FROM the target
+                # (target_entry_id is what we're looking for, source_entry_id is the filter)
+                query = """
+                    SELECT DISTINCT target_entry_id as entry_id
+                    FROM EntryRelationship
+                    WHERE relationship_type = ? AND source_entry_id = ?
+                """
+                cursor.execute(query, (rel_def_id, target_entry_id))
+            
+            filter_results = set(row['entry_id'] for row in cursor.fetchall())
+            filter_result_sets.append(filter_results)
+        
+        # Apply logic (AND or OR)
+        if not filter_result_sets:
+            result_ids = []
+        elif logic == 'OR':
+            # Union of all result sets (match ANY filter)
+            matching_entry_ids = set()
+            for result_set in filter_result_sets:
+                matching_entry_ids = matching_entry_ids.union(result_set)
+            result_ids = list(matching_entry_ids)
+        else:  # AND logic
+            # Intersection of all result sets (match ALL filters)
+            matching_entry_ids = filter_result_sets[0]
+            for result_set in filter_result_sets[1:]:
+                matching_entry_ids = matching_entry_ids.intersection(result_set)
+            result_ids = list(matching_entry_ids)
+        
+        logger.info(f"Relationship filter ({logic}) returned {len(result_ids)} matching entries")
+        return jsonify({'entry_ids': result_ids}), 200
+        
+    except Exception as e:
+        logger.error(f"Error filtering by relationships: {e}", exc_info=True)
+        return jsonify({'error': 'An internal error occurred.'}), 500
+
+
+@entry_api_bp.route('/custom_sql_filter', methods=['POST'])
+def custom_sql_filter():
+    """
+    Filter entries using a custom SQL WHERE clause.
+    
+    Expected JSON payload:
+    {
+        "where_clause": "e.title LIKE '%wine%' AND e.entry_type_id = 2"
+    }
+    
+    Returns:
+    {
+        "entry_ids": [1, 5, 10],
+        "count": 3,
+        "warning": "optional warning message"
+    }
+    """
+    try:
+        data = request.get_json()
+        where_clause = data.get('where_clause', '').strip()
+        
+        if not where_clause:
+            return jsonify({'entry_ids': [], 'count': 0}), 200
+        
+        # Basic security checks
+        dangerous_keywords = ['DROP', 'DELETE', 'INSERT', 'UPDATE', 'ALTER', 'CREATE', 
+                             'TRUNCATE', 'EXEC', 'EXECUTE', '--', ';']
+        where_upper = where_clause.upper()
+        
+        for keyword in dangerous_keywords:
+            if keyword in where_upper:
+                return jsonify({
+                    'error': f'Dangerous SQL keyword detected: {keyword}. Only SELECT queries are allowed.'
+                }), 400
+        
+        # Build the query with the custom WHERE clause
+        # We'll use 'e' as the alias for the Entry table
+        base_query = """
+            SELECT DISTINCT e.id 
+            FROM Entry e
+            LEFT JOIN EntryType et ON e.entry_type_id = et.id
+            LEFT JOIN EntryRelationship er_from ON e.id = er_from.source_entry_id
+            LEFT JOIN EntryRelationship er_to ON e.id = er_to.target_entry_id
+        """
+        
+        # Add the custom WHERE clause
+        full_query = f"{base_query} WHERE ({where_clause})"
+        
+        logger.info(f"Executing custom SQL query: {full_query}")
+        
+        # Execute the query
+        cursor = get_db().execute(full_query)
+        results = cursor.fetchall()
+        
+        entry_ids = [row[0] for row in results]
+        
+        logger.info(f"Custom SQL query returned {len(entry_ids)} entries")
+        
+        return jsonify({
+            'entry_ids': entry_ids,
+            'count': len(entry_ids)
+        }), 200
+        
+    except Exception as e:
+        error_msg = str(e)
+        logger.error(f"Error executing custom SQL query: {error_msg}", exc_info=True)
+        return jsonify({
+            'error': f'SQL query error: {error_msg}',
+            'hint': 'Check your SQL syntax. Use "e" as the Entry table alias.'
+        }), 400

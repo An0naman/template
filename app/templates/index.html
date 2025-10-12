@@ -702,6 +702,96 @@
         .modal .form-text {
             color: var(--theme-text-muted, var(--bs-secondary-color)) !important;
         }
+        
+        /* Hierarchical Relationship Filter Styles */
+        .filter-tree-item {
+            position: relative;
+            margin-bottom: 0.5rem;
+        }
+        
+        .filter-group {
+            border: 2px dashed var(--theme-border, var(--bs-border-color));
+            border-radius: 0.375rem;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            background: rgba(var(--theme-primary-rgb, 13, 110, 253), 0.03);
+            position: relative;
+        }
+        
+        .filter-group::before {
+            content: '(';
+            position: absolute;
+            left: -8px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--theme-primary, #0d6efd);
+            line-height: 1;
+        }
+        
+        .filter-group::after {
+            content: ')';
+            position: absolute;
+            right: -8px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--theme-primary, #0d6efd);
+            line-height: 1;
+        }
+        
+        .filter-item {
+            background: var(--theme-bg-card, white);
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: 0.375rem;
+            padding: 0.75rem;
+            margin: 0.25rem 0;
+        }
+        
+        .filter-operator {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 60px;
+            padding: 0.25rem 0.5rem;
+            margin: 0.25rem 0.5rem;
+            font-weight: bold;
+            font-size: 0.875rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .filter-operator.operator-and {
+            background: #198754;
+            color: white;
+        }
+        
+        .filter-operator.operator-or {
+            background: #fd7e14;
+            color: white;
+        }
+        
+        .filter-operator:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .filter-group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            background: rgba(var(--theme-primary-rgb, 13, 110, 253), 0.08);
+            border-radius: 0.25rem;
+        }
+        
+        .indent-level-1 { margin-left: 2rem; }
+        .indent-level-2 { margin-left: 4rem; }
+        .indent-level-3 { margin-left: 6rem; }
     </style>
 </head>
 <body>
@@ -712,7 +802,12 @@
                 <h1 class="h1 mb-1">{{ project_name }}</h1>
                 <p class="text-muted small mb-0">{{ project_subtitle if project_subtitle else (entry_plural_label + ' Management') }}</p>
             </div>
-            <div>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('main.dashboard') }}" 
+                   class="btn btn-outline-theme-primary btn-sm" title="Dashboard">
+                    <i class="fas fa-chart-line"></i>
+                    <span class="ms-1">Dashboard</span>
+                </a>
                 <a href="{{ url_for('maintenance.maintenance_module_page') }}" 
                    class="btn btn-outline-theme-primary btn-sm" title="Settings">
                     <i class="fas fa-cog"></i>
@@ -855,6 +950,43 @@
                                             </button>
                                         </div>
                                     </div>
+                                    
+                                    <!-- Custom SQL Query -->
+                                    <div class="col-12 mt-4">
+                                        <h6 class="mb-3">
+                                            <i class="fas fa-code me-2"></i>Custom SQL Query
+                                            <small class="text-muted">For advanced filtering, write your own SQL WHERE clause</small>
+                                        </h6>
+                                        <div class="alert alert-warning py-2 small mb-3">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>
+                                            <strong>Advanced Feature:</strong> Write a SQL WHERE clause to filter entries. 
+                                            Use <code>e</code> as the Entry table alias. Example: <code>e.title LIKE '%wine%' AND e.id IN (SELECT source_entry_id FROM entry_relationship WHERE target_entry_id = 5)</code>
+                                        </div>
+                                        <div class="mb-2">
+                                            <textarea 
+                                                class="form-control font-monospace" 
+                                                id="customSqlQuery" 
+                                                rows="4" 
+                                                placeholder="Enter SQL WHERE clause (without 'WHERE' keyword)&#10;Example: e.title LIKE '%Sample%' AND e.entry_type_id = 2"
+                                                style="font-size: 0.9rem;"
+                                            ></textarea>
+                                        </div>
+                                        <div class="d-flex gap-2 align-items-center">
+                                            <button type="button" class="btn btn-sm btn-outline-theme-primary" id="applySqlQuery">
+                                                <i class="fas fa-play me-1"></i>Apply SQL Query
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="clearSqlQuery">
+                                                <i class="fas fa-times me-1"></i>Clear
+                                            </button>
+                                            <div class="form-check ms-3">
+                                                <input class="form-check-input" type="checkbox" id="sqlQueryEnabled" checked>
+                                                <label class="form-check-label small" for="sqlQueryEnabled">
+                                                    Use SQL Query
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div id="sqlQueryResults" class="mt-2"></div>
+                                    </div>
                                 </div>
                             </form>
                         </div>
@@ -882,7 +1014,8 @@
                 <div id="entries-list">
                 {% if entries %}
                     {% for entry in entries %}
-                        <div class="entry-item" data-title="{{ entry.title|lower }}" 
+                        <div class="entry-item" data-id="{{ entry.id }}"
+                             data-title="{{ entry.title|lower }}" 
                              data-description="{{ entry.description|lower if entry.description else '' }}"
                              data-type="{{ entry.entry_type_id }}" 
                              data-type-label="{{ entry.entry_type_label|lower }}"
@@ -1031,6 +1164,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/hierarchical-filters.js') }}"></script>
     <script>
         // Initialize modals and event listeners
         document.addEventListener('DOMContentLoaded', function() {
@@ -1406,9 +1540,9 @@
                 });
             }
 
-            function performLiveFilter() {
+            async function performLiveFilter() {
                 clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
+                searchTimeout = setTimeout(async () => {
                     const searchTerm = quickSearch.value.toLowerCase().trim();
                     const selectedType = quickTypeFilter.value;
                     const selectedStatus = quickStatusFilter.value.toLowerCase().trim();
@@ -1423,6 +1557,38 @@
                         contentDisplay: selectedHasDescription,
                         sortBy: selectedSortBy
                     });
+                    
+                    // Get entry IDs that match custom SQL query
+                    let sqlMatchingEntryIds = null; // null means no filter, array means filtered
+                    const sqlQueryEnabled = document.getElementById('sqlQueryEnabled').checked;
+                    const customSqlQuery = document.getElementById('customSqlQuery').value.trim();
+                    const sqlQueryResults = document.getElementById('sqlQueryResults');
+                    
+                    if (sqlQueryEnabled && customSqlQuery) {
+                        try {
+                            const response = await fetch('/api/custom_sql_filter', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ where_clause: customSqlQuery })
+                            });
+                            
+                            if (response.ok) {
+                                const result = await response.json();
+                                sqlMatchingEntryIds = result.entry_ids;
+                                sqlQueryResults.innerHTML = `<div class="alert alert-success py-2 small mt-2"><i class="fas fa-check me-1"></i>Query executed successfully. ${result.count} entries matched.</div>`;
+                                console.log(`Custom SQL query matched ${result.count} entries:`, sqlMatchingEntryIds);
+                            } else {
+                                const error = await response.json();
+                                sqlQueryResults.innerHTML = `<div class="alert alert-danger py-2 small mt-2"><i class="fas fa-times me-1"></i>${error.error}${error.hint ? '<br><small>' + error.hint + '</small>' : ''}</div>`;
+                                console.error('SQL query error:', error);
+                            }
+                        } catch (error) {
+                            sqlQueryResults.innerHTML = `<div class="alert alert-danger py-2 small mt-2"><i class="fas fa-times me-1"></i>Error executing SQL query: ${error.message}</div>`;
+                            console.error('Error applying custom SQL filter:', error);
+                        }
+                    } else {
+                        sqlQueryResults.innerHTML = '';
+                    }
                     
                     let visibleCount = 0;
                     let totalCount = entryItems.length;
@@ -1451,8 +1617,12 @@
                         // Date range filtering
                         const showForDateRange = !selectedDateRange || checkDateRange(createdAt, selectedDateRange);
                         
+                        // SQL query filtering
+                        const entryId = parseInt(item.dataset.id);
+                        const showForSqlQuery = sqlMatchingEntryIds === null || sqlMatchingEntryIds.includes(entryId);
+                        
                         // Show entry only if ALL criteria match
-                        if (showForSearch && showForType && showForStatus && showForSpecificState && showForDateRange) {
+                        if (showForSearch && showForType && showForStatus && showForSpecificState && showForDateRange && showForSqlQuery) {
                             item.style.display = '';
                             visibleCount++;
                             visibleEntries.push({
@@ -1566,6 +1736,23 @@
                 clearAllFilters();
             });
             
+            // Custom SQL Query buttons
+            document.getElementById('applySqlQuery').addEventListener('click', function() {
+                const sqlQueryEnabled = document.getElementById('sqlQueryEnabled');
+                sqlQueryEnabled.checked = true;
+                performLiveFilter();
+            });
+            
+            document.getElementById('clearSqlQuery').addEventListener('click', function() {
+                document.getElementById('customSqlQuery').value = '';
+                document.getElementById('sqlQueryResults').innerHTML = '';
+                performLiveFilter();
+            });
+            
+            document.getElementById('sqlQueryEnabled').addEventListener('change', function() {
+                performLiveFilter();
+            });
+            
             // Apply advanced filters button
             document.getElementById('applyAdvancedFilters').addEventListener('click', function() {
                 performLiveFilter();
@@ -1591,6 +1778,7 @@
                 const selectedTypeId = quickTypeFilter.value;
                 const selectedStatusCategory = quickStatusFilter.value;
                 loadAllStates(selectedTypeId || null, selectedStatusCategory || null);
+                
                 performLiveFilter();
             });
             quickStatusFilter.addEventListener('change', function() {
@@ -1632,6 +1820,11 @@
                 hasDescription.value = '';
                 resultLimit.value = '50';
                 
+                // Clear custom SQL query
+                document.getElementById('customSqlQuery').value = '';
+                document.getElementById('sqlQueryResults').innerHTML = '';
+                document.getElementById('sqlQueryEnabled').checked = true;
+                
                 // Reload all states (no type filter)
                 await loadAllStates();
                 
@@ -1667,7 +1860,12 @@
             async function loadSavedSearches() {
                 try {
                     const response = await fetch('/api/saved_searches');
-                    const searches = await response.json();
+                    const data = await response.json();
+                    
+                    console.log('Saved searches response:', data);
+                    
+                    // Handle both array and object responses
+                    const searches = Array.isArray(data) ? data : (data.searches || []);
                     
                     // Clear existing items (keep headers and save button)
                     const existingItems = savedSearchList.querySelectorAll('.saved-search-item');
@@ -1683,16 +1881,22 @@
                             li.className = 'saved-search-item';
                             const defaultBadge = search.is_default ? '<span class="badge bg-primary ms-2">Default</span>' : '';
                             const starIcon = search.is_default ? 'fas fa-star text-warning' : 'far fa-star';
+                            
+                            // Escape HTML to prevent XSS and ensure proper display
+                            const escapedName = document.createElement('div');
+                            escapedName.textContent = search.name;
+                            const safeName = escapedName.innerHTML;
+                            
                             li.innerHTML = `
                                 <div class="dropdown-item d-flex justify-content-between align-items-center gap-2">
                                     <a href="#" class="flex-grow-1 text-decoration-none load-search" data-search-id="${search.id}">
-                                        <i class="fas fa-search me-2"></i>${search.name}${defaultBadge}
+                                        <i class="fas fa-search me-2"></i>${safeName}${defaultBadge}
                                     </a>
                                     <div class="btn-group btn-group-sm">
                                         <button class="btn btn-sm btn-outline-primary set-default-search" data-search-id="${search.id}" title="Set as default">
                                             <i class="${starIcon}"></i>
                                         </button>
-                                        <button class="btn btn-sm btn-outline-danger delete-search" data-search-id="${search.id}" data-search-name="${search.name}" title="Delete">
+                                        <button class="btn btn-sm btn-outline-danger delete-search" data-search-id="${search.id}" data-search-name="${safeName}" title="Delete">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
@@ -1746,6 +1950,9 @@
                 hasDescription.value = search.content_display || '';
                 resultLimit.value = search.result_limit || '50';
                 
+                // Load custom SQL query
+                document.getElementById('customSqlQuery').value = search.custom_sql_query || '';
+                
                 // Load states and select the saved ones
                 await initializeStates();
                 
@@ -1758,8 +1965,8 @@
                 
                 // Apply filters if there are any
                 if (quickSearch.value || quickTypeFilter.value || quickStatusFilter.value || 
-                    dateRange.value || hasDescription.value || search.specific_states) {
-                    performLiveFilter();
+                    dateRange.value || hasDescription.value || search.specific_states || search.custom_sql_query) {
+                    await performLiveFilter();
                 }
             }
             
@@ -1811,7 +2018,8 @@
                     date_range: dateRange.value,
                     sort_by: sortBy.value,
                     content_display: hasDescription.value,
-                    result_limit: resultLimit.value
+                    result_limit: resultLimit.value,
+                    custom_sql_query: document.getElementById('customSqlQuery').value
                 };
                 
                 try {

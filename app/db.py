@@ -153,6 +153,40 @@ def init_db():
         except sqlite3.OperationalError:
             pass  # Column already exists
 
+        # Create Dashboard Table for storing dashboard configurations
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Dashboard (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                description TEXT,
+                is_default INTEGER DEFAULT 0, -- Whether this is the default dashboard
+                layout_config TEXT DEFAULT '{"cols": 12, "rowHeight": 100}', -- JSON grid layout configuration
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        ''')
+
+        # Create DashboardWidget Table for storing widgets on dashboards
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS DashboardWidget (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                dashboard_id INTEGER NOT NULL,
+                widget_type TEXT NOT NULL, -- 'list', 'pie_chart', 'line_chart', 'ai_summary', 'stat_card'
+                title TEXT NOT NULL,
+                position_x INTEGER DEFAULT 0,
+                position_y INTEGER DEFAULT 0,
+                width INTEGER DEFAULT 4, -- Grid columns
+                height INTEGER DEFAULT 2, -- Grid rows
+                config TEXT DEFAULT '{}', -- JSON configuration for the widget
+                data_source_type TEXT, -- 'saved_search', 'entry_states', 'sensor_data'
+                data_source_id INTEGER, -- ID of the saved search or other data source
+                refresh_interval INTEGER DEFAULT 300, -- Refresh interval in seconds (0 = manual only)
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (dashboard_id) REFERENCES Dashboard(id) ON DELETE CASCADE
+            );
+        ''')
+
         # Create RelationshipDefinition Table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS RelationshipDefinition (
