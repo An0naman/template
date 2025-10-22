@@ -138,6 +138,16 @@ def update_entry(entry_id):
     conn = get_db()
     cursor = conn.cursor()
 
+    # Get the current entry to check for status changes
+    cursor.execute("SELECT title, status FROM Entry WHERE id = ?", (entry_id,))
+    current_entry = cursor.fetchone()
+    
+    if not current_entry:
+        return jsonify({'error': 'Entry not found.'}), 404
+    
+    old_status = current_entry['status']
+    entry_title = current_entry['title']
+
     set_clauses = []
     params = []
 
@@ -171,6 +181,26 @@ def update_entry(entry_id):
         conn.commit()
         if cursor.rowcount == 0:
             return jsonify({'error': 'Entry not found or no changes made.'}), 404
+        
+        # Check if status changed and create an auto-note
+        new_status = data.get('status')
+        if new_status and new_status != old_status:
+            try:
+                # Create automatic note for status change
+                note_title = "Status Change"
+                note_text = f"Status automatically changed from '{old_status}' to '{new_status}'"
+                note_type = "System"  # Use System type for automatic notes
+                
+                cursor.execute(
+                    "INSERT INTO Note (entry_id, note_title, note_text, type, created_at) VALUES (?, ?, ?, ?, ?)",
+                    (entry_id, note_title, note_text, note_type, datetime.now(timezone.utc).isoformat())
+                )
+                conn.commit()
+                logger.info(f"Created auto-note for status change on entry {entry_id}: {old_status} -> {new_status}")
+            except Exception as e:
+                logger.error(f"Error creating auto-note for status change: {e}", exc_info=True)
+                # Don't fail the update if note creation fails
+        
         return jsonify({'message': 'Entry updated successfully!'}), 200
     except Exception as e:
         logger.error(f"Error updating entry {entry_id}: {e}", exc_info=True)
