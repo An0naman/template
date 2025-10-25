@@ -71,3 +71,7 @@ uploads/
 *.bak
 *.tmp
 *_backup.*
+
+# SQLite temporary files
+*.db-shm
+*.db-wal
