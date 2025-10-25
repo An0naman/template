@@ -263,53 +263,178 @@
                 </div>
                 <div class="row">
                     <div class="col-md-6">
+                        <h5>Label Settings</h5>
+                        <div class="mb-3">
+                            <label for="settingsPrinterType" class="form-label">Printer Type:</label>
+                            <select class="form-select" id="settingsPrinterType">
+                                <option value="8_labels">8 Labels (2x4) - A4 Sheet</option>
+                                <option value="14_labels">14 Labels (2x7) - A4 Sheet</option>
+                                <option value="niimbot_b1" selected>Niimbot B1</option>
+                                <option value="niimbot_d110">Niimbot D110</option>
+                            </select>
+                        </div>
+                        <div class="mb-3" id="labelSizeContainer">
+                            <label for="settingsLabelSize" class="form-label">Configure Settings For Label Size:</label>
+                            <select class="form-select" id="settingsLabelSize">
+                                <!-- Populated dynamically based on printer type -->
+                            </select>
+                            <div class="form-text">Each label size can have its own font sizes, borders, and layout</div>
+                        </div>
+                        <div class="mb-3" id="labelRotationContainer">
+                            <label for="settingsLabelRotation" class="form-label">Label Orientation:</label>
+                            <select class="form-select" id="settingsLabelRotation">
+                                <option value="0">Portrait (0°)</option>
+                                <option value="90">Landscape (90° Rotation)</option>
+                            </select>
+                            <div class="form-text">Configure separate settings for portrait and landscape orientations</div>
+                        </div>
+                        
                         <form id="labelSettingsForm">
-                            <div class="mb-3">
-                                <label for="labelFontSize" class="form-label">Label Font Size (pt):</label>
-                                <input type="number" class="form-control" id="labelFontSize" value="{{ params.label_font_size or '10' }}" min="6" max="20" step="1">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Body Font Size (pt):</label>
+                                    <input type="number" class="form-control label-setting" id="labelFontSize" 
+                                           data-60x30mm="{{ params.label_60x30mm_font_size or '8' }}"
+                                           data-50x14mm="{{ params.label_50x14mm_font_size or '7' }}"
+                                           data-40x12mm="{{ params.label_40x12mm_font_size or '6' }}"
+                                           data-30x15mm="{{ params.label_30x15mm_font_size or '7' }}"
+                                           data-default="{{ params.label_font_size or '10' }}"
+                                           value="{{ params.label_60x30mm_font_size or '8' }}" min="6" max="16" step="1">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Title Font Size (pt):</label>
+                                    <input type="number" class="form-control label-setting" id="labelTitleFontSize" 
+                                           data-60x30mm="{{ params.label_60x30mm_title_font_size or '12' }}"
+                                           data-50x14mm="{{ params.label_50x14mm_title_font_size or '10' }}"
+                                           data-40x12mm="{{ params.label_40x12mm_title_font_size or '9' }}"
+                                           data-30x15mm="{{ params.label_30x15mm_title_font_size or '10' }}"
+                                           data-default="{{ params.label_title_font_size or '14' }}"
+                                           value="{{ params.label_60x30mm_title_font_size or '12' }}" min="8" max="24" step="1">
+                                </div>
                             </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Border Style:</label>
+                                <select class="form-select label-setting" id="labelBorderStyle"
+                                        data-60x30mm="{{ params.label_60x30mm_border_style or 'simple' }}"
+                                        data-50x14mm="{{ params.label_50x14mm_border_style or 'none' }}"
+                                        data-40x12mm="{{ params.label_40x12mm_border_style or 'none' }}"
+                                        data-30x15mm="{{ params.label_30x15mm_border_style or 'simple' }}"
+                                        data-default="{{ params.label_border_style or 'simple' }}">
+                                    <option value="none">No Border</option>
+                                    <option value="simple" selected>Simple Line</option>
+                                    <option value="thick">Thick Line</option>
+                                    <option value="double">Double Line</option>
+                                    <option value="rounded">Rounded Corners</option>
+                                    <option value="dashed">Dashed Line</option>
+                                    <option value="dotted">Dotted Line</option>
+                                    <option value="decorative">Decorative Corners</option>
+                                    <option value="shadow">Drop Shadow</option>
+                                </select>
+                            </div>
+                            
                             <div class="mb-3">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="labelIncludeQr" {{ 'checked' if params.label_include_qr_code == 'true' else '' }}>
-                                    <label class="form-check-label" for="labelIncludeQr">
+                                    <input class="form-check-input label-setting" type="checkbox" id="labelIncludeQr"
+                                           data-60x30mm="{{ params.label_60x30mm_include_qr_code or 'true' }}"
+                                           data-50x14mm="{{ params.label_50x14mm_include_qr_code or 'false' }}"
+                                           data-40x12mm="{{ params.label_40x12mm_include_qr_code or 'false' }}"
+                                           data-30x15mm="{{ params.label_30x15mm_include_qr_code or 'true' }}"
+                                           data-default="{{ params.label_include_qr_code or 'true' }}"
+                                           checked>
+                                    <label class="form-check-label">
                                         Include QR Code on labels
                                     </label>
                                 </div>
                             </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">QR Code Size:</label>
+                                <select class="form-select label-setting" id="labelQrSize"
+                                        data-60x30mm="{{ params.label_60x30mm_qr_size or 'medium' }}"
+                                        data-50x14mm="{{ params.label_50x14mm_qr_size or 'small' }}"
+                                        data-40x12mm="{{ params.label_40x12mm_qr_size or 'small' }}"
+                                        data-30x15mm="{{ params.label_30x15mm_qr_size or 'small' }}"
+                                        data-default="{{ params.label_qr_size or 'medium' }}">
+                                    <option value="small">Small</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="large">Large</option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">QR Code Position:</label>
+                                <select class="form-select label-setting" id="labelQrPosition"
+                                        data-60x30mm="{{ params.label_60x30mm_qr_position or 'right' }}"
+                                        data-50x14mm="{{ params.label_50x14mm_qr_position or 'right' }}"
+                                        data-40x12mm="{{ params.label_40x12mm_qr_position or 'right' }}"
+                                        data-30x15mm="{{ params.label_30x15mm_qr_position or 'right' }}"
+                                        data-default="{{ params.label_qr_position or 'right' }}">
+                                    <option value="right" selected>Right Side</option>
+                                    <option value="left">Left Side</option>
+                                    <option value="top-right">Top Right Corner</option>
+                                    <option value="bottom-right">Bottom Right Corner</option>
+                                    <option value="bottom-left">Bottom Left Corner</option>
+                                </select>
+                            </div>
+                            
                             <div class="mb-3">
                                 <label for="labelQrPrefix" class="form-label">QR Code Prefix (URL/Text):</label>
                                 <input type="text" class="form-control" id="labelQrPrefix" value="{{ params.label_qr_code_prefix or 'https://example.com' }}" placeholder="https://example.com">
-                                <div class="form-text">This prefix will be combined with "/entry/ID" for QR codes</div>
+                                <div class="form-text">This prefix applies to all label sizes</div>
                             </div>
+                            
                             <div class="mb-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="labelIncludeLogo" {{ 'checked' if params.label_include_logo == 'true' else '' }}>
-                                    <label class="form-check-label" for="labelIncludeLogo">
-                                        Include project logo on labels
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input label-setting" type="checkbox" id="labelIncludeLogo"
+                                           data-60x30mm="{{ (params.label_60x30mm_include_logo or 'false') }}"
+                                           data-50x14mm="{{ (params.label_50x14mm_include_logo or 'false') }}"
+                                           data-40x12mm="{{ (params.label_40x12mm_include_logo or 'false') }}"
+                                           data-30x15mm="{{ (params.label_30x15mm_include_logo or 'false') }}"
+                                           data-default="{{ (params.label_include_logo or 'false') }}">
+                                    <label class="form-check-label">
+                                        Include Project Logo on labels
                                     </label>
                                 </div>
                             </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Logo Position:</label>
+                                <select class="form-select label-setting" id="labelLogoPosition"
+                                        data-60x30mm="{{ params.label_60x30mm_logo_position or 'top-left' }}"
+                                        data-50x14mm="{{ params.label_50x14mm_logo_position or 'top-left' }}"
+                                        data-40x12mm="{{ params.label_40x12mm_logo_position or 'top-left' }}"
+                                        data-30x15mm="{{ params.label_30x15mm_logo_position or 'top-left' }}"
+                                        data-default="{{ params.label_logo_position or 'top-left' }}">
+                                    <option value="top-left" selected>Top Left Corner</option>
+                                    <option value="top-right">Top Right Corner</option>
+                                    <option value="left">Left Side</option>
+                                    <option value="bottom-left">Bottom Left Corner</option>
+                                </select>
+                            </div>
+                            
                             <button type="submit" class="btn btn-purple">
-                                <i class="fas fa-save me-1"></i>Save Label Settings
+                                <i class="fas fa-save me-1"></i>Save Settings for 60mm × 30mm
                             </button>
                         </form>
                         <div id="labelStatusMessage" class="mt-3 d-none"></div>
                     </div>
                     <div class="col-md-6">
-                        <h5>Label Layout Reference</h5>
+                        <h5>Live Label Preview</h5>
                         <div class="mb-3">
-                            <strong>8 Labels (2x4):</strong> Standard shipping labels<br>
-                            <small class="text-muted">99.1mm x 67.7mm per label</small>
-                        </div>
-                        <div class="mb-3">
-                            <strong>14 Labels (2x7):</strong> Address labels<br>
-                            <small class="text-muted">99.1mm x 38.1mm per label</small>
-                        </div>
-                        <div class="preview-container">
-                            <div>
-                                <i class="fas fa-tags fa-3x text-muted mb-3"></i>
-                                <p class="text-muted">Label previews will be shown here when generating labels</p>
+                            <div class="alert alert-info small mb-2">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Previewing settings for: <strong id="previewCurrentSettings">60mm × 30mm - Portrait</strong>
                             </div>
+                            <div id="labelPreviewContainer" style="border: 2px solid #dee2e6; border-radius: 8px; padding: 15px; background: #f8f9fa; min-height: 300px; display: flex; align-items: center; justify-content: center;">
+                                <div class="text-center">
+                                    <div class="spinner-border text-secondary" role="status">
+                                        <span class="visually-hidden">Loading preview...</span>
+                                    </div>
+                                    <p class="mt-2 text-muted">Loading preview...</p>
+                                </div>
+                            </div>
+                            <div class="form-text mt-2">Preview updates automatically as you change settings</div>
                         </div>
                     </div>
                 </div>
@@ -471,19 +596,150 @@
             }
         });
 
+        // Label size configurations for each printer type
+        const printerLabelSizes = {
+            '8_labels': [
+                { value: 'static', label: '97.5mm × 65.5mm (Fixed Size)' }
+            ],
+            '14_labels': [
+                { value: 'static', label: '97.5mm × 35.3mm (Fixed Size)' }
+            ],
+            'niimbot_b1': [
+                { value: '30x12mm', label: '30mm × 12mm' },
+                { value: '30x15mm', label: '30mm × 15mm' },
+                { value: '40x20mm', label: '40mm × 20mm' },
+                { value: '40x24mm', label: '40mm × 24mm' },
+                { value: '60x30mm', label: '60mm × 30mm' },
+                { value: 'default', label: 'Default (All Other Sizes)' }
+            ],
+            'niimbot_d110': [
+                { value: '30x15mm', label: '30mm × 15mm' },
+                { value: '40x12mm', label: '40mm × 12mm' },
+                { value: '50x14mm', label: '50mm × 14mm' },
+                { value: '75x12mm', label: '75mm × 12mm' },
+                { value: 'default', label: 'Default (All Other Sizes)' }
+            ]
+        };
+
+        // Update label sizes when printer type changes
+        function updateLabelSizes() {
+            const printerType = document.getElementById('settingsPrinterType').value;
+            const labelSizeSelect = document.getElementById('settingsLabelSize');
+            const labelSizeContainer = document.getElementById('labelSizeContainer');
+            
+            // Clear existing options
+            labelSizeSelect.innerHTML = '';
+            
+            // For sheet labels (8 or 14), hide the size selector since they're static
+            if (printerType === '8_labels' || printerType === '14_labels') {
+                labelSizeContainer.style.display = 'none';
+                // Add the static option and auto-select it
+                const option = document.createElement('option');
+                option.value = 'static';
+                option.textContent = printerLabelSizes[printerType][0].label;
+                labelSizeSelect.appendChild(option);
+            } else {
+                // Show size selector for Niimbot printers
+                labelSizeContainer.style.display = 'block';
+                
+                // Populate with sizes for this printer
+                const sizes = printerLabelSizes[printerType];
+                sizes.forEach(size => {
+                    const option = document.createElement('option');
+                    option.value = size.value;
+                    option.textContent = size.label;
+                    labelSizeSelect.appendChild(option);
+                });
+            }
+            
+            // Trigger change event to load settings for first size
+            labelSizeSelect.dispatchEvent(new Event('change'));
+        }
+
+        // Initialize label sizes and add event listener
+        document.getElementById('settingsPrinterType').addEventListener('change', updateLabelSizes);
+        
+        // Initialize preview label type dropdown sizes on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize label sizes and preview on page load
+            updateLabelSizes();
+            setTimeout(() => {
+                updateLabelPreview(); // Initial preview after settings are loaded
+            }, 100);
+        });
+
+        // Store loaded settings in memory
+        let labelSettings = {};
+
+        // Function to load settings for current size + rotation
+        function loadCurrentSettings() {
+            const labelSize = document.getElementById('settingsLabelSize').value;
+            const rotation = document.getElementById('settingsLabelRotation').value;
+            const key = `${labelSize}_r${rotation}`;
+            
+            // If we have settings for this combo, load them
+            if (labelSettings[key]) {
+                const settings = labelSettings[key];
+                document.getElementById('labelFontSize').value = settings.font_size;
+                document.getElementById('labelTitleFontSize').value = settings.title_font_size;
+                document.getElementById('labelBorderStyle').value = settings.border_style;
+                document.getElementById('labelIncludeQr').checked = settings.include_qr_code === 'true';
+                document.getElementById('labelQrSize').value = settings.qr_size;
+                document.getElementById('labelQrPosition').value = settings.qr_position;
+                document.getElementById('labelIncludeLogo').checked = settings.include_logo === 'true';
+                document.getElementById('labelLogoPosition').value = settings.logo_position;
+            } else {
+                // Load from data attributes (initial load)
+                const settings = document.querySelectorAll('.label-setting');
+                settings.forEach(setting => {
+                    const value = setting.getAttribute(`data-${labelSize}`);
+                    if (setting.type === 'checkbox') {
+                        setting.checked = value === 'true';
+                    } else {
+                        setting.value = value;
+                    }
+                });
+            }
+            
+            // Update button text
+            const sizeDisplay = labelSize === 'default' ? 'Default' : labelSize.replace('x', 'mm × ') + 'mm';
+            const rotationDisplay = rotation === '0' ? 'Portrait' : 'Landscape';
+            document.querySelector('#labelSettingsForm button[type="submit"]').innerHTML = 
+                `<i class="fas fa-save me-1"></i>Save Settings for ${sizeDisplay} - ${rotationDisplay}`;
+            
+            // Update preview
+            updateLabelPreview();
+        }
+
+        // Label Settings - Switch between label sizes or rotation
+        document.getElementById('settingsLabelSize').addEventListener('change', loadCurrentSettings);
+        document.getElementById('settingsLabelRotation').addEventListener('change', loadCurrentSettings);
+
         // Label Settings Form
         document.getElementById('labelSettingsForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            const labelSize = document.getElementById('settingsLabelSize').value;
+            const rotation = document.getElementById('settingsLabelRotation').value;
+            const prefix = labelSize === 'default' ? 'label' : `label_${labelSize}`;
+            const rotationSuffix = rotation === '90' ? '_r90' : '';
+            
             const formData = {
-                label_font_size: document.getElementById('labelFontSize').value,
-                label_include_qr_code: document.getElementById('labelIncludeQr').checked ? 'true' : 'false',
-                label_qr_code_prefix: document.getElementById('labelQrPrefix').value,
-                label_include_logo: document.getElementById('labelIncludeLogo').checked ? 'true' : 'false'
+                [`${prefix}${rotationSuffix}_font_size`]: document.getElementById('labelFontSize').value,
+                [`${prefix}${rotationSuffix}_title_font_size`]: document.getElementById('labelTitleFontSize').value,
+                [`${prefix}${rotationSuffix}_border_style`]: document.getElementById('labelBorderStyle').value,
+                [`${prefix}${rotationSuffix}_include_qr_code`]: document.getElementById('labelIncludeQr').checked ? 'true' : 'false',
+                [`${prefix}${rotationSuffix}_qr_size`]: document.getElementById('labelQrSize').value,
+                [`${prefix}${rotationSuffix}_qr_position`]: document.getElementById('labelQrPosition').value,
+                [`${prefix}${rotationSuffix}_include_logo`]: document.getElementById('labelIncludeLogo').checked ? 'true' : 'false',
+                [`${prefix}${rotationSuffix}_logo_position`]: document.getElementById('labelLogoPosition').value,
+                label_qr_code_prefix: document.getElementById('labelQrPrefix').value
             };
             
             try {
-                displayStatus('labelStatusMessage', 'Saving label settings...', 'alert-info');
+                const sizeDisplay = labelSize === 'default' ? 'default' : labelSize;
+                const rotationDisplay = rotation === '0' ? 'Portrait' : 'Landscape';
+                displayStatus('labelStatusMessage', `Saving ${sizeDisplay} (${rotationDisplay}) label settings...`, 'alert-info');
                 
                 const response = await fetch('/api/system_params', {
                     method: 'PATCH',
@@ -493,12 +749,518 @@
                 
                 if (!response.ok) throw new Error('Failed to save label settings');
                 
-                displayStatus('labelStatusMessage', 'Label settings saved successfully!', 'alert-success');
+                displayStatus('labelStatusMessage', `Settings for ${sizeDisplay} (${rotationDisplay}) saved successfully!`, 'alert-success');
+                
+                // Store settings in memory for this size + rotation combo
+                const key = `${labelSize}_r${rotation}`;
+                labelSettings[key] = {
+                    font_size: document.getElementById('labelFontSize').value,
+                    title_font_size: document.getElementById('labelTitleFontSize').value,
+                    border_style: document.getElementById('labelBorderStyle').value,
+                    include_qr_code: document.getElementById('labelIncludeQr').checked ? 'true' : 'false',
+                    qr_size: document.getElementById('labelQrSize').value,
+                    qr_position: document.getElementById('labelQrPosition').value,
+                    include_logo: document.getElementById('labelIncludeLogo').checked ? 'true' : 'false',
+                    logo_position: document.getElementById('labelLogoPosition').value
+                };
+                
+                // Refresh preview after save
+                updateLabelPreview();
                 
             } catch (error) {
                 displayStatus('labelStatusMessage', 'Failed to save label settings: ' + error.message, 'alert-danger');
             }
         });
+
+        // Label Preview Functionality
+        let previewTimeout = null;
+        
+        function updateLabelPreview() {
+            const container = document.getElementById('labelPreviewContainer');
+            // Use the settings dropdowns instead of separate preview dropdowns
+            const printerType = document.getElementById('settingsPrinterType').value;
+            const labelSize = document.getElementById('settingsLabelSize').value;
+            const rotation = document.getElementById('settingsLabelRotation').value;
+            
+            // Update the preview info text
+            const sizeDisplay = labelSize === 'default' ? 'Default' : 
+                               labelSize === 'static' ? (printerType === '8_labels' ? '97.5mm × 65.5mm' : '97.5mm × 35.3mm') : 
+                               labelSize;
+            const rotationDisplay = rotation === '0' ? 'Portrait' : 'Landscape (90°)';
+            document.getElementById('previewCurrentSettings').textContent = `${sizeDisplay} - ${rotationDisplay}`;
+            
+            // Determine label type from printer type and label size
+            let labelType = printerType;
+            
+            // Get current form values
+            const titleFontSize = parseInt(document.getElementById('labelTitleFontSize').value) || 14;
+            const bodyFontSize = parseInt(document.getElementById('labelFontSize').value) || 10;
+            const borderStyle = document.getElementById('labelBorderStyle').value;
+            const includeQr = document.getElementById('labelIncludeQr').checked;
+            const qrSize = document.getElementById('labelQrSize').value;
+            const qrPosition = document.getElementById('labelQrPosition').value;
+            const includeLogo = document.getElementById('labelIncludeLogo').checked;
+            const logoPosition = document.getElementById('labelLogoPosition').value;
+            
+            // Create canvas for preview
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Set canvas size based on label type
+            let width, height;
+            if (labelType.startsWith('niimbot_')) {
+                // Niimbot label sizes (pixels at 203 DPI to match backend)
+                // Calculate: mm * 203 DPI / 25.4 mm per inch
+                // NOTE: Backend enforces max_width_px limits:
+                //   B1: 384px max (48mm), D110: 240px max (30mm)
+                const sizes = {
+                    // B1 sizes (max 384px width)
+                    '60x30mm': [Math.round(60 * 203 / 25.4), Math.round(30 * 203 / 25.4)],  // 480 x 240 -> clamped to 384x240
+                    '40x24mm': [Math.round(40 * 203 / 25.4), Math.round(24 * 203 / 25.4)],  // 320 x 192
+                    '40x20mm': [Math.round(40 * 203 / 25.4), Math.round(20 * 203 / 25.4)],  // 320 x 160
+                    '30x15mm': [Math.round(30 * 203 / 25.4), Math.round(15 * 203 / 25.4)],  // 240 x 120
+                    '30x12mm': [Math.round(30 * 203 / 25.4), Math.round(12 * 203 / 25.4)],  // 240 x 96
+                    // D110 sizes (max 240px width - 30mm print head)
+                    '75x12mm': [240, Math.round(12 * 203 / 25.4)],  // Would be 600px, clamped to 240
+                    '50x14mm': [240, Math.round(14 * 203 / 25.4)],  // Would be 400px, clamped to 240
+                    '40x12mm': [240, Math.round(12 * 203 / 25.4)],  // Would be 320px, clamped to 240
+                };
+                [width, height] = sizes[labelSize] || [384, 237];
+                
+                // If rotated, swap width and height
+                if (rotation === '90') {
+                    [width, height] = [height, width];
+                }
+            } else {
+                // Sheet labels - use 300 DPI to match backend (mm * 300 / 25.4)
+                const scale = 300 / 25.4; // ~11.8 pixels per mm at 300 DPI
+                if (labelType === '8_labels') {
+                    width = Math.round(97.5 * scale);   // 97.5mm → ~1150px
+                    height = Math.round(65.5 * scale);  // 65.5mm → ~773px
+                } else if (labelType === '14_labels') {
+                    width = Math.round(97.5 * scale);   // 97.5mm → ~1150px
+                    height = Math.round(35.3 * scale);  // 35.3mm → ~416px
+                } else {
+                    // Fallback for unknown sheet types
+                    width = 300;
+                    height = 150;
+                }
+                
+                // If rotated, swap width and height
+                if (rotation === '90') {
+                    [width, height] = [height, width];
+                }
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            // White background
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, width, height);
+            
+            // Draw border
+            ctx.strokeStyle = 'black';
+            const margin = 10;
+            if (borderStyle === 'simple') {
+                ctx.lineWidth = 1;
+                ctx.strokeRect(margin, margin, width - margin * 2, height - margin * 2);
+            } else if (borderStyle === 'thick') {
+                ctx.lineWidth = 3;
+                ctx.strokeRect(margin, margin, width - margin * 2, height - margin * 2);
+            } else if (borderStyle === 'double') {
+                ctx.lineWidth = 1;
+                ctx.strokeRect(margin, margin, width - margin * 2, height - margin * 2);
+                ctx.strokeRect(margin + 3, margin + 3, width - (margin + 3) * 2, height - (margin + 3) * 2);
+            } else if (borderStyle === 'rounded') {
+                const radius = 5;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(margin + radius, margin);
+                ctx.lineTo(width - margin - radius, margin);
+                ctx.quadraticCurveTo(width - margin, margin, width - margin, margin + radius);
+                ctx.lineTo(width - margin, height - margin - radius);
+                ctx.quadraticCurveTo(width - margin, height - margin, width - margin - radius, height - margin);
+                ctx.lineTo(margin + radius, height - margin);
+                ctx.quadraticCurveTo(margin, height - margin, margin, height - margin - radius);
+                ctx.lineTo(margin, margin + radius);
+                ctx.quadraticCurveTo(margin, margin, margin + radius, margin);
+                ctx.stroke();
+            } else if (borderStyle === 'dashed') {
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 3]);
+                ctx.strokeRect(margin, margin, width - margin * 2, height - margin * 2);
+                ctx.setLineDash([]);
+            } else if (borderStyle === 'dotted') {
+                ctx.lineWidth = 1;
+                ctx.setLineDash([2, 2]);
+                ctx.strokeRect(margin, margin, width - margin * 2, height - margin * 2);
+                ctx.setLineDash([]);
+            } else if (borderStyle === 'decorative') {
+                ctx.lineWidth = 1;
+                // Main border
+                ctx.strokeRect(margin, margin, width - margin * 2, height - margin * 2);
+                // Corner decorations
+                const cornerSize = 15;
+                ctx.lineWidth = 2;
+                // Top-left corner
+                ctx.beginPath();
+                ctx.moveTo(margin, margin + cornerSize);
+                ctx.lineTo(margin, margin);
+                ctx.lineTo(margin + cornerSize, margin);
+                ctx.stroke();
+                // Top-right corner
+                ctx.beginPath();
+                ctx.moveTo(width - margin - cornerSize, margin);
+                ctx.lineTo(width - margin, margin);
+                ctx.lineTo(width - margin, margin + cornerSize);
+                ctx.stroke();
+                // Bottom-right corner
+                ctx.beginPath();
+                ctx.moveTo(width - margin, height - margin - cornerSize);
+                ctx.lineTo(width - margin, height - margin);
+                ctx.lineTo(width - margin - cornerSize, height - margin);
+                ctx.stroke();
+                // Bottom-left corner
+                ctx.beginPath();
+                ctx.moveTo(margin + cornerSize, height - margin);
+                ctx.lineTo(margin, height - margin);
+                ctx.lineTo(margin, height - margin - cornerSize);
+                ctx.stroke();
+            } else if (borderStyle === 'shadow') {
+                ctx.lineWidth = 1;
+                // Shadow effect
+                ctx.strokeStyle = '#ccc';
+                ctx.strokeRect(margin + 2, margin + 2, width - margin * 2, height - margin * 2);
+                ctx.strokeStyle = '#999';
+                ctx.strokeRect(margin + 1, margin + 1, width - margin * 2, height - margin * 2);
+                // Main border
+                ctx.strokeStyle = 'black';
+                ctx.strokeRect(margin, margin, width - margin * 2, height - margin * 2);
+            }
+            
+            // Helper function to wrap text
+            function wrapText(context, text, x, y, maxWidth, lineHeight) {
+                const words = text.split(' ');
+                let line = '';
+                let lines = [];
+                
+                for (let n = 0; n < words.length; n++) {
+                    const testLine = line + words[n] + ' ';
+                    const metrics = context.measureText(testLine);
+                    const testWidth = metrics.width;
+                    
+                    if (testWidth > maxWidth && n > 0) {
+                        lines.push(line);
+                        line = words[n] + ' ';
+                    } else {
+                        line = testLine;
+                    }
+                }
+                lines.push(line);
+                
+                // Draw all lines
+                for (let i = 0; i < lines.length; i++) {
+                    context.fillText(lines[i], x, y + (i * lineHeight));
+                }
+                
+                return lines.length * lineHeight; // Return total height used
+            }
+            
+            // Calculate available text width and starting position (considering QR code and logo positions)
+            // New approach: Only adjust text if elements actually overlap with text area
+            let textMaxWidth = width - (margin * 2) - 10;
+            let textStartX = margin + 5;
+            let textStartY = margin + 5;
+            let qrX = 0, qrY = 0, qrPixels = 0;
+            let logoX = 0, logoY = 0, logoPixels = 0;
+            
+            // Pre-calculate QR position and size if enabled
+            if (includeQr) {
+                const qrSizes = { 'small': 50, 'medium': 70, 'large': 90 };
+                qrPixels = Math.min(qrSizes[qrSize] || 70, Math.min(height * 0.5, width * 0.3));
+                
+                // Calculate QR position
+                switch(qrPosition) {
+                    case 'left':
+                        qrX = margin + 5;
+                        qrY = margin + ((height - margin * 2 - qrPixels) / 2);
+                        break;
+                    case 'top-left':
+                        qrX = margin + 5;
+                        qrY = margin + 5;
+                        break;
+                    case 'top-right':
+                        qrX = width - qrPixels - margin - 5;
+                        qrY = margin + 5;
+                        break;
+                    case 'bottom-right':
+                        qrX = width - qrPixels - margin - 5;
+                        qrY = height - qrPixels - margin - 5;
+                        break;
+                    case 'bottom-left':
+                        qrX = margin + 5;
+                        qrY = height - qrPixels - margin - 5;
+                        break;
+                    case 'center-right':
+                    case 'right':
+                    default:
+                        qrX = width - qrPixels - margin - 5;
+                        qrY = margin + ((height - margin * 2 - qrPixels) / 2);
+                        break;
+                }
+            }
+            
+            // Pre-calculate logo position and size if enabled
+            if (includeLogo) {
+                logoPixels = Math.min(60, Math.min(height * 0.3, width * 0.2));
+                
+                // Calculate logo position
+                switch(logoPosition) {
+                    case 'top-left':
+                        logoX = margin + 5;
+                        logoY = margin + 5;
+                        break;
+                    case 'top-right':
+                        logoX = width - logoPixels - margin - 5;
+                        logoY = margin + 5;
+                        break;
+                    case 'left':
+                        logoX = margin + 5;
+                        logoY = margin + ((height - margin * 2 - logoPixels) / 2);
+                        break;
+                    case 'bottom-left':
+                    default:
+                        logoX = margin + 5;
+                        logoY = height - logoPixels - margin - 5;
+                        break;
+                }
+            }
+            
+            // Smart text area adjustment - only adjust if elements overlap with text area
+            // Text area is roughly: top 60% of label, left to right with margins
+            const textAreaTop = margin + 5;
+            const textAreaBottom = height - margin - 30; // Leave room for date at bottom
+            const textAreaLeft = margin + 5;
+            const textAreaRight = width - margin - 5;
+            
+            // Check if QR overlaps with LEFT side of text area
+            if (includeQr) {
+                const qrRight = qrX + qrPixels;
+                const qrBottom = qrY + qrPixels;
+                
+                // QR on left side overlapping text area
+                if (qrX < textAreaLeft + 50 && qrY < textAreaBottom && qrBottom > textAreaTop) {
+                    textStartX = Math.max(textStartX, qrRight + 10);
+                    textMaxWidth = width - textStartX - margin - 5;
+                }
+                
+                // QR on right side overlapping text area
+                if (qrRight > textAreaRight - 50 && qrY < textAreaBottom && qrBottom > textAreaTop) {
+                    textMaxWidth = qrX - textStartX - 10;
+                }
+            }
+            
+            // Check if logo overlaps with LEFT side of text area
+            if (includeLogo) {
+                const logoRight = logoX + logoPixels;
+                const logoBottom = logoY + logoPixels;
+                
+                // Logo on left side overlapping text area
+                if (logoX < textAreaLeft + 50 && logoY < textAreaBottom && logoBottom > textAreaTop) {
+                    const logoEnd = logoRight + 10;
+                    if (logoEnd > textStartX) {
+                        textStartX = logoEnd;
+                        textMaxWidth = width - textStartX - margin - 5;
+                        
+                        // If QR is also on right, further reduce width
+                        if (includeQr) {
+                            const qrRight = qrX + qrPixels;
+                            if (qrRight > textAreaRight - 50) {
+                                textMaxWidth = qrX - textStartX - 10;
+                            }
+                        }
+                    }
+                }
+                
+                // Logo on right side overlapping text area (rare but possible)
+                if (logoRight > textAreaRight - 50 && logoY < textAreaBottom && logoBottom > textAreaTop) {
+                    textMaxWidth = Math.min(textMaxWidth, logoX - textStartX - 10);
+                }
+            }
+            
+            // Draw title with wrapping
+            // Scale font sizes based on label type (sheet labels are higher resolution)
+            let scaledTitleFontSize, scaledBodyFontSize;
+            if (labelType.startsWith('niimbot_')) {
+                // Niimbot uses font sizes directly (203 DPI)
+                scaledTitleFontSize = titleFontSize;
+                scaledBodyFontSize = bodyFontSize;
+            } else {
+                // Sheet labels use 300 DPI, so scale fonts: 300/72 = 4.167
+                scaledTitleFontSize = Math.round(titleFontSize * 300 / 72);
+                scaledBodyFontSize = Math.round(bodyFontSize * 300 / 72);
+            }
+            
+            ctx.fillStyle = 'black';
+            ctx.font = `bold ${scaledTitleFontSize}px Arial`;
+            let currentY = textStartY + scaledTitleFontSize;
+            const titleHeight = wrapText(ctx, 'Sample Product Title', textStartX, currentY, textMaxWidth, scaledTitleFontSize + 4);
+            currentY += titleHeight + 5;
+            
+            // Draw entry type and ID
+            ctx.font = `${scaledBodyFontSize}px Arial`;
+            ctx.fillStyle = '#555';
+            const entryHeight = wrapText(ctx, 'Entry #123 - Type: Product', textStartX, currentY, textMaxWidth, scaledBodyFontSize + 4);
+            currentY += entryHeight + 3;
+            
+            // Draw description with wrapping
+            ctx.fillStyle = '#666';
+            const descHeight = wrapText(ctx, 'Sample description text that wraps properly', textStartX, currentY, textMaxWidth, bodyFontSize + 4);
+            currentY += descHeight + 3;
+            
+            // Draw logo placeholder if enabled
+            if (includeLogo) {
+                // Draw logo placeholder (position already calculated above)
+                ctx.fillStyle = '#e8f5e9';
+                ctx.fillRect(logoX, logoY, logoPixels, logoPixels);
+                ctx.strokeStyle = '#4caf50';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(logoX, logoY, logoPixels, logoPixels);
+                
+                ctx.fillStyle = '#4caf50';
+                ctx.font = 'bold 10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('LOGO', logoX + logoPixels/2, logoY + logoPixels/2);
+                ctx.textAlign = 'left';
+            }
+            
+            // Draw QR code placeholder if enabled
+            if (includeQr) {
+                // Draw QR placeholder (position already calculated above)
+                ctx.fillStyle = '#ddd';
+                ctx.fillRect(qrX, qrY, qrPixels, qrPixels);
+                ctx.strokeStyle = '#999';
+                ctx.strokeRect(qrX, qrY, qrPixels, qrPixels);
+                ctx.fillStyle = '#666';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('QR', qrX + qrPixels/2, qrY + qrPixels/2);
+                ctx.textAlign = 'left';
+            }
+            
+            // Draw date at bottom - adaptive to logo and QR positions
+            ctx.fillStyle = '#888';
+            ctx.font = `${scaledBodyFontSize}px Arial`;
+            
+            // Default date position (bottom left)
+            let dateX = margin + 5;
+            let dateY = height - margin - 5;
+            const dateWidth = ctx.measureText('2025-10-24').width;
+            
+            // Date bounds
+            const dateBounds = {
+                left: dateX,
+                right: dateX + dateWidth,
+                top: dateY - bodyFontSize,
+                bottom: dateY
+            };
+            
+            // Check if date overlaps with logo
+            if (includeLogo) {
+                const logoBounds = {
+                    left: logoX,
+                    right: logoX + logoPixels,
+                    top: logoY,
+                    bottom: logoY + logoPixels
+                };
+                
+                // Check overlap
+                if (!(dateBounds.right < logoBounds.left || dateBounds.left > logoBounds.right ||
+                      dateBounds.bottom < logoBounds.top || dateBounds.top > logoBounds.bottom)) {
+                    // Overlap detected - move date to avoid logo
+                    if (logoPosition === 'bottom-left') {
+                        dateX = logoX + logoPixels + 5; // Move date to right of logo
+                    }
+                }
+            }
+            
+            // Check if date overlaps with QR code
+            if (includeQr) {
+                const qrBounds = {
+                    left: qrX,
+                    right: qrX + qrPixels,
+                    top: qrY,
+                    bottom: qrY + qrPixels
+                };
+                
+                // Update date bounds with potentially adjusted X position
+                dateBounds.left = dateX;
+                dateBounds.right = dateX + dateWidth;
+                
+                // Check overlap
+                if (!(dateBounds.right < qrBounds.left || dateBounds.left > qrBounds.right ||
+                      dateBounds.bottom < qrBounds.top || dateBounds.top > qrBounds.bottom)) {
+                    // Overlap detected - move date to avoid QR
+                    if (qrPosition === 'bottom-left') {
+                        dateX = qrX + qrPixels + 5; // Move date to right of QR
+                    } else if (qrPosition === 'bottom-right') {
+                        dateX = qrX - dateWidth - 5; // Move date to left of QR
+                    }
+                }
+            }
+            
+            ctx.fillText('2025-10-24', dateX, dateY);
+            
+            // Display canvas (scale down if too large for preview area)
+            container.innerHTML = '';
+            const maxWidth = 500;  // Maximum preview width
+            const maxHeight = 400; // Maximum preview height
+            
+            if (width > maxWidth || height > maxHeight) {
+                // Scale down to fit
+                const scale = Math.min(maxWidth / width, maxHeight / height);
+                canvas.style.width = Math.round(width * scale) + 'px';
+                canvas.style.height = Math.round(height * scale) + 'px';
+            }
+            
+            container.appendChild(canvas);
+            
+            // Add orientation label if rotated
+            if (rotation === '90') {
+                const rotationLabel = document.createElement('div');
+                rotationLabel.textContent = '📐 Landscape (90°)';
+                rotationLabel.style.fontSize = '12px';
+                rotationLabel.style.color = '#666';
+                rotationLabel.style.marginTop = '10px';
+                rotationLabel.style.textAlign = 'center';
+                container.appendChild(rotationLabel);
+            }
+        }
+        
+        // Debounced preview update
+        function schedulePreviewUpdate() {
+            if (previewTimeout) {
+                clearTimeout(previewTimeout);
+            }
+            previewTimeout = setTimeout(updateLabelPreview, 500);
+        }
+        
+        // Add event listeners to all label settings inputs for live preview
+        document.getElementById('labelFontSize').addEventListener('input', schedulePreviewUpdate);
+        document.getElementById('labelTitleFontSize').addEventListener('input', schedulePreviewUpdate);
+        document.getElementById('labelBorderStyle').addEventListener('change', schedulePreviewUpdate);
+        document.getElementById('labelIncludeQr').addEventListener('change', schedulePreviewUpdate);
+        document.getElementById('labelQrSize').addEventListener('change', schedulePreviewUpdate);
+        document.getElementById('labelQrPosition').addEventListener('change', schedulePreviewUpdate);
+        document.getElementById('labelIncludeLogo').addEventListener('change', schedulePreviewUpdate);
+        document.getElementById('labelLogoPosition').addEventListener('change', schedulePreviewUpdate);
+        document.getElementById('settingsLabelSize').addEventListener('change', schedulePreviewUpdate);
+        document.getElementById('settingsPrinterType').addEventListener('change', schedulePreviewUpdate);
+        document.getElementById('settingsLabelRotation').addEventListener('change', schedulePreviewUpdate);
+        
+        // Initial preview load
+        updateLabelPreview();
 
         // AI Settings Form
         document.getElementById('aiSettingsForm').addEventListener('submit', async (e) => {

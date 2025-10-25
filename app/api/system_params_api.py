@@ -29,13 +29,19 @@ def api_update_system_params():
     cursor = conn.cursor()
     updated_count = 0
     try:
+        # Allowed parameter prefixes/names
+        allowed_params = [
+            'project_name', 'entry_singular_label', 'entry_plural_label', 'project_subtitle', 'sensor_types', 
+            'project_logo_path', 'label_font_size', 'label_include_qr_code', 'label_include_logo',
+            'label_qr_code_prefix', 'allowed_file_types', 'max_file_size', 'custom_note_types',
+            'gemini_api_key', 'gemini_model_name', 'gemini_base_prompt',
+            'default_search_term', 'default_type_filter', 'default_status_filter', 
+            'default_date_range', 'default_sort_by', 'default_content_display', 'default_result_limit'
+        ]
+        
         for param_name, param_value in data.items():
-            if param_name in ['project_name', 'entry_singular_label', 'entry_plural_label', 'project_subtitle', 'sensor_types', 
-                             'project_logo_path', 'label_font_size', 'label_include_qr_code', 'label_include_logo',
-                             'label_qr_code_prefix', 'allowed_file_types', 'max_file_size', 'custom_note_types',
-                             'gemini_api_key', 'gemini_model_name', 'gemini_base_prompt',
-                             'default_search_term', 'default_type_filter', 'default_status_filter', 
-                             'default_date_range', 'default_sort_by', 'default_content_display', 'default_result_limit']:
+            # Allow any parameter in the whitelist OR any parameter starting with 'label_'
+            if param_name in allowed_params or param_name.startswith('label_'):
                 cursor.execute(
                     "UPDATE SystemParameters SET parameter_value = ? WHERE parameter_name = ?",
                     (param_value, param_name)
@@ -43,8 +49,7 @@ def api_update_system_params():
                 if cursor.rowcount > 0:
                     updated_count += 1
                 else:
-                    # If parameter doesn't exist, insert it (should ideally be handled by init_db/get_system_parameters)
-                    # but kept for robustness.
+                    # If parameter doesn't exist, insert it
                     cursor.execute(
                         "INSERT INTO SystemParameters (parameter_name, parameter_value) VALUES (?, ?)",
                         (param_name, param_value)

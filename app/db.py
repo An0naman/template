@@ -560,11 +560,116 @@ def init_db():
             'sensor_types': '',  # Start with empty sensor types - let devices register them dynamically
             'project_logo_path': '',
             
-            # Label printing settings
+            # Label printing settings (defaults for all sizes)
             'label_font_size': '10',
+            'label_title_font_size': '14',
             'label_include_qr_code': 'true',
-            'label_include_logo': 'true',
+            'label_include_logo': 'false',
+            'label_logo_position': 'top-left',
             'label_qr_code_prefix': 'https://example.com',
+            'label_border_style': 'simple',
+            'label_text_wrap': 'true',
+            'label_qr_size': 'medium',
+            'label_qr_position': 'right',
+            
+            # Per-size label settings - 60x30mm (larger labels)
+            'label_60x30mm_font_size': '8',
+            'label_60x30mm_title_font_size': '12',
+            'label_60x30mm_border_style': 'simple',
+            'label_60x30mm_include_qr_code': 'true',
+            'label_60x30mm_include_logo': 'false',
+            'label_60x30mm_logo_position': 'top-left',
+            'label_60x30mm_qr_size': 'medium',
+            'label_60x30mm_qr_position': 'right',
+            
+            # Per-size label settings - 50x14mm (medium labels)
+            'label_50x14mm_font_size': '7',
+            'label_50x14mm_title_font_size': '10',
+            'label_50x14mm_border_style': 'none',
+            'label_50x14mm_include_qr_code': 'false',
+            'label_50x14mm_qr_size': 'small',
+            'label_50x14mm_qr_position': 'right',
+            
+            # Per-size label settings - 40x12mm (small labels)
+            'label_40x12mm_font_size': '6',
+            'label_40x12mm_title_font_size': '9',
+            'label_40x12mm_border_style': 'none',
+            'label_40x12mm_include_qr_code': 'false',
+            'label_40x12mm_qr_size': 'small',
+            'label_40x12mm_qr_position': 'right',
+            
+            # Per-size label settings - 30x15mm (narrow labels)
+            'label_30x15mm_font_size': '7',
+            'label_30x15mm_title_font_size': '10',
+            'label_30x15mm_border_style': 'simple',
+            'label_30x15mm_include_qr_code': 'true',
+            'label_30x15mm_qr_size': 'small',
+            'label_30x15mm_qr_position': 'bottom-right',
+            
+            # Per-size label settings - 30x12mm (B1 - small labels)
+            'label_30x12mm_font_size': '6',
+            'label_30x12mm_title_font_size': '9',
+            'label_30x12mm_border_style': 'none',
+            'label_30x12mm_include_qr_code': 'false',
+            'label_30x12mm_qr_size': 'small',
+            'label_30x12mm_qr_position': 'right',
+            
+            # Per-size label settings - 40x20mm (B1 - medium labels)
+            'label_40x20mm_font_size': '7',
+            'label_40x20mm_title_font_size': '10',
+            'label_40x20mm_border_style': 'simple',
+            'label_40x20mm_include_qr_code': 'true',
+            'label_40x20mm_qr_size': 'small',
+            'label_40x20mm_qr_position': 'right',
+            
+            # Per-size label settings - 40x24mm (B1 - medium-large labels)
+            'label_40x24mm_font_size': '8',
+            'label_40x24mm_title_font_size': '11',
+            'label_40x24mm_border_style': 'simple',
+            'label_40x24mm_include_qr_code': 'true',
+            'label_40x24mm_qr_size': 'medium',
+            'label_40x24mm_qr_position': 'right',
+            
+            # Per-size label settings - 75x12mm (D110 - wide labels)
+            'label_75x12mm_font_size': '7',
+            'label_75x12mm_title_font_size': '10',
+            'label_75x12mm_border_style': 'none',
+            'label_75x12mm_include_qr_code': 'false',
+            'label_75x12mm_qr_size': 'small',
+            'label_75x12mm_qr_position': 'right',
+            
+            # Rotated label settings (90 degrees) - for landscape orientation
+            # 60x30mm rotated becomes 30x60mm (landscape)
+            'label_60x30mm_r90_font_size': '10',
+            'label_60x30mm_r90_title_font_size': '14',
+            'label_60x30mm_r90_border_style': 'simple',
+            'label_60x30mm_r90_include_qr_code': 'true',
+            'label_60x30mm_r90_qr_size': 'large',
+            'label_60x30mm_r90_qr_position': 'top-right',
+            
+            # 50x14mm rotated (landscape)
+            'label_50x14mm_r90_font_size': '7',
+            'label_50x14mm_r90_title_font_size': '10',
+            'label_50x14mm_r90_border_style': 'simple',
+            'label_50x14mm_r90_include_qr_code': 'true',
+            'label_50x14mm_r90_qr_size': 'small',
+            'label_50x14mm_r90_qr_position': 'top-right',
+            
+            # 40x12mm rotated (landscape)
+            'label_40x12mm_r90_font_size': '6',
+            'label_40x12mm_r90_title_font_size': '9',
+            'label_40x12mm_r90_border_style': 'simple',
+            'label_40x12mm_r90_include_qr_code': 'true',
+            'label_40x12mm_r90_qr_size': 'small',
+            'label_40x12mm_r90_qr_position': 'top-right',
+            
+            # 30x15mm rotated (landscape)
+            'label_30x15mm_r90_font_size': '7',
+            'label_30x15mm_r90_title_font_size': '10',
+            'label_30x15mm_r90_border_style': 'simple',
+            'label_30x15mm_r90_include_qr_code': 'true',
+            'label_30x15mm_r90_qr_size': 'small',
+            'label_30x15mm_r90_qr_position': 'top-right',
             
             # Notification settings
             'overdue_check_enabled': 'true',

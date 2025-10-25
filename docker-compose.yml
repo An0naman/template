@@ -7,12 +7,26 @@ services:
     restart: always
     network_mode: host
     
+    # Bluetooth support for Niimbot printers
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - NET_RAW
+    privileged: true
+    
     volumes:
-      - template_db_data:/app/data
+      - ./data:/app/data  # Bind mount to use the same data directory
+      - /var/run/dbus:/var/run/dbus
+      - /run/dbus:/run/dbus
+      - /sys/class/bluetooth:/sys/class/bluetooth
     
     environment:
       - FLASK_APP=run.py
       - NETWORK_RANGE=192.168.68.0/24
+      - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
+      - PYTHONUNBUFFERED=1
       # - GEMINI_API_KEY=${GEMINI_API_KEY}
     
     dns:

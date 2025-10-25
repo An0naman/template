@@ -13,8 +13,14 @@ google-generativeai>=0.3.0
 Pillow==10.4.0
 qrcode[pil]==7.4.2
 
+# Bluetooth Label Printing (Niimbot printers)
+bleak>=0.21.0  # Bluetooth Low Energy support for Niimbot printers
+
 # Optional: For enhanced database features
 # sqlite3 is included with Python by default
+
+# Optional: Advanced image processing (requires build tools)
+# pycairo>=1.20.0  # Commented out - requires C compiler, not needed for basic Niimbot functionality
 
 # Development dependencies (uncomment for development)
 # flask-debugtoolbar
