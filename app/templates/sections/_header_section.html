@@ -1,0 +1,523 @@
+{# Header Section - Entry title, details, and description #}
+
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-start gap-3 mb-4">
+    <!-- Entry Title -->
+    <div class="flex-grow-1">
+        <h1 class="h1 mb-0" id="entryTitle">{{ entry.title }}</h1>
+        <input type="text" class="form-control form-control-lg d-none" id="entryTitleInput" value="{{ entry.title }}" placeholder="Enter entry title">
+    </div>
+    
+    <!-- Action Buttons Group -->
+    <div class="d-flex flex-wrap gap-2 align-items-start">
+        <!-- Edit Mode Buttons (Hidden by default) -->
+        <button type="button" class="btn btn-sm btn-success d-none" id="saveEntryBtn" style="display: none !important;">
+            <i class="fas fa-save me-1"></i>Save
+        </button>
+        <button type="button" class="btn btn-sm btn-secondary d-none" id="cancelEditBtn" style="display: none !important;">
+            <i class="fas fa-times me-1"></i>Cancel
+        </button>
+        
+        <!-- Primary Actions -->
+        <div class="btn-group" role="group" aria-label="Entry actions">
+            <a href="/" class="btn btn-sm btn-outline-secondary" id="backBtn">
+                <i class="fas fa-arrow-left me-1"></i>Back
+            </a>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="editEntryBtn">
+                <i class="fas fa-edit me-1"></i>Edit
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-danger" id="deleteEntryBtn">
+                <i class="fas fa-trash me-1"></i>Delete
+            </button>
+        </div>
+        
+        <!-- Section Toggle Buttons -->
+        <div class="btn-group" role="group" aria-label="Section toggles">
+            {% for section_type, config in section_config.items() %}
+                {% if config.get('visible') and config.get('collapsible') and section_type != 'header' %}
+                    <button type="button" 
+                            class="btn btn-sm btn-outline-info"
+                            onclick="toggleSection('{{ section_type }}')"
+                            data-section="{{ section_type }}"
+                            title="Toggle {{ config.get('title', section_type.replace('_', ' ').title()) }}">
+                        <i class="fas fa-eye me-1"></i>{{ config.get('title', section_type.replace('_', ' ').title()) }}
+                    </button>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="info-card">
+            <div class="info-label">Details</div>
+            <div class="info-value">
+                <!-- Display Mode -->
+                <div id="detailsDisplay">
+                    <div><strong>Type:</strong> <span id="entryTypeDisplay">{{ entry.entry_type_label }}</span></div>
+                    <div><strong>Status:</strong> 
+                        <span class="badge" style="background-color: {{ entry.status_color }}; color: white;" id="statusDisplay">
+                            {{ (entry.status or 'Active').title() }}
+                        </span>
+                    </div>
+                </div>
+                <!-- Edit Mode -->
+                <div id="detailsEdit" class="d-none">
+                    <div class="mb-2">
+                        <label for="entryTypeSelect" class="form-label small">Entry Type</label>
+                        <select class="form-select form-select-sm" id="entryTypeSelect">
+                            <!-- Options will be loaded dynamically -->
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label for="statusSelect" class="form-label small">Status</label>
+                        <select class="form-select form-select-sm" id="statusSelect">
+                            <option value="active" {{ 'selected' if entry.status == 'active' else '' }}>Active</option>
+                            <option value="inactive" {{ 'selected' if entry.status == 'inactive' else '' }}>Inactive</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="info-card">
+            <div class="info-label">Dates</div>
+            <div class="info-value">
+                <!-- Display Mode -->
+                <div id="datesDisplay">
+                    <div class="mb-2">
+                        <strong>Created On:</strong><br class="d-md-none">
+                        <span class="ms-md-2" id="created-at">{{ entry.created_at }}</span>
+                    </div>
+                    {% if entry.intended_end_date and entry.show_end_dates %}
+                    <div class="mb-2">
+                        <strong>Intended End:</strong><br class="d-md-none">
+                        <span class="ms-md-2" id="intended-end-date-display">{{ entry.intended_end_date[:10] if entry.intended_end_date else '' }}</span>
+                    </div>
+                    {% endif %}
+                    {% if entry.actual_end_date and entry.show_end_dates %}
+                    <div class="mb-2">
+                        <strong>Actual End:</strong><br class="d-md-none">
+                        <span class="ms-md-2" id="actual-end-date-display">{{ entry.actual_end_date[:10] if entry.actual_end_date else '' }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <!-- Edit Mode -->
+                {% if entry.show_end_dates %}
+                <div id="datesEdit" class="d-none">
+                    <div class="mb-2">
+                        <strong>Created On:</strong><br class="d-md-none">
+                        <span class="ms-md-2 text-muted" id="created-at-edit">{{ entry.created_at }}</span>
+                    </div>
+                    <div class="mb-2">
+                        <label for="intendedEndDateInput" class="form-label small">Intended End Date</label>
+                        <input type="date" class="form-control form-control-sm" id="intendedEndDateInput" value="{{ entry.intended_end_date[:10] if entry.intended_end_date else '' }}">
+                    </div>
+                    <div class="mb-2">
+                        <label for="actualEndDateInput" class="form-label small">Actual End Date</label>
+                        <input type="date" class="form-control form-control-sm" id="actualEndDateInput" value="{{ entry.actual_end_date[:10] if entry.actual_end_date else '' }}">
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-3">
+    <div class="info-card">
+        <div class="info-label">Description</div>
+        <div class="info-value">
+            <!-- Display Mode -->
+            <div id="descriptionDisplay" class="markdown-content">{{ entry.description or 'No description available' }}</div>
+            <!-- Edit Mode -->
+            <div id="descriptionEdit" class="d-none">
+                <textarea class="form-control" id="descriptionTextarea" rows="4" placeholder="Add a detailed description for this entry...">{{ entry.description if entry.description is not none else '' }}</textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const entryId = {{ entry.id }};
+const originalEntryTypeId = {{ entry.entry_type_id }};
+let isEditing = false;
+
+// DOM elements
+const entryTitleDisplay = document.getElementById('entryTitle');
+const entryTitleInput = document.getElementById('entryTitleInput');
+const detailsDisplay = document.getElementById('detailsDisplay');
+const detailsEdit = document.getElementById('detailsEdit');
+const datesDisplay = document.getElementById('datesDisplay');
+const datesEdit = document.getElementById('datesEdit');
+const descriptionDisplay = document.getElementById('descriptionDisplay');
+const descriptionEdit = document.getElementById('descriptionEdit');
+const entryTypeSelect = document.getElementById('entryTypeSelect');
+const statusSelect = document.getElementById('statusSelect');
+const descriptionTextarea = document.getElementById('descriptionTextarea');
+{% if entry.show_end_dates %}
+const intendedEndDateInput = document.getElementById('intendedEndDateInput');
+const actualEndDateInput = document.getElementById('actualEndDateInput');
+{% endif %}
+
+// Original values for cancel
+const originalValues = {
+    title: {{ entry.title|tojson }},
+    description: {{ (entry.description if entry.description is not none else "")|tojson }},
+    entryTypeId: originalEntryTypeId,
+    status: {{ (entry.status if entry.status else "active")|tojson }},
+    {% if entry.show_end_dates %}
+    intendedEndDate: '{{ entry.intended_end_date[:10] if entry.intended_end_date else "" }}',
+    actualEndDate: '{{ entry.actual_end_date[:10] if entry.actual_end_date else "" }}'
+    {% endif %}
+};
+
+// Toggle edit mode
+function toggleEditMode(editing) {
+    isEditing = editing;
+    
+    if (editing) {
+        // Show edit elements, hide display elements
+        entryTitleDisplay.classList.add('d-none');
+        entryTitleInput.classList.remove('d-none');
+        detailsDisplay.classList.add('d-none');
+        detailsEdit.classList.remove('d-none');
+        {% if entry.show_end_dates %}
+        if (datesDisplay) datesDisplay.classList.add('d-none');
+        if (datesEdit) datesEdit.classList.remove('d-none');
+        {% endif %}
+        descriptionDisplay.classList.add('d-none');
+        descriptionEdit.classList.remove('d-none');
+        
+        // Show save/cancel buttons, hide other buttons
+        const saveBtn = document.getElementById('saveEntryBtn');
+        const cancelBtn = document.getElementById('cancelEditBtn');
+        saveBtn.classList.remove('d-none');
+        saveBtn.style.display = '';
+        cancelBtn.classList.remove('d-none');
+        cancelBtn.style.display = '';
+        
+        document.getElementById('editEntryBtn').classList.add('d-none');
+        document.getElementById('deleteEntryBtn').classList.add('d-none');
+        document.getElementById('backBtn').classList.add('d-none');
+        
+        // Load entry types
+        loadEntryTypes();
+    } else {
+        // Show display elements, hide edit elements
+        entryTitleDisplay.classList.remove('d-none');
+        entryTitleInput.classList.add('d-none');
+        detailsDisplay.classList.remove('d-none');
+        detailsEdit.classList.add('d-none');
+        {% if entry.show_end_dates %}
+        if (datesDisplay) datesDisplay.classList.remove('d-none');
+        if (datesEdit) datesEdit.classList.add('d-none');
+        {% endif %}
+        descriptionDisplay.classList.remove('d-none');
+        descriptionEdit.classList.add('d-none');
+        
+        // Show other buttons, hide save/cancel buttons
+        const saveBtn = document.getElementById('saveEntryBtn');
+        const cancelBtn = document.getElementById('cancelEditBtn');
+        saveBtn.classList.add('d-none');
+        saveBtn.style.display = 'none';
+        cancelBtn.classList.add('d-none');
+        cancelBtn.style.display = 'none';
+        
+        document.getElementById('editEntryBtn').classList.remove('d-none');
+        document.getElementById('deleteEntryBtn').classList.remove('d-none');
+        document.getElementById('backBtn').classList.remove('d-none');
+    }
+}
+
+// Load entry types for the select dropdown
+async function loadEntryTypes() {
+    try {
+        const response = await fetch('/api/entry_types');
+        const entryTypes = await response.json();
+        
+        entryTypeSelect.innerHTML = '';
+        entryTypes.forEach(type => {
+            const option = document.createElement('option');
+            option.value = type.id;
+            option.textContent = type.singular_label;
+            if (type.id == originalEntryTypeId) {
+                option.selected = true;
+            }
+            entryTypeSelect.appendChild(option);
+        });
+        
+        // Load states for the current entry type
+        await loadStatesForEntry();
+    } catch (error) {
+        console.error('Error loading entry types:', error);
+    }
+}
+
+// Load available states for the current entry
+async function loadStatesForEntry() {
+    try {
+        const response = await fetch(`/api/entries/{{ entry.id }}/available_states`);
+        const states = await response.json();
+        
+        const currentStatus = statusSelect.value || '{{ entry.status }}';
+        statusSelect.innerHTML = '';
+        
+        // Group states by category
+        const activeStates = states.filter(s => s.category === 'active');
+        const inactiveStates = states.filter(s => s.category === 'inactive');
+        
+        // Add active states
+        if (activeStates.length > 0) {
+            const activeGroup = document.createElement('optgroup');
+            activeGroup.label = '✓ Active (Ongoing)';
+            activeStates.forEach(state => {
+                const option = document.createElement('option');
+                option.value = state.name;
+                option.textContent = state.name;
+                option.dataset.category = state.category;
+                option.dataset.color = state.color;
+                if (state.name.toLowerCase() === currentStatus.toLowerCase()) {
+                    option.selected = true;
+                }
+                activeGroup.appendChild(option);
+            });
+            statusSelect.appendChild(activeGroup);
+        }
+        
+        // Add inactive states
+        if (inactiveStates.length > 0) {
+            const inactiveGroup = document.createElement('optgroup');
+            inactiveGroup.label = '✕ Inactive (Completed)';
+            inactiveStates.forEach(state => {
+                const option = document.createElement('option');
+                option.value = state.name;
+                option.textContent = state.name;
+                option.dataset.category = state.category;
+                option.dataset.color = state.color;
+                if (state.name.toLowerCase() === currentStatus.toLowerCase()) {
+                    option.selected = true;
+                }
+                inactiveGroup.appendChild(option);
+            });
+            statusSelect.appendChild(inactiveGroup);
+        }
+    } catch (error) {
+        console.error('Error loading states:', error);
+        // Fallback to default options
+        statusSelect.innerHTML = `
+            <optgroup label="✓ Active (Ongoing)">
+                <option value="Active">Active</option>
+            </optgroup>
+            <optgroup label="✕ Inactive (Completed)">
+                <option value="Inactive">Inactive</option>
+            </optgroup>
+        `;
+    }
+}
+
+// Listen for entry type changes to update available states
+entryTypeSelect.addEventListener('change', loadStatesForEntry);
+
+// Edit Entry functionality
+document.getElementById('editEntryBtn')?.addEventListener('click', function() {
+    toggleEditMode(true);
+});
+
+document.getElementById('cancelEditBtn')?.addEventListener('click', function() {
+    // Reset values
+    entryTitleInput.value = originalValues.title;
+    descriptionTextarea.value = originalValues.description;
+    statusSelect.value = originalValues.status;
+    {% if entry.show_end_dates %}
+    if (intendedEndDateInput) intendedEndDateInput.value = originalValues.intendedEndDate;
+    if (actualEndDateInput) actualEndDateInput.value = originalValues.actualEndDate;
+    {% endif %}
+    
+    toggleEditMode(false);
+});
+
+document.getElementById('saveEntryBtn')?.addEventListener('click', async function() {
+    const newTitle = entryTitleInput.value.trim();
+    const description = descriptionTextarea.value;
+    const entryTypeId = parseInt(entryTypeSelect.value);
+    const status = statusSelect.value;
+    {% if entry.show_end_dates %}
+    const intendedEndDate = intendedEndDateInput ? intendedEndDateInput.value : null;
+    const actualEndDate = actualEndDateInput ? actualEndDateInput.value : null;
+    {% else %}
+    const intendedEndDate = null;
+    const actualEndDate = null;
+    {% endif %}
+    
+    if (!newTitle) {
+        alert('Title cannot be empty');
+        return;
+    }
+    
+    // Show loading
+    const saveBtn = document.getElementById('saveEntryBtn');
+    const originalHTML = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
+    
+    try {
+        const response = await fetch(`/api/entries/{{ entry.id }}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                title: newTitle,
+                description: description,
+                entry_type_id: entryTypeId,
+                status: status,
+                intended_end_date: intendedEndDate,
+                actual_end_date: actualEndDate
+            })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            // Update displays
+            entryTitleDisplay.textContent = newTitle;
+            descriptionDisplay.textContent = description || 'No description available';
+            // Re-render markdown
+            if (typeof renderMarkdown === 'function') {
+                renderMarkdown(descriptionDisplay);
+            }
+            
+            // Update entry type display
+            const selectedOption = entryTypeSelect.options[entryTypeSelect.selectedIndex];
+            document.getElementById('entryTypeDisplay').textContent = selectedOption.textContent;
+            
+            // Update status display with color
+            const selectedStatus = statusSelect.options[statusSelect.selectedIndex];
+            const statusBadge = document.getElementById('statusDisplay');
+            statusBadge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+            if (selectedStatus.dataset.color) {
+                statusBadge.style.backgroundColor = selectedStatus.dataset.color;
+                statusBadge.style.color = 'white';
+            }
+            
+            {% if entry.show_end_dates %}
+            // Update date displays
+            if (intendedEndDate && document.getElementById('intended-end-date-display')) {
+                document.getElementById('intended-end-date-display').textContent = intendedEndDate;
+            }
+            if (actualEndDate && document.getElementById('actual-end-date-display')) {
+                document.getElementById('actual-end-date-display').textContent = actualEndDate;
+            }
+            {% endif %}
+            
+            toggleEditMode(false);
+        } else {
+            const data = await response.json();
+            alert('Failed to update entry: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred while updating the entry');
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = originalHTML;
+    }
+});
+
+// Delete Entry functionality
+document.getElementById('deleteEntryBtn')?.addEventListener('click', function() {
+    if (confirm('Are you sure you want to delete this entry? This action cannot be undone.')) {
+        fetch(`/entry/{{ entry.id }}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                window.location.href = '/';
+            } else {
+                alert('Failed to delete entry');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while deleting the entry');
+        });
+    }
+});
+
+// Section toggle functionality
+function toggleSection(sectionType) {
+    const sectionElement = document.getElementById(sectionType + 'SectionWrapper');
+    const button = document.querySelector(`[data-section="${sectionType}"]`);
+    
+    if (sectionElement) {
+        const isHidden = sectionElement.style.display === 'none';
+        
+        if (isHidden) {
+            // Show with animation
+            sectionElement.style.display = '';
+            sectionElement.classList.remove('hiding');
+            sectionElement.classList.add('showing');
+            
+            // Update button
+            if (button) {
+                button.classList.remove('btn-outline-secondary');
+                button.classList.add('btn-outline-info');
+                button.querySelector('i').classList.remove('fa-eye-slash');
+                button.querySelector('i').classList.add('fa-eye');
+            }
+            
+            // Remove animation class after animation completes
+            setTimeout(() => {
+                sectionElement.classList.remove('showing');
+            }, 400);
+        } else {
+            // Hide with animation
+            sectionElement.classList.remove('showing');
+            sectionElement.classList.add('hiding');
+            
+            // Update button
+            if (button) {
+                button.classList.remove('btn-outline-info');
+                button.classList.add('btn-outline-secondary');
+                button.querySelector('i').classList.remove('fa-eye');
+                button.querySelector('i').classList.add('fa-eye-slash');
+            }
+            
+            // Set display none after animation completes
+            setTimeout(() => {
+                sectionElement.style.display = 'none';
+                sectionElement.classList.remove('hiding');
+            }, 400);
+        }
+    }
+}
+
+// Format the created_at timestamp to locale string on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const createdAtSpan = document.getElementById('created-at');
+    const createdAtEditSpan = document.getElementById('created-at-edit');
+    
+    if (createdAtSpan && createdAtSpan.textContent) {
+        try {
+            const date = new Date(createdAtSpan.textContent);
+            createdAtSpan.textContent = date.toLocaleString();
+        } catch (e) {
+            console.error('Error formatting created_at date:', e);
+        }
+    }
+    
+    if (createdAtEditSpan && createdAtEditSpan.textContent) {
+        try {
+            const date = new Date(createdAtEditSpan.textContent);
+            createdAtEditSpan.textContent = date.toLocaleString();
+        } catch (e) {
+            console.error('Error formatting created_at edit date:', e);
+        }
+    }
+});
+</script>

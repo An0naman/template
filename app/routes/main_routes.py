@@ -134,6 +134,7 @@ def entries():
 def entry_detail_page(entry_id):
     from ..db import get_system_parameters # Import locally for function use
     from ..api.theme_api import generate_theme_css, get_current_theme_settings
+    from ..services.entry_layout_service import EntryLayoutService
 
     params = get_system_parameters()
     conn = get_db()
@@ -178,10 +179,70 @@ def entry_detail_page(entry_id):
         'status_color': entry['status_color'] if 'status_color' in entry.keys() else '#28a745',
         'created_at': entry['created_at']
     }
+    
+    # Load layout configuration for this entry type
+    layout = EntryLayoutService.get_layout_for_entry_type(entry_data['entry_type_id'])
+    
+    # Process layout for easy template usage
+    section_config = {}
+    section_order = []
+    section_rows = []  # Group sections into rows for grid layout
+    
+    if layout and 'sections' in layout:
+        # Process ALL sections (both visible and hidden)
+        for section in layout['sections']:
+            section_type = section['section_type']
+            section_config[section_type] = {
+                'visible': section.get('is_visible', True),
+                'order': section.get('display_order', 999),
+                'title': section.get('title', ''),
+                'collapsible': section.get('is_collapsible', False),
+                'collapsed': section.get('default_collapsed', False),
+                'width': section.get('width', 12),
+                'height': section.get('height', 3),
+                'x': section.get('x', 0),
+                'y': section.get('y', 0)
+            }
+        
+        # Create ordered list of visible sections only
+        visible_sections = [s for s in layout['sections'] if s.get('is_visible', True)]
+        visible_sections.sort(key=lambda x: x.get('display_order', 999))
+        section_order = [s['section_type'] for s in visible_sections]
+        
+        # Group sections into rows based on cumulative width
+        # This allows sections to appear side-by-side if their widths fit in 12 columns
+        current_row = []
+        current_width = 0
+        
+        for section in visible_sections:
+            section_type = section['section_type']
+            width = section.get('width', 12)
+            
+            # If adding this section would exceed 12 columns, start a new row
+            if current_width + width > 12 and current_row:
+                section_rows.append(current_row)
+                current_row = []
+                current_width = 0
+            
+            current_row.append(section_type)
+            current_width += width
+        
+        # Add the last row if it has sections
+        if current_row:
+            section_rows.append(current_row)
+    
+    # Debug logging
+    print(f"DEBUG Entry {entry_id} - section_rows: {section_rows}")
+    print(f"DEBUG Entry {entry_id} - section_config: {section_config}")
+    print(f"DEBUG Entry {entry_id} - section_order: {section_order}")
 
     return render_template('entry_detail.html',
                            project_name=params.get('project_name'),
                            entry=entry_data,
+                           entry_layout=layout,
+                           section_config=section_config,
+                           section_order=section_order,
+                           section_rows=section_rows,
                            entry_singular_label=params.get('entry_singular_label'),
                            entry_plural_label=params.get('entry_plural_label'),
                            allowed_file_types=params.get('allowed_file_types', 
@@ -189,6 +250,110 @@ def entry_detail_page(entry_id):
                            max_file_size=params.get('max_file_size', '50'),
                            theme_css=generate_theme_css(),
                            theme_settings=get_current_theme_settings())
+
+@main_bp.route('/entry/<int:entry_id>/v2')
+def entry_detail_v2(entry_id):
+    """Alternative entry detail page using v2 template with dynamic layout"""
+    from ..db import get_system_parameters
+    from ..services.entry_layout_service import EntryLayoutService
+    
+    params = get_system_parameters()
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Get entry data
+    cursor.execute('''
+        SELECT
+            e.id, e.title, e.description, e.entry_type_id, e.intended_end_date, 
+            e.actual_end_date, e.status,
+            et.singular_label AS entry_type_label,
+            et.name AS entry_type_name,
+            et.note_types, et.has_sensors, et.enabled_sensor_types, et.show_labels_section, 
+            et.show_end_dates, e.created_at,
+            COALESCE(es.category, 'active') AS status_category,
+            COALESCE(es.color, '#28a745') AS status_color
+        FROM Entry e
+        JOIN EntryType et ON e.entry_type_id = et.id
+        LEFT JOIN EntryState es ON es.entry_type_id = e.entry_type_id AND es.name = e.status
+        WHERE e.id = ?
+    ''', (entry_id,))
+    entry = cursor.fetchone()
+    
+    if entry is None:
+        return render_template('404.html'), 404
+    
+    entry_data = {
+        'id': entry['id'],
+        'title': entry['title'],
+        'description': entry['description'],
+        'entry_type_id': entry['entry_type_id'],
+        'entry_type_label': entry['entry_type_label'],
+        'entry_type_name': entry['entry_type_name'],
+        'note_types': entry['note_types'],
+        'has_sensors': bool(entry['has_sensors']) if entry['has_sensors'] is not None else False,
+        'enabled_sensor_types': entry['enabled_sensor_types'] or '',
+        'show_labels_section': bool(entry['show_labels_section']) if entry['show_labels_section'] is not None else True,
+        'show_end_dates': bool(entry['show_end_dates']) if entry['show_end_dates'] is not None else False,
+        'intended_end_date': entry['intended_end_date'] if 'intended_end_date' in entry.keys() else None,
+        'actual_end_date': entry['actual_end_date'] if 'actual_end_date' in entry.keys() else None,
+        'status': entry['status'] if 'status' in entry.keys() else 'Active',
+        'status_category': entry['status_category'] if 'status_category' in entry.keys() else 'active',
+        'status_color': entry['status_color'] if 'status_color' in entry.keys() else '#28a745',
+        'created_at': entry['created_at']
+    }
+    
+    # Get layout configuration
+    layout_service = EntryLayoutService()
+    layout = layout_service.get_layout_for_entry_type(entry_data.get('entry_type_id'))
+    
+    # Initialize section configuration and rows
+    section_config = {}
+    section_rows = []
+    section_order = []
+    
+    if layout and layout.get('sections'):
+        # Build section_config dictionary
+        for section in layout['sections']:
+            section_type = section['section_type']
+            section_config[section_type] = {
+                'visible': section.get('is_visible', True),
+                'order': section.get('display_order', 999),
+                'title': section.get('title', ''),
+                'collapsible': section.get('is_collapsible', False),
+                'collapsed': section.get('default_collapsed', False),
+                'width': section.get('width', 12),
+                'height': section.get('height', 3),
+                'x': section.get('x', 0),
+                'y': section.get('y', 0)
+            }
+        
+        # Create ordered list of visible sections
+        visible_sections = [s for s in layout['sections'] if s.get('is_visible', True)]
+        
+        # Group sections by Y coordinate (row position in the grid)
+        # Sort by Y first, then by X within each row
+        visible_sections.sort(key=lambda x: (x.get('y', 0), x.get('x', 0)))
+        
+        # Group into rows based on Y coordinate
+        from itertools import groupby
+        for y_pos, sections_in_row in groupby(visible_sections, key=lambda x: x.get('y', 0)):
+            row_sections = [s['section_type'] for s in sections_in_row]
+            if row_sections:
+                section_rows.append(row_sections)
+        
+        # Build section_order from the sorted visible sections
+        section_order = [s['section_type'] for s in visible_sections]
+    
+    # Debug logging
+    print(f"DEBUG V2 Entry {entry_id} - section_rows: {section_rows}")
+    print(f"DEBUG V2 Entry {entry_id} - section_config: {section_config}")
+
+    return render_template('entry_detail_v2.html',
+                           project_name=params.get('project_name'),
+                           entry=entry_data,
+                           section_config=section_config,
+                           section_order=section_order,
+                           section_rows=section_rows)
 
 @main_bp.route('/settings')
 def settings():
@@ -229,6 +394,50 @@ def dashboard():
     theme_css = generate_theme_css(theme_settings)
     
     return render_template('dashboard.html',
+                          project_name=params.get('project_name'),
+                          theme_settings=theme_settings,
+                          theme_css=theme_css)
+
+@main_bp.route('/entry-layout-builder/<int:entry_type_id>')
+def entry_layout_builder(entry_type_id):
+    """Entry Layout Builder route for configuring entry type layouts"""
+    from ..db import get_system_parameters
+    from ..api.theme_api import generate_theme_css, get_current_theme_settings
+    
+    params = get_system_parameters()
+    theme_settings = get_current_theme_settings()
+    theme_css = generate_theme_css(theme_settings)
+    
+    # Get entry type information
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT id, name, singular_label, plural_label, description,
+               has_sensors, show_labels_section, show_end_dates
+        FROM EntryType
+        WHERE id = ?
+    """, (entry_type_id,))
+    
+    entry_type = cursor.fetchone()
+    
+    if not entry_type:
+        return render_template('404.html'), 404
+    
+    entry_type_dict = {
+        'id': entry_type['id'],
+        'name': entry_type['name'],
+        'singular_label': entry_type['singular_label'],
+        'plural_label': entry_type['plural_label'],
+        'description': entry_type['description'],
+        'has_sensors': bool(entry_type['has_sensors']),
+        'show_labels_section': bool(entry_type['show_labels_section']),
+        'show_end_dates': bool(entry_type['show_end_dates'])
+    }
+    
+    return render_template('entry_layout_builder.html',
+                          entry_type_id=entry_type_id,
+                          entry_type=entry_type_dict,
                           project_name=params.get('project_name'),
                           theme_settings=theme_settings,
                           theme_css=theme_css)

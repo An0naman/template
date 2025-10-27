@@ -1,0 +1,352 @@
+{# AI Assistant Section - Chat interface with description preview capability #}
+
+<script>
+// Define functions in global scope before any inline handlers can call them
+var chatHistory = [];
+var currentDraft = null;
+var activeConversationMode = false;
+var currentAction = null;
+
+function quickPrompt(prompt) {
+    document.getElementById('chatInput').value = prompt;
+    sendChatMessage();
+}
+
+function selectAction(action, prompt, displayName, iconName) {
+    currentAction = action;
+    activeConversationMode = true;
+    
+    // Update button to show selected action
+    const buttonText = document.getElementById('selectedActionText');
+    const button = document.getElementById('aiActionButton');
+    
+    buttonText.innerHTML = `<i class="fas fa-${iconName} me-1"></i>${displayName}`;
+    button.classList.remove('btn-outline-secondary');
+    button.classList.add('btn-info');
+    
+    // Set the prompt in the input
+    document.getElementById('chatInput').value = prompt;
+    document.getElementById('chatInput').focus();
+}
+
+function quickAction(action, prompt) {
+    currentAction = action;
+    activeConversationMode = true;
+    document.getElementById('chatInput').value = prompt;
+    sendChatMessage();
+}
+
+function updateDraft() {
+    // Allows user to refine the current draft
+    const input = document.getElementById('chatInput');
+    input.placeholder = "Tell me how to revise this draft...";
+    input.focus();
+}
+
+function resetActionButton() {
+    const buttonText = document.getElementById('selectedActionText');
+    const button = document.getElementById('aiActionButton');
+    
+    buttonText.textContent = 'Quick Actions';
+    button.classList.remove('btn-info');
+    button.classList.add('btn-outline-secondary');
+}
+
+async function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const message = input.value.trim();
+    
+    if (!message) return;
+    
+    addMessageToChat('user', message);
+    const actionToSend = currentAction;
+    currentAction = null;
+    input.value = '';
+    input.placeholder = "Continue the conversation or start a new request...";
+    
+    const loadingId = addMessageToChat('assistant', 'Thinking...', true);
+    
+    try {
+        let response, data;
+        
+        // If action is set (description generation/improvement), use /api/ai/chat
+        // Otherwise use /api/ai/entry-chat for full context conversation
+        if (actionToSend || (activeConversationMode && currentDraft)) {
+            const payload = {
+                message: message,
+                entry_id: {{ entry.id }},
+                entry_title: {{ entry.title|tojson }},
+                entry_description: {{ (entry.description or '')|tojson }},
+                chat_history: chatHistory
+            };
+            
+            if (actionToSend) {
+                payload.action = actionToSend;
+            } else if (activeConversationMode && currentDraft) {
+                payload.action = 'refine_draft';
+                payload.current_draft = currentDraft;
+            }
+            
+            response = await fetch('/api/ai/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            data = await response.json();
+        } else {
+            // General conversation with full entry context
+            response = await fetch('/api/ai/entry-chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    entry_id: {{ entry.id }},
+                    message: message,
+                    is_first_message: chatHistory.length === 0,
+                    include_all_notes: false // Can be toggled later
+                })
+            });
+            
+            const entryData = await response.json();
+            data = {
+                message: entryData.success ? entryData.response : (entryData.error || 'Failed to get response')
+            };
+        }
+        
+        document.getElementById(loadingId).remove();
+        
+        if (response.ok) {
+            const aiMessage = data.message || data.response || 'No response';
+            addMessageToChat('assistant', aiMessage);
+            
+            // Reset action button to default
+            resetActionButton();
+            
+            if (data.description_preview) {
+                currentDraft = data.description_preview;
+                showDescriptionPreview(data.description_preview);
+            }
+            
+            chatHistory.push({
+                role: 'user',
+                content: message
+            });
+            chatHistory.push({
+                role: 'assistant',
+                content: aiMessage
+            });
+        } else {
+            addMessageToChat('assistant', 'Error: ' + (data.error || 'Failed to get response'));
+            activeConversationMode = false;
+        }
+    } catch (error) {
+        console.error('Chat error:', error);
+        document.getElementById(loadingId).remove();
+        addMessageToChat('assistant', 'Error: Failed to communicate with AI');
+        activeConversationMode = false;
+    }
+}
+
+function addMessageToChat(role, content, isLoading = false) {
+    const messagesContainer = document.getElementById('chatMessages');
+    const messageId = 'msg-' + Date.now();
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.id = messageId;
+    messageDiv.className = 'chat-message ' + role + (isLoading ? ' loading' : '');
+    
+    const icon = role === 'user' ? 'fa-user' : 'fa-robot';
+    const label = role === 'user' ? 'You' : 'AI Assistant';
+    
+    messageDiv.innerHTML = `
+        <div class="message-header">
+            <span><i class="fas ${icon} me-2"></i>${label}</span>
+            <small class="text-muted">${new Date().toLocaleTimeString()}</small>
+        </div>
+        <div class="message-content">${content}</div>
+    `;
+    
+    messagesContainer.appendChild(messageDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    return messageId;
+}
+
+function showDescriptionPreview(description) {
+    const previewContainer = document.getElementById('descriptionPreview');
+    const previewContent = document.getElementById('previewContent');
+    
+    previewContent.textContent = description;
+    // Render as markdown
+    if (typeof renderMarkdown === 'function') {
+        renderMarkdown(previewContent);
+    }
+    previewContainer.classList.remove('d-none');
+    previewContainer.dataset.previewText = description;
+}
+
+function applyDescriptionPreview() {
+    const previewContainer = document.getElementById('descriptionPreview');
+    const previewText = previewContainer.dataset.previewText;
+    
+    if (previewText) {
+        const descriptionDisplay = document.getElementById('descriptionDisplay');
+        if (descriptionDisplay) {
+            descriptionDisplay.textContent = previewText;
+            // Immediately render as markdown
+            if (typeof renderMarkdown === 'function') {
+                renderMarkdown(descriptionDisplay);
+            }
+        }
+        
+        const descriptionTextarea = document.getElementById('descriptionTextarea');
+        if (descriptionTextarea) {
+            descriptionTextarea.value = previewText;
+        }
+        
+        saveDescriptionUpdate(previewText);
+        previewContainer.classList.add('d-none');
+        addMessageToChat('assistant', 'Description updated successfully!');
+        
+        // Exit conversation mode
+        activeConversationMode = false;
+        currentDraft = null;
+        document.getElementById('chatInput').placeholder = "Ask AI or request description changes...";
+    }
+}
+
+async function saveDescriptionUpdate(description) {
+    try {
+        const response = await fetch(`/api/entries/{{ entry.id }}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                description: description
+            })
+        });
+        
+        if (!response.ok) {
+            console.error('Failed to save description update');
+        }
+    } catch (error) {
+        console.error('Error saving description:', error);
+    }
+}
+</script>
+
+<div class="chat-container" id="aiChatContainer">
+    <!-- Chat Messages -->
+    <div class="chat-messages mb-3" id="chatMessages" style="max-height: 400px; overflow-y: auto; border: 1px solid var(--theme-border, var(--bs-border-color)); border-radius: 8px; padding: 1rem; background: var(--theme-bg-surface, var(--bs-body-bg));">
+        <div class="text-center text-muted py-4">
+            <i class="fas fa-robot fa-2x mb-2"></i>
+            <p>Ask me anything about this entry or request description improvements!</p>
+        </div>
+    </div>
+    
+    <!-- Description Preview Area (Hidden by default) -->
+    <div class="description-preview d-none mb-3" id="descriptionPreview">
+        <div class="card border-info">
+            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-eye me-2"></i>Current Draft</span>
+                <div>
+                    <button class="btn btn-sm btn-light me-2" onclick="updateDraft()">
+                        <i class="fas fa-sync me-1"></i>Revise
+                    </button>
+                    <button class="btn btn-sm btn-success" onclick="applyDescriptionPreview()">
+                        <i class="fas fa-check me-1"></i>Apply to Entry
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="previewContent" class="markdown-content"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Chat Input -->
+    <div class="chat-input">
+        <div class="input-group">
+            <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="aiActionButton" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-magic me-1"></i><span id="selectedActionText">Quick Actions</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#" onclick="selectAction('generate_description', 'Generate a description for this entry', 'Generate', 'robot'); return false;">
+                    <i class="fas fa-robot me-2"></i>Generate Description
+                </a></li>
+                <li><a class="dropdown-item" href="#" onclick="selectAction('improve_description', 'Improve the description', 'Improve', 'lightbulb'); return false;">
+                    <i class="fas fa-lightbulb me-2"></i>Improve Description
+                </a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#" onclick="selectAction('wikipedia', 'Provide Wikipedia-style information', 'Wikipedia', 'wikipedia-w'); return false;">
+                    <i class="fab fa-wikipedia-w me-2"></i>Wikipedia Style
+                </a></li>
+            </ul>
+            <input type="text" class="form-control" id="chatInput" placeholder="Ask AI or request description changes..." onkeypress="if(event.key==='Enter') sendChatMessage()">
+            <button class="btn btn-primary" onclick="sendChatMessage()">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+.chat-message {
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    border-radius: 8px;
+    animation: fadeIn 0.3s ease;
+}
+
+.chat-message.user {
+    background: var(--bs-primary-bg-subtle);
+    border-left: 3px solid var(--bs-primary);
+}
+
+.chat-message.assistant {
+    background: var(--bs-secondary-bg-subtle);
+    border-left: 3px solid var(--bs-secondary);
+}
+
+.chat-message .message-header {
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chat-message .message-content {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.chat-message.loading .message-content::after {
+    content: '...';
+    animation: dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes dots {
+    0%, 20% { content: '.'; }
+    40% { content: '..'; }
+    60%, 100% { content: '...'; }
+}
+</style>
+

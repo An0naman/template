@@ -1,0 +1,249 @@
+{# Header Section Content - Extracted from entry_detail.html #}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3">
+    <!-- Editable Title -->
+    <div class="flex-grow-1 me-md-3 mb-2 mb-md-0">
+        <h1 class="h1 mb-0" id="entryTitleDisplay">{{ entry.title }}</h1>
+        <input type="text" class="form-control form-control-lg d-none" id="entryTitleInput" value="{{ entry.title }}" placeholder="Enter entry title">
+    </div>
+    <div class="entry-actions d-flex flex-wrap gap-2">
+        <button class="btn btn-sm btn-success d-none" id="saveEntryBtn">
+            <i class="fas fa-save me-1"></i>Save
+        </button>
+        <button class="btn btn-sm btn-secondary d-none" id="cancelEditBtn">
+            <i class="fas fa-times me-1"></i>Cancel
+        </button>
+        <button class="btn btn-sm btn-theme-primary" id="editEntryBtn">
+            <i class="fas fa-edit me-1"></i>Edit
+        </button>
+        <button class="btn btn-sm btn-danger" id="deleteEntryBtn">
+            <i class="fas fa-trash-alt me-1"></i>Delete
+        </button>
+        
+        {# Dynamic buttons for all collapsible sections #}
+        {% set section_icons = {
+            'header': 'fa-heading',
+            'notes': 'fa-sticky-note',
+            'relationships': 'fa-project-diagram',
+            'labels': 'fa-tags',
+            'sensors': 'fa-microchip',
+            'reminders': 'fa-bell',
+            'ai_assistant': 'fa-robot',
+            'attachments': 'fa-paperclip',
+            'form_fields': 'fa-wpforms',
+            'qr_code': 'fa-qrcode',
+            'label_printing': 'fa-print',
+            'relationship_opportunities': 'fa-link',
+            'timeline': 'fa-clock'
+        } %}
+        
+        {% set section_labels = {
+            'header': 'Header',
+            'notes': 'Notes',
+            'relationships': 'Relationships',
+            'labels': 'Labels',
+            'sensors': 'Sensors',
+            'reminders': 'Reminders',
+            'ai_assistant': 'AI Assistant',
+            'attachments': 'Attachments',
+            'form_fields': 'Form Fields',
+            'qr_code': 'QR Code',
+            'label_printing': 'Label Printing',
+            'relationship_opportunities': 'Opportunities',
+            'timeline': 'Timeline'
+        } %}
+        
+        {% for section_type, config in section_config.items() %}
+            {% if config.visible and config.collapsible and section_type != 'header' %}
+        <button class="btn btn-sm btn-theme-primary" type="button" 
+                data-bs-toggle="collapse" 
+                data-bs-target="#{{ section_type }}SectionContent" 
+                aria-expanded="{{ 'false' if config.collapsed else 'true' }}" 
+                aria-controls="{{ section_type }}SectionContent">
+            <i class="fas {{ section_icons.get(section_type, 'fa-circle') }} me-1"></i>{{ config.title or section_labels.get(section_type, section_type|title) }}
+        </button>
+            {% endif %}
+        {% endfor %}
+        
+        <a href="{{ url_for('main.index') }}" class="btn btn-sm btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Back
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="info-card">
+            <div class="info-label">Details</div>
+            <div class="info-value">
+                <!-- Display Mode -->
+                <div id="detailsDisplay">
+                    <div><strong>Type:</strong> <span id="entryTypeDisplay">{{ entry.entry_type_label }}</span></div>
+                    <div><strong>Status:</strong> 
+                        <span class="badge" style="background-color: {{ entry.status_color }}; color: white;" id="statusDisplay">
+                            {{ (entry.status or 'Active').title() }}
+                        </span>
+                    </div>
+                </div>
+                <!-- Edit Mode -->
+                <div id="detailsEdit" class="d-none">
+                    <div class="mb-2">
+                        <label for="entryTypeSelect" class="form-label small">Entry Type</label>
+                        <select class="form-select form-select-sm" id="entryTypeSelect">
+                            <!-- Options will be loaded dynamically -->
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label for="statusSelect" class="form-label small">Status</label>
+                        <select class="form-select form-select-sm" id="statusSelect">
+                            <option value="active" {{ 'selected' if entry.status == 'active' else '' }}>Active</option>
+                            <option value="inactive" {{ 'selected' if entry.status == 'inactive' else '' }}>Inactive</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="info-card">
+            <div class="info-label">Dates</div>
+            <div class="info-value">
+                <!-- Display Mode -->
+                <div id="datesDisplay">
+                    <div class="mb-2"><strong>Created On:</strong><br class="d-md-none"><span class="ms-md-2" id="created-at">{{ entry.created_at }}</span></div>
+                    {% if entry.intended_end_date and entry.show_end_dates %}
+                    <div class="mb-2"><strong>Intended End:</strong><br class="d-md-none"><span class="ms-md-2" id="intended-end-date-display">{{ entry.intended_end_date[:10] if entry.intended_end_date else '' }}</span></div>
+                    {% endif %}
+                    {% if entry.actual_end_date and entry.show_end_dates %}
+                    <div class="mb-2"><strong>Actual End:</strong><br class="d-md-none"><span class="ms-md-2" id="actual-end-date-display">{{ entry.actual_end_date[:10] if entry.actual_end_date else '' }}</span></div>
+                    {% endif %}
+                </div>
+                <!-- Edit Mode -->
+                {% if entry.show_end_dates %}
+                <div id="datesEdit" class="d-none">
+                    <div class="mb-2"><strong>Created On:</strong><br class="d-md-none"><span class="ms-md-2 text-muted" id="created-at-edit">{{ entry.created_at }}</span></div>
+                    <div class="mb-2">
+                        <label for="intendedEndDateInput" class="form-label small">Intended End Date</label>
+                        <input type="date" class="form-control form-control-sm" id="intendedEndDateInput" value="{{ entry.intended_end_date[:10] if entry.intended_end_date else '' }}">
+                    </div>
+                    <div class="mb-2">
+                        <label for="actualEndDateInput" class="form-label small">Actual End Date</label>
+                        <input type="date" class="form-control form-control-sm" id="actualEndDateInput" value="{{ entry.actual_end_date[:10] if entry.actual_end_date else '' }}">
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-3">
+    <div class="info-card">
+        <div class="info-label">
+            Description
+            <div class="float-end d-none" id="descriptionEditActions">
+                <button class="btn btn-sm btn-outline-warning me-1" id="aiGenerateDescriptionBtn" title="Generate description using AI">
+                    <i class="fas fa-robot"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-info me-1" id="aiImproveDescriptionBtn" title="Improve existing description using AI">
+                    <i class="fas fa-lightbulb"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" id="searchWikipediaBtn" title="Search Wikipedia">
+                    <i class="fab fa-wikipedia-w"></i>
+                </button>
+            </div>
+        </div>
+        <div class="info-value">
+            <!-- Display Mode -->
+            <div id="descriptionDisplay">{{ entry.description or 'No description available' }}</div>
+            <!-- Edit Mode -->
+            <div id="descriptionEdit" class="d-none">
+                <textarea class="form-control" id="descriptionTextarea" rows="4" placeholder="Add a detailed description for this entry...">{{ entry.description if entry.description is not none else '' }}</textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Timeline Section -->
+{% if entry.intended_end_date and entry.show_end_dates %}
+<div class="mt-3">
+    <div class="info-card">
+        <div class="info-label">
+            <i class="fas fa-chart-line me-2"></i>Progress Timeline
+        </div>
+        <div class="info-value">
+            <div id="progressContainer" class="progress-timeline">
+                <div class="progress-header d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-2 gap-2">
+                    <small class="text-muted">
+                        <i class="fas fa-play-circle me-1"></i>
+                        Created: <span id="progress-start-date">{{ entry.created_at[:10] if entry.created_at else '' }}</span>
+                    </small>
+                    <small class="progress-status-text text-center" id="progressStatusText">
+                        <span id="progressPercentage">0</span>% Complete
+                    </small>
+                    <small class="text-muted">
+                        <i class="fas fa-flag-checkered me-1"></i>
+                        Target: <span id="progress-end-date">{{ entry.intended_end_date[:10] if entry.intended_end_date else '' }}</span>
+                    </small>
+                </div>
+                <div class="progress mb-3" style="height: 12px;">
+                    <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                         role="progressbar" 
+                         style="width: 0%;" 
+                         aria-valuenow="0" 
+                         aria-valuemin="0" 
+                         aria-valuemax="100">
+                    </div>
+                </div>
+                <div class="progress-details">
+                    <div class="row g-2">
+                        <div class="col-12 col-md-4">
+                            <small class="text-muted d-block text-center text-md-start">
+                                <i class="fas fa-clock me-1"></i>
+                                <span id="daysElapsed">0</span> days elapsed
+                            </small>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <small class="text-muted d-block text-center">
+                                <i class="fas fa-calendar-day me-1"></i>
+                                <span id="totalDays">0</span> total days
+                            </small>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <small id="remainingTime" class="text-muted d-block text-center text-md-end">
+                                <i class="fas fa-hourglass-half me-1"></i>
+                                <span id="daysRemaining">0</span> days remaining
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Status Message for Entry Updates -->
+<div id="entryStatusMessage" class="mt-3 d-none"></div>
+
+<!-- Wikipedia Results (only shown during edit) -->
+<div id="wikipediaResults" class="mt-3 d-none">
+    <div class="content-section theme-section">
+        <div class="section-content">
+            <div class="section-header mb-3">
+                <h6 class="section-title">
+                    <i class="fab fa-wikipedia-w me-2"></i>Wikipedia Result
+                </h6>
+            </div>
+            <h6 id="wikipediaTitle" class="fw-bold"></h6>
+            <p id="wikipediaExtract" class="text-muted"></p>
+            <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-sm btn-theme-primary" id="useWikipediaBtn">
+                    Use This Description
+                </button>
+                <a id="wikipediaLink" href="#" target="_blank" class="btn btn-sm btn-theme-secondary" rel="noopener noreferrer">
+                    <i class="fas fa-external-link-alt me-1"></i>View on Wikipedia
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

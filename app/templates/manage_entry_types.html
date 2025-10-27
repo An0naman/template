@@ -316,6 +316,11 @@
                                                 title="Manage States">
                                             <i class="fas fa-list-check"></i>
                                         </button>
+                                        <a href="{{ url_for('main.entry_layout_builder', entry_type_id=type.id) }}" 
+                                           class="btn btn-sm btn-outline-success ms-1"
+                                           title="Configure Layout">
+                                            <i class="fas fa-th-large"></i>
+                                        </a>
                                         <button class="btn btn-sm btn-outline-primary edit-entry-type-btn ms-1"
                                                 data-id="{{ type.id }}"
                                                 data-name="{{ type.name }}"

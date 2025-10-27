@@ -1,0 +1,274 @@
+{# 
+    Entry Detail Section Macros
+    
+    Reusable macros for rendering each section type in entry_detail.html
+    This allows sections to be rendered dynamically based on layout configuration.
+    
+    Each macro handles its own section content and wrapping based on the
+    section_config dictionary passed from the backend.
+#}
+
+{#
+    Main macro to render any section type dynamically.
+    This is called in a loop from entry_detail.html
+#}
+{% macro render_section(section_type, entry, section_config={}) %}
+    {% set config = section_config.get(section_type, {}) %}
+    
+    {# Only render if visible #}
+    {% if config.get('visible', True) %}
+        {# Route to specific section renderer #}
+        {% if section_type == 'header' %}
+            {{ header_section(config, entry, context_data) }}
+        {% elif section_type == 'notes' %}
+            {{ notes_section(config, entry, context_data) }}
+        {% elif section_type == 'ai_assistant' %}
+            {{ ai_assistant_section(config, entry, context_data) }}
+        {% elif section_type == 'sensors' %}
+        {{ sensors_section(config, entry, context_data) }}
+    {% elif section_type == 'label_printing' %}
+        {{ label_printing_section(config, entry, context_data) }}
+    {% elif section_type == 'relationships' %}
+        {{ relationships_section(config, entry, context_data) }}
+    {% elif section_type == 'labels' %}
+        {{ labels_section(config, entry, context_data) }}
+    {% elif section_type == 'reminders' %}
+        {{ reminders_section(config, entry, context_data) }}
+    {% elif section_type == 'attachments' %}
+        {{ attachments_section(config, entry, context_data) }}
+    {% elif section_type == 'form_fields' %}
+        {{ form_fields_section(config, entry, context_data) }}
+    {% elif section_type == 'qr_code' %}
+        {{ qr_code_section(config, entry, context_data) }}
+    {% elif section_type == 'relationship_opportunities' %}
+        {{ relationship_opportunities_section(config, entry, context_data) }}
+    {% elif section_type == 'timeline' %}
+        {{ timeline_section(config, entry, context_data) }}
+        {% endif %}
+    {% endif %}
+{% endmacro %}
+
+
+{#
+    Wrapper helper that provides consistent structure
+    and collapsible functionality for all sections
+#}
+{% macro section_wrapper(section_type, config) %}
+    {% if config.get('collapsible', False) %}
+    <div class="collapse {{ 'show' if not config.get('collapsed', False) else '' }}" id="{{ section_type }}SectionContent">
+    {% endif %}
+    
+    <div class="content-section theme-section mb-4" style="min-height: {{ config.get('height', 3) * 80 }}px;">
+        {{ caller() }}
+    </div>
+    
+    {% if config.get('collapsible', False) %}
+    </div>
+    {% endif %}
+{% endmacro %}
+
+
+{# 
+    ============================================================================
+    INDIVIDUAL SECTION MACROS
+    ============================================================================
+    Each macro below renders a specific section type with its content.
+    They all use the section_wrapper for consistent layout and collapsibility.
+#}
+
+{# HEADER SECTION #}
+{% macro header_section(config, entry, context_data) %}
+    {% call section_wrapper('header', config) %}
+        {% if config.get('collapsible', False) %}
+        <div class="section-header d-flex justify-content-between align-items-center mb-3 px-3 pt-3">
+            <h4 class="section-title mb-0">
+                <i class="fas fa-info-circle me-2"></i>{{ config.get('title', 'Entry Details') }}
+            </h4>
+            <button class="btn btn-sm btn-outline-secondary" type="button" 
+                    data-bs-toggle="collapse" data-bs-target="#headerSectionContent" 
+                    aria-expanded="{{ 'false' if config.get('collapsed', False) else 'true' }}" 
+                    aria-controls="headerSectionContent">
+                <i class="fas fa-chevron-{{ 'down' if config.get('collapsed', False) else 'up' }}"></i>
+            </button>
+        </div>
+        {% endif %}
+        
+        <div class="section-content {{ 'px-3 pb-3' if config.get('collapsible', False) else '' }}">
+            {# Include the actual header content here #}
+            {% include 'partials/_entry_header_content.html' ignore missing %}
+        </div>
+    {% endcall %}
+{% endmacro %}
+
+
+{# NOTES SECTION #}
+{% macro notes_section(config, entry, context_data) %}
+    {% call section_wrapper('notes', config) %}
+        <div class="section-content">
+            {# Include notes content #}
+            {% include 'partials/_notes_content.html' ignore missing %}
+        </div>
+    {% endcall %}
+{% endmacro %}
+
+
+{# AI ASSISTANT SECTION #}
+{% macro ai_assistant_section(config, entry, context_data) %}
+    {% call section_wrapper('ai_assistant', config) %}
+        {% if config.get('collapsible', False) %}
+        <div class="section-header d-flex justify-content-between align-items-center mb-3">
+            <h4 class="section-title mb-0">
+                <i class="fas fa-robot me-2"></i>{{ config.get('title', 'AI Assistant') }}
+            </h4>
+            <button class="btn btn-sm btn-outline-secondary" type="button" 
+                    data-bs-toggle="collapse" data-bs-target="#ai_assistantSectionContent" 
+                    aria-expanded="{{ 'false' if config.get('collapsed', False) else 'true' }}">
+                <i class="fas fa-chevron-{{ 'down' if config.get('collapsed', False) else 'up' }}"></i>
+            </button>
+        </div>
+        {% endif %}
+        
+        <div class="section-content">
+            {# Include AI assistant content #}
+            {% include 'partials/_ai_assistant_content.html' ignore missing %}
+        </div>
+    {% endcall %}
+{% endmacro %}
+
+
+{# SENSORS SECTION #}
+{% macro sensors_section(config, entry, context_data) %}
+    {% if entry.has_sensors %}
+    {% call section_wrapper('sensors', config) %}
+        {% if config.get('collapsible', False) %}
+        <div class="section-header d-flex justify-content-between align-items-center mb-3">
+            <h4 class="section-title mb-0">
+                <i class="fas fa-microchip me-2"></i>{{ config.get('title', 'Sensor Data') }}
+            </h4>
+            <button class="btn btn-sm btn-outline-secondary" type="button" 
+                    data-bs-toggle="collapse" data-bs-target="#sensorsSectionContent" 
+                    aria-expanded="{{ 'false' if config.get('collapsed', False) else 'true' }}">
+                <i class="fas fa-chevron-{{ 'down' if config.get('collapsed', False) else 'up' }}"></i>
+            </button>
+        </div>
+        {% endif %}
+        
+        <div class="section-content">
+            {# Include sensors content #}
+            {% include 'partials/_sensors_content.html' ignore missing %}
+        </div>
+    {% endcall %}
+    {% endif %}
+{% endmacro %}
+
+
+{# LABEL PRINTING SECTION #}
+{% macro label_printing_section(config, entry, context_data) %}
+    {% call section_wrapper('label_printing', config) %}
+        {% if config.get('collapsible', False) %}
+        <div class="section-header d-flex justify-content-between align-items-center mb-3">
+            <h4 class="section-title mb-0">
+                <i class="fas fa-print me-2"></i>{{ config.get('title', 'Print Label') }}
+            </h4>
+            <button class="btn btn-sm btn-outline-secondary" type="button" 
+                    data-bs-toggle="collapse" data-bs-target="#label_printingSectionContent" 
+                    aria-expanded="{{ 'false' if config.get('collapsed', False) else 'true' }}">
+                <i class="fas fa-chevron-{{ 'down' if config.get('collapsed', False) else 'up' }}"></i>
+            </button>
+        </div>
+        {% endif %}
+        
+        <div class="section-content">
+            {# Include label printing content #}
+            {% include 'partials/_label_printing_content.html' ignore missing %}
+        </div>
+    {% endcall %}
+{% endmacro %}
+
+
+{# RELATIONSHIPS SECTION #}
+{% macro relationships_section(config, entry, context_data) %}
+    {% call section_wrapper('relationships', config) %}
+        <div class="section-content">
+            {# Include relationships content #}
+            {% include 'partials/_relationships_content.html' %}
+        </div>
+    {% endcall %}
+{% endmacro %}
+
+
+{# LABELS SECTION #}
+{% macro labels_section(config, entry, context_data) %}
+    {% call section_wrapper('labels', config) %}
+        <div class="section-content">
+            {# Include labels content #}
+            {% include 'partials/_labels_content.html' ignore missing %}
+        </div>
+    {% endcall %}
+{% endmacro %}
+
+
+{# REMINDERS SECTION #}
+{% macro reminders_section(config, entry, context_data) %}
+    {% call section_wrapper('reminders', config) %}
+        <div class="section-content">
+            {# Include reminders content #}
+            {% include 'partials/_reminders_content.html' ignore missing %}
+        </div>
+    {% endcall %}
+{% endmacro %}
+
+
+{# ATTACHMENTS SECTION #}
+{% macro attachments_section(config, entry, context_data) %}
+    {% call section_wrapper('attachments', config) %}
+        <div class="section-content">
+            {# Include attachments content #}
+            {% include 'partials/_attachments_content.html' ignore missing %}
+        </div>
+    {% endcall %}
+{% endmacro %}
+
+
+{# FORM FIELDS SECTION #}
+{% macro form_fields_section(config, entry, context_data) %}
+    {% call section_wrapper('form_fields', config) %}
+        <div class="section-content">
+            {# Include form fields content #}
+            {% include 'partials/_form_fields_content.html' ignore missing %}
+        </div>
+    {% endcall %}
+{% endmacro %}
+
+
+{# QR CODE SECTION #}
+{% macro qr_code_section(config, entry, context_data) %}
+    {% call section_wrapper('qr_code', config) %}
+        <div class="section-content">
+            {# Include QR code content #}
+            {% include 'partials/_qr_code_content.html' ignore missing %}
+        </div>
+    {% endcall %}
+{% endmacro %}
+
+
+{# RELATIONSHIP OPPORTUNITIES SECTION #}
+{% macro relationship_opportunities_section(config, entry, context_data) %}
+    {% call section_wrapper('relationship_opportunities', config) %}
+        <div class="section-content">
+            {# Include relationship opportunities content #}
+            {% include 'partials/_relationship_opportunities_content.html' ignore missing %}
+        </div>
+    {% endcall %}
+{% endmacro %}
+
+
+{# TIMELINE SECTION #}
+{% macro timeline_section(config, entry, context_data) %}
+    {% call section_wrapper('timeline', config) %}
+        <div class="section-content">
+            {# Include timeline content #}
+            {% include 'partials/_timeline_content.html' ignore missing %}
+        </div>
+    {% endcall %}
+{% endmacro %}

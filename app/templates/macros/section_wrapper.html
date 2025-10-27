@@ -1,0 +1,60 @@
+{# 
+    Section Wrapper Macro
+    
+    This macro provides a consistent wrapper for all entry detail sections,
+    applying layout configuration including:
+    - Visibility control
+    - Collapsible behavior
+    - Custom titles
+    - Width (responsive columns)
+    - Height (min-height)
+    
+    Usage:
+    {% call section_wrapper('section_type', section_config.get('section_type', {})) %}
+        <!-- Section content here -->
+    {% endcall %}
+#}
+
+{% macro section_wrapper(section_type, config={}) %}
+    {# Extract configuration with defaults #}
+    {% set is_visible = config.get('visible', True) %}
+    {% set section_width = config.get('width', 12) %}
+    {% set section_height = config.get('height', 3) %}
+    {% set section_title = config.get('title', '') %}
+    {% set is_collapsible = config.get('collapsible', False) %}
+    {% set is_collapsed = config.get('collapsed', False) %}
+    
+    {# Only render if visible #}
+    {% if is_visible %}
+    <div class="row">
+        <div class="col-12 col-md-{{ section_width }}">
+            {# Collapsible header if configured #}
+            {% if is_collapsible %}
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                {% if section_title %}
+                <h5 class="mb-0">{{ section_title }}</h5>
+                {% endif %}
+                <button class="btn btn-sm btn-outline-secondary" type="button" 
+                        data-bs-toggle="collapse" 
+                        data-bs-target="#{{ section_type }}SectionContent"
+                        aria-expanded="{{ 'false' if is_collapsed else 'true' }}" 
+                        aria-controls="{{ section_type }}SectionContent">
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+            </div>
+            <div class="collapse {{ 'show' if not is_collapsed else '' }}" id="{{ section_type }}SectionContent">
+            {% endif %}
+            
+            {# Main section content with min-height #}
+            <div style="min-height: {{ section_height * 80 }}px;">
+                {{ caller() }}
+            </div>
+            
+            {# Close collapsible wrapper #}
+            {% if is_collapsible %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+{% endmacro %}

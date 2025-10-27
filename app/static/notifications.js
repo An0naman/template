@@ -430,3 +430,24 @@ function showQuickNotification(title, message, type = 'manual', priority = 'medi
         notificationManager.createNotification(title, message, type, priority);
     }
 }
+
+// Wrapper function for compatibility with other scripts
+function showNotification(message, type = 'info') {
+    // Map type to priority and create notification
+    const typeMap = {
+        'success': 'low',
+        'error': 'high',
+        'warning': 'medium',
+        'info': 'low'
+    };
+    
+    const priority = typeMap[type] || 'medium';
+    const title = type.charAt(0).toUpperCase() + type.slice(1);
+    
+    if (notificationManager) {
+        notificationManager.createNotification(title, message, 'manual', priority);
+    } else {
+        // Fallback to console if notification manager isn't ready
+        console.log(`[${type.toUpperCase()}] ${message}`);
+    }
+}

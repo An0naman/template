@@ -1,0 +1,202 @@
+{# ============================================================================
+   HYBRID APPROACH - PASTE THIS INTO entry_detail.html
+   
+   Replace lines ~2074 to ~3002 (everything between <div class="container-fluid">
+   and the start of modals) with this code.
+   ============================================================================ #}
+
+<div class="container-fluid">
+    {# Dynamic section rendering based on layout configuration #}
+    {% for section_type in section_order %}
+        
+        {# ===================================================================
+           HEADER SECTION
+           =================================================================== #}
+        {% if section_type == 'header' %}
+            {% set header_config = section_visible.get('header', {}) %}
+            {% set header_collapsible = header_config.get('collapsible', False) %}
+            {% set header_collapsed = header_config.get('collapsed', False) %}
+            {% set header_title = header_config.get('title', 'Entry Details') %}
+            {% set header_width = header_config.get('width', 12) %}
+            {% set header_height = header_config.get('height', 3) %}
+            
+            {% if header_config.get('visible', True) %}
+            <div class="row">
+                <div class="col-12 col-md-{{ header_width }}">
+                    <div class="content-section theme-section mb-4" style="min-height: {{ header_height * 80 }}px;">
+                        {# PASTE HEADER CONTENT HERE - lines 2086-2359 from original #}
+                        {# Or use: {% include 'partials/_entry_header_content.html' %} #}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        {% endif %}
+        
+        {# ===================================================================
+           LABEL PRINTING SECTION
+           =================================================================== #}
+        {% elif section_type == 'label_printing' %}
+            {% set config = section_config.get('label_printing', {}) %}
+            {% if config.get('visible', True) %}
+            <div class="row">
+                <div class="col-12 col-md-{{ config.get('width', 12) }}">
+                    {% if config.get('collapsible', False) %}
+                    <div class="collapse {{ 'show' if not config.get('collapsed', False) else '' }}" id="label_printingSectionContent">
+                    {% endif %}
+                    
+                    <div class="content-section theme-section" style="min-height: {{ config.get('height', 3) * 80 }}px;">
+                        {# PASTE LABEL PRINTING CONTENT HERE - lines 2380-2428 from original #}
+                    </div>
+                    
+                    {% if config.get('collapsible', False) %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        {% endif %}
+        
+        {# ===================================================================
+           SENSORS SECTION
+           =================================================================== #}
+        {% elif section_type == 'sensors' %}
+            {% set config = section_config.get('sensors', {}) %}
+            {% if config.get('visible', True) and entry.has_sensors %}
+            <div class="row">
+                <div class="col-12 col-md-{{ config.get('width', 12) }}">
+                    {% if config.get('collapsible', False) %}
+                    <div class="collapse {{ 'show' if not config.get('collapsed', False) else '' }}" id="sensorsSectionContent">
+                    {% endif %}
+                    
+                    <div class="content-section theme-section mb-4" style="min-height: {{ config.get('height', 3) * 80 }}px;">
+                        {# PASTE SENSORS CONTENT HERE - lines 2460-2620 from original #}
+                    </div>
+                    
+                    {% if config.get('collapsible', False) %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        {% endif %}
+        
+        {# ===================================================================
+           AI ASSISTANT SECTION
+           =================================================================== #}
+        {% elif section_type == 'ai_assistant' %}
+            {% set config = section_config.get('ai_assistant', {}) %}
+            {% if config.get('visible', True) %}
+            <div class="row">
+                <div class="col-12 col-md-{{ config.get('width', 12) }}">
+                    {% if config.get('collapsible', False) %}
+                    <div class="collapse {{ 'show' if not config.get('collapsed', False) else '' }}" id="ai_assistantSectionContent">
+                    {% endif %}
+                    
+                    <div class="content-section theme-section mb-4" style="min-height: {{ config.get('height', 3) * 80 }}px;">
+                        {# PASTE AI ASSISTANT CONTENT HERE - lines 2662-2726 from original #}
+                    </div>
+                    
+                    {% if config.get('collapsible', False) %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        {% endif %}
+        
+        {# ===================================================================
+           NOTES SECTION
+           =================================================================== #}
+        {% elif section_type == 'notes' %}
+            {% set config = section_config.get('notes', {}) %}
+            {% if config.get('visible', True) %}
+            <div class="row">
+                <div class="col-12 col-md-{{ config.get('width', 12) }}">
+                    {% if config.get('collapsible', False) %}
+                    <div class="collapse {{ 'show' if not config.get('collapsed', False) else '' }}" id="notesSectionContent">
+                    {% endif %}
+                    
+                    <div class="content-section theme-section" style="min-height: {{ config.get('height', 3) * 80 }}px;">
+                        {# PASTE NOTES CONTENT HERE - lines 2742-2998 from original #}
+                    </div>
+                    
+                    {% if config.get('collapsible', False) %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        {% endif %}
+        
+        {# ===================================================================
+           RELATIONSHIPS SECTION (Placeholder - not yet refactored)
+           =================================================================== #}
+        {% elif section_type == 'relationships' %}
+            {# TODO: Add relationships section here when ready #}
+        {% endif %}
+        
+        {# ===================================================================
+           LABELS SECTION (Placeholder - not yet refactored)
+           =================================================================== #}
+        {% elif section_type == 'labels' %}
+            {# TODO: Add labels section here when ready #}
+        {% endif %}
+        
+        {# ===================================================================
+           REMINDERS SECTION (Placeholder - not yet refactored)
+           =================================================================== #}
+        {% elif section_type == 'reminders' %}
+            {# TODO: Add reminders section here when ready #}
+        {% endif %}
+        
+        {# ===================================================================
+           ATTACHMENTS SECTION (Placeholder - not yet refactored)
+           =================================================================== #}
+        {% elif section_type == 'attachments' %}
+            {# TODO: Add attachments section here when ready #}
+        {% endif %}
+        
+        {# ===================================================================
+           FORM FIELDS SECTION (Placeholder - not yet refactored)
+           =================================================================== #}
+        {% elif section_type == 'form_fields' %}
+            {# TODO: Add form fields section here when ready #}
+        {% endif %}
+        
+        {# ===================================================================
+           QR CODE SECTION (Placeholder - not yet refactored)
+           =================================================================== #}
+        {% elif section_type == 'qr_code' %}
+            {# TODO: Add QR code section here when ready #}
+        {% endif %}
+        
+        {# ===================================================================
+           RELATIONSHIP OPPORTUNITIES SECTION (Placeholder - not yet refactored)
+           =================================================================== #}
+        {% elif section_type == 'relationship_opportunities' %}
+            {# TODO: Add relationship opportunities section here when ready #}
+        {% endif %}
+        
+        {# ===================================================================
+           TIMELINE SECTION (Placeholder - not yet refactored)
+           =================================================================== #}
+        {% elif section_type == 'timeline' %}
+            {# TODO: Add timeline section here when ready #}
+        {% endif %}
+        
+    {% endfor %}
+</div>
+
+{# ============================================================================
+   INSTRUCTIONS:
+   
+   1. Copy this entire file
+   2. Open app/templates/entry_detail.html
+   3. Find line ~2072 where it says <div class="container-fluid">
+   4. Select from line 2074 to ~3002 (all the hardcoded sections)
+   5. Paste this code to replace it
+   6. For each section, copy the content from the original lines indicated
+   7. Test in browser
+   
+   This gives you dynamic section ordering while keeping all existing HTML!
+   ============================================================================ #}

@@ -402,14 +402,30 @@ class AIService:
         
         {f"Additional context: {context}" if context else ""}
         
-        Requirements:
-        - Keep it between 1-3 sentences
-        - Be factual and informative
-        - Include relevant details that would be useful in a database/inventory system
-        - Use a professional, neutral tone
-        - Don't include promotional language
+        CRITICAL FORMATTING RULES (MUST FOLLOW):
+        1. Use HYPHENS (-) for ALL bullet points - NEVER use asterisks (*)
+        2. NO conversational text - return ONLY the description content
+        3. NO introductory phrases like "Here's a description" or "This is"
+        4. Start directly with the content
         
-        Focus on practical information that would help someone understand what this {entry_type} is and its key characteristics.
+        Example of CORRECT bullet formatting:
+        - First point
+        - Second point
+          - Sub-point (indented with hyphen)
+        
+        Example of INCORRECT (DO NOT DO THIS):
+        * First point (WRONG - uses asterisk)
+        • First point (WRONG - uses bullet character)
+        Here's a description: ... (WRONG - conversational intro)
+        
+        Requirements:
+        - Be factual and informative
+        - Include relevant details for a database/inventory system
+        - Use professional, neutral tone
+        - Use Markdown formatting when helpful (headings, bold, lists)
+        - ALWAYS use hyphens (-) for bullet lists
+        
+        Return ONLY the description content with NO conversational wrapper text.
         """
         return prompt
     
@@ -445,22 +461,37 @@ class AIService:
         prompt = f"""
         {base_prompt}
         
-        Task: Please improve this description by making it clearer, more detailed, and better organized:
+        Task: Improve this description by making it clearer, more detailed, and better organized.
         
         Original description:
         {description}
         
+        CRITICAL FORMATTING RULES (MUST FOLLOW):
+        1. Use HYPHENS (-) for ALL bullet points - NEVER use asterisks (*)
+        2. NO conversational text - return ONLY the improved description
+        3. NO phrases like "Here's an improved version" or "I've updated"
+        4. Start directly with the improved content
+        
+        Example of CORRECT bullet formatting:
+        - First point
+        - Second point
+          - Sub-point (indented with hyphen)
+        
+        Example of INCORRECT (DO NOT DO THIS):
+        * First point (WRONG - uses asterisk)
+        Here's an improved version: ... (WRONG - conversational intro)
+        
         Guidelines:
         - Maintain the original meaning and intent
         - Improve clarity and readability
-        - Add relevant details if the description seems incomplete
-        - Fix any grammar or spelling issues
+        - Add relevant details if incomplete
+        - Fix grammar or spelling issues
         - Organize information logically
-        - Keep the tone professional and informative
-        - Don't change factual information, only improve presentation
-        - Make it more engaging while remaining accurate
+        - Use Markdown formatting (headings, bold, lists with hyphens)
+        - Keep tone professional and informative
+        - ALWAYS use hyphens (-) for bullet lists, NEVER asterisks (*)
         
-        Return the improved version of the description.
+        Return ONLY the improved description content with NO conversational wrapper.
         """
         return prompt
     
