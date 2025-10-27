@@ -229,6 +229,64 @@
             color: var(--theme-text, var(--bs-body-color));
             font-weight: 500;
         }
+
+        /* Mobile Responsive Styles */
+        @media (max-width: 991.98px) {
+            /* Force sections to stack vertically on mobile */
+            .section-wrapper {
+                margin-bottom: 1rem;
+            }
+            
+            /* Reduce section height on mobile for better scrolling */
+            .content-section,
+            .theme-section {
+                min-height: auto !important;
+            }
+            
+            /* Adjust spacing for mobile */
+            .container-fluid {
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+            }
+            
+            .row {
+                margin-left: -0.5rem;
+                margin-right: -0.5rem;
+            }
+            
+            .g-4 {
+                --bs-gutter-x: 0.75rem;
+                --bs-gutter-y: 0.75rem;
+            }
+            
+            /* Make buttons stack better on mobile */
+            .btn-group {
+                flex-direction: column;
+                width: 100%;
+            }
+            
+            .btn-group > .btn {
+                border-radius: 0.375rem !important;
+                margin-bottom: 0.25rem;
+            }
+            
+            /* Improve info cards on mobile */
+            .info-card {
+                padding: 0.5rem;
+            }
+            
+            /* Reduce section padding on mobile */
+            .content-section {
+                padding: 0.75rem;
+            }
+        }
+        
+        /* Tablet adjustments */
+        @media (min-width: 768px) and (max-width: 991.98px) {
+            .content-section {
+                padding: 1rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -247,7 +305,7 @@
                 {# Only render if visible #}
                 {% if config.get('visible', True) %}
                     
-                    <div class="col-{{ config.get('width', 12) }} section-wrapper" id="{{ section_type }}SectionWrapper">
+                    <div class="col-12 col-lg-{{ config.get('width', 12) }} section-wrapper" id="{{ section_type }}SectionWrapper">
                         
                         {# Section container #}
                         <div class="content-section theme-section" style="min-height: {{ config.get('height', 3) * 80 }}px;">

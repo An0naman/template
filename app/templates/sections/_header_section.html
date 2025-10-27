@@ -35,7 +35,7 @@
             {% for section_type, config in section_config.items() %}
                 {% if config.get('visible') and config.get('collapsible') and section_type != 'header' %}
                     <button type="button" 
-                            class="btn btn-sm btn-outline-info"
+                            class="btn btn-sm section-toggle-btn section-visible"
                             onclick="toggleSection('{{ section_type }}')"
                             data-section="{{ section_type }}"
                             title="Toggle {{ config.get('title', section_type.replace('_', ' ').title()) }}">
@@ -138,6 +138,75 @@
         </div>
     </div>
 </div>
+
+<style>
+/* Mobile-specific header adjustments */
+@media (max-width: 991.98px) {
+    /* Don't stack button groups - let them wrap naturally */
+    .btn-group {
+        display: inline-flex;
+    }
+    
+    .btn-group > .btn,
+    .btn-group > .btn-sm {
+        font-size: 0.875rem;
+    }
+    
+    /* Make title smaller on mobile */
+    .h1 {
+        font-size: 1.75rem;
+    }
+    
+    /* Stack info cards vertically on mobile */
+    .col-md-4,
+    .col-md-8 {
+        width: 100%;
+    }
+}
+
+/* Very small screens - make toggle buttons more compact */
+@media (max-width: 575.98px) {
+    .section-toggle-btn {
+        font-size: 0.75rem;
+        padding: 0.375rem 0.5rem;
+    }
+}
+
+/* Section toggle button styles - theme-aware */
+.section-toggle-btn {
+    border: 1px solid var(--theme-info, var(--bs-info));
+    color: var(--theme-info, var(--bs-info));
+    background-color: transparent;
+    transition: all 0.2s ease;
+}
+
+.section-toggle-btn:hover {
+    background-color: var(--theme-info-subtle, rgba(13, 202, 240, 0.1));
+    border-color: var(--theme-info-hover, var(--theme-info, var(--bs-info)));
+}
+
+.section-toggle-btn.section-visible {
+    background-color: var(--theme-info, var(--bs-info));
+    color: white;
+    border-color: var(--theme-info, var(--bs-info));
+}
+
+.section-toggle-btn.section-visible:hover {
+    background-color: var(--theme-info-hover, var(--theme-info, var(--bs-info)));
+    filter: brightness(1.1);
+}
+
+.section-toggle-btn.section-hidden {
+    background-color: transparent;
+    border-color: var(--theme-secondary, var(--bs-secondary));
+    color: var(--theme-text-muted, var(--bs-secondary));
+}
+
+.section-toggle-btn.section-hidden:hover {
+    background-color: var(--theme-secondary-subtle, rgba(108, 117, 125, 0.1));
+    border-color: var(--theme-secondary-hover, var(--theme-secondary, var(--bs-secondary)));
+}
+</style>
 
 <script>
 const entryId = {{ entry.id }};
@@ -465,8 +534,8 @@ function toggleSection(sectionType) {
             
             // Update button
             if (button) {
-                button.classList.remove('btn-outline-secondary');
-                button.classList.add('btn-outline-info');
+                button.classList.remove('section-hidden');
+                button.classList.add('section-visible');
                 button.querySelector('i').classList.remove('fa-eye-slash');
                 button.querySelector('i').classList.add('fa-eye');
             }
@@ -482,8 +551,8 @@ function toggleSection(sectionType) {
             
             // Update button
             if (button) {
-                button.classList.remove('btn-outline-info');
-                button.classList.add('btn-outline-secondary');
+                button.classList.remove('section-visible');
+                button.classList.add('section-hidden');
                 button.querySelector('i').classList.remove('fa-eye');
                 button.querySelector('i').classList.add('fa-eye-slash');
             }
