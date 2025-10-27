@@ -1,0 +1,468 @@
+{# Sensor Data Modals - Add Sensor Reading, Shared Readings, Device Management #}
+
+{% if entry.has_sensors %}
+
+<!-- Add Sensor Data Modal -->
+<div class="modal fade" id="addSensorDataModal" tabindex="-1" aria-labelledby="addSensorDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addSensorDataModalLabel">
+                    <i class="fas fa-plus-circle me-2"></i>Add Sensor Reading
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addSensorDataForm">
+                    <div class="mb-3">
+                        <label for="sensorTypeInput" class="form-label">Sensor Type</label>
+                        <select class="form-select" id="sensorTypeInput" required>
+                            <option value="" disabled selected>Select a sensor type</option>
+                            <!-- Options will be dynamically populated -->
+                        </select>
+                        <div class="form-text">Choose from enabled sensor types for this entry</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="sensorValueInput" class="form-label">Value</label>
+                        <input type="text" class="form-control" id="sensorValueInput" 
+                               placeholder="e.g., 23.5, 65, 1013.2" required>
+                        <div class="form-text">Enter the sensor reading value (numbers only)</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="sensorRecordedAt" class="form-label">Recorded At</label>
+                        <input type="datetime-local" class="form-control" id="sensorRecordedAt">
+                        <div class="form-text">Leave empty to use current time</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>Add Reading
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Shared Sensor Data Modal -->
+<div class="modal fade" id="addSharedSensorDataModal" tabindex="-1" aria-labelledby="addSharedSensorDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addSharedSensorDataModalLabel">
+                    <i class="fas fa-share-alt me-2"></i>Add Shared Sensor Reading
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Shared Readings:</strong> This reading will be linked to multiple entries, useful for shared environmental sensors.
+                </div>
+                <form id="addSharedSensorDataForm">
+                    <div class="mb-3">
+                        <label for="sharedSensorTypeInput" class="form-label">Sensor Type</label>
+                        <select class="form-select" id="sharedSensorTypeInput" required>
+                            <option value="" disabled selected>Select a sensor type</option>
+                            <!-- Options will be dynamically populated -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="sharedSensorValueInput" class="form-label">Value</label>
+                        <input type="text" class="form-control" id="sharedSensorValueInput" 
+                               placeholder="e.g., 25.5" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="sharedSensorRecordedAt" class="form-label">Recorded At</label>
+                        <input type="datetime-local" class="form-control" id="sharedSensorRecordedAt">
+                        <div class="form-text">Leave empty to use current time</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="fas fa-link me-1"></i>Additional Entries to Link
+                        </label>
+                        <div class="border rounded p-3" style="max-height: 250px; overflow-y: auto; background: var(--bs-secondary-bg);">
+                            <div class="mb-2">
+                                <input type="text" class="form-control form-control-sm" 
+                                       id="entrySearchInput" 
+                                       placeholder="Search entries by name...">
+                            </div>
+                            <div id="additionalEntriesContainer">
+                                <div class="text-center text-muted py-3">
+                                    <i class="fas fa-spinner fa-spin me-2"></i>Loading available entries...
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-text mt-2">
+                            <i class="fas fa-info-circle me-1"></i>
+                            This sensor reading will be linked to the current entry and any additional entries you select.
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>Add Shared Reading
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Device Management Modal -->
+<div class="modal fade" id="deviceManagementModal" tabindex="-1" aria-labelledby="deviceManagementModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deviceManagementModalLabel">
+                    <i class="fas fa-cogs me-2"></i>ESP32 Device Management
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info mb-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Auto-polling:</strong> Link ESP32 devices to automatically record sensor data to this entry at regular intervals.
+                </div>
+                <div id="deviceManagementContent">
+                    <div class="text-center py-4">
+                        <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
+                        <p class="text-muted mt-2">Loading devices...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="loadDeviceManagementContent()">
+                    <i class="fas fa-sync me-1"></i>Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Modal Styles */
+.modal-content {
+    background: var(--theme-bg-card, var(--bs-body-bg));
+    border-color: var(--theme-border, var(--bs-border-color));
+}
+
+.modal-header {
+    background: var(--theme-bg-surface, var(--bs-secondary-bg));
+    border-bottom-color: var(--theme-border, var(--bs-border-color));
+}
+
+.modal-footer {
+    border-top-color: var(--theme-border, var(--bs-border-color));
+}
+
+.modal-title {
+    color: var(--theme-text, var(--bs-body-color));
+}
+
+/* Form Styles */
+.form-label {
+    font-weight: 500;
+    color: var(--theme-text, var(--bs-body-color));
+}
+
+.form-select,
+.form-control {
+    background-color: var(--theme-bg-input, var(--bs-body-bg));
+    border-color: var(--theme-border, var(--bs-border-color));
+    color: var(--theme-text, var(--bs-body-color));
+}
+
+.form-select:focus,
+.form-control:focus {
+    border-color: var(--theme-primary, var(--bs-primary));
+    box-shadow: 0 0 0 0.25rem rgba(var(--theme-primary-rgb, 13, 110, 253), 0.25);
+}
+
+/* Entry Checkboxes in Shared Modal */
+.entry-checkbox {
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.entry-checkbox:hover {
+    background: var(--theme-primary-subtle, var(--bs-secondary-bg));
+}
+
+.entry-checkbox input[type="checkbox"] {
+    cursor: pointer;
+}
+
+/* Device List Items */
+.list-group-item {
+    background: var(--theme-bg-card, var(--bs-body-bg));
+    border-color: var(--theme-border, var(--bs-border-color));
+    color: var(--theme-text, var(--bs-body-color));
+}
+
+.list-group-item-success {
+    background: var(--theme-success-subtle, var(--bs-success-bg-subtle)) !important;
+    border-color: var(--theme-success-border, var(--bs-success-border-subtle)) !important;
+}
+
+.link-primary {
+    color: var(--theme-primary, var(--bs-primary));
+}
+
+.link-primary:hover {
+    color: var(--theme-primary, var(--bs-primary));
+    opacity: 0.8;
+}
+</style>
+
+<script>
+// Sensor Data Form Initialization
+document.addEventListener('DOMContentLoaded', function() {
+    initializeSensorDataForms();
+});
+
+function initializeSensorDataForms() {
+    // Initialize Add Sensor Data form
+    const addSensorDataForm = document.getElementById('addSensorDataForm');
+    if (addSensorDataForm) {
+        addSensorDataForm.addEventListener('submit', handleAddSensorData);
+    }
+    
+    // Initialize Add Shared Sensor Data form
+    const addSharedSensorDataForm = document.getElementById('addSharedSensorDataForm');
+    if (addSharedSensorDataForm) {
+        addSharedSensorDataForm.addEventListener('submit', handleAddSharedSensorData);
+    }
+    
+    // Populate sensor type dropdowns when modal opens
+    const addSensorModal = document.getElementById('addSensorDataModal');
+    if (addSensorModal) {
+        addSensorModal.addEventListener('shown.bs.modal', function() {
+            populateSensorTypes();
+            setDefaultRecordedTime('sensorRecordedAt');
+        });
+    }
+    
+    const addSharedModal = document.getElementById('addSharedSensorDataModal');
+    if (addSharedModal) {
+        addSharedModal.addEventListener('shown.bs.modal', function() {
+            populateSensorTypes('sharedSensorTypeInput');
+            setDefaultRecordedTime('sharedSensorRecordedAt');
+            loadAvailableEntries();
+        });
+    }
+    
+    // Entry search functionality
+    const entrySearchInput = document.getElementById('entrySearchInput');
+    if (entrySearchInput) {
+        entrySearchInput.addEventListener('input', filterEntryList);
+    }
+}
+
+function setDefaultRecordedTime(elementId) {
+    const input = document.getElementById(elementId);
+    if (input && !input.value) {
+        const now = new Date();
+        // Format for datetime-local input (YYYY-MM-DDThh:mm)
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        input.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+}
+
+function populateSensorTypes(selectId = 'sensorTypeInput') {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    
+    // Get enabled sensor types from entry configuration
+    {% if entry.enabled_sensor_types %}
+    const enabledSensorTypesString = {{ entry.enabled_sensor_types | tojson | safe }};
+    const enabledSensors = enabledSensorTypesString.split(',').map(s => s.trim()).filter(s => s);
+    {% else %}
+    const enabledSensors = [];
+    {% endif %}
+    
+    // Clear existing options except first
+    select.innerHTML = '<option value="" disabled selected>Select a sensor type</option>';
+    
+    // Add enabled sensor types
+    if (enabledSensors && enabledSensors.length > 0) {
+        enabledSensors.forEach(sensor => {
+            const option = document.createElement('option');
+            option.value = sensor;
+            option.textContent = sensor;
+            select.appendChild(option);
+        });
+    } else {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'No sensor types enabled';
+        option.disabled = true;
+        select.appendChild(option);
+    }
+}
+
+async function handleAddSensorData(event) {
+    event.preventDefault();
+    
+    const sensorType = document.getElementById('sensorTypeInput').value;
+    const value = document.getElementById('sensorValueInput').value;
+    const recordedAt = document.getElementById('sensorRecordedAt').value;
+    
+    try {
+        const response = await fetch(`/api/entries/${entryId}/sensor_data`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sensor_type: sensorType,
+                value: value,
+                recorded_at: recordedAt || new Date().toISOString()
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to add sensor data');
+        }
+        
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addSensorDataModal'));
+        if (modal) modal.hide();
+        
+        // Reset form
+        event.target.reset();
+        
+        // Reload sensor data
+        await loadSensorData();
+        
+        // Show success message
+        showToast('Success', 'Sensor reading added successfully', 'success');
+        
+    } catch (error) {
+        console.error('Error adding sensor data:', error);
+        alert('Error adding sensor reading: ' + error.message);
+    }
+}
+
+async function handleAddSharedSensorData(event) {
+    event.preventDefault();
+    
+    const sensorType = document.getElementById('sharedSensorTypeInput').value;
+    const value = document.getElementById('sharedSensorValueInput').value;
+    const recordedAt = document.getElementById('sharedSensorRecordedAt').value;
+    
+    // Get selected entry IDs
+    const selectedEntries = Array.from(
+        document.querySelectorAll('#additionalEntriesContainer input[type="checkbox"]:checked')
+    ).map(cb => parseInt(cb.value));
+    
+    // Always include current entry
+    if (!selectedEntries.includes(entryId)) {
+        selectedEntries.push(entryId);
+    }
+    
+    try {
+        const response = await fetch('/api/sensor_data/shared', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sensor_type: sensorType,
+                value: value,
+                recorded_at: recordedAt || new Date().toISOString(),
+                entry_ids: selectedEntries
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to add shared sensor data');
+        }
+        
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addSharedSensorDataModal'));
+        if (modal) modal.hide();
+        
+        // Reset form
+        event.target.reset();
+        
+        // Reload sensor data
+        await loadSensorData();
+        
+        // Show success message
+        showToast('Success', `Shared reading added to ${selectedEntries.length} entries`, 'success');
+        
+    } catch (error) {
+        console.error('Error adding shared sensor data:', error);
+        alert('Error adding shared sensor reading: ' + error.message);
+    }
+}
+
+async function loadAvailableEntries() {
+    const container = document.getElementById('additionalEntriesContainer');
+    if (!container) return;
+    
+    try {
+        const response = await fetch('/api/entries?has_sensors=true');
+        if (!response.ok) throw new Error('Failed to load entries');
+        
+        const entries = await response.json();
+        
+        // Filter out current entry
+        const availableEntries = entries.filter(e => e.id !== entryId);
+        
+        if (availableEntries.length === 0) {
+            container.innerHTML = '<small class="text-muted">No other entries available</small>';
+            return;
+        }
+        
+        let html = '';
+        availableEntries.forEach(entry => {
+            html += `
+                <div class="form-check entry-checkbox" data-entry-name="${entry.name.toLowerCase()}">
+                    <input class="form-check-input" type="checkbox" value="${entry.id}" id="entry_${entry.id}">
+                    <label class="form-check-label w-100" for="entry_${entry.id}">
+                        <strong>${entry.name}</strong>
+                        <br><small class="text-muted">${entry.entry_type_name || 'Unknown type'}</small>
+                    </label>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+        
+    } catch (error) {
+        console.error('Error loading entries:', error);
+        container.innerHTML = '<small class="text-danger">Error loading entries</small>';
+    }
+}
+
+function filterEntryList() {
+    const searchTerm = document.getElementById('entrySearchInput').value.toLowerCase();
+    const entryCheckboxes = document.querySelectorAll('.entry-checkbox');
+    
+    entryCheckboxes.forEach(checkbox => {
+        const entryName = checkbox.dataset.entryName || '';
+        if (entryName.includes(searchTerm)) {
+            checkbox.style.display = 'block';
+        } else {
+            checkbox.style.display = 'none';
+        }
+    });
+}
+
+function showToast(title, message, type = 'info') {
+    // Simple toast notification (you can enhance this with a toast library)
+    console.log(`[${type.toUpperCase()}] ${title}: ${message}`);
+    // TODO: Implement proper toast notification UI
+}
+</script>
+
+{% endif %}
