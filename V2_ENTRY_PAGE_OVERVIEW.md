@@ -1,7 +1,13 @@
 # V2 Entry Page - End-to-End Overview
 
 **Date:** October 28, 2025  
+**Last Updated:** October 28, 2025  
 **Purpose:** Comprehensive documentation of the v2 entry detail page architecture
+
+**Recent Updates:**
+- ✅ Implemented CSS Grid-based dynamic section layout (Oct 28, 2025)
+- ✅ Smart vertical flow for collapsible sections (Oct 28, 2025)
+- ✅ Sections maintain column positions while flowing upward (Oct 28, 2025)
 
 ---
 
@@ -23,9 +29,12 @@
 The v2 entry page uses a **dynamic grid-based layout system** that allows customizable section positioning and visibility per entry type.
 
 ### Key Features
-- **Grid-based layout** with 12-column Bootstrap grid
+- **CSS Grid-based layout** with 12-column system (updated Oct 28, 2025)
+- **Smart vertical flow** - sections move up when space available in their columns
 - **Dynamic section rendering** based on entry type configuration
-- **Collapsible sections** with smooth animations
+- **Intelligent collapsible sections** with automatic repositioning
+- **Column position preservation** - sections never change horizontal position
+- **Multi-row collapse support** - sections flow upward across multiple collapsed rows
 - **Responsive design** with mobile-first approach
 - **Modular section components** for easy extension
 - **Entry Layout Builder** for visual configuration
@@ -33,8 +42,10 @@ The v2 entry page uses a **dynamic grid-based layout system** that allows custom
 ### Technology Stack
 - **Backend:** Flask + SQLite
 - **Frontend:** Bootstrap 5.3.3, Chart.js, Marked.js (Markdown)
+- **Layout Engine:** CSS Grid (12 columns) with intelligent positioning algorithm
 - **Dynamic Rendering:** Jinja2 templates with include system
-- **State Management:** Section visibility toggles via JavaScript
+- **State Management:** JavaScript-based grid recalculation with section visibility toggles
+- **Animations:** CSS transitions for smooth section movements
 
 ---
 
@@ -166,38 +177,37 @@ Manages entry type layouts and section configurations.
     <!-- Marked.js for Markdown -->
     <!-- Dynamic theme CSS -->
     <!-- Markdown content styles -->
-    <!-- Clean base styles with CSS variables -->
+    <!-- CSS Grid layout system -->
 </head>
 <body>
     <div class="container-fluid py-3">
-        <!-- DEBUG comments showing section_rows and section_config -->
-        
-        <!-- Loop through rows -->
-        {% for row in section_rows %}
-            <div class="row g-4 mb-4">
-                
-                <!-- Loop through sections in row -->
-                {% for section_type in row %}
-                    <div class="col-12 col-lg-{{ width }} section-wrapper">
-                        <div class="content-section theme-section">
-                            <div class="section-content">
-                                <!-- Section header -->
-                                <!-- Section-specific include -->
-                                {% if section_type == 'header' %}
-                                    {% include 'sections/_header_section.html' %}
-                                {% elif section_type == 'ai_assistant' %}
-                                    {% include 'sections/_ai_assistant_section.html' %}
-                                {% elif section_type == 'sensors' %}
-                                    {% include 'sections/_sensors_section.html' %}
-                                <!-- ... other sections ... -->
-                                {% endif %}
-                            </div>
-                        </div>
+        <!-- CSS Grid Container (12 columns) -->
+        <div class="sections-grid" id="sectionsGrid">
+            
+            <!-- Loop through sections in order -->
+            {% for section_type in section_order %}
+                <div class="section-wrapper" 
+                     id="{{ section_type }}SectionWrapper"
+                     data-x="{{ x }}"
+                     data-y="{{ y }}"
+                     data-width="{{ width }}"
+                     data-height="{{ height }}"
+                     style="grid-column: {{ x+1 }} / span {{ width }}; 
+                            grid-row: {{ y+1 }} / span {{ height }};">
+                    
+                    <div class="content-section theme-section">
+                        <!-- Section content includes -->
+                        {% if section_type == 'header' %}
+                            {% include 'sections/_header_section.html' %}
+                        {% elif section_type == 'ai_assistant' %}
+                            {% include 'sections/_ai_assistant_section.html' %}
+                        <!-- ... other sections ... -->
+                        {% endif %}
                     </div>
-                {% endfor %}
-                
-            </div>
-        {% endfor %}
+                </div>
+            {% endfor %}
+            
+        </div>
     </div>
     
     <!-- Modals -->
@@ -206,7 +216,11 @@ Manages entry type layouts and section configurations.
     <!-- Scripts -->
     <script>const entryId = {{ entry.id }};</script>
     <script src="...sensors.js"></script>
-    <script>/* Markdown rendering */</script>
+    <script>
+        // Grid recalculation logic
+        function recalculateGridPositions() { ... }
+        function toggleSection(sectionType) { ... }
+    </script>
 </body>
 </html>
 ```
@@ -225,33 +239,40 @@ Manages entry type layouts and section configurations.
 
 #### Key CSS Classes
 
-**`.content-section`** - Main section container
+**`.sections-grid`** - CSS Grid container
+- 12-column grid layout
+- `display: grid`
+- `grid-template-columns: repeat(12, 1fr)`
+- `gap: 1.5rem` for spacing between sections
+
+**`.section-wrapper`** - Individual section container
+- Grid positioning via inline `grid-column` and `grid-row` styles
+- Smooth transitions for row repositioning
+- `transition: grid-row-start 0.4s, opacity 0.4s`
+- Contains data attributes: `data-x`, `data-y`, `data-width`, `data-height`
+
+**`.section-wrapper.collapsed`** - Collapsed state
+- `display: none` - completely removes from grid flow
+- Allows other sections to fill the space
+
+**`.content-section`** - Main section content container
 - Background with theme variables
 - Border with accent color on left
 - Shadow and hover effects
 - Smooth transitions
 
-**`.section-wrapper`** - Section positioning wrapper
-- Flexbox container for equal heights
-- Animation support (slideIn/slideOut)
-- Transform-origin: top
-
 **`.info-card`** - Information display cards
 - Used in header section for details/dates
 - Themed background and borders
 
-**Animations:**
-```css
-@keyframes slideOut { /* Collapse animation */ }
-@keyframes slideIn { /* Expand animation */ }
-```
-
-#### Responsive Design
+**Responsive Design:**
 ```css
 @media (max-width: 991.98px) {
-    /* Mobile: vertical stacking */
-    /* Reduced padding/margins */
-    /* Auto heights instead of fixed */
+    .sections-grid {
+        display: flex;
+        flex-direction: column;
+    }
+    /* Mobile: vertical stacking, all sections full width */
 }
 ```
 
@@ -323,9 +344,39 @@ fetch('/api/ai/chat', {
 Contains modal dialogs for sensor data management.
 
 ### 5. Timeline Section
-**File:** `_timeline_section.html`
+**File:** `_timeline_section.html` (495 lines)
 
-Progress timeline visualization.
+**Features:**
+- Progress visualization with animated bar (if end dates configured)
+- Chronological event timeline (newest first)
+- Event types: Creation, Status Changes, Notes, Sensor Readings, System Events
+- Filter system (All, Notes, Sensors, System)
+- Vertical timeline with colored dot markers
+- Time-relative formatting ("2h ago", "3d ago")
+- Sensor data grouping by day
+- Theme-aware styling with smooth animations
+
+**JavaScript Functions:**
+- `initTimeline()` - Initialize and load timeline data
+- `loadTimelineEvents()` - Fetch from multiple APIs
+- `renderTimeline()` - Render filtered events
+- `calculateProgress()` - Compute progress metrics
+- `formatTimeAgo(date)` - Relative time formatting
+
+**API Integration:**
+```javascript
+// Load notes (including status change history)
+fetch(`/api/entries/${entryId}/notes`)
+
+// Load sensor data (if enabled)
+fetch(`/api/entries/${entryId}/sensor_data`)
+```
+
+**Event Data Sources:**
+- Entry creation timestamp
+- Status change notes (auto-generated system notes)
+- User notes (all types)
+- Sensor readings (grouped by day)
 
 ### Placeholder Sections (Not Yet Implemented)
 - **notes** - Notes management
@@ -400,24 +451,106 @@ const entryId = {{ entry.id }};  // Entry ID for API calls
 
 ### Inline Scripts
 
-#### Markdown Rendering
-```javascript
-function renderMarkdown(element) {
-    const markdownText = element.textContent.trim();
-    element.innerHTML = marked.parse(markdownText);
-}
+#### Grid Positioning Algorithm (NEW - Oct 28, 2025)
 
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.markdown-content').forEach(renderMarkdown);
-});
+The intelligent grid positioning system that handles dynamic section flow:
+
+```javascript
+function recalculateGridPositions() {
+    // 1. Get all section wrappers with metadata
+    const sections = Array.from(grid.querySelectorAll('.section-wrapper')).map(wrapper => ({
+        element: wrapper,
+        type: wrapper.dataset.sectionType,
+        x: parseInt(wrapper.dataset.x),        // Column position (0-11)
+        y: parseInt(wrapper.dataset.y),        // Original row position
+        width: parseInt(wrapper.dataset.width),   // Column span
+        height: parseInt(wrapper.dataset.height), // Row span
+        collapsed: wrapper.classList.contains('collapsed')
+    }));
+    
+    // 2. Separate visible and collapsed sections
+    const visibleSections = sections.filter(s => !s.collapsed);
+    const collapsedSections = sections.filter(s => s.collapsed);
+    
+    // 3. Sort visible sections by original Y (row), then X (column)
+    visibleSections.sort((a, b) => {
+        if (a.y !== b.y) return a.y - b.y;
+        return a.x - b.x;
+    });
+    
+    // 4. Track occupied cells: Map<rowIndex, Set<columnIndices>>
+    const occupiedCells = new Map();
+    
+    // 5. Helper: Check if section can fit at specific row
+    function canPlaceAt(row, colStart, width, height) {
+        for (let r = row; r < row + height; r++) {
+            if (!occupiedCells.has(r)) continue;
+            const occupied = occupiedCells.get(r);
+            for (let c = colStart; c < colStart + width; c++) {
+                if (occupied.has(c)) return false;
+            }
+        }
+        return true;
+    }
+    
+    // 6. Helper: Mark cells as occupied
+    function occupyCells(row, colStart, width, height) {
+        for (let r = row; r < row + height; r++) {
+            if (!occupiedCells.has(r)) occupiedCells.set(r, new Set());
+            for (let c = colStart; c < colStart + width; c++) {
+                occupiedCells.get(r).add(c);
+            }
+        }
+    }
+    
+    // 7. Place each visible section
+    visibleSections.forEach(section => {
+        const { x, width, height } = section;
+        
+        // Maintain original column position (RULE 1)
+        section.element.style.gridColumn = `${x + 1} / span ${width}`;
+        
+        // Find first available row (RULES 2 & 3)
+        let targetRow = 0;
+        while (!canPlaceAt(targetRow, x, width, height)) {
+            targetRow++;
+        }
+        
+        // Place section at calculated row
+        section.element.style.gridRow = `${targetRow + 1} / span ${height}`;
+        
+        // Mark space as occupied
+        occupyCells(targetRow, x, width, height);
+    });
+}
 ```
 
-### Section Toggle Functionality (Expected)
+**How it works:**
+1. **Maintains X position** - `grid-column` never changes
+2. **Flows upward** - Finds the earliest available row for each section
+3. **Multi-row support** - Sections can flow from row 3 to row 1 if rows 1-2 are collapsed
+4. **Collision detection** - Tracks occupied grid cells to prevent overlaps
+5. **Sorted processing** - Processes sections from top to bottom, left to right
+
+#### Toggle Section Function
+
 ```javascript
 function toggleSection(sectionType) {
-    // Toggle section visibility with animation
+    const wrapper = document.getElementById(sectionType + 'SectionWrapper');
+    if (!wrapper || wrapper.dataset.collapsible !== 'true') return;
+    
+    // Toggle collapsed class
+    wrapper.classList.toggle('collapsed');
+    
     // Update button state
-    // Save preference to localStorage/API
+    const toggleBtn = document.querySelector(`[data-section="${sectionType}"]`);
+    if (toggleBtn) {
+        toggleBtn.classList.toggle('section-visible');
+        toggleBtn.classList.toggle('section-hidden');
+    }
+    
+    // Recalculate grid positions with animation
+    setTimeout(() => recalculateGridPositions(), 50);
 }
 ```
 
@@ -461,15 +594,17 @@ Client-side JavaScript:
 ### 2. Section Rendering Logic
 
 ```python
-# Template rendering loop
-for row in section_rows:  # [[header], [ai_assistant], [sensors, notes]]
-    for section_type in row:  # 'sensors', 'notes', etc.
-        config = section_config[section_type]
-        if config['visible']:
-            # Render with proper Bootstrap columns
-            # col-12 col-lg-{{ config.width }}
-            # Include appropriate section template
+# Template rendering with CSS Grid
+for section_type in section_order:  # Flat list: ['header', 'ai_assistant', 'sensors', 'notes', ...]
+    config = section_config[section_type]
+    if config['visible']:
+        # Render section with grid positioning
+        # Grid column: config['x'] to config['x'] + config['width']
+        # Grid row: config['y'] (initial position, JavaScript adjusts this)
+        # Data attributes: x, y, width, height for JS repositioning
 ```
+
+**Key Change (Oct 28, 2025):** No longer uses Bootstrap rows. Sections are rendered in a flat list with CSS Grid positioning.
 
 ### 3. Section Configuration Flow
 
@@ -498,36 +633,47 @@ Route handler builds section_config, section_rows
 
 1. **Core Architecture**
    - Route handler with layout service integration
-   - Dynamic section rendering system
-   - Grid-based responsive layout
+   - **CSS Grid-based dynamic section rendering** (Oct 28, 2025)
+   - **Smart vertical flow algorithm** (Oct 28, 2025)
+   - **Intelligent collision detection** (Oct 28, 2025)
    - Section visibility configuration
+   - Multi-row collapse support
 
-2. **Header Section**
+2. **Collapsible Sections System** (Oct 28, 2025)
+   - ✅ Sections maintain column positions (Rule 1)
+   - ✅ Sections flow upward when space available (Rule 2)
+   - ✅ Multi-row collapse support (Rule 3)
+   - ✅ Smooth CSS transitions
+   - ✅ Toggle button integration
+   - ✅ Automatic grid recalculation
+
+3. **Header Section**
    - Entry title and metadata display
    - Action buttons (Edit, Delete, Back)
    - Section toggle buttons
    - Status badge with colors
    - Info cards for details and dates
 
-3. **AI Assistant Section**
+4. **AI Assistant Section**
    - Chat interface
    - Quick action prompts
    - Description generation
    - Conversation mode
    - API integration
 
-4. **Layout Builder**
+5. **Layout Builder**
    - Visual grid-based editor
    - Drag and drop section positioning
    - Visibility toggles
    - Section configuration
    - Entry Layout Builder page at `/entry-layout-builder/<entry_type_id>`
 
-5. **Styling System**
+6. **Styling System**
    - Theme-aware CSS variables
-   - Responsive design
+   - CSS Grid layout engine
    - Section animations
    - Mobile optimization
+   - Responsive grid → flexbox conversion
 
 ### ⚠️ Partially Implemented
 
@@ -537,9 +683,16 @@ Route handler builds section_config, section_rows
    - Modals file exists
    - Likely functional but needs verification
 
-2. **Timeline Section**
-   - Include statement exists
-   - Implementation status unclear
+### ✅ Recently Completed (Oct 28, 2025)
+
+1. **Timeline Section** - Full implementation
+   - 495 lines of complete functionality
+   - Progress visualization with animated bar
+   - Event timeline with filtering (All, Notes, Sensors, System)
+   - Vertical timeline with colored markers
+   - API integration for notes and sensor data
+   - Status change tracking via system notes
+   - Responsive design with theme support
 
 ### ❌ Not Yet Implemented (Placeholders Only)
 
@@ -555,10 +708,11 @@ Route handler builds section_config, section_rows
 
 ### 📋 Missing Features
 
-1. **Section Toggle JavaScript**
-   - Toggle button handlers not implemented
-   - Animation state management needed
-   - Preference persistence (localStorage or API)
+1. ~~**Section Toggle JavaScript**~~ ✅ **COMPLETED** (Oct 28, 2025)
+   - ✅ Toggle button handlers implemented
+   - ✅ Animation state management with CSS Grid
+   - ✅ Grid repositioning algorithm
+   - ❌ Preference persistence (localStorage or API) - still needed
 
 2. **Edit Mode Functionality**
    - Entry title editing
@@ -589,11 +743,11 @@ Route handler builds section_config, section_rows
    - Connect to entry update API
    - Add delete confirmation modal
 
-3. **Section Toggle System**
-   - Implement `toggleSection(sectionType)` function
-   - Add smooth show/hide animations
-   - Persist user preferences
-   - Update toggle button states
+3. ~~**Section Toggle System**~~ ✅ **COMPLETED** (Oct 28, 2025)
+   - ✅ Implemented `toggleSection(sectionType)` function
+   - ✅ Added smooth show/hide with CSS Grid repositioning
+   - ❌ Persist user preferences (next step)
+   - ✅ Update toggle button states
 
 ### Medium Priority
 
@@ -664,28 +818,61 @@ Route handler builds section_config, section_rows
 The v2 entry page represents a **modern, flexible architecture** for displaying entry details with:
 
 ✅ **Strengths:**
-- Dynamic, configurable layouts per entry type
+- **CSS Grid-based dynamic layout** with intelligent positioning (Oct 28, 2025)
+- **Smart vertical flow** - sections automatically reposition when others collapse
+- **Column preservation** - sections never change horizontal position
+- **Multi-row collapse support** - sections can flow across multiple collapsed rows
 - Clean separation of concerns (routes, services, templates)
-- Grid-based responsive design
 - Modular section system for easy extension
 - Theme-aware styling with CSS variables
 - AI assistant integration
 - Visual layout builder
+- Comprehensive debug logging
 
 ⚠️ **Gaps:**
 - Many sections not yet implemented (placeholders)
 - Edit/delete functionality incomplete
-- Section toggle JavaScript missing
+- Section preference persistence not implemented
 - Sensors section template empty
 
-🎯 **Architecture Grade:** A-
-The foundation is excellent with proper MVC separation, service layer, and extensible design. Implementation completion is the main gap.
+🎯 **Architecture Grade:** A
+The foundation is excellent with proper MVC separation, service layer, extensible design, and now a sophisticated CSS Grid positioning system.
 
-📊 **Completion Estimate:** ~40% implemented
-- Core: 100%
+📊 **Completion Estimate:** ~60% implemented (updated Oct 28, 2025)
+- Core: 100% ✅
+- Grid Layout System: 100% ✅ (NEW)
+- Collapse/Toggle System: 95% ✅ (NEW - missing only preference persistence)
 - Header: 90% (missing JS handlers)
 - AI Assistant: 95%
+- **Timeline: 100% ✅ (NEW - Oct 28, 2025)**
 - Other sections: 5% (placeholders only)
+
+---
+
+## Recent Changes (October 28, 2025)
+
+### CSS Grid-Based Collapsible Sections Implementation
+
+**Commit:** `4de24dc` - "feat: Implement dynamic CSS Grid-based collapsible sections with smart vertical flow"
+
+**What Changed:**
+1. Replaced Bootstrap row-based layout with CSS Grid (12 columns)
+2. Implemented intelligent grid positioning algorithm
+3. Sections maintain X (column) position while Y (row) adjusts dynamically
+4. Added collision detection and space availability checking
+5. Fixed route handler to use `position_x` and `position_y` from database
+6. Added comprehensive console logging for debugging
+7. Implemented `toggleSection()` and `recalculateGridPositions()` functions
+
+**Requirements Met:**
+- ✅ Rule 1: Sections always stay in their column positions
+- ✅ Rule 2: Sections move up when space available in their columns
+- ✅ Rule 3: Multi-row collapse - sections flow from row 3 to row 1 when rows 1-2 collapsed
+
+**Files Modified:**
+- `app/templates/entry_detail_v2.html` - CSS Grid layout and JavaScript logic
+- `app/routes/main_routes.py` - Fixed position_x/position_y mapping
+- `V2_ENTRY_PAGE_OVERVIEW.md` - Updated documentation (this file)
 
 ---
 

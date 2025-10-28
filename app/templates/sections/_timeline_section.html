@@ -1,0 +1,975 @@
+<!-- Timeline Section - Shows status history and progress -->
+<div class="section-header d-flex justify-content-between align-items-center mb-3">
+    <h5 class="section-title mb-0">
+        <i class="fas fa-chart-line me-2"></i>Progress & Status
+    </h5>
+    <button class="btn btn-sm btn-outline-secondary" id="toggleStatusHistory" type="button">
+        <i class="fas fa-chevron-down me-1"></i>
+        <span>Show History</span>
+    </button>
+</div>
+
+<div class="section-content">
+    <!-- Unified Progress Bar with Status Segments -->
+    <div class="timeline-progress-card mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <small class="text-muted">
+                <i class="fas fa-play-circle me-1"></i>
+                Created: <span id="timeline-start-date">{{ entry.created_at[:10] if entry.created_at else '' }}</span>
+            </small>
+            <small class="fw-bold" id="unified-progress-text">
+                <span id="unified-progress-percentage">0</span>% Complete
+            </small>
+            <small class="text-muted">
+                {% if entry.show_end_dates and entry.intended_end_date %}
+                <i class="fas fa-flag-checkered me-1"></i>
+                Target: <span id="timeline-end-date">{{ entry.intended_end_date[:10] if entry.intended_end_date else '' }}</span>
+                {% else %}
+                <i class="fas fa-clock me-1"></i>
+                <span id="totalDays">0</span> days old
+                {% endif %}
+            </small>
+        </div>
+        
+        <!-- Unified Status Progress Bar -->
+        <div id="unifiedProgressBar" class="unified-progress-container">
+            <div class="text-center py-2">
+                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Time-based Progress Bar (only shown when intended_end_date exists) -->
+        {% if entry.show_end_dates and entry.intended_end_date %}
+        <div id="timeProgressBar" class="time-progress-bar mt-2">
+            <div class="time-progress-track">
+                <div id="timeProgressFill" class="time-progress-fill"></div>
+                <div id="timeProgressOverdue" class="time-progress-overdue"></div>
+                <div id="timeProgressTarget" class="time-progress-target" title="Target Date"></div>
+                <div id="timeProgressMarker" class="time-progress-marker" title="Today"></div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="d-flex justify-content-between mt-2">
+            <small class="text-muted">
+                <i class="fas fa-clock me-1"></i>
+                <span id="timeline-days-elapsed">0</span> days elapsed
+            </small>
+            <div id="statusLegendCompact" class="status-legend-compact"></div>
+            <small class="text-muted" id="timeline-remaining-text">
+                {% if entry.show_end_dates and entry.intended_end_date %}
+                <i class="fas fa-hourglass-half me-1"></i>
+                <span id="timeline-days-remaining">0</span> days remaining
+                {% else %}
+                <i class="fas fa-info-circle me-1"></i>
+                Current: <span id="currentStatusName">Active</span>
+                {% endif %}
+            </small>
+        </div>
+    </div>
+
+    
+    <!-- Collapsible Status Change History -->
+    <div id="statusHistorySection" class="status-history-section" style="display: none;">
+        <div class="mb-2">
+            <h6 class="text-muted mb-3">
+                <i class="fas fa-history me-2"></i>Detailed Status Change History
+            </h6>
+        </div>
+        
+        <div id="timelineEventsContainer" class="timeline-events">
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading status changes...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Unified Progress Bar Styles */
+.unified-progress-container {
+    width: 100%;
+    height: 40px;
+    display: flex;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    background: var(--theme-background-subtle, rgba(0, 0, 0, 0.1));
+    position: relative;
+}
+
+.unified-progress-container.overdue {
+    box-shadow: 0 0 0 2px #dc3545, 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.unified-progress-container.overdue::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 10px,
+        rgba(220, 53, 69, 0.1) 10px,
+        rgba(220, 53, 69, 0.1) 20px
+    );
+    pointer-events: none;
+}
+
+.status-segment {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.status-segment:last-child {
+    border-right: none;
+}
+
+.status-segment:hover {
+    filter: brightness(1.2);
+    transform: scaleY(1.1);
+    z-index: 1;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.status-segment-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 0.5rem;
+}
+
+/* Compact Legend Styles */
+.status-legend-compact {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+    font-size: 0.75rem;
+}
+
+.status-legend-dot {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.status-legend-color {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* History Section Styles */
+.status-history-section {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--theme-border, rgba(255, 255, 255, 0.1));
+}
+
+#toggleStatusHistory {
+    transition: all 0.3s ease;
+}
+
+#toggleStatusHistory.expanded i {
+    transform: rotate(180deg);
+}
+
+/* Time-based Progress Bar */
+.time-progress-bar {
+    width: 100%;
+    position: relative;
+}
+
+.time-progress-track {
+    width: 100%;
+    height: 20px;
+    background: var(--theme-background-subtle, rgba(0, 0, 0, 0.1));
+    border-radius: 0.25rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.time-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, 
+        #28a745 0%, 
+        #20c997 50%, 
+        #0dcaf0 75%, 
+        #ffc107 90%, 
+        #dc3545 100%
+    );
+    border-radius: 0.25rem 0 0 0.25rem;
+    transition: width 0.5s ease;
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+
+.time-progress-overdue {
+    height: 100%;
+    background: repeating-linear-gradient(
+        45deg,
+        #dc3545,
+        #dc3545 10px,
+        #a02a3a 10px,
+        #a02a3a 20px
+    );
+    border-radius: 0 0.25rem 0.25rem 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+    transition: width 0.5s ease;
+}
+
+.time-progress-target {
+    position: absolute;
+    left: 100%;
+    top: -2px;
+    bottom: -2px;
+    width: 2px;
+    background: #000;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+    z-index: 3;
+}
+
+.time-progress-target::before {
+    content: '▼';
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: #000;
+}
+
+.time-progress-target::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    margin-bottom: 0.5rem;
+}
+
+.time-progress-target:hover::after {
+    opacity: 1;
+}
+
+.time-progress-marker {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    width: 3px;
+    background: #fff;
+    border: 2px solid #000;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    border-radius: 2px;
+    z-index: 4;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.time-progress-marker::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    margin-bottom: 0.25rem;
+}
+
+.time-progress-marker:hover::after {
+    opacity: 1;
+}
+
+.timeline-progress-card {
+    background: var(--theme-card-background, rgba(255, 255, 255, 0.05));
+    border: 1px solid var(--theme-border, rgba(255, 255, 255, 0.1));
+    border-radius: var(--border-radius, 0.5rem);
+    padding: 1rem;
+}
+
+.timeline-events {
+    position: relative;
+    padding-left: 2rem;
+}
+
+/* Vertical line for timeline */
+.timeline-events::before {
+    content: '';
+    position: absolute;
+    left: 0.5rem;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--theme-border, rgba(255, 255, 255, 0.2));
+}
+
+.timeline-event {
+    position: relative;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: var(--theme-card-background, rgba(255, 255, 255, 0.05));
+    border: 1px solid var(--theme-border, rgba(255, 255, 255, 0.1));
+    border-radius: var(--border-radius, 0.5rem);
+    margin-left: 1.5rem;
+    transition: all 0.2s ease;
+}
+
+.timeline-event:hover {
+    background: var(--theme-card-hover, rgba(255, 255, 255, 0.08));
+    transform: translateX(5px);
+}
+
+.timeline-event::before {
+    content: '';
+    position: absolute;
+    left: -2rem;
+    top: 1.25rem;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    background: var(--event-color, var(--theme-primary, #0d6efd));
+    border: 3px solid var(--theme-background, #212529);
+    z-index: 1;
+}
+
+.timeline-event.event-system::before {
+    background: var(--theme-secondary, #6c757d);
+}
+
+.timeline-event.event-note::before {
+    background: var(--theme-info, #0dcaf0);
+}
+
+.timeline-event.event-status::before {
+    background: var(--theme-warning, #ffc107);
+}
+
+.timeline-event.event-creation::before {
+    background: var(--theme-primary, #0d6efd);
+    width: 1.25rem;
+    height: 1.25rem;
+    top: 1.125rem;
+}
+
+.timeline-event-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 0.5rem;
+}
+
+.timeline-event-title {
+    font-weight: 600;
+    color: var(--theme-text, #fff);
+    margin: 0;
+}
+
+.timeline-event-time {
+    font-size: 0.85rem;
+    color: var(--theme-text-muted, #6c757d);
+    white-space: nowrap;
+}
+
+.timeline-event-content {
+    color: var(--theme-text-secondary, rgba(255, 255, 255, 0.75));
+    font-size: 0.9rem;
+}
+
+.timeline-event-meta {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.timeline-event-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.timeline-empty {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--theme-text-muted, #6c757d);
+}
+
+.timeline-empty i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+/* Filter button active state */
+.btn-group [data-timeline-view].active {
+    background-color: var(--theme-primary, #0d6efd);
+    color: white;
+    border-color: var(--theme-primary, #0d6efd);
+}
+</style>
+
+<script>
+(function() {
+    const entryId = {{ entry.id }};
+    let timelineData = [];
+    let statusColors = {}; // Store status colors from API
+    
+    // Initialize timeline
+    async function initTimeline() {
+        try {
+            await Promise.all([
+                loadStatusColors(),
+                loadStatusChanges(),
+                {% if entry.show_end_dates and entry.intended_end_date %}
+                calculateProgress()
+                {% endif %}
+            ]);
+        } catch (error) {
+            console.error('Error initializing status timeline:', error);
+            showTimelineError();
+        }
+    }
+    
+    // Load status colors from available states
+    async function loadStatusColors() {
+        try {
+            const response = await fetch(`/api/entries/${entryId}/available_states`);
+            if (response.ok) {
+                const states = await response.json();
+                // Build color map: status name -> color
+                states.forEach(state => {
+                    statusColors[state.name] = state.color;
+                });
+                console.log('Loaded status colors:', statusColors);
+            }
+        } catch (error) {
+            console.error('Error loading status colors:', error);
+            // Fallback to default colors
+            statusColors = {};
+        }
+    }
+    
+    // Load status changes
+    async function loadStatusChanges() {
+        timelineData = [];
+        
+        // Add creation event with initial status
+        timelineData.push({
+            type: 'creation',
+            timestamp: '{{ entry.created_at }}',
+            title: 'Entry Created',
+            content: 'Entry created with initial status',
+            status: '{{ entry.status }}',  // Use actual entry status as initial
+            statusColor: '{{ entry.status_color }}',
+            icon: 'fa-plus-circle'
+        });
+        
+        // Load notes to find status changes
+        try {
+            const notesResponse = await fetch(`/api/entries/${entryId}/notes`);
+            if (notesResponse.ok) {
+                const notes = await notesResponse.json();
+                notes.forEach(note => {
+                    const isStatusChange = note.note_title === 'Status Change';
+                    
+                    if (isStatusChange) {
+                        // Parse status from note text: "Status automatically changed from 'X' to 'Y'"
+                        const match = note.note_text.match(/from '(.+?)' to '(.+?)'/);
+                        if (match) {
+                            timelineData.push({
+                                type: 'status',
+                                timestamp: note.created_at,
+                                title: 'Status Changed',
+                                content: note.note_text,
+                                oldStatus: match[1],
+                                newStatus: match[2],
+                                icon: 'fa-exchange-alt',
+                                noteId: note.id
+                            });
+                        }
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Error loading status changes:', error);
+        }
+        
+        // Add current status if different from last change
+        const currentStatus = '{{ entry.status }}';
+        if (timelineData.length > 0 && timelineData[0].newStatus !== currentStatus) {
+            // Current status is different, might be manually changed
+            timelineData.unshift({
+                type: 'current',
+                timestamp: new Date().toISOString(),
+                title: 'Current Status',
+                content: `Currently in "${currentStatus}" status`,
+                status: currentStatus,
+                statusColor: '{{ entry.status_color }}',
+                icon: 'fa-flag'
+            });
+        }
+        
+        // Sort by timestamp (oldest first for progression bar)
+        const sortedData = [...timelineData].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        
+        // Build status progression
+        buildStatusProgression(sortedData);
+        
+        // Sort by timestamp (newest first for timeline list)
+        timelineData.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        
+        // Render timeline
+        renderTimeline();
+    }
+    
+    // Build status progression bar
+    function buildStatusProgression(sortedStatusChanges) {
+        const container = document.getElementById('unifiedProgressBar');
+        if (!container || sortedStatusChanges.length === 0) {
+            if (container) {
+                container.innerHTML = '<p class="text-muted text-center py-2 mb-0">No status data available</p>';
+            }
+            return;
+        }
+        
+        const startDate = new Date('{{ entry.created_at }}');
+        const endDate = new Date();
+        const totalDuration = endDate - startDate;
+        
+        if (totalDuration <= 0) {
+            container.innerHTML = '<p class="text-muted text-center py-2 mb-0">Not enough data for progression</p>';
+            return;
+        }
+        
+        // Build status segments
+        const segments = [];
+        let currentStatus = null;
+        let segmentStart = startDate;
+        
+        sortedStatusChanges.forEach((change, index) => {
+            const changeDate = new Date(change.timestamp);
+            
+            if (index === 0) {
+                // First event (creation) - set initial status
+                currentStatus = change.status || '{{ entry.status }}';
+            } else {
+                // Status change event
+                if (change.newStatus) {
+                    // Calculate duration of previous status
+                    const duration = changeDate - segmentStart;
+                    const percentage = (duration / totalDuration) * 100;
+                    
+                    segments.push({
+                        status: currentStatus,
+                        percentage: percentage,
+                        duration: formatDuration(duration),
+                        startDate: segmentStart,
+                        endDate: changeDate
+                    });
+                    
+                    currentStatus = change.newStatus;
+                    segmentStart = changeDate;
+                }
+            }
+        });
+        
+        // Add final segment (current status to now)
+        const finalDuration = endDate - segmentStart;
+        const finalPercentage = (finalDuration / totalDuration) * 100;
+        
+        // Only add final segment if we have a current status
+        if (currentStatus) {
+            segments.push({
+                status: currentStatus,
+                percentage: finalPercentage,
+                duration: formatDuration(finalDuration),
+                startDate: segmentStart,
+                endDate: endDate,
+                isCurrent: true
+            });
+        }
+        
+        // Render progression bar
+        console.log('Rendering', segments.length, 'status segments:', segments);
+        renderStatusProgression(segments);
+    }
+    
+    // Render status progression bar
+    function renderStatusProgression(segments) {
+        const container = document.getElementById('unifiedProgressBar');
+        if (!container) {
+            console.error('Unified progress bar container not found');
+            return;
+        }
+        
+        console.log('Rendering unified progress bar with', segments.length, 'segments');
+        
+        // Check if entry is overdue
+        {% if entry.show_end_dates and entry.intended_end_date %}
+        const intendedEndDate = new Date('{{ entry.intended_end_date }}');
+        const now = new Date();
+        const isOverdue = now > intendedEndDate;
+        
+        if (isOverdue) {
+            container.classList.add('overdue');
+        } else {
+            container.classList.remove('overdue');
+        }
+        {% endif %}
+        
+        // Calculate total days for display
+        const totalMs = segments.reduce((sum, seg) => sum + (seg.endDate - seg.startDate), 0);
+        const totalDaysCalc = Math.ceil(totalMs / (1000 * 60 * 60 * 24));
+        const totalDaysElement = document.getElementById('totalDays');
+        if (totalDaysElement) {
+            totalDaysElement.textContent = totalDaysCalc;
+        }
+        
+        // Update current status name
+        const currentStatusElement = document.getElementById('currentStatusName');
+        if (currentStatusElement && segments.length > 0) {
+            const currentSeg = segments.find(s => s.isCurrent);
+            if (currentSeg) {
+                currentStatusElement.textContent = currentSeg.status;
+            }
+        }
+        
+        // Render unified progress bar with status segments
+        const segmentsHTML = segments.map(seg => `
+            <div class="status-segment" 
+                 style="width: ${seg.percentage}%; background-color: ${getStatusColor(seg.status)};"
+                 title="${seg.status}: ${seg.duration}&#10;${seg.startDate.toLocaleDateString()} - ${seg.endDate.toLocaleDateString()}">
+                ${seg.percentage > 15 ? `<span class="status-segment-label">${seg.status}</span>` : ''}
+            </div>
+        `).join('');
+        
+        container.innerHTML = segmentsHTML;
+        
+        // Render compact legend
+        const legendContainer = document.getElementById('statusLegendCompact');
+        if (legendContainer) {
+            const legendHTML = segments.map(seg => `
+                <div class="status-legend-dot">
+                    <div class="status-legend-color" style="background-color: ${getStatusColor(seg.status)};"></div>
+                    <span>${seg.status}${seg.isCurrent ? ' (' + seg.duration + ')' : ''}</span>
+                </div>
+            `).join('');
+            legendContainer.innerHTML = legendHTML;
+        }
+    }
+    
+    // Get status color from loaded colors or fallback
+    function getStatusColor(status) {
+        // First check if we have the color from the API
+        if (statusColors[status]) {
+            return statusColors[status];
+        }
+        
+        // Fallback to default colors if API didn't load
+        const fallbackColors = {
+            'Active': '#28a745',
+            'Inactive': '#6c757d',
+            'In Progress': '#0dcaf0',
+            'Completed': '#198754',
+            'On Hold': '#ffc107',
+            'Cancelled': '#dc3545'
+        };
+        
+        return fallbackColors[status] || '{{ entry.status_color }}' || '#6c757d';
+    }
+    
+    // Format duration
+    function formatDuration(milliseconds) {
+        const days = Math.floor(milliseconds / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((milliseconds % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        
+        if (days > 0) {
+            return `${days} day${days !== 1 ? 's' : ''}`;
+        } else if (hours > 0) {
+            return `${hours} hour${hours !== 1 ? 's' : ''}`;
+        } else {
+            return 'Less than 1 hour';
+        }
+    }
+    
+    // Render timeline events
+    function renderTimeline() {
+        const container = document.getElementById('timelineEventsContainer');
+        
+        // Only show status changes and creation
+        const filteredData = timelineData.filter(event => 
+            event.type === 'creation' || event.type === 'status' || event.type === 'current'
+        );
+        
+        if (filteredData.length === 0) {
+            container.innerHTML = `
+                <div class="timeline-empty">
+                    <i class="fas fa-inbox"></i>
+                    <p>No timeline events found</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const html = filteredData.map(event => createTimelineEventHTML(event)).join('');
+        container.innerHTML = html;
+    }
+    
+    // Create HTML for a single timeline event
+    function createTimelineEventHTML(event) {
+        const date = new Date(event.timestamp);
+        const timeStr = formatTimeAgo(date);
+        const fullDate = date.toLocaleString();
+        
+        let contentHTML = `<div class="timeline-event-content">${escapeHtml(event.content)}</div>`;
+        
+        // Add metadata
+        let metaHTML = '';
+        if (event.noteType) {
+            metaHTML += `<span class="timeline-event-badge" style="background: var(--theme-info-subtle, rgba(13, 202, 240, 0.1)); color: var(--theme-info, #0dcaf0);">
+                <i class="fas fa-tag"></i>${escapeHtml(event.noteType)}
+            </span>`;
+        }
+        
+        return `
+            <div class="timeline-event event-${event.type}" data-event-type="${event.type}">
+                <div class="timeline-event-header">
+                    <h6 class="timeline-event-title">
+                        <i class="fas ${event.icon} me-2"></i>${escapeHtml(event.title)}
+                    </h6>
+                    <span class="timeline-event-time" title="${fullDate}">${timeStr}</span>
+                </div>
+                ${contentHTML}
+                ${metaHTML ? `<div class="timeline-event-meta">${metaHTML}</div>` : ''}
+            </div>
+        `;
+    }
+    
+    // Format time ago
+    function formatTimeAgo(date) {
+        const now = new Date();
+        const seconds = Math.floor((now - date) / 1000);
+        
+        if (seconds < 60) return 'Just now';
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+        if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+        if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+        
+        return date.toLocaleDateString();
+    }
+    
+    // Escape HTML
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Calculate progress
+    {% if entry.show_end_dates and entry.intended_end_date %}
+    function calculateProgress() {
+        const startDate = new Date('{{ entry.created_at }}');
+        const endDate = new Date('{{ entry.intended_end_date }}');
+        const now = new Date();
+        
+        const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+        const daysElapsed = Math.ceil((now - startDate) / (1000 * 60 * 60 * 24));
+        const daysRemaining = totalDays - daysElapsed;
+        const percentage = Math.min(100, Math.max(0, (daysElapsed / totalDays) * 100));
+        const actualPercentage = (daysElapsed / totalDays) * 100; // Can exceed 100%
+        
+        // Update unified progress percentage text
+        const progressPercentage = document.getElementById('unified-progress-percentage');
+        const progressText = document.getElementById('unified-progress-text');
+        if (progressPercentage) {
+            progressPercentage.textContent = Math.round(percentage);
+        }
+        
+        // Update progress text styling based on overdue status
+        if (progressText) {
+            if (daysRemaining < 0) {
+                progressText.classList.add('text-danger');
+                progressText.classList.remove('fw-bold');
+                progressText.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i><span id="unified-progress-percentage">' + Math.round(percentage) + '</span>% - OVERDUE';
+            } else {
+                progressText.classList.remove('text-danger');
+                progressText.classList.add('fw-bold');
+            }
+        }
+        
+        // Update time-based progress bar
+        const timeProgressFill = document.getElementById('timeProgressFill');
+        const timeProgressOverdue = document.getElementById('timeProgressOverdue');
+        const timeProgressTarget = document.getElementById('timeProgressTarget');
+        const timeProgressMarker = document.getElementById('timeProgressMarker');
+        const timeProgressTrack = document.querySelector('.time-progress-track');
+        
+        if (timeProgressFill && timeProgressMarker && timeProgressTrack) {
+            if (daysRemaining < 0) {
+                // Entry is overdue - scale the entire timeline to fit
+                const overdueDays = Math.abs(daysRemaining);
+                const totalDisplayDays = totalDays + overdueDays; // Created to Today
+                
+                // Calculate percentages based on total display (created to today)
+                const intendedPercentage = (totalDays / totalDisplayDays) * 100;
+                const overduePercentage = (overdueDays / totalDisplayDays) * 100;
+                
+                // Fill bar shows intended timeline as percentage of total
+                timeProgressFill.style.width = intendedPercentage + '%';
+                
+                // Overdue section shows overdue days as percentage of total
+                if (timeProgressOverdue) {
+                    timeProgressOverdue.style.width = overduePercentage + '%';
+                }
+                
+                // Target marker at end of intended timeline
+                if (timeProgressTarget) {
+                    timeProgressTarget.style.left = intendedPercentage + '%';
+                    timeProgressTarget.title = `Target: {{ entry.intended_end_date[:10] }} (${overdueDays} day${overdueDays !== 1 ? 's' : ''} ago)`;
+                }
+                
+                // "Today" marker at the very end (100% of track)
+                timeProgressMarker.style.left = '100%';
+                timeProgressMarker.style.borderColor = '#dc3545';
+                timeProgressMarker.title = `Today (${overdueDays} day${overdueDays !== 1 ? 's' : ''} overdue)`;
+            } else {
+                // Entry is on track - timeline is from created to intended end
+                const fillPercentage = Math.min(100, percentage);
+                
+                // Fill bar shows progress
+                timeProgressFill.style.width = fillPercentage + '%';
+                
+                // No overdue section
+                if (timeProgressOverdue) {
+                    timeProgressOverdue.style.width = '0%';
+                }
+                
+                // Target marker at 100% (end of timeline)
+                if (timeProgressTarget) {
+                    timeProgressTarget.style.left = '100%';
+                    timeProgressTarget.title = `Target: {{ entry.intended_end_date[:10] }}`;
+                }
+                
+                // "Today" marker at current position
+                timeProgressMarker.style.left = fillPercentage + '%';
+                timeProgressMarker.style.borderColor = '#000';
+                
+                if (daysRemaining === 0) {
+                    timeProgressMarker.title = 'Today (target reached!)';
+                } else {
+                    timeProgressMarker.title = `Today (${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining)`;
+                }
+            }
+        }
+        
+        // Update text elements
+        const daysElapsedElement = document.getElementById('timeline-days-elapsed');
+        if (daysElapsedElement) {
+            daysElapsedElement.textContent = daysElapsed;
+        }
+        
+        const daysRemainingElement = document.getElementById('timeline-days-remaining');
+        if (daysRemainingElement) {
+            daysRemainingElement.textContent = Math.max(0, daysRemaining);
+        }
+        
+        // Update remaining text
+        const remainingText = document.getElementById('timeline-remaining-text');
+        if (remainingText) {
+            if (daysRemaining === 0) {
+                remainingText.innerHTML = '<i class="fas fa-check-circle me-1"></i>Target reached!';
+                remainingText.className = 'text-success fw-bold';
+            } else if (daysRemaining < 0) {
+                remainingText.innerHTML = `<i class="fas fa-exclamation-triangle me-1"></i>${Math.abs(daysRemaining)} days overdue`;
+                remainingText.className = 'text-danger fw-bold';
+            } else {
+                remainingText.innerHTML = `<i class="fas fa-hourglass-half me-1"></i><span id="timeline-days-remaining">${daysRemaining}</span> days remaining`;
+                remainingText.className = 'text-muted';
+            }
+        }
+    }
+    {% endif %}
+    
+    // Show error
+    function showTimelineError() {
+        const container = document.getElementById('timelineEventsContainer');
+        container.innerHTML = `
+            <div class="timeline-empty">
+                <i class="fas fa-exclamation-triangle text-danger"></i>
+                <p>Error loading timeline events</p>
+                <button class="btn btn-sm btn-primary" onclick="initTimeline()">
+                    <i class="fas fa-redo me-1"></i>Retry
+                </button>
+            </div>
+        `;
+    }
+    
+    // Toggle status history section
+    const toggleButton = document.getElementById('toggleStatusHistory');
+    const historySection = document.getElementById('statusHistorySection');
+    
+    if (toggleButton && historySection) {
+        toggleButton.addEventListener('click', function() {
+            const isHidden = historySection.style.display === 'none';
+            
+            if (isHidden) {
+                // Show history
+                historySection.style.display = 'block';
+                toggleButton.classList.add('expanded');
+                toggleButton.querySelector('span').textContent = 'Hide History';
+            } else {
+                // Hide history
+                historySection.style.display = 'none';
+                toggleButton.classList.remove('expanded');
+                toggleButton.querySelector('span').textContent = 'Show History';
+            }
+        });
+    }
+    
+    // Initialize on load
+    initTimeline();
+})();
+</script>
