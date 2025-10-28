@@ -46,9 +46,15 @@
             <div class="time-progress-track">
                 <div id="timeProgressFill" class="time-progress-fill"></div>
                 <div id="timeProgressOverdue" class="time-progress-overdue"></div>
-                <div id="timeProgressTarget" class="time-progress-target" title="Target Date"></div>
-                <div id="timeProgressMarker" class="time-progress-marker" title="Today"></div>
             </div>
+        </div>
+        
+        <!-- Milestones Management Button -->
+        <div class="mt-2 text-end">
+            <button class="btn btn-sm btn-outline-primary" id="manageMilestonesBtn" type="button">
+                <i class="fas fa-diamond me-1"></i>
+                <span>Manage Milestones</span>
+            </button>
         </div>
         {% endif %}
         
@@ -196,6 +202,8 @@
 .time-progress-bar {
     width: 100%;
     position: relative;
+    padding-top: 50px; /* Space for milestone labels above the bar */
+    margin-bottom: 10px;
 }
 
 .time-progress-track {
@@ -204,21 +212,15 @@
     background: var(--theme-background-subtle, rgba(0, 0, 0, 0.1));
     border-radius: 0.25rem;
     position: relative;
-    overflow: hidden;
+    overflow: visible; /* Changed from hidden to allow milestone labels to show */
     box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .time-progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, 
-        #28a745 0%, 
-        #20c997 50%, 
-        #0dcaf0 75%, 
-        #ffc107 90%, 
-        #dc3545 100%
-    );
+    background: var(--status-color, #6c757d); /* Use current status color */
     border-radius: 0.25rem 0 0 0.25rem;
-    transition: width 0.5s ease;
+    transition: width 0.5s ease, background 0.3s ease;
     position: absolute;
     left: 0;
     top: 0;
@@ -283,40 +285,46 @@
     opacity: 1;
 }
 
-.time-progress-marker {
+/* Milestone markers on time progress bar - styled like status segments with text inside */
+.time-progress-milestone {
     position: absolute;
-    top: -2px;
-    bottom: -2px;
-    width: 3px;
-    background: #fff;
-    border: 2px solid #000;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    border-radius: 2px;
-    z-index: 4;
+    top: 0;
+    bottom: 0;
+    height: 100%;
+    min-width: 60px; /* Minimum width to fit text */
+    background: var(--milestone-color, #ffc107);
+    z-index: 2;
     cursor: pointer;
     transition: all 0.3s ease;
+    border-left: 1px solid rgba(0, 0, 0, 0.2);
+    border-right: 1px solid rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8px;
+    overflow: hidden;
 }
 
-.time-progress-marker::after {
-    content: attr(title);
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
+/* Text inside milestone bar */
+.time-progress-milestone::before {
+    content: attr(data-label);
+    color: #fff;
     font-size: 0.7rem;
+    font-weight: 600;
     white-space: nowrap;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-    margin-bottom: 0.25rem;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    z-index: 3;
+    text-overflow: ellipsis;
+    overflow: hidden;
 }
 
-.time-progress-marker:hover::after {
-    opacity: 1;
+.time-progress-milestone:hover {
+    filter: brightness(1.1);
+    z-index: 3;
+}
+
+.time-progress-milestone.milestone-reached {
+    opacity: 0.6;
 }
 
 .timeline-progress-card {
@@ -457,6 +465,13 @@
     let timelineData = [];
     let statusColors = {}; // Store status colors from API
     
+    // Store dynamic entry data (updated when milestones change)
+    let entryData = {
+        createdAt: '{{ entry.created_at }}',
+        intendedEndDate: '{{ entry.intended_end_date }}',
+        showEndDates: {{ 'true' if entry.show_end_dates else 'false' }}
+    };
+    
     // Initialize timeline
     async function initTimeline() {
         try {
@@ -464,7 +479,8 @@
                 loadStatusColors(),
                 loadStatusChanges(),
                 {% if entry.show_end_dates and entry.intended_end_date %}
-                calculateProgress()
+                calculateProgress(),
+                loadAndRenderMilestones()
                 {% endif %}
             ]);
         } catch (error) {
@@ -490,6 +506,181 @@
             // Fallback to default colors
             statusColors = {};
         }
+    }
+    
+    // Refresh entry data (intended_end_date) from server
+    async function refreshEntryData() {
+        try {
+            const response = await fetch(`/api/entries/${entryId}`);
+            if (response.ok) {
+                const entry = await response.json();
+                if (entry.intended_end_date) {
+                    entryData.intendedEndDate = entry.intended_end_date;
+                    console.log('Updated intended_end_date:', entryData.intendedEndDate);
+                }
+            }
+        } catch (error) {
+            console.error('Error refreshing entry data:', error);
+        }
+    }
+    
+    // Load and render milestones on time progress bar
+    async function loadAndRenderMilestones() {
+        {% if entry.show_end_dates and entry.intended_end_date %}
+        try {
+            const response = await fetch(`/api/entries/${entryId}/milestones`);
+            if (!response.ok) {
+                console.error('Failed to fetch milestones');
+                return;
+            }
+            
+            const milestones = await response.json();
+            console.log('Loaded milestones:', milestones);
+            
+            // Update entry intended_end_date from server
+            await refreshEntryData();
+            
+            // Recalculate progress with new end date
+            calculateProgress();
+            
+            // Render milestones on time progress bar
+            renderMilestones(milestones);
+        } catch (error) {
+            console.error('Error loading milestones:', error);
+        }
+        {% endif %}
+    }
+    
+    // Render milestone markers on the time progress bar
+    function renderMilestones(milestones) {
+        {% if entry.show_end_dates and entry.intended_end_date %}
+        const timeProgressBar = document.querySelector('#timeProgressBar .time-progress-track');
+        if (!timeProgressBar) return;
+        
+        // Remove existing milestone markers and overdue section
+        timeProgressBar.querySelectorAll('.time-progress-milestone').forEach(el => el.remove());
+        
+        if (milestones.length === 0) return;
+        
+        const startDate = new Date('{{ entry.created_at }}');
+        const now = new Date();
+        
+        // Use actual_end_date if entry is complete, otherwise use today
+        {% if entry.actual_end_date %}
+        const actualEndDate = new Date('{{ entry.actual_end_date }}');
+        const endDateForCalc = actualEndDate;
+        {% else %}
+        const endDateForCalc = now;
+        {% endif %}
+        
+        // Sort milestones by order_position
+        milestones.sort((a, b) => a.order_position - b.order_position);
+        
+        // Calculate total planned days from milestones (this defines the target)
+        const totalPlannedDays = milestones.reduce((sum, m) => sum + m.duration_days, 0);
+        
+        // Calculate target date (end of last milestone)
+        const targetDate = new Date(startDate);
+        targetDate.setDate(targetDate.getDate() + totalPlannedDays);
+        
+        // Calculate if we're overdue using actual_end_date or today
+        const isOverdue = endDateForCalc > targetDate;
+        const overdueDays = isOverdue ? Math.ceil((endDateForCalc - targetDate) / (1000 * 60 * 60 * 24)) : 0;
+        
+        // Total display days = planned days + overdue days (if any)
+        const totalDisplayDays = totalPlannedDays + overdueDays;
+        
+        console.log('Timeline calc:', {
+            totalPlannedDays,
+            overdueDays,
+            totalDisplayDays,
+            isOverdue,
+            {% if entry.actual_end_date %}
+            usingActualEndDate: true,
+            actualEndDate: '{{ entry.actual_end_date }}'
+            {% else %}
+            usingActualEndDate: false,
+            usingToday: true
+            {% endif %}
+        });
+        
+        // Render milestone segments
+        let cumulativeDays = 0;
+        milestones.forEach((milestone, index) => {
+            // Calculate start position (percentage of total display including overdue)
+            const startPosition = (cumulativeDays / totalDisplayDays) * 100;
+            
+            // Add this milestone's duration
+            cumulativeDays += milestone.duration_days;
+            
+            // Calculate width (percentage of total display)
+            const width = (milestone.duration_days / totalDisplayDays) * 100;
+            
+            // Create milestone marker element
+            const marker = document.createElement('div');
+            marker.className = 'time-progress-milestone';
+            
+            // Calculate milestone end date
+            const milestoneDate = new Date(startDate);
+            milestoneDate.setDate(milestoneDate.getDate() + cumulativeDays);
+            
+            // Check if milestone has been reached
+            const isReached = now >= milestoneDate;
+            if (isReached || milestone.is_completed) {
+                marker.classList.add('milestone-reached');
+            }
+            
+            // Set position and width
+            marker.style.left = `${startPosition}%`;
+            marker.style.width = `${width}%`;
+            
+            // Set color based on target state
+            const stateColor = milestone.target_state_color || '#ffc107';
+            marker.style.setProperty('--milestone-color', stateColor);
+            marker.style.background = stateColor;
+            
+            // Format label: "State Name (Duration days)"
+            const label = `${milestone.target_state_name} (${milestone.duration_days}d)`;
+            marker.setAttribute('data-label', label);
+            marker.title = `${milestone.target_state_name}\nDuration: ${milestone.duration_days} days\nEnds: Day ${cumulativeDays}\n${milestone.notes || ''}`;
+            
+            // Add click handler to show details/edit
+            marker.addEventListener('click', () => showMilestoneDetails(milestone));
+            
+            // Append to progress bar
+            timeProgressBar.appendChild(marker);
+        });
+        
+        // If overdue, add the overdue section AFTER the milestones
+        if (isOverdue && overdueDays > 0) {
+            const overdueStart = (totalPlannedDays / totalDisplayDays) * 100;
+            const overdueWidth = (overdueDays / totalDisplayDays) * 100;
+            
+            const overdueMarker = document.createElement('div');
+            overdueMarker.className = 'time-progress-milestone time-progress-overdue';
+            overdueMarker.style.left = `${overdueStart}%`;
+            overdueMarker.style.width = `${overdueWidth}%`;
+            overdueMarker.style.background = '#dc3545'; // Red for overdue
+            overdueMarker.style.opacity = '0.7';
+            overdueMarker.setAttribute('data-label', `Overdue (${overdueDays}d)`);
+            
+            {% if entry.actual_end_date %}
+            overdueMarker.title = `Overdue by ${overdueDays} days\nTarget: ${targetDate.toLocaleDateString()}\nActual End: ${endDateForCalc.toLocaleDateString()}`;
+            {% else %}
+            overdueMarker.title = `Overdue by ${overdueDays} days\nTarget: ${targetDate.toLocaleDateString()}\nStill Active (as of today)`;
+            {% endif %}
+            
+            timeProgressBar.appendChild(overdueMarker);
+        }
+        
+        {% endif %}
+    }
+    
+    // Show milestone details (placeholder for future UI)
+    function showMilestoneDetails(milestone) {
+        console.log('Milestone clicked:', milestone);
+        // TODO: Open modal or tooltip with milestone details
+        alert(`Milestone: ${milestone.target_state_name}\nDay ${milestone.days_from_start} from start\n${milestone.notes || 'No notes'}`);
     }
     
     // Load status changes
@@ -811,8 +1002,8 @@
     // Calculate progress
     {% if entry.show_end_dates and entry.intended_end_date %}
     function calculateProgress() {
-        const startDate = new Date('{{ entry.created_at }}');
-        const endDate = new Date('{{ entry.intended_end_date }}');
+        const startDate = new Date(entryData.createdAt);
+        const endDate = new Date(entryData.intendedEndDate);
         const now = new Date();
         
         const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
@@ -843,11 +1034,15 @@
         // Update time-based progress bar
         const timeProgressFill = document.getElementById('timeProgressFill');
         const timeProgressOverdue = document.getElementById('timeProgressOverdue');
-        const timeProgressTarget = document.getElementById('timeProgressTarget');
-        const timeProgressMarker = document.getElementById('timeProgressMarker');
         const timeProgressTrack = document.querySelector('.time-progress-track');
         
-        if (timeProgressFill && timeProgressMarker && timeProgressTrack) {
+        // Set the status color on the progress fill
+        const statusColor = '{{ entry.status_color }}';
+        if (timeProgressFill) {
+            timeProgressFill.style.setProperty('--status-color', statusColor);
+        }
+        
+        if (timeProgressFill && timeProgressTrack) {
             if (daysRemaining < 0) {
                 // Entry is overdue - scale the entire timeline to fit
                 const overdueDays = Math.abs(daysRemaining);
@@ -864,17 +1059,6 @@
                 if (timeProgressOverdue) {
                     timeProgressOverdue.style.width = overduePercentage + '%';
                 }
-                
-                // Target marker at end of intended timeline
-                if (timeProgressTarget) {
-                    timeProgressTarget.style.left = intendedPercentage + '%';
-                    timeProgressTarget.title = `Target: {{ entry.intended_end_date[:10] }} (${overdueDays} day${overdueDays !== 1 ? 's' : ''} ago)`;
-                }
-                
-                // "Today" marker at the very end (100% of track)
-                timeProgressMarker.style.left = '100%';
-                timeProgressMarker.style.borderColor = '#dc3545';
-                timeProgressMarker.title = `Today (${overdueDays} day${overdueDays !== 1 ? 's' : ''} overdue)`;
             } else {
                 // Entry is on track - timeline is from created to intended end
                 const fillPercentage = Math.min(100, percentage);
@@ -885,22 +1069,6 @@
                 // No overdue section
                 if (timeProgressOverdue) {
                     timeProgressOverdue.style.width = '0%';
-                }
-                
-                // Target marker at 100% (end of timeline)
-                if (timeProgressTarget) {
-                    timeProgressTarget.style.left = '100%';
-                    timeProgressTarget.title = `Target: {{ entry.intended_end_date[:10] }}`;
-                }
-                
-                // "Today" marker at current position
-                timeProgressMarker.style.left = fillPercentage + '%';
-                timeProgressMarker.style.borderColor = '#000';
-                
-                if (daysRemaining === 0) {
-                    timeProgressMarker.title = 'Today (target reached!)';
-                } else {
-                    timeProgressMarker.title = `Today (${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining)`;
                 }
             }
         }
@@ -968,6 +1136,334 @@
             }
         });
     }
+    
+    // Milestone Management
+    {% if entry.show_end_dates and entry.intended_end_date %}
+    const manageMilestonesBtn = document.getElementById('manageMilestonesBtn');
+    if (manageMilestonesBtn) {
+        manageMilestonesBtn.addEventListener('click', () => openMilestoneModal());
+    }
+    
+    async function openMilestoneModal() {
+        // Load available states for this entry
+        const statesResponse = await fetch(`/api/entries/${entryId}/available_states`);
+        const states = await statesResponse.json();
+        
+        // Load existing milestones
+        const milestonesResponse = await fetch(`/api/entries/${entryId}/milestones`);
+        const milestones = await milestonesResponse.json();
+        
+        // Build modal content
+        let statesOptions = states.map(s => 
+            `<option value="${s.id}" data-color="${s.color}">${s.name}</option>`
+        ).join('');
+        
+        // Calculate cumulative days for display
+        let cumulativeDays = 0;
+        let milestonesHTML = milestones.map((m, idx) => {
+            cumulativeDays += m.duration_days;
+            const isFirst = idx === 0;
+            const isLast = idx === milestones.length - 1;
+            return `
+            <div class="milestone-item d-flex justify-content-between align-items-center mb-2 p-2 border rounded" id="milestone-${m.id}">
+                <div class="d-flex align-items-center gap-2 flex-grow-1">
+                    <span class="badge bg-secondary">#${m.order_position}</span>
+                    <span class="badge" style="background-color: ${m.target_state_color}">${m.target_state_name}</span>
+                    <span id="duration-display-${m.id}" 
+                          onclick="editDuration(${m.id})"
+                          title="Click to edit duration"
+                          style="cursor: pointer; text-decoration: underline dotted;">
+                        <strong>${m.duration_days} days</strong>
+                    </span>
+                    <span id="duration-edit-${m.id}" style="display: none;">
+                        <input type="number" class="form-control form-control-sm" style="width: 80px; display: inline-block;" 
+                               value="${m.duration_days}" min="1" id="duration-input-${m.id}">
+                        <button class="btn btn-sm btn-success ms-1" onclick="saveDuration(${m.id})">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        <button class="btn btn-sm btn-secondary" onclick="cancelEditDuration(${m.id}, ${m.duration_days})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </span>
+                    <small class="text-muted">(ends day ${cumulativeDays})</small>
+                    ${m.notes ? `<small class="text-muted d-block">${m.notes}</small>` : ''}
+                </div>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary" 
+                            onclick="moveMilestone(${m.id}, ${m.order_position}, 'up')"
+                            ${isFirst ? 'disabled' : ''} 
+                            title="Move up">
+                        <i class="fas fa-arrow-up"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary" 
+                            onclick="moveMilestone(${m.id}, ${m.order_position}, 'down')"
+                            ${isLast ? 'disabled' : ''} 
+                            title="Move down">
+                        <i class="fas fa-arrow-down"></i>
+                    </button>
+                    <button class="btn btn-danger" onclick="deleteMilestone(${m.id})" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        }).join('');
+        
+        // Show modal using Bootstrap or custom implementation
+        const modalHTML = `
+            <div class="modal fade" id="milestoneModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title"><i class="fas fa-diamond me-2"></i>Manage Status Milestones</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <h6>Existing Milestones (Sequential Order)</h6>
+                                <small class="text-muted d-block mb-2">Each milestone shows duration. Days are cumulative.</small>
+                                <div id="milestonesList">
+                                    ${milestones.length > 0 ? milestonesHTML : '<p class="text-muted">No milestones yet</p>'}
+                                </div>
+                            </div>
+                            <hr>
+                            <div>
+                                <h6>Add New Milestone</h6>
+                                <form id="addMilestoneForm">
+                                    <div class="mb-3">
+                                        <label class="form-label">Target Status</label>
+                                        <select class="form-select" id="milestoneStatus" required>
+                                            <option value="">Select status...</option>
+                                            ${statesOptions}
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Duration (Days)</label>
+                                        <input type="number" class="form-control" id="milestoneDuration" required
+                                               min="1" step="1" placeholder="e.g., 7 for 7 days">
+                                        <small class="form-text text-muted">How long this status will last (will be added to previous milestones)</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Notes (optional)</label>
+                                        <textarea class="form-control" id="milestoneNotes" rows="2"></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-plus me-1"></i>Add Milestone
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if any
+        const existingModal = document.getElementById('milestoneModal');
+        if (existingModal) existingModal.remove();
+        
+        // Add modal to page
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('milestoneModal'));
+        modal.show();
+        
+        // Handle form submission
+        document.getElementById('addMilestoneForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const success = await addMilestone();
+            if (success) {
+                // Clear form
+                document.getElementById('addMilestoneForm').reset();
+                // Refresh the modal list
+                await refreshModalMilestonesList();
+            }
+        });
+    }
+    
+    async function addMilestone() {
+        const statusSelect = document.getElementById('milestoneStatus');
+        const target_state_id = parseInt(statusSelect.value);
+        const duration_days = parseInt(document.getElementById('milestoneDuration').value);
+        const notes = document.getElementById('milestoneNotes').value;
+        
+        try {
+            const response = await fetch(`/api/entries/${entryId}/milestones`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ target_state_id, duration_days, notes })
+            });
+            
+            if (response.ok) {
+                // Reload milestones to update the timeline
+                await loadAndRenderMilestones();
+                console.log('Milestone added successfully');
+                return true;
+            } else {
+                const error = await response.json();
+                alert('Failed to add milestone: ' + (error.error || 'Unknown error'));
+                return false;
+            }
+        } catch (error) {
+            console.error('Error adding milestone:', error);
+            alert('Error adding milestone');
+            return false;
+        }
+    }
+    
+    window.moveMilestone = async function(milestoneId, currentOrder, direction) {
+        try {
+            // Calculate new order position
+            const newOrder = direction === 'up' ? currentOrder - 1 : currentOrder + 1;
+            
+            const response = await fetch(`/api/entries/${entryId}/milestones/${milestoneId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ order_position: newOrder })
+            });
+            
+            if (response.ok) {
+                // Reload milestones and refresh modal list in-place
+                await loadAndRenderMilestones();
+                await refreshModalMilestonesList();
+            } else {
+                const error = await response.json();
+                alert('Failed to reorder milestone: ' + (error.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error moving milestone:', error);
+            alert('Error moving milestone');
+        }
+    };
+    
+    async function refreshModalMilestonesList() {
+        // Refresh the milestone list in the modal without closing it
+        const milestonesResponse = await fetch(`/api/entries/${entryId}/milestones`);
+        const milestones = await milestonesResponse.json();
+        
+        let cumulativeDays = 0;
+        let milestonesHTML = milestones.map((m, idx) => {
+            cumulativeDays += m.duration_days;
+            const isFirst = idx === 0;
+            const isLast = idx === milestones.length - 1;
+            return `
+            <div class="milestone-item d-flex justify-content-between align-items-center mb-2 p-2 border rounded" id="milestone-${m.id}">
+                <div class="d-flex align-items-center gap-2 flex-grow-1">
+                    <span class="badge bg-secondary">#${m.order_position}</span>
+                    <span class="badge" style="background-color: ${m.target_state_color}">${m.target_state_name}</span>
+                    <span id="duration-display-${m.id}">
+                        <strong>${m.duration_days} days</strong>
+                    </span>
+                    <span id="duration-edit-${m.id}" style="display: none;">
+                        <input type="number" class="form-control form-control-sm" style="width: 80px; display: inline-block;" 
+                               value="${m.duration_days}" min="1" id="duration-input-${m.id}">
+                        <button class="btn btn-sm btn-success ms-1" onclick="saveDuration(${m.id})">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        <button class="btn btn-sm btn-secondary" onclick="cancelEditDuration(${m.id}, ${m.duration_days})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </span>
+                    <small class="text-muted">(ends day ${cumulativeDays})</small>
+                    ${m.notes ? `<small class="text-muted d-block">${m.notes}</small>` : ''}
+                </div>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary" 
+                            onclick="editDuration(${m.id})"
+                            title="Edit duration">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary" 
+                            onclick="moveMilestone(${m.id}, ${m.order_position}, 'up')"
+                            ${isFirst ? 'disabled' : ''} 
+                            title="Move up">
+                        <i class="fas fa-arrow-up"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary" 
+                            onclick="moveMilestone(${m.id}, ${m.order_position}, 'down')"
+                            ${isLast ? 'disabled' : ''} 
+                            title="Move down">
+                        <i class="fas fa-arrow-down"></i>
+                    </button>
+                    <button class="btn btn-danger" onclick="deleteMilestone(${m.id})" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        }).join('');
+        
+        const listContainer = document.getElementById('milestonesList');
+        if (listContainer) {
+            listContainer.innerHTML = milestones.length > 0 ? milestonesHTML : '<p class="text-muted">No milestones yet</p>';
+        }
+    }
+    
+    window.editDuration = function(milestoneId) {
+        // Hide display, show edit controls
+        document.getElementById(`duration-display-${milestoneId}`).style.display = 'none';
+        document.getElementById(`duration-edit-${milestoneId}`).style.display = 'inline';
+        document.getElementById(`duration-input-${milestoneId}`).focus();
+    };
+    
+    window.cancelEditDuration = function(milestoneId, originalValue) {
+        // Restore original value and hide edit controls
+        document.getElementById(`duration-input-${milestoneId}`).value = originalValue;
+        document.getElementById(`duration-edit-${milestoneId}`).style.display = 'none';
+        document.getElementById(`duration-display-${milestoneId}`).style.display = 'inline';
+    };
+    
+    window.saveDuration = async function(milestoneId) {
+        const newDuration = parseInt(document.getElementById(`duration-input-${milestoneId}`).value);
+        
+        if (newDuration < 1) {
+            alert('Duration must be at least 1 day');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/entries/${entryId}/milestones/${milestoneId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ duration_days: newDuration })
+            });
+            
+            if (response.ok) {
+                // Reload milestones and refresh modal
+                await loadAndRenderMilestones();
+                await refreshModalMilestonesList();
+            } else {
+                const error = await response.json();
+                alert('Failed to update duration: ' + (error.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error updating duration:', error);
+            alert('Error updating duration');
+        }
+    };
+    
+    window.deleteMilestone = async function(milestoneId) {
+        if (!confirm('Delete this milestone?')) return;
+        
+        try {
+            const response = await fetch(`/api/entries/${entryId}/milestones/${milestoneId}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                // Reload milestones and refresh modal list in-place
+                await loadAndRenderMilestones();
+                await refreshModalMilestonesList();
+            } else {
+                alert('Failed to delete milestone');
+            }
+        } catch (error) {
+            console.error('Error deleting milestone:', error);
+            alert('Error deleting milestone');
+        }
+    };
+    {% endif %}
     
     // Initialize on load
     initTimeline();
