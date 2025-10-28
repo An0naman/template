@@ -251,14 +251,14 @@ async function saveDescriptionUpdate(description) {
     
     <!-- Description Preview Area (Hidden by default) -->
     <div class="description-preview d-none mb-3" id="descriptionPreview">
-        <div class="card" style="border: 1px solid var(--theme-info, var(--bs-info));">
-            <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: var(--theme-info, var(--bs-info));">
+        <div class="card border-info">
+            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
                 <span><i class="fas fa-eye me-2"></i>Current Draft</span>
                 <div>
                     <button class="btn btn-sm btn-light me-2" onclick="updateDraft()">
                         <i class="fas fa-sync me-1"></i>Revise
                     </button>
-                    <button class="btn btn-sm" style="background-color: var(--theme-success, var(--bs-success)); color: white;" onclick="applyDescriptionPreview()">
+                    <button class="btn btn-sm btn-success" onclick="applyDescriptionPreview()">
                         <i class="fas fa-check me-1"></i>Apply to Entry
                     </button>
                 </div>
@@ -288,7 +288,7 @@ async function saveDescriptionUpdate(description) {
                 </a></li>
             </ul>
             <input type="text" class="form-control" id="chatInput" placeholder="Ask AI or request description changes..." onkeypress="if(event.key==='Enter') sendChatMessage()">
-            <button class="btn" style="background-color: var(--theme-primary, var(--bs-primary)); color: white;" onclick="sendChatMessage()">
+            <button class="btn btn-primary" onclick="sendChatMessage()">
                 <i class="fas fa-paper-plane"></i>
             </button>
         </div>
@@ -304,13 +304,13 @@ async function saveDescriptionUpdate(description) {
 }
 
 .chat-message.user {
-    background: var(--theme-primary-subtle, var(--bs-primary-bg-subtle));
-    border-left: 3px solid var(--theme-primary, var(--bs-primary));
+    background: var(--bs-primary-bg-subtle);
+    border-left: 3px solid var(--bs-primary);
 }
 
 .chat-message.assistant {
-    background: var(--theme-secondary-subtle, var(--bs-secondary-bg-subtle));
-    border-left: 3px solid var(--theme-secondary, var(--bs-secondary));
+    background: var(--bs-secondary-bg-subtle);
+    border-left: 3px solid var(--bs-secondary);
 }
 
 .chat-message .message-header {

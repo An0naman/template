@@ -311,29 +311,73 @@
                 padding: 1rem;
             }
         }
+
+        /* CSS Grid Layout for Dynamic Section Positioning */
+        .sections-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 1.5rem;
+            width: 100%;
+            position: relative;
+        }
+
+        .section-wrapper {
+            /* Grid positioning set via inline styles */
+            transition: grid-row-start 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                        grid-column 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                        opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                        max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            will-change: grid-row-start, opacity;
+        }
+
+        /* Collapsed state - use display:none to completely remove from grid flow */
+        .section-wrapper.collapsed {
+            display: none;
+        }
+
+        /* Mobile: stack all sections vertically */
+        @media (max-width: 991.98px) {
+            .sections-grid {
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .section-wrapper {
+                width: 100% !important;
+                grid-column: 1 / -1 !important;
+            }
+        }
     </style>
 </head>
 <body>
 <div class="container-fluid py-3">
-    <!-- DEBUG: section_rows = {{ section_rows }} -->
+    <!-- DEBUG: section_order = {{ section_order }} -->
     <!-- DEBUG: section_config keys = {{ section_config.keys()|list }} -->
     
-    {# Loop through each row of sections #}
-    {% for row in section_rows %}
-        <div class="row g-4 mb-4">
+    {# CSS Grid container for all sections #}
+    <div class="sections-grid" id="sectionsGrid">
+        
+        {# Loop through all sections in order #}
+        {% for section_type in section_order %}
+            {% set config = section_config.get(section_type, {}) %}
             
-            {# Loop through each section in the current row #}
-            {% for section_type in row %}
-                {% set config = section_config.get(section_type, {}) %}
+            {# Only render if visible #}
+            {% if config.get('visible', True) %}
                 
-                {# Only render if visible #}
-                {% if config.get('visible', True) %}
+                <div class="section-wrapper {{ 'is-collapsible' if config.get('collapsible') else '' }} {{ 'collapsed' if config.get('collapsed') else '' }}" 
+                     id="{{ section_type }}SectionWrapper"
+                     data-section-type="{{ section_type }}"
+                     data-x="{{ config.get('x', 0) }}"
+                     data-y="{{ config.get('y', 0) }}"
+                     data-width="{{ config.get('width', 12) }}"
+                     data-height="{{ config.get('height', 3) }}"
+                     data-collapsible="{{ 'true' if config.get('collapsible') else 'false' }}"
+                     style="grid-column: {{ config.get('x', 0) + 1 }} / span {{ config.get('width', 12) }}; grid-row: {{ config.get('y', 0) + 1 }} / span {{ config.get('height', 3) }};">
                     
-                    <div class="col-12 col-lg-{{ config.get('width', 12) }} section-wrapper" id="{{ section_type }}SectionWrapper">
-                        
-                        {# Section container - no inline min-height, using flex instead #}
-                        <div class="content-section theme-section"{% if config.get('max_height') %} style="max-height: {{ config.get('max_height') * 80 }}px; overflow-y: auto;"{% endif %}>
-                            <div class="section-content">
+                    {# Section container #}
+                    <div class="content-section theme-section"{% if config.get('max_height') %} style="max-height: {{ config.get('max_height') * 80 }}px; overflow-y: auto;"{% endif %}>
+                        <div class="section-content">
                                 
                                 {# Section header with title - Only show for non-header sections #}
                                 {% if config.get('title') and section_type != 'header' %}
@@ -395,8 +439,7 @@
             {% endfor %}
             
         </div>
-    {% endfor %}
-</div>
+    </div>
 
 {# Include Sensor Data Modals #}
 {% include 'sections/_sensors_modals.html' %}
@@ -431,7 +474,182 @@ function renderMarkdown(element) {
 // Render all markdown content on page load
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.markdown-content').forEach(renderMarkdown);
+    
+    // Initialize grid layout on page load
+    recalculateGridPositions();
 });
+
+/**
+ * Toggle section visibility and recalculate grid positions
+ * @param {string} sectionType - The section type identifier
+ */
+function toggleSection(sectionType) {
+    const wrapper = document.getElementById(sectionType + 'SectionWrapper');
+    if (!wrapper) return;
+    
+    const isCollapsible = wrapper.dataset.collapsible === 'true';
+    if (!isCollapsible) return;
+    
+    // Toggle collapsed class
+    wrapper.classList.toggle('collapsed');
+    
+    // Update toggle button state
+    const toggleBtn = document.querySelector(`[data-section="${sectionType}"]`);
+    if (toggleBtn) {
+        toggleBtn.classList.toggle('section-visible');
+        toggleBtn.classList.toggle('section-hidden');
+        
+        const icon = toggleBtn.querySelector('i');
+        if (icon) {
+            icon.classList.toggle('fa-eye');
+            icon.classList.toggle('fa-eye-slash');
+        }
+    }
+    
+    // Recalculate positions after animation
+    setTimeout(() => {
+        recalculateGridPositions();
+    }, 50);
+}
+
+/**
+ * Recalculate grid row positions for all sections
+ * This allows sections to "flow upward" when sections above them collapse
+ * while maintaining their column positions
+ */
+function recalculateGridPositions() {
+    console.log('🔄 Recalculating grid positions...');
+    
+    const grid = document.getElementById('sectionsGrid');
+    if (!grid) return;
+    
+    // Get all section wrappers
+    const allSections = Array.from(grid.querySelectorAll('.section-wrapper'));
+    
+    // Build section data array with original positions
+    const sections = allSections.map(wrapper => ({
+        element: wrapper,
+        type: wrapper.dataset.sectionType,
+        x: parseInt(wrapper.dataset.x) || 0,
+        y: parseInt(wrapper.dataset.y) || 0,
+        width: parseInt(wrapper.dataset.width) || 12,
+        height: parseInt(wrapper.dataset.height) || 3,
+        collapsed: wrapper.classList.contains('collapsed')
+    }));
+    
+    console.log('📊 All sections:', sections.map(s => ({
+        type: s.type,
+        x: s.x,
+        y: s.y,
+        width: s.width,
+        collapsed: s.collapsed
+    })));
+    
+    // Filter out collapsed sections - they don't participate in layout
+    const visibleSections = sections.filter(s => !s.collapsed);
+    const collapsedSections = sections.filter(s => s.collapsed);
+    
+    console.log('👁️ Visible sections:', visibleSections.length, 'Collapsed:', collapsedSections.length);
+    
+    // Sort visible sections by original Y position, then by X position
+    // This ensures we process sections from top to bottom, left to right
+    visibleSections.sort((a, b) => {
+        if (a.y !== b.y) return a.y - b.y;
+        return a.x - b.x;
+    });
+    
+    // Track occupied grid cells: Map<rowIndex, Set<columnIndices>>
+    const occupiedCells = new Map();
+    
+    /**
+     * Check if a section can be placed at a specific row
+     * @param {number} row - Row index to check
+     * @param {number} colStart - Starting column (0-11)
+     * @param {number} width - Width in columns
+     * @param {number} height - Height in rows
+     * @returns {boolean} - True if position is available
+     */
+    function canPlaceAt(row, colStart, width, height) {
+        for (let r = row; r < row + height; r++) {
+            if (!occupiedCells.has(r)) continue;
+            
+            const occupied = occupiedCells.get(r);
+            for (let c = colStart; c < colStart + width; c++) {
+                if (occupied.has(c)) return false;
+            }
+        }
+        return true;
+    }
+    
+    /**
+     * Mark cells as occupied
+     * @param {number} row - Starting row
+     * @param {number} colStart - Starting column
+     * @param {number} width - Width in columns
+     * @param {number} height - Height in rows
+     */
+    function occupyCells(row, colStart, width, height) {
+        for (let r = row; r < row + height; r++) {
+            if (!occupiedCells.has(r)) {
+                occupiedCells.set(r, new Set());
+            }
+            const occupied = occupiedCells.get(r);
+            for (let c = colStart; c < colStart + width; c++) {
+                occupied.add(c);
+            }
+        }
+    }
+    
+    // Place each visible section, starting from row 0
+    // Hide collapsed sections
+    collapsedSections.forEach(section => {
+        section.element.style.gridRow = '';
+        console.log(`❌ ${section.type} is collapsed, skipping`);
+    });
+    
+    // Place visible sections
+    visibleSections.forEach(section => {
+        const { x, width, height } = section;
+        
+        // IMPORTANT: Maintain the original column position (x)
+        // Only adjust the row position (y)
+        section.element.style.gridColumn = `${x + 1} / span ${width}`;
+        
+        // Find the first available row for this section
+        // Start from row 0 and work downward
+        let targetRow = 0;
+        while (!canPlaceAt(targetRow, x, width, height)) {
+            targetRow++;
+            // Safety limit to prevent infinite loop
+            if (targetRow > 100) break;
+        }
+        
+        console.log(`✅ ${section.type} (x:${x}, width:${width}, height:${height}) -> placed at row ${targetRow} (original y:${section.y})`);
+        
+        // Place the section at the calculated row
+        section.element.style.gridRow = `${targetRow + 1} / span ${height}`;
+        
+        // Mark cells as occupied
+        occupyCells(targetRow, x, width, height);
+    });
+}
+
+// Add CSS for button states
+const style = document.createElement('style');
+style.textContent = `
+    .section-toggle-btn.section-visible {
+        background-color: var(--bs-success);
+        border-color: var(--bs-success);
+        color: white;
+    }
+    .section-toggle-btn.section-hidden {
+        background-color: var(--bs-secondary);
+        border-color: var(--bs-secondary);
+        color: white;
+        opacity: 0.6;
+    }
+`;
+document.head.appendChild(style);
 </script>
 </body>
 </html>

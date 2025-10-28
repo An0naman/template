@@ -55,9 +55,13 @@ async function loadSensorData() {
         sensorDataCache = sensorData;
         allSensorData = sensorData;
         
-        // Render will trigger chart view automatically
         renderSensorData(sensorData);
         
+        // Update chart immediately if in chart view
+        const chartViewBtn = document.getElementById('chartView');
+        if (chartViewBtn && chartViewBtn.checked) {
+            renderChartView();
+        }
     } catch (error) {
         console.error('Error loading sensor data:', error);
         sensorDataContainer.innerHTML = '<p class="text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Error loading sensor data.</p>';
@@ -73,9 +77,6 @@ function renderSensorData(sensorData) {
     
     // Store data globally for chart functionality
     allSensorData = sensorData;
-    sensorDataCache = sensorData;
-    
-    console.log('renderSensorData called with', sensorData.length, 'records');
     
     // Manage performance alert
     showPerformanceAlertIfNeeded(sensorData.length);
@@ -84,8 +85,7 @@ function renderSensorData(sensorData) {
         sensorDataContainer.innerHTML = '<p class="text-muted text-center"><i class="fas fa-chart-line fa-2x mb-2 d-block opacity-50"></i>No sensor data recorded yet.</p>';
         const chartContainer = document.getElementById('sensorChartContainer');
         if (chartContainer) {
-            const canvas = chartContainer.querySelector('canvas');
-            if (canvas) canvas.style.display = 'none';
+            chartContainer.querySelector('canvas').style.display = 'none';
             const noDataMsg = chartContainer.querySelector('.no-data-message') || document.createElement('p');
             noDataMsg.className = 'text-muted text-center no-data-message';
             noDataMsg.innerHTML = '<i class="fas fa-chart-line fa-2x mb-2 d-block opacity-50"></i>No sensor data to display';
@@ -102,15 +102,8 @@ function renderSensorData(sensorData) {
     
     // Show chart view by default (or if chart view is active)
     const chartViewBtn = document.getElementById('chartView');
-    console.log('Chart view button:', chartViewBtn, 'checked:', chartViewBtn?.checked);
     if (!chartViewBtn || chartViewBtn.checked) {
-        console.log('Rendering chart view after data load');
-        // Use setTimeout to ensure DOM is fully ready and Chart.js is loaded
-        setTimeout(() => {
-            renderChartView();
-        }, 100);
-    } else {
-        console.log('Skipping chart render - table view is active');
+        renderChartView();
     }
 }
 
@@ -322,36 +315,20 @@ function stopSensorDataAutoRefresh() {
 function renderChartView() {
     console.log('renderChartView() called');
     
-    // Check if Chart.js is loaded
-    if (typeof Chart === 'undefined') {
-        console.error('Chart.js is not loaded!');
-        return;
-    }
-    
     const canvas = document.getElementById('sensorChart');
     if (!canvas) {
         console.error('Chart canvas not found');
         return;
     }
     
-    console.log('allSensorData:', allSensorData ? allSensorData.length : 'undefined');
-    
     // Get filter values
     const chartType = document.getElementById('chartTypeSelect')?.value || 'line';
     const sensorType = document.getElementById('sensorTypeFilter')?.value || 'all';
-    const timeRange = document.getElementById('timeRangeFilter')?.value || 'all';
+    const timeRange = document.getElementById('timeRangeFilter')?.value || '24h';
     const dataLimit = document.getElementById('dataLimitFilter')?.value || '';
-    
-    console.log('Filters:', { chartType, sensorType, timeRange, dataLimit });
     
     // Filter data
     let filteredData = filterSensorData(allSensorData, sensorType, timeRange, dataLimit);
-    
-    console.log('Filtered data:', filteredData.length, 'records');
-    
-    // Hide loading message
-    const loadingChart = document.getElementById('loadingChart');
-    if (loadingChart) loadingChart.style.display = 'none';
     
     if (filteredData.length === 0) {
         destroyChart();
@@ -445,25 +422,11 @@ function renderChartView() {
 }
 
 function filterSensorData(data, sensorType, timeRange, dataLimit) {
-    // Safety check
-    if (!data || !Array.isArray(data)) {
-        console.warn('filterSensorData called with invalid data:', data);
-        return [];
-    }
-    
     let filtered = [...data];
-    
-    console.log('Filtering sensor data:', {
-        totalRecords: data.length,
-        sensorType: sensorType,
-        timeRange: timeRange,
-        dataLimit: dataLimit
-    });
     
     // Filter by sensor type
     if (sensorType && sensorType !== 'all') {
         filtered = filtered.filter(d => d.sensor_type === sensorType);
-        console.log(`After sensor type filter (${sensorType}):`, filtered.length);
     }
     
     // Filter by time range
@@ -484,13 +447,7 @@ function filterSensorData(data, sensorType, timeRange, dataLimit) {
         }
         
         if (cutoffDate) {
-            console.log('Cutoff date:', cutoffDate);
-            console.log('Sample data dates:', filtered.slice(0, 3).map(d => d.recorded_at));
-            filtered = filtered.filter(d => {
-                const recordDate = new Date(d.recorded_at);
-                return recordDate >= cutoffDate;
-            });
-            console.log(`After time range filter (${timeRange}):`, filtered.length);
+            filtered = filtered.filter(d => new Date(d.recorded_at) >= cutoffDate);
         }
     }
     
@@ -550,29 +507,9 @@ function showNoDataMessage() {
         const existing = chartContainer.querySelector('.no-data-message');
         if (existing) existing.remove();
         
-        const timeRange = document.getElementById('timeRangeFilter')?.value;
-        const sensorType = document.getElementById('sensorTypeFilter')?.value;
-        
-        let message = 'No data available for selected filters';
-        if (timeRange && timeRange !== 'all') {
-            const ranges = {
-                '24h': 'last 24 hours',
-                '7d': 'last 7 days',
-                '30d': 'last 30 days'
-            };
-            message = `No sensor data found in the ${ranges[timeRange] || 'selected time range'}`;
-        }
-        if (sensorType && sensorType !== 'all') {
-            message += ` for sensor type "${sensorType}"`;
-        }
-        
-        const msg = document.createElement('div');
-        msg.className = 'alert alert-info no-data-message mt-3';
-        msg.innerHTML = `
-            <i class="fas fa-info-circle me-2"></i>
-            <strong>${message}</strong>
-            <br><small>Try selecting "All Time" or a different time range to see your data.</small>
-        `;
+        const msg = document.createElement('p');
+        msg.className = 'text-muted text-center no-data-message mt-3';
+        msg.innerHTML = '<i class="fas fa-chart-line fa-2x mb-2 d-block opacity-50"></i>No data available for selected filters';
         chartContainer.appendChild(msg);
     }
 }
@@ -901,83 +838,6 @@ async function unlinkDeviceFromEntry(deviceId) {
 }
 
 // ==================== INITIALIZATION ====================
-
-function initializeSensorSection() {
-    console.log('Initializing sensor section for entry:', entryId);
-    
-    // Setup view toggle
-    const chartViewBtn = document.getElementById('chartView');
-    const tableViewBtn = document.getElementById('tableView');
-    
-    if (chartViewBtn && tableViewBtn) {
-        chartViewBtn.addEventListener('change', function() {
-            if (this.checked) {
-                document.getElementById('sensorChartContainer').style.display = 'block';
-                document.getElementById('sensorDataContainer').style.display = 'none';
-                if (allSensorData && allSensorData.length > 0) {
-                    renderChartView();
-                }
-            }
-        });
-        
-        tableViewBtn.addEventListener('change', function() {
-            if (this.checked) {
-                document.getElementById('sensorChartContainer').style.display = 'none';
-                document.getElementById('sensorDataContainer').style.display = 'block';
-                if (sensorDataCache.length > 0) {
-                    renderTableView(sensorDataCache);
-                }
-            }
-        });
-    }
-    
-    // Setup chart controls
-    const chartTypeSelect = document.getElementById('chartTypeSelect');
-    const sensorTypeFilter = document.getElementById('sensorTypeFilter');
-    const timeRangeFilter = document.getElementById('timeRangeFilter');
-    const dataLimitFilter = document.getElementById('dataLimitFilter');
-    
-    if (chartTypeSelect) chartTypeSelect.addEventListener('change', () => {
-        if (allSensorData && allSensorData.length > 0) renderChartView();
-    });
-    if (sensorTypeFilter) sensorTypeFilter.addEventListener('change', () => {
-        if (allSensorData && allSensorData.length > 0) renderChartView();
-    });
-    if (timeRangeFilter) timeRangeFilter.addEventListener('change', () => {
-        if (allSensorData && allSensorData.length > 0) renderChartView();
-    });
-    if (dataLimitFilter) dataLimitFilter.addEventListener('change', () => {
-        if (allSensorData && allSensorData.length > 0) renderChartView();
-    });
-    
-    // Apply mobile limit if on mobile
-    if (isMobileDevice && dataLimitFilter) {
-        dataLimitFilter.value = MOBILE_DATA_LIMIT;
-        dataLimitFilter.max = MOBILE_DATA_LIMIT;
-        
-        // Show performance alert
-        const perfAlert = document.getElementById('performanceAlert');
-        if (perfAlert) {
-            perfAlert.classList.remove('d-none');
-        }
-    }
-    
-    // DON'T load chart preferences here - let data load first with defaults
-    // Preferences will be available for user to save after they see their data
-    // loadChartPreferences();
-    
-    // Load initial sensor data (this will trigger chart rendering when complete)
-    console.log('Loading initial sensor data...');
-    loadSensorData();
-    
-    // Start auto-refresh
-    startSensorDataAutoRefresh();
-}
-
-// Execute any registered callbacks when this script loads
-if (typeof window.sensorSectionCallbacks !== 'undefined') {
-    window.sensorSectionCallbacks.forEach(callback => callback());
-}
 
 // Cleanup on page unload
 window.addEventListener('beforeunload', function() {

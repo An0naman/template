@@ -325,8 +325,8 @@ def entry_detail_v2(entry_id):
                 'width': section.get('width', 12),
                 'height': section.get('height', 3),
                 'max_height': section.get('max_height'),
-                'x': section.get('x', 0),
-                'y': section.get('y', 0)
+                'x': section.get('position_x', 0),  # Fixed: use position_x from DB
+                'y': section.get('position_y', 0)   # Fixed: use position_y from DB
             }
         
         # Create ordered list of visible sections
@@ -334,11 +334,11 @@ def entry_detail_v2(entry_id):
         
         # Group sections by Y coordinate (row position in the grid)
         # Sort by Y first, then by X within each row
-        visible_sections.sort(key=lambda x: (x.get('y', 0), x.get('x', 0)))
+        visible_sections.sort(key=lambda x: (x.get('position_y', 0), x.get('position_x', 0)))
         
         # Group into rows based on Y coordinate
         from itertools import groupby
-        for y_pos, sections_in_row in groupby(visible_sections, key=lambda x: x.get('y', 0)):
+        for y_pos, sections_in_row in groupby(visible_sections, key=lambda x: x.get('position_y', 0)):
             row_sections = [s['section_type'] for s in sections_in_row]
             if row_sections:
                 section_rows.append(row_sections)

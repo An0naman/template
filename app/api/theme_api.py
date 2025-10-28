@@ -1780,32 +1780,6 @@ def generate_theme_css(settings=None):
             transform: translateY(-1px);
         }
         
-        /* Override Bootstrap primary button */
-        .btn-primary {
-            background-color: var(--theme-primary) !important;
-            border-color: var(--theme-primary) !important;
-            color: white !important;
-        }
-        
-        .btn-primary:hover, .btn-primary:focus, .btn-primary:active {
-            background-color: var(--theme-primary-hover) !important;
-            border-color: var(--theme-primary-hover) !important;
-            color: white !important;
-        }
-        
-        /* Override Bootstrap secondary button */
-        .btn-secondary {
-            background-color: var(--theme-secondary) !important;
-            border-color: var(--theme-secondary) !important;
-            color: white !important;
-        }
-        
-        .btn-secondary:hover, .btn-secondary:focus, .btn-secondary:active {
-            background-color: var(--theme-secondary-hover) !important;
-            border-color: var(--theme-secondary-hover) !important;
-            color: white !important;
-        }
-        
         /* Override Bootstrap danger button with theme colors */
         .btn-danger {
             background-color: var(--theme-danger) !important;
@@ -1828,45 +1802,6 @@ def generate_theme_css(settings=None):
         .btn-outline-danger:hover, .btn-outline-danger:focus, .btn-outline-danger:active {
             background-color: var(--theme-danger) !important;
             border-color: var(--theme-danger) !important;
-            color: white !important;
-        }
-        
-        /* Override Bootstrap primary outline button */
-        .btn-outline-primary {
-            color: var(--theme-primary) !important;
-            border-color: var(--theme-primary) !important;
-            background-color: transparent !important;
-        }
-        
-        .btn-outline-primary:hover, .btn-outline-primary:focus, .btn-outline-primary:active {
-            background-color: var(--theme-primary) !important;
-            border-color: var(--theme-primary) !important;
-            color: white !important;
-        }
-        
-        /* Override Bootstrap secondary outline button */
-        .btn-outline-secondary {
-            color: var(--theme-secondary) !important;
-            border-color: var(--theme-secondary) !important;
-            background-color: transparent !important;
-        }
-        
-        .btn-outline-secondary:hover, .btn-outline-secondary:focus, .btn-outline-secondary:active {
-            background-color: var(--theme-secondary) !important;
-            border-color: var(--theme-secondary) !important;
-            color: white !important;
-        }
-        
-        /* Override Bootstrap success outline button */
-        .btn-outline-success {
-            color: var(--theme-success) !important;
-            border-color: var(--theme-success) !important;
-            background-color: transparent !important;
-        }
-        
-        .btn-outline-success:hover, .btn-outline-success:focus, .btn-outline-success:active {
-            background-color: var(--theme-success) !important;
-            border-color: var(--theme-success) !important;
             color: white !important;
         }
         

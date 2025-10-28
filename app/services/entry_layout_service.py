@@ -235,7 +235,7 @@ class EntryLayoutService:
             # Get sections
             cursor.execute("""
                 SELECT id, layout_id, section_type, title, position_x, position_y,
-                       width, height, max_height, is_visible, is_collapsible, default_collapsed,
+                       width, height, is_visible, is_collapsible, default_collapsed,
                        config, display_order, created_at, updated_at
                 FROM EntryLayoutSection
                 WHERE layout_id = ?
@@ -253,7 +253,6 @@ class EntryLayoutService:
                     'position_y': row['position_y'],
                     'width': row['width'],
                     'height': row['height'],
-                    'max_height': row['max_height'],
                     'is_visible': bool(row['is_visible']),
                     'is_collapsible': bool(row['is_collapsible']),
                     'default_collapsed': bool(row['default_collapsed']),
@@ -438,7 +437,7 @@ class EntryLayoutService:
             
             # Build UPDATE query dynamically
             allowed_fields = [
-                'title', 'position_x', 'position_y', 'width', 'height', 'max_height',
+                'title', 'position_x', 'position_y', 'width', 'height',
                 'is_visible', 'is_collapsible', 'default_collapsed', 'config', 'display_order'
             ]
             
