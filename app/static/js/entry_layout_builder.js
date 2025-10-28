@@ -461,8 +461,14 @@ function renderSectionProperties(section) {
                 <div class="col-6">
                     <input type="number" class="form-control form-control-sm" 
                            id="sectionHeightInput" value="${section.height}" min="1" max="20">
-                    <small class="text-muted">Height (rows)</small>
+                    <small class="text-muted">Min Height (rows)</small>
                 </div>
+            </div>
+            <div class="mt-2">
+                <input type="number" class="form-control form-control-sm" 
+                       id="sectionMaxHeightInput" value="${section.max_height || ''}" 
+                       min="${section.height}" placeholder="No limit">
+                <small class="text-muted">Max Height (rows) - Optional, must be ≥ min height</small>
             </div>
             <small class="text-muted">Drag corners or enter values</small>
         </div>
@@ -508,6 +514,17 @@ function renderSectionProperties(section) {
             </button>
         </div>
     `;
+    
+    // Add event listener to update max height min value when height changes
+    setTimeout(() => {
+        const heightInput = document.getElementById('sectionHeightInput');
+        const maxHeightInput = document.getElementById('sectionMaxHeightInput');
+        if (heightInput && maxHeightInput) {
+            heightInput.addEventListener('input', () => {
+                maxHeightInput.min = heightInput.value;
+            });
+        }
+    }, 0);
 }
 
 // Save section properties
@@ -521,8 +538,16 @@ async function saveSectionProperties() {
         is_visible: document.getElementById('sectionVisibleSwitch').checked ? 1 : 0,
         is_collapsible: document.getElementById('sectionCollapsibleSwitch').checked ? 1 : 0,
         width: parseInt(document.getElementById('sectionWidthInput').value),
-        height: parseInt(document.getElementById('sectionHeightInput').value)
+        height: parseInt(document.getElementById('sectionHeightInput').value),
+        max_height: document.getElementById('sectionMaxHeightInput').value ? 
+                    parseInt(document.getElementById('sectionMaxHeightInput').value) : null
     };
+    
+    // Validate max_height is >= height
+    if (updates.max_height && updates.max_height < updates.height) {
+        alert('Max height must be greater than or equal to min height');
+        return;
+    }
     
     if (selectedSection.is_collapsible) {
         updates.default_collapsed = document.getElementById('sectionCollapsedSwitch').checked ? 1 : 0;

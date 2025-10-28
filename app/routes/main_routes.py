@@ -200,6 +200,7 @@ def entry_detail_page(entry_id):
                 'collapsed': section.get('default_collapsed', False),
                 'width': section.get('width', 12),
                 'height': section.get('height', 3),
+                'max_height': section.get('max_height'),
                 'x': section.get('x', 0),
                 'y': section.get('y', 0)
             }
@@ -323,6 +324,7 @@ def entry_detail_v2(entry_id):
                 'collapsed': section.get('default_collapsed', False),
                 'width': section.get('width', 12),
                 'height': section.get('height', 3),
+                'max_height': section.get('max_height'),
                 'x': section.get('x', 0),
                 'y': section.get('y', 0)
             }

@@ -230,6 +230,30 @@
             font-weight: 500;
         }
 
+        /* Row Section Equal Heights */
+        .row.g-4 {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        
+        .section-wrapper {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .section-wrapper .content-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .section-wrapper .section-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
         /* Mobile Responsive Styles */
         @media (max-width: 991.98px) {
             /* Force sections to stack vertically on mobile */
@@ -307,8 +331,8 @@
                     
                     <div class="col-12 col-lg-{{ config.get('width', 12) }} section-wrapper" id="{{ section_type }}SectionWrapper">
                         
-                        {# Section container #}
-                        <div class="content-section theme-section" style="min-height: {{ config.get('height', 3) * 80 }}px;">
+                        {# Section container - no inline min-height, using flex instead #}
+                        <div class="content-section theme-section"{% if config.get('max_height') %} style="max-height: {{ config.get('max_height') * 80 }}px; overflow-y: auto;"{% endif %}>
                             <div class="section-content">
                                 
                                 {# Section header with title - Only show for non-header sections #}
