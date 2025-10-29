@@ -583,6 +583,10 @@ GEMINI_API_KEY=
 
 ## Related Documentation
 
+- [Auto-Update Guide](AUTO_UPDATE.md) - Automatic updates with Watchtower
+- [Deployment Guide](DEPLOYMENT_GUIDE.md) - Production deployment
+- [Update Guide](UPDATE_GUIDE.md) - Manual update procedures
+- [Quick Start](QUICK_START.md) - 5-minute setup guide
 - [Installation Guide](../setup/INSTALLATION.md) - Initial framework setup
 - [Architecture](../development/ARCHITECTURE.md) - Technical details
 - [API Reference](../guides/API_REFERENCE.md) - Integration options

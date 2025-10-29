@@ -25,6 +25,7 @@ A sophisticated Flask-based content management system with dynamic theming, rela
 - 🐳 **Docker Support**: Production-ready containerization
 - 📊 **Database Management**: SQLite with all config in SQL (framework-ready)
 - 🔄 **Framework Design**: Reusable across multiple independent applications
+- 🔄 **Auto-Updates**: Watchtower integration for automatic updates from git commits
 
 ---
 
@@ -125,7 +126,8 @@ template/
 - **[Quick Start Guide](docs/framework/QUICK_START.md)** - Get started in 5 minutes
 - **[Deployment Guide](docs/framework/DEPLOYMENT_GUIDE.md)** - Deploy app instances with migrations
 - **[Update Guide](docs/framework/UPDATE_GUIDE.md)** - Update framework and apps (auto-migrations!)
-- **[Migration Support](FRAMEWORK_MIGRATION_SUPPORT_COMPLETE.md)** - 🆕 Database migration system
+- **[Auto-Update Guide](docs/framework/AUTO_UPDATE.md)** - 🆕 Automatic updates with Watchtower
+- **[Migration Support](FRAMEWORK_MIGRATION_SUPPORT_COMPLETE.md)** - Database migration system
 - **[Template Sharing Update](RELATIONSHIP_TEMPLATE_SHARING_UPDATE.md)** - Latest feature (requires migration)
 - **[Implementation Summary](docs/framework/IMPLEMENTATION_SUMMARY.md)** - Technical details
 - **[Architecture](docs/development/ARCHITECTURE.md)** - System design

@@ -9,6 +9,10 @@ services:
     # Unique container name for this instance
     container_name: ${APP_NAME:-myapp}
     
+    # Watchtower label - enables automatic updates
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    
     # Restart policy
     restart: always
     
@@ -96,6 +100,39 @@ services:
     #     reservations:
     #       cpus: '0.5'
     #       memory: 512M
+
+  # Watchtower - Automatic updates when new framework versions are released
+  watchtower:
+    image: containrrr/watchtower
+    container_name: ${APP_NAME:-myapp}-watchtower
+    restart: always
+    
+    volumes:
+      # Docker socket for managing containers
+      - /var/run/docker.sock:/var/run/docker.sock
+    
+    environment:
+      # Check for updates every 5 minutes (300 seconds)
+      - WATCHTOWER_POLL_INTERVAL=${WATCHTOWER_POLL_INTERVAL:-300}
+      
+      # Remove old images after updating
+      - WATCHTOWER_CLEANUP=true
+      
+      # Only update running containers
+      - WATCHTOWER_INCLUDE_STOPPED=false
+      
+      # Only update containers with the watchtower label
+      - WATCHTOWER_LABEL_ENABLE=true
+      
+      # Optional: Send notifications on updates
+      - WATCHTOWER_NOTIFICATIONS=${WATCHTOWER_NOTIFICATIONS:-}
+      - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL:-}
+      
+      # Timezone for logs
+      - TZ=${TZ:-UTC}
+    
+    # Only monitor containers with the watchtower label
+    command: --label-enable
 
 # Optional: Named volume for data persistence
 # volumes:
