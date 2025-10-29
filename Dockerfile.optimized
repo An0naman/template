@@ -1,0 +1,95 @@
+# Enhanced Multi-Stage Dockerfile for Framework
+# Optimized for size, security, and performance
+
+# ============================================================================
+# Stage 1: Build stage (dependencies)
+# ============================================================================
+FROM python:3.12-slim AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    libbluetooth-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# ============================================================================
+# Stage 2: Runtime stage
+# ============================================================================
+FROM python:3.12-slim
+
+# Build arguments for metadata
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION=dev
+
+# Labels for metadata
+LABEL org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.authors="an0naman" \
+      org.opencontainers.image.url="https://github.com/An0naman/template" \
+      org.opencontainers.image.source="https://github.com/An0naman/template" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.title="Template Framework" \
+      org.opencontainers.image.description="Flask-based content management framework" \
+      org.opencontainers.image.licenses="MIT"
+
+WORKDIR /app
+
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    fonts-dejavu-core \
+    fonts-dejavu-extra \
+    bluez \
+    bluetooth \
+    libbluetooth3 \
+    dumb-init \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Create non-root user for security
+RUN groupadd -r appuser && \
+    useradd -r -g appuser -u 1000 appuser && \
+    mkdir -p /app/data /app/logs && \
+    chown -R appuser:appuser /app
+
+# Copy Python dependencies from builder
+COPY --from=builder --chown=appuser:appuser /root/.local /home/appuser/.local
+
+# Copy application code
+COPY --chown=appuser:appuser app/ app/
+COPY --chown=appuser:appuser run.py .
+COPY --chown=appuser:appuser scripts/ scripts/
+COPY --chown=appuser:appuser migrations/ migrations/
+
+# Create version file
+RUN echo "${VERSION}" > /app/VERSION && \
+    echo "${VCS_REF}" > /app/REVISION && \
+    echo "${BUILD_DATE}" > /app/BUILD_DATE
+
+# Set PATH for user-installed packages
+ENV PATH=/home/appuser/.local/bin:$PATH \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+# Switch to non-root user
+USER appuser
+
+# Expose application port
+EXPOSE 5001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:5001/api/health', timeout=5)" || exit 1
+
+# Use dumb-init to properly handle signals
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+
+# Run the application
+CMD ["python", "run.py"]

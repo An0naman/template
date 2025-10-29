@@ -1,0 +1,105 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 $(git rev-list --tags --skip=1 --max-count=1) 2>/dev/null || echo "")
+          
+          # Generate changelog
+          if [ -z "$PREV_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
+          else
+            CHANGELOG=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          fi
+          
+          # Save to file
+          echo "$CHANGELOG" > RELEASE_CHANGELOG.md
+          
+          # Also save to output (GitHub Actions format)
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body: |
+            ## What's Changed
+            
+            ${{ steps.changelog.outputs.changelog }}
+            
+            ## Docker Images
+            
+            Pull this release:
+            ```bash
+            docker pull ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            docker pull ghcr.io/${{ github.repository }}:latest
+            ```
+            
+            ## Update Your App Instances
+            
+            ```bash
+            cd ~/apps/your-app
+            docker-compose pull
+            docker-compose up -d
+            ```
+            
+            ## Full Changelog
+            
+            **Full Diff**: https://github.com/${{ github.repository }}/compare/${{ steps.changelog.outputs.prev_tag }}...${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update CHANGELOG.md
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          VERSION=${{ github.ref_name }}
+          
+          # Create new changelog entry
+          cat > NEW_CHANGELOG.md << EOF
+          # Changelog
+          
+          All notable changes to this project will be documented in this file.
+          
+          ## [${VERSION}] - ${DATE}
+          
+          $(cat RELEASE_CHANGELOG.md)
+          
+          EOF
+          
+          # Append existing changelog if it exists
+          if [ -f CHANGELOG.md ]; then
+            tail -n +3 CHANGELOG.md >> NEW_CHANGELOG.md
+          fi
+          
+          mv NEW_CHANGELOG.md CHANGELOG.md
+
+      - name: Commit updated CHANGELOG
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add CHANGELOG.md
+          git commit -m "Update CHANGELOG for ${{ github.ref_name }}" || echo "No changes to commit"
+          git push origin HEAD:main || echo "No changes to push"

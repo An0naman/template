@@ -89,6 +89,7 @@ def create_app():
     from .api.dashboard_api import dashboard_api_bp
     from .api.entry_layout_api import entry_layout_api_bp
     from .api.milestone_api import milestone_api_bp
+    from .api.health_api import health_api_bp
 
     # Register all blueprints
     app.register_blueprint(main_bp)
@@ -120,6 +121,7 @@ def create_app():
     app.register_blueprint(dashboard_api_bp, url_prefix='/api')
     app.register_blueprint(entry_layout_api_bp, url_prefix='/api')
     app.register_blueprint(milestone_api_bp, url_prefix='/api')
+    app.register_blueprint(health_api_bp, url_prefix='/api')
 
     app.logger.info("Blueprints registered.")
 
