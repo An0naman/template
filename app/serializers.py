@@ -69,7 +69,7 @@ def serialize_entry_relationship(relationship_row, is_inverse=False):
     related_entry_cardinality = relationship_row['cardinality_to'] if not is_inverse else relationship_row['cardinality_from']
 
 
-    return {
+    result = {
         "relationship_id": relationship_row['relationship_id'],
         "related_entry_id": relationship_row['related_entry_id'],
         "related_entry_title": relationship_row['related_entry_title'],
@@ -84,3 +84,18 @@ def serialize_entry_relationship(relationship_row, is_inverse=False):
         "related_entry_cardinality": related_entry_cardinality,
         "is_inverse": is_inverse
     }
+    
+    # Add source/target IDs if available
+    if 'source_entry_id' in relationship_row.keys():
+        result['source_entry_id'] = relationship_row['source_entry_id']
+    if 'source_entry_title' in relationship_row.keys():
+        result['source_title'] = relationship_row['source_entry_title']
+    if 'target_entry_id' in relationship_row.keys():
+        result['target_entry_id'] = relationship_row['target_entry_id']
+    if 'target_entry_title' in relationship_row.keys():
+        result['target_title'] = relationship_row['target_entry_title']
+    
+    # Add relationship_type (definition_id) for compatibility
+    result['relationship_type'] = relationship_row['definition_id']
+    
+    return result

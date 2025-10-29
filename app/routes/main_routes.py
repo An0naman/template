@@ -350,12 +350,21 @@ def entry_detail_v2(entry_id):
     print(f"DEBUG V2 Entry {entry_id} - section_rows: {section_rows}")
     print(f"DEBUG V2 Entry {entry_id} - section_config: {section_config}")
 
-    return render_template('entry_detail_v2.html',
+    # Create response with cache-busting headers
+    from flask import make_response
+    response = make_response(render_template('entry_detail_v2.html',
                            project_name=params.get('project_name'),
                            entry=entry_data,
                            section_config=section_config,
                            section_order=section_order,
-                           section_rows=section_rows)
+                           section_rows=section_rows))
+    
+    # Add cache control headers to force browser to reload
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    
+    return response
 
 @main_bp.route('/settings')
 def settings():

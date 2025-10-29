@@ -49,12 +49,57 @@
             </div>
         </div>
         
-        <!-- Milestones Management Button -->
-        <div class="mt-2 text-end">
-            <button class="btn btn-sm btn-outline-primary" id="manageMilestonesBtn" type="button">
-                <i class="fas fa-diamond me-1"></i>
-                <span>Manage Milestones</span>
-            </button>
+        <!-- Milestones Management and Template Controls -->
+        <div class="mt-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <!-- Template Status Badge (shown when entry is a template) -->
+            <div id="templateStatusBadge" class="template-status-badge" style="display: none;">
+                <i class="fas fa-layer-group me-2"></i>
+                <span class="template-name"></span>
+                <span class="badge distribution-badge ms-2"></span>
+            </div>
+            
+            <div class="ms-auto d-flex gap-2">
+                <!-- Manage Milestones Button -->
+                <button class="btn btn-sm btn-outline-primary" id="manageMilestonesBtn" type="button">
+                    <i class="fas fa-diamond me-1"></i>
+                    <span>Manage Milestones</span>
+                </button>
+                
+                <!-- Template Actions Dropdown -->
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                            type="button"
+                            data-bs-toggle="dropdown" 
+                            aria-expanded="false">
+                        <i class="fas fa-layer-group me-1"></i>
+                        <span>Template</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <a class="dropdown-item" href="#" id="configureTemplateMenuItem"
+                               onclick="showTemplateConfigModal(); return false;">
+                                <i class="fas fa-layer-group me-2"></i>
+                                <span class="menu-text">Save as Template</span>
+                            </a>
+                        </li>
+                        <li id="toggleDistributionMenuItem" style="display: none;">
+                            <a class="dropdown-item" href="#" 
+                               onclick="toggleTemplateDistribution(); return false;">
+                                <i class="fas fa-share-alt me-2"></i>
+                                <span class="menu-text">Mark for Distribution</span>
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item" href="#" 
+                               onclick="showTemplateBrowser(); return false;">
+                                <i class="fas fa-download me-2"></i>
+                                Import from Template
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
         </div>
         {% endif %}
         
@@ -93,6 +138,27 @@
 </div>
 
 <style>
+/* Template Status Badge */
+.template-status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.375rem 0.75rem;
+    background: var(--theme-card-background, rgba(255, 255, 255, 0.05));
+    border: 1px solid var(--theme-border, rgba(255, 255, 255, 0.1));
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    color: var(--theme-text, #fff);
+}
+
+.template-status-badge .template-name {
+    font-weight: 500;
+}
+
+.template-status-badge .distribution-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
 /* Unified Progress Bar Styles */
 .unified-progress-container {
     width: 100%;
@@ -475,8 +541,35 @@
 </style>
 
 <script>
+// Extract entryId from the current page URL as fallback
 (function() {
-    const entryId = {{ entry.id }};
+    let entryId = null;
+    
+    // Try to get from Jinja2 template first
+    const templateEntryId = {{ entry.id if entry and entry.id else 'null' }};
+    if (templateEntryId) {
+        entryId = templateEntryId;
+    } else {
+        // Fallback: extract from URL path like /entry/85/v2
+        const pathMatch = window.location.pathname.match(/\/entry\/(\d+)/);
+        if (pathMatch) {
+            entryId = parseInt(pathMatch[1]);
+        }
+    }
+    
+    // Make available globally
+    window.currentPageEntryId = entryId;
+    
+    // Check if entryId is valid before proceeding
+    if (!entryId) {
+        console.error('Entry ID not available, timeline section will not be initialized');
+        console.error('URL:', window.location.pathname);
+        console.error('Template entry value:', {{ entry|tojson|safe if entry else 'null' }});
+        return;
+    }
+    
+    console.log('Timeline section initialized with entry ID:', entryId);
+    
     let timelineData = [];
     let statusColors = {}; // Store status colors from API
     
@@ -1485,5 +1578,8 @@
     
     // Initialize on load
     initTimeline();
+    
+    // Note: Milestone templates are initialized after milestone_templates.js loads
+    // See entry_detail_v2.html script section
 })();
 </script>

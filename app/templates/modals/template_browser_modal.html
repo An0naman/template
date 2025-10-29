@@ -1,0 +1,224 @@
+<!-- Milestone Template Browser Modal -->
+<div class="modal fade" id="templateBrowserModal" tabindex="-1" aria-labelledby="templateBrowserModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="templateBrowserModalLabel">
+                    <i class="fas fa-download me-2"></i>
+                    Import Milestone Template
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Relationship-Based Template Discovery -->
+                <div id="relationshipSelectorSection" class="mb-4" style="display: none;">
+                    <h6 class="mb-3">
+                        <i class="fas fa-link me-2"></i>
+                        Discover Templates from Related Entries
+                    </h6>
+                    <p class="text-muted small">
+                        Find templates from entries that this entry is related to.
+                    </p>
+                    <select id="relationshipSelector" class="form-select">
+                        <option value="">Select a related entry...</option>
+                        <!-- Populated by JavaScript -->
+                    </select>
+                </div>
+                
+                <div id="templatesLoadingState" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading templates...</span>
+                    </div>
+                    <div class="mt-3 text-muted">Loading available templates...</div>
+                </div>
+                
+                <div id="noTemplatesState" class="alert alert-warning" style="display: none;">
+                    <h6 class="alert-heading">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        No Milestone Templates Available
+                    </h6>
+                    <p class="mb-2">There are no milestone templates available for this entry type yet.</p>
+                    <hr>
+                    <p class="mb-0"><strong>To create and use templates:</strong></p>
+                    <ol class="mb-0 mt-2">
+                        <li>Create an entry with milestones (use the "Manage Milestones" button)</li>
+                        <li>Mark it as a template using <strong>Template → Save as Template</strong></li>
+                        <li>Templates from related entries will appear in the relationship selector above</li>
+                        <li>Or configure entry type relationships to share templates across types</li>
+                    </ol>
+                </div>
+                
+                <div id="templatesListState" style="display: none;">
+                    <p class="text-muted">
+                        Select a template to import into this entry. You can choose to replace existing milestones or append to them.
+                    </p>
+                    
+                    <div id="templatesList" class="template-list">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                    
+                    <div id="importOptionsSection" class="mt-4" style="display: none;">
+                        <h6 class="mb-3">Import Options</h6>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Import Mode</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" 
+                                       class="btn-check" 
+                                       name="importMode" 
+                                       id="importReplace" 
+                                       value="replace" 
+                                       checked>
+                                <label class="btn btn-outline-primary" for="importReplace">
+                                    <i class="fas fa-trash-restore me-2"></i>
+                                    Replace Existing
+                                </label>
+                                
+                                <input type="radio" 
+                                       class="btn-check" 
+                                       name="importMode" 
+                                       id="importAppend" 
+                                       value="append">
+                                <label class="btn btn-outline-primary" for="importAppend">
+                                    <i class="fas fa-plus me-2"></i>
+                                    Append to Existing
+                                </label>
+                            </div>
+                            <small class="form-text text-muted d-block mt-2">
+                                <span id="importModeHelp">
+                                    ⚠️ <strong>Replace:</strong> This will delete all existing milestones and replace them with the template
+                                </span>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cancel
+                </button>
+                <button type="button" 
+                        class="btn btn-primary" 
+                        id="importTemplateBtn"
+                        style="display: none;"
+                        disabled>
+                    <i class="fas fa-download me-2"></i>
+                    Import Template
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.template-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.template-card {
+    border: 2px solid #dee2e6;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: white;
+}
+
+.template-card:hover {
+    border-color: var(--bs-primary);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.template-card.selected {
+    border-color: var(--bs-primary);
+    background: rgba(13, 110, 253, 0.05);
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.template-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 0.75rem;
+}
+
+.template-info {
+    flex: 1;
+}
+
+.template-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 0.25rem 0;
+    color: var(--bs-body-color);
+}
+
+.template-type {
+    color: var(--bs-secondary);
+    font-size: 0.875rem;
+}
+
+.template-stats {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.template-stats .badge {
+    font-size: 0.75rem;
+}
+
+.template-description {
+    color: var(--bs-secondary);
+    font-size: 0.9rem;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.template-milestones-preview {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #dee2e6;
+}
+
+.milestone-timeline {
+    display: flex;
+    width: 100%;
+    height: 40px;
+    border-radius: 0.25rem;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.milestone-preview-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    padding: 0 4px;
+    border-right: 1px solid rgba(255,255,255,0.2);
+}
+
+.milestone-preview-item:last-child {
+    border-right: none;
+}
+
+.milestone-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.template-card .entry-title {
+    font-size: 0.85rem;
+    color: var(--bs-secondary);
+    margin-top: 0.5rem;
+}
+</style>

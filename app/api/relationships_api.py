@@ -161,13 +161,22 @@ def get_entry_relationships(entry_id):
     cursor = conn.cursor()
 
     related_entries_data = []
+    
+    # Get current entry title
+    cursor.execute('SELECT title FROM Entry WHERE id = ?', (entry_id,))
+    current_entry = cursor.fetchone()
+    current_entry_title = current_entry['title'] if current_entry else str(entry_id)
 
     # Fetch relationships where current entry is the 'source' side
     cursor.execute('''
         SELECT
             er.id AS relationship_id,
+            er.source_entry_id,
+            ? AS source_entry_title,
             er.target_entry_id AS related_entry_id,
             e_to.title AS related_entry_title,
+            er.target_entry_id,
+            e_to.title AS target_entry_title,
             rd.id AS definition_id,
             rd.name AS definition_name,
             rd.label_from_side,
@@ -182,7 +191,7 @@ def get_entry_relationships(entry_id):
         JOIN Entry e_to ON er.target_entry_id = e_to.id
         WHERE er.source_entry_id = ?
         ORDER BY rd.name, e_to.title
-    ''', (entry_id,))
+    ''', (current_entry_title, entry_id))
     from_relationships = cursor.fetchall()
     related_entries_data.extend([serialize_entry_relationship(row, is_inverse=False) for row in from_relationships])
 
@@ -192,6 +201,10 @@ def get_entry_relationships(entry_id):
             er.id AS relationship_id,
             er.source_entry_id AS related_entry_id,
             e_from.title AS related_entry_title,
+            er.source_entry_id,
+            e_from.title AS source_entry_title,
+            er.target_entry_id,
+            ? AS target_entry_title,
             rd.id AS definition_id,
             rd.name AS definition_name,
             rd.label_from_side,
@@ -206,7 +219,7 @@ def get_entry_relationships(entry_id):
         JOIN Entry e_from ON er.source_entry_id = e_from.id
         WHERE er.target_entry_id = ?
         ORDER BY rd.name, e_from.title
-    ''', (entry_id,))
+    ''', (current_entry_title, entry_id))
     to_relationships = cursor.fetchall()
     related_entries_data.extend([serialize_entry_relationship(row, is_inverse=True) for row in to_relationships])
 

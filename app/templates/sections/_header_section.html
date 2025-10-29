@@ -209,7 +209,9 @@
 </style>
 
 <script>
-const entryId = {{ entry.id }};
+// Use the global entryId if available, otherwise extract from template
+// Use var instead of const to allow redeclaration if needed
+var entryId = window.currentPageEntryId || {{ entry.id }};
 const originalEntryTypeId = {{ entry.entry_type_id }};
 let isEditing = false;
 
