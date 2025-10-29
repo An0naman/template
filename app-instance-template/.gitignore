@@ -1,0 +1,22 @@
+# App Instance Data
+data/
+backups/
+
+# Environment files (keep .env.example)
+.env
+
+# Docker
+docker-compose.override.yml
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+.~*

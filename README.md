@@ -122,6 +122,10 @@ template/
 
 ### **Framework Usage**
 - **[Framework Guide](docs/framework/FRAMEWORK_USAGE.md)** - ⭐ Use as a multi-app framework
+- **[Quick Start Guide](docs/framework/QUICK_START.md)** - Get started in 5 minutes
+- **[Deployment Guide](docs/framework/DEPLOYMENT_GUIDE.md)** - Deploy app instances
+- **[Update Guide](docs/framework/UPDATE_GUIDE.md)** - Update framework and apps
+- **[Implementation Summary](docs/framework/IMPLEMENTATION_SUMMARY.md)** - Technical details
 - **[Architecture](docs/development/ARCHITECTURE.md)** - System design
 - **[API Reference](docs/guides/API_REFERENCE.md)** - Complete API docs
 
@@ -266,7 +270,34 @@ cp data/template.db data/template.db.backup
 
 ## 🐳 **Docker Deployment**
 
-### **Docker Compose**
+### **Using as Framework (Multiple Apps)**
+
+Create multiple independent applications from this framework:
+
+```bash
+# Create first app (DevOps projects)
+mkdir ~/apps/devops && cd ~/apps/devops
+cp -r /path/to/template/app-instance-template/* .
+cp /path/to/template/app-instance-template/.env.example .env
+
+# Configure
+nano .env  # Set APP_NAME=devops, PORT=5002
+
+# Start
+docker-compose up -d
+
+# Access: http://YOUR_SERVER_IP:5002
+```
+
+**Key Features:**
+- ✅ **CasaOS Compatible**: Works with CasaOS web UI out of the box
+- ✅ **Network Accessible**: Accessible from any device on your network
+- ✅ **Independent Databases**: Each app has its own data
+- ✅ **Single Framework**: All apps share same codebase via Docker images
+
+**See**: [Framework Documentation](docs/framework/) for complete guide
+
+### **Docker Compose (Single Instance)**
 ```yaml
 services:
   template:
@@ -283,11 +314,23 @@ volumes:
 ```
 
 ### **CasaOS Integration**
-The application includes CasaOS metadata for easy deployment:
-- **Auto-discovery**: Detected by CasaOS Dev Manager
-- **Volume Management**: Persistent data storage
-- **Port Configuration**: Flexible port mapping
-- **Health Monitoring**: Built-in status checking
+
+The application is **fully compatible with CasaOS** for easy deployment:
+
+- ✅ **Bridge Networking**: Apps accessible from CasaOS web UI and network
+- ✅ **Auto-discovery**: Detected by CasaOS with custom app feature
+- ✅ **Volume Management**: Persistent data storage in bridge mode
+- ✅ **Port Configuration**: Each app instance uses unique ports
+- ✅ **Health Monitoring**: Built-in `/api/health` endpoint
+
+**Network Access:**
+- Local: `http://localhost:PORT`
+- Network: `http://SERVER_IP:PORT`
+- CasaOS: Add custom app with network URL
+
+> **Note**: Apps use bridge mode by default. For Bluetooth support (Niimbot printers), 
+> you can switch to host mode by editing `docker-compose.yml`, but the app won't be 
+> accessible from CasaOS web UI.
 
 ---
 

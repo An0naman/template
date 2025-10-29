@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  app:
+    # Framework image from GitHub Container Registry
+    # Change VERSION in .env to pin to specific version
+    image: ghcr.io/an0naman/template:${VERSION:-latest}
+    
+    # Unique container name for this instance
+    container_name: ${APP_NAME:-myapp}
+    
+    # Restart policy
+    restart: always
+    
+    # Network mode - using bridge for CasaOS compatibility
+    # Uncomment 'network_mode: host' below if you need full Bluetooth support
+    # network_mode: host
+    
+    # Ports - mapped to allow external access (CasaOS compatible)
+    # Comment out if using 'network_mode: host'
+    ports:
+      - "${PORT:-5001}:${PORT:-5001}"
+    
+    # Bluetooth device access (for Niimbot printers)
+    # Remove if you don't need Bluetooth
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    
+    # Capabilities for Bluetooth
+    # Remove if you don't need Bluetooth
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - NET_RAW
+    
+    # Privileged mode for full Bluetooth access
+    # Set to false if you don't need Bluetooth
+    privileged: true
+    
+    # Volume mounts
+    volumes:
+      # App data (database and uploads)
+      - ./data:/app/data
+      
+      # D-Bus for Bluetooth (remove if not needed)
+      - /var/run/dbus:/var/run/dbus
+      - /run/dbus:/run/dbus
+      - /sys/class/bluetooth:/sys/class/bluetooth
+    
+    # Environment variables
+    environment:
+      # Flask configuration
+      - FLASK_APP=run.py
+      - PORT=${PORT:-5001}
+      - DEBUG=${DEBUG:-false}
+      
+      # Network configuration for device discovery
+      - NETWORK_RANGE=${NETWORK_RANGE:-192.168.1.0/24}
+      
+      # D-Bus for Bluetooth
+      - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
+      
+      # Python configuration
+      - PYTHONUNBUFFERED=1
+      
+      # Optional: AI features
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      
+      # Optional: Notifications
+      - NTFY_SERVER_URL=${NTFY_SERVER_URL:-https://ntfy.sh}
+      - NTFY_TOPIC=${NTFY_TOPIC:-}
+      - NTFY_AUTH_TOKEN=${NTFY_AUTH_TOKEN:-}
+      
+      # Optional: Security
+      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+    
+    # DNS servers
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:${PORT:-5001}/api/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+    
+    # Resource limits (optional, adjust as needed)
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '2.0'
+    #       memory: 2G
+    #     reservations:
+    #       cpus: '0.5'
+    #       memory: 512M
+
+# Optional: Named volume for data persistence
+# volumes:
+#   app_data:
+#     driver: local
