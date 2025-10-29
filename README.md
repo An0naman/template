@@ -1,6 +1,6 @@
 # 📋 Template - Flask Content Management System
 
-A sophisticated Flask-based content management system with dynamic theming, relationship management, IoT sensor integration, and comprehensive API capabilities.
+A sophisticated Flask-based content management system with dynamic theming, relationship management, IoT sensor integration, and comprehensive API capabilities. **Designed to be used as a framework** for creating multiple independent applications.
 
 ## 🌟 **Features**
 
@@ -8,21 +8,23 @@ A sophisticated Flask-based content management system with dynamic theming, rela
 - 📊 **Dynamic Entry Management**: Flexible content types with configurable fields
 - 🔗 **Advanced Relationships**: Complex many-to-many relationships with metadata
 - 📝 **Rich Note System**: File attachments, reminders, and notifications
-- 🏷️ **Label Generation**: QR codes and professional PDF printing
-- 🔔 **Notification System**: Priority-based alerts with scheduling
-- 📡 **IoT Sensor Integration**: Real-time data collection and monitoring
+- 🏷️ **Label Printing**: QR codes, thermal printers (Niimbot B1/D110), A4 sheets
+- 🔔 **Notification System**: Priority-based alerts with scheduling and ntfy integration
+- 📡 **IoT Sensor Integration**: Real-time data collection from ESP32/network devices
 
 ### **User Experience**
 - 🎨 **Dynamic Theme System**: Multiple color schemes with dark mode support
 - 📱 **Responsive Design**: Mobile-friendly interface with Bootstrap 5.3.3
 - ♿ **Accessibility Features**: High contrast mode and typography options
 - 🔍 **Advanced Filtering**: Multi-dimensional search and filtering
+- 📊 **Dashboards**: Customizable widgets and data visualization
 
 ### **Technical Excellence**
 - 🏗️ **Modular Architecture**: Blueprint-based Flask application
 - 🔌 **Comprehensive REST API**: 10+ specialized API endpoints
 - 🐳 **Docker Support**: Production-ready containerization
-- 📊 **Database Management**: SQLite with complex schema and migrations
+- 📊 **Database Management**: SQLite with all config in SQL (framework-ready)
+- 🔄 **Framework Design**: Reusable across multiple independent applications
 
 ---
 
@@ -81,23 +83,79 @@ template/
 │   ├── __init__.py             # Application factory
 │   ├── config.py               # Configuration management
 │   ├── db.py                   # Database utilities
-│   ├── api/                    # REST API modules
-│   │   ├── entry_api.py        # Entry management
-│   │   ├── theme_api.py        # Theme system
-│   │   ├── notifications_api.py # Notification system
-│   │   └── [8+ more APIs]      # Specialized endpoints
+│   ├── api/                    # REST API modules (10+ endpoints)
 │   ├── routes/                 # Flask route handlers
-│   │   ├── main_routes.py      # Core application routes
-│   │   └── maintenance_routes.py # Management interface
+│   ├── services/               # Business logic layer
 │   ├── templates/              # Jinja2 HTML templates
 │   └── static/                 # CSS, JS, and uploads
-├── data/                       # Database storage
+├── data/                       # Database & uploaded files
+├── docs/                       # 📚 Documentation
+│   ├── setup/                  # Installation & deployment guides
+│   ├── features/               # Feature-specific documentation
+│   ├── guides/                 # User & API guides
+│   ├── development/            # Technical documentation
+│   └── framework/              # Framework usage guide
 ├── logs/                       # Application logs
+├── archive/                    # Archived docs (reference only)
 ├── requirements.txt            # Python dependencies
 ├── docker-compose.yml          # Docker configuration
 ├── Dockerfile                  # Container definition
 └── run.py                     # Application entry point
 ```
+
+---
+
+## 📚 **Documentation**
+
+### **Setup & Installation**
+- **[Installation Guide](docs/setup/INSTALLATION.md)** - Getting started
+- **[CasaOS Setup](docs/setup/CASAOS_SETUP.md)** - CasaOS deployment
+- **[Deployment Guide](docs/setup/DEPLOYMENT.md)** - Production deployment
+
+### **Features**
+- **[Label Printing](docs/features/LABEL_PRINTING.md)** - Complete printing system guide
+- **[Niimbot Printers](docs/features/NIIMBOT.md)** - Bluetooth thermal printers
+- **[AI Chatbot](docs/features/AI_CHATBOT_FEATURE.md)** - AI-powered assistance
+- **[Sensors & IoT](docs/features/SENSORS.md)** - Device integration
+- **[Notifications](docs/features/NOTIFICATIONS.md)** - Alert system
+- **[Dashboards](docs/features/DASHBOARDS.md)** - Custom dashboards
+
+### **Framework Usage**
+- **[Framework Guide](docs/framework/FRAMEWORK_USAGE.md)** - ⭐ Use as a multi-app framework
+- **[Architecture](docs/development/ARCHITECTURE.md)** - System design
+- **[API Reference](docs/guides/API_REFERENCE.md)** - Complete API docs
+
+### **Security & Guides**
+- **[Security Guide](docs/guides/SECURITY_IMPLEMENTATION.md)** - Security best practices
+- **[Testing Guide](docs/guides/SECURITY_TESTING_GUIDE.md)** - Security testing
+
+---
+
+## 🚀 **Using as a Framework**
+
+This project is designed to be used as a **framework for multiple independent applications**:
+
+```bash
+# 1. Publish framework image
+docker build -t ghcr.io/yourusername/template:latest .
+docker push ghcr.io/yourusername/template:latest
+
+# 2. Create app instance (e.g., homebrews)
+mkdir ~/apps/homebrews && cd ~/apps/homebrews
+cat > docker-compose.yml << EOF
+services:
+  app:
+    image: ghcr.io/yourusername/template:latest
+    ports: ["5001:5001"]
+    volumes: ["./data:/app/data"]
+EOF
+
+# 3. Start and configure via UI
+docker-compose up -d
+# Visit http://localhost:5001 and configure project name, entry types, etc.
+```
+
+**See [Framework Usage Guide](docs/framework/FRAMEWORK_USAGE.md) for complete details.**
 
 ---
 
@@ -177,41 +235,31 @@ Automatically creates notifications for entries with past due dates:
 
 ### **API Endpoints**
 
-#### **Core Endpoints**
-- `GET /api/entries` - List all entries
-- `POST /api/entries` - Create new entry
-- `GET /api/entry_types` - Get entry types
-- `GET /api/theme_settings` - Current theme
-- `POST /api/theme_settings` - Update theme
+Complete API documentation: **[API Reference](docs/guides/API_REFERENCE.md)**
 
-#### **Specialized APIs**
-- **Relationships**: `/api/relationships`
-- **Notes**: `/api/notes`
-- **Sensors**: `/api/sensors`
-- **Labels**: `/api/labels`
-- **Notifications**: `/api/notifications`
+#### **Quick Reference**
+- `GET/POST /api/entries` - Entry management
+- `GET/POST /api/entry_types` - Entry type configuration
+- `GET/POST /api/theme_settings` - Theme customization
+- `POST /api/labels/print_niimbot` - Print to Bluetooth printers
+- `GET /api/sensors/data` - Sensor data retrieval
+- `POST /api/notifications` - Create notifications
 
 ### **Testing**
 ```bash
-# Run development tests
-python test_new_features.py
+# Run feature tests
 python test_notifications.py
-python test_attachment_indicator.py
-
-# Test specific features
-python test_theme.py
+python test_file_upload.py
+python test_security.py
 ```
 
 ### **Database Management**
 ```bash
 # Initialize database
-python -c "from app.db import init_db; init_db()"
+python run.py  # Auto-initializes on first run
 
-# Create test data
-python create_test_overdue_entry.py
-
-# Check overdue entries
-python check_overdue_dates.py
+# Backup database
+cp data/template.db data/template.db.backup
 ```
 
 ---
@@ -243,12 +291,11 @@ The application includes CasaOS metadata for easy deployment:
 
 ---
 
-## 📚 **Documentation**
+## 📚 **Additional Resources**
 
-- 📖 **[Theme Documentation](THEME_DOCUMENTATION.md)** - Comprehensive theming guide
-- 🔔 **[Overdue Notifications](OVERDUE_NOTIFICATIONS.md)** - Notification system setup
-- 🏗️ **[API Reference](#)** - Complete API documentation
-- 🐳 **[Docker Guide](#)** - Deployment instructions
+- **[CHANGELOG](CHANGELOG.md)** - Version history and release notes
+- **[CONTRIBUTING](CONTRIBUTING.md)** - Contribution guidelines
+- **[Archived Docs](archive/)** - Historical implementation notes (reference)
 
 ---
 
@@ -259,6 +306,8 @@ The application includes CasaOS metadata for easy deployment:
 3. **Commit changes**: `git commit -m 'Add amazing feature'`
 4. **Push to branch**: `git push origin feature/amazing-feature`
 5. **Open Pull Request**
+
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** for detailed guidelines.
 
 ---
 
