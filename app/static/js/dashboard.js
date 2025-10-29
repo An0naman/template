@@ -125,6 +125,12 @@ async function loadDashboard(dashboardId) {
         
         currentDashboard = await response.json();
         
+        // Update dashboard title with selected dashboard name
+        const titleElement = document.getElementById('dashboardTitleText');
+        if (titleElement && currentDashboard.name) {
+            titleElement.textContent = currentDashboard.name;
+        }
+        
         // Clear existing widgets
         gridStack.removeAll();
         clearCharts();
@@ -272,6 +278,12 @@ function updateDashboardButtons() {
 }
 
 function showEmptyState() {
+    // Reset dashboard title to default
+    const titleElement = document.getElementById('dashboardTitleText');
+    if (titleElement) {
+        titleElement.textContent = 'Dashboard';
+    }
+    
     document.getElementById('emptyState').style.display = 'block';
     document.getElementById('dashboardGrid').style.display = 'none';
     document.getElementById('deleteDashboardBtn').style.display = 'none';
