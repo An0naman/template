@@ -6,8 +6,147 @@ Complete guide for deploying and managing the Template Framework and app instanc
 
 ## Table of Contents
 
-1. [Framework Publishing](#framework-publishing)
-2. [Creating New App Instances](#creating-new-app-instances)
+1. [Framework Publishing](#framework-publ4. Go to **Settings** → **Data Structure**
+5. Create entry types and states
+
+---
+
+## Database Migrations
+
+### What Are Migrations?
+
+Database migrations are scripts that update your database schema when new features are added to the framework. The framework includes an automated migration system that runs when you update your app instance.
+
+### Automatic Migrations (Recommended)
+
+When you run `./update.sh`, migrations are **automatically applied** after pulling the new image:
+
+```bash
+cd ~/apps/homebrews
+./update.sh
+
+# Output includes:
+# Step 5: Running database migrations...
+#   Running migration: add_entry_level_template_sharing.py
+#     ↳ Applied successfully
+# ✓ Applied 1 new migration(s)
+```
+
+### Manual Migration Run
+
+If you need to run migrations manually (e.g., after manual image update):
+
+```bash
+cd ~/apps/homebrews
+./run-migrations.sh
+```
+
+This will:
+1. ✅ Create automatic database backup before migrations
+2. ✅ Run all pending migrations in order
+3. ✅ Show detailed progress for each migration
+4. ✅ Skip already-applied migrations
+5. ✅ Provide rollback options if anything fails
+
+### Migration Safety Features
+
+**Automatic Backups:**
+- Every migration run creates a timestamped backup
+- Stored in `migration-backups/` directory
+- Restore anytime: `tar -xzf migration-backups/db-before-migration-*.tar.gz`
+
+**Idempotent Execution:**
+- Migrations can be run multiple times safely
+- Already-applied migrations are automatically skipped
+- No duplicate data or schema conflicts
+
+**Error Handling:**
+- Failed migrations stop the process
+- Clear error messages with troubleshooting steps
+- Backup available for immediate rollback
+
+### Checking Migration Status
+
+**See which migrations exist:**
+```bash
+docker-compose exec homebrews ls -la /app/migrations/
+```
+
+**Check if a migration was applied:**
+```bash
+# Example: Check if source_entry_id column exists
+docker-compose exec homebrews python -c "
+import sqlite3
+conn = sqlite3.connect('/app/data/homebrew.db')
+cursor = conn.cursor()
+cursor.execute('PRAGMA table_info(TemplateRelationshipSharing)')
+columns = [row[1] for row in cursor.fetchall()]
+print('source_entry_id' in columns)
+"
+```
+
+### Current Migrations
+
+The framework includes these migrations:
+
+1. **add_entry_level_template_sharing.py** (Latest)
+   - Adds `source_entry_id` column to `TemplateRelationshipSharing` table
+   - Enables relationship-based template sharing via parent entries
+   - Required for: Milestone template sharing feature
+   - See: [RELATIONSHIP_TEMPLATE_SHARING_UPDATE.md](../../RELATIONSHIP_TEMPLATE_SHARING_UPDATE.md)
+
+2. **[Other migrations as added]**
+   - Additional migrations will be documented here
+
+### Troubleshooting Migrations
+
+**Migration fails with "database locked":**
+```bash
+# Stop the app first
+docker-compose down
+./run-migrations.sh
+docker-compose up -d
+```
+
+**Migration fails with "no such table":**
+- This usually means your database is from an older version
+- Contact support or check framework documentation
+- May need to run earlier migrations first
+
+**Want to rollback a migration:**
+```bash
+# Restore from backup
+cd ~/apps/homebrews
+tar -xzf migration-backups/db-before-migration-YYYYMMDD-HHMMSS.tar.gz
+
+# Restart container
+docker-compose restart
+```
+
+**Need to force re-run a migration:**
+```bash
+# Manually execute specific migration
+docker-compose exec homebrews python /app/migrations/add_entry_level_template_sharing.py
+```
+
+---
+
+## Configuration
+
+### Initial Configuration
+
+1. **Access web interface**: 
+   - Local: `http://localhost:PORT`
+   - Network: `http://SERVER_IP:PORT` (accessible from any device)
+   - CasaOS: Add as custom app with network URL
+2. **Go to Settings** → **System Configuration**
+3. **Configure**:
+   - Project Name: "HomeBrews Inventory"
+   - Entry Label (singular): "Brew"
+   - Entry Label (plural): "Brews"
+   - Theme: Choose colors
+4. Go to **Settings** → **Data Structure**
+5. Create entry types and states [Creating New App Instances](#creating-new-app-instances)
 3. [Configuration](#configuration)
 4. [Multiple App Setup](#multiple-app-setup)
 5. [Advanced Scenarios](#advanced-scenarios)

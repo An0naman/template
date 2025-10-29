@@ -78,16 +78,95 @@ http://192.168.1.100:5001
 
 ```
 my-app/
-├── docker-compose.yml    # Docker configuration
-├── .env                  # Environment variables
-├── .gitignore           # Git ignore rules
-├── data/                # App data (auto-created)
-│   ├── template.db      # SQLite database
-│   └── uploads/         # File uploads
-├── backup.sh            # Backup script
-├── update.sh            # Update script
-└── README.md            # This file
+├── docker-compose.yml       # Docker configuration
+├── .env                     # Environment variables (not in git)
+├── .gitignore              # Git ignore rules
+├── update.sh               # Update script with migration support
+├── run-migrations.sh       # Standalone migration runner
+├── backup.sh               # Backup script
+├── data/                   # App data (auto-created)
+│   ├── homebrew.db         # SQLite database
+│   └── uploads/            # File uploads
+├── backup-*.tar.gz         # Update backups (timestamped)
+├── migration-backups/      # Migration-specific backups
+│   └── db-*.tar.gz
+└── README.md               # This file
 ```
+
+## Database Migrations
+
+### What Are Migrations?
+
+Migrations are scripts that update your database schema when new framework features require it. They run **automatically** during updates.
+
+### How Migrations Work
+
+When you run `./update.sh`:
+1. Framework image is pulled with latest code
+2. Container starts with new code
+3. Migration system automatically:
+   - Detects migration scripts in `/app/migrations/`
+   - Runs new migrations in order
+   - Skips already-applied migrations
+   - Reports results
+
+### Migration Safety
+
+**Automatic Backups:**
+- Every update creates: `backup-YYYYMMDD-HHMMSS.tar.gz`
+- Every migration run creates: `migration-backups/db-before-migration-*.tar.gz`
+
+**Safe Execution:**
+- Migrations are idempotent (safe to run multiple times)
+- Already-applied migrations are automatically skipped
+- Errors don't corrupt your database
+
+**Easy Rollback:**
+```bash
+# If update/migration fails, restore backup
+tar -xzf backup-20251029-143022.tar.gz
+docker-compose restart
+```
+
+### Manual Migration Execution
+
+Run migrations separately from updates:
+
+```bash
+./run-migrations.sh
+```
+
+This shows detailed output:
+```
+Database Migration Runner
+==========================
+
+Step 1: Creating database backup...
+✓ Backup created: migration-backups/db-before-migration-20251029-150000.tar.gz
+
+Step 2: Running database migrations...
+
+[1] add_entry_level_template_sharing.py
+    ↳ Applied successfully
+
+==========================
+Migration Summary
+==========================
+Total migrations found: 1
+Applied: 1
+Skipped: 0
+
+✓ All migrations completed successfully
+```
+
+### Current Migrations
+
+The framework includes:
+
+1. **add_entry_level_template_sharing.py**
+   - Adds `source_entry_id` column for granular template sharing
+   - Enables relationship-based milestone template sharing
+   - See: [RELATIONSHIP_TEMPLATE_SHARING_UPDATE.md](../RELATIONSHIP_TEMPLATE_SHARING_UPDATE.md)
 
 ## Common Commands
 
@@ -140,17 +219,65 @@ docker-compose restart
 
 ## Updating
 
-To update to the latest framework version:
+### Automatic Update (Recommended)
+
+The `update.sh` script performs a **safe, automated update with migration support**:
 
 ```bash
 ./update.sh
 ```
 
 This will:
-1. Create a backup
-2. Pull the latest image
-3. Restart the container
-4. Verify health
+1. ✅ Create timestamped backup
+2. ✅ Pull the latest framework image
+3. ✅ Restart the container
+4. ✅ **Run database migrations automatically**
+5. ✅ Verify health
+6. ✅ Report migration summary
+
+**Example output:**
+```
+Step 5: Running database migrations...
+  Running migration: add_entry_level_template_sharing.py
+    ↳ Applied successfully
+✓ Applied 1 new migration(s)
+```
+
+### Manual Migration
+
+If you need to run migrations separately:
+
+```bash
+./run-migrations.sh
+```
+
+Features:
+- Creates backup before running
+- Runs all pending migrations
+- Skips already-applied migrations
+- Shows detailed progress
+- Handles errors gracefully
+
+### Rollback After Update
+
+If an update causes issues:
+
+```bash
+# Stop container
+docker-compose down
+
+# Restore from backup
+tar -xzf backup-YYYYMMDD-HHMMSS.tar.gz
+
+# Restart
+docker-compose up -d
+```
+
+Or restore just the database:
+```bash
+tar -xzf migration-backups/db-before-migration-*.tar.gz
+docker-compose restart
+```
 
 ## Troubleshooting
 

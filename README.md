@@ -123,8 +123,10 @@ template/
 ### **Framework Usage**
 - **[Framework Guide](docs/framework/FRAMEWORK_USAGE.md)** - ⭐ Use as a multi-app framework
 - **[Quick Start Guide](docs/framework/QUICK_START.md)** - Get started in 5 minutes
-- **[Deployment Guide](docs/framework/DEPLOYMENT_GUIDE.md)** - Deploy app instances
-- **[Update Guide](docs/framework/UPDATE_GUIDE.md)** - Update framework and apps
+- **[Deployment Guide](docs/framework/DEPLOYMENT_GUIDE.md)** - Deploy app instances with migrations
+- **[Update Guide](docs/framework/UPDATE_GUIDE.md)** - Update framework and apps (auto-migrations!)
+- **[Migration Support](FRAMEWORK_MIGRATION_SUPPORT_COMPLETE.md)** - 🆕 Database migration system
+- **[Template Sharing Update](RELATIONSHIP_TEMPLATE_SHARING_UPDATE.md)** - Latest feature (requires migration)
 - **[Implementation Summary](docs/framework/IMPLEMENTATION_SUMMARY.md)** - Technical details
 - **[Architecture](docs/development/ARCHITECTURE.md)** - System design
 - **[API Reference](docs/guides/API_REFERENCE.md)** - Complete API docs

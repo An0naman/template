@@ -70,9 +70,47 @@ docker-compose up -d
 echo -e "${GREEN}✓ Container started${NC}"
 echo ""
 
-# Step 5: Wait for health check
-echo -e "${YELLOW}Step 5: Waiting for app to be healthy...${NC}"
-sleep 10
+# Step 5: Run database migrations
+echo -e "${YELLOW}Step 5: Running database migrations...${NC}"
+sleep 5  # Give container time to fully start
+
+# Check if migrations directory exists in container
+if docker-compose exec -T ${APP_NAME} test -d /app/migrations 2>/dev/null; then
+    # Run all migration scripts
+    MIGRATION_COUNT=0
+    for migration in $(docker-compose exec -T ${APP_NAME} ls /app/migrations/*.py 2>/dev/null | grep -v __pycache__ || echo ""); do
+        if [ -n "$migration" ]; then
+            MIGRATION_NAME=$(basename "$migration")
+            echo "  Running migration: ${MIGRATION_NAME}"
+            if docker-compose exec -T ${APP_NAME} python "/app/migrations/${MIGRATION_NAME}" 2>&1 | tee /tmp/migration_output.txt; then
+                if grep -q "already exists\|Skipping migration" /tmp/migration_output.txt; then
+                    echo "    ↳ Already applied"
+                else
+                    echo "    ↳ Applied successfully"
+                    MIGRATION_COUNT=$((MIGRATION_COUNT + 1))
+                fi
+            else
+                echo -e "    ${RED}↳ Failed${NC}"
+                echo ""
+                echo -e "${RED}Migration failed. Check logs for details.${NC}"
+                echo "You may need to apply migrations manually."
+            fi
+        fi
+    done
+    
+    if [ $MIGRATION_COUNT -gt 0 ]; then
+        echo -e "${GREEN}✓ Applied ${MIGRATION_COUNT} new migration(s)${NC}"
+    else
+        echo -e "${GREEN}✓ No new migrations to apply${NC}"
+    fi
+else
+    echo "  No migrations directory found, skipping..."
+fi
+echo ""
+
+# Step 6: Wait for health check
+echo -e "${YELLOW}Step 6: Waiting for app to be healthy...${NC}"
+sleep 5
 
 # Check if container is running
 if docker-compose ps | grep -q "Up"; then
@@ -88,9 +126,9 @@ else
     exit 1
 fi
 
-# Step 6: Show version info
+# Step 7: Show version info
 echo ""
-echo -e "${YELLOW}Step 6: Verifying update...${NC}"
+echo -e "${YELLOW}Step 7: Verifying update...${NC}"
 CURRENT_VERSION=$(docker-compose exec -T app cat /app/VERSION 2>/dev/null || echo "unknown")
 echo "Running version: ${CURRENT_VERSION}"
 echo ""

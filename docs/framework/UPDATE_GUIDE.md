@@ -178,10 +178,15 @@ Step 3: Stopping container...
 Step 4: Starting updated container...
 ✓ Container started
 
-Step 5: Waiting for app to be healthy...
+Step 5: Running database migrations...
+  Running migration: add_entry_level_template_sharing.py
+    ↳ Applied successfully
+✓ Applied 1 new migration(s)
+
+Step 6: Waiting for app to be healthy...
 ✓ Container is running
 
-Step 6: Verifying update...
+Step 7: Verifying update...
 Running version: v1.2.0
 
 ==================================
@@ -189,6 +194,84 @@ Running version: v1.2.0
 ==================================
 
 Backup saved to: backup-20251029-143022.tar.gz
+```
+
+### Migration Handling During Updates
+
+The update script **automatically handles database migrations**:
+
+1. **Before Update:** Creates timestamped backup
+2. **After Image Pull:** New container starts with updated code
+3. **Migration Phase:** Automatically runs all pending migrations
+   - Detects all `.py` files in `/app/migrations/`
+   - Executes each migration in order
+   - Skips already-applied migrations
+   - Reports success/failure for each
+4. **Health Check:** Verifies app is running correctly
+5. **Completion:** Reports total migrations applied
+
+**Migration Output Examples:**
+
+```
+Step 5: Running database migrations...
+  Running migration: add_entry_level_template_sharing.py
+    ↳ Applied successfully
+  Running migration: add_user_preferences_table.py
+    ↳ Already applied
+✓ Applied 1 new migration(s)
+```
+
+If no migrations are needed:
+```
+Step 5: Running database migrations...
+✓ No new migrations to apply
+```
+
+**What if a migration fails?**
+
+The update script will:
+1. Show the error message from the migration
+2. Continue with update (container runs old schema)
+3. Display warning in summary
+4. Provide manual migration instructions
+
+You can then:
+- Review the error and fix manually
+- Restore backup if needed: `tar -xzf backup-*.tar.gz`
+- Run migrations manually: `./run-migrations.sh`
+
+### Manual Migration After Update
+
+If you need to run migrations separately:
+
+```bash
+cd ~/apps/homebrews
+
+# Run all pending migrations
+./run-migrations.sh
+
+# Output:
+# Database Migration Runner
+# ==========================
+# 
+# App Name: homebrews
+# 
+# Step 1: Creating database backup...
+# ✓ Backup created: migration-backups/db-before-migration-20251029-150000.tar.gz
+# 
+# Step 2: Running database migrations...
+# 
+# [1] add_entry_level_template_sharing.py
+#     ↳ Applied successfully
+# 
+# ==========================
+# Migration Summary
+# ==========================
+# Total migrations found: 1
+# Applied: 1
+# Skipped: 0
+# 
+# ✓ All migrations completed successfully
 ```
 
 ---
@@ -340,67 +423,107 @@ cd ~/apps/homebrews
 docker-compose down
 
 # List backups
-ls -lh backups/
+ls -lh backup-*.tar.gz
 
 # Restore specific backup
-tar -xzf backups/homebrews-20251029-143022.tar.gz
+tar -xzf backup-20251029-143022.tar.gz
 
 # Restart
 docker-compose up -d
 ```
 
-#### Option 2: Use Previous Image Version
+**Note:** This restores both the database AND rolls back any migrations that were applied during the failed update.
+
+#### Option 2: Restore Database Only (Keep Code)
+
+If the code update is fine but a migration failed:
+
+```bash
+cd ~/apps/homebrews
+
+# Stop app
+docker-compose down
+
+# List migration backups
+ls -lh migration-backups/
+
+# Restore database from before migration
+tar -xzf migration-backups/db-before-migration-20251029-150000.tar.gz
+
+# Restart with new code but old database schema
+docker-compose up -d
+```
+
+**Warning:** This may cause errors if new code expects new schema. Only use if you know the specific migration that failed.
+
+#### Option 3: Use Previous Image Version
 
 ```bash
 cd ~/apps/homebrews
 
 # Change to previous version
-echo "VERSION=v1.1.0" >> .env
+sed -i 's/VERSION=.*/VERSION=v1.1.0/' .env
 
-# Update
+# Pull old image and restart
 docker-compose pull
 docker-compose down
 docker-compose up -d
 ```
 
-#### Option 3: Restore Specific Database
+This rolls back both code AND migrations (since old image doesn't have new migrations).
+
+#### Option 4: Restore Specific Database
 
 ```bash
 # Stop app
 docker-compose down
 
-# Backup current (just in case)
-cp data/template.db data/template.db.backup
+# Backup current database (just in case)
+cp data/homebrew.db data/homebrew.db.rollback-$(date +%Y%m%d)
 
-# Restore from backup
-tar -xzf backups/homebrews-20251029-143022.tar.gz data/template.db
+# Restore from full backup
+tar -xzf backup-20251029-143022.tar.gz data/homebrew.db
 
 # Restart
 docker-compose up -d
 ```
 
+### Rollback Decision Matrix
+
+| Scenario | Solution | Command |
+|----------|----------|---------|
+| Container won't start | Full restore from backup | `tar -xzf backup-*.tar.gz && docker-compose up -d` |
+| Migration failed | Restore DB from migration-backup | `tar -xzf migration-backups/db-*.tar.gz` |
+| New code has bugs | Revert to old version | Change `VERSION` in `.env` |
+| Database corrupted | Restore full backup | `tar -xzf backup-*.tar.gz` |
+| Need to test rollback | Create test instance first | Use different port/name |
+
 ### Emergency Rollback
 
-If app won't start:
+If app won't start at all:
 
 ```bash
 # Stop everything
 docker-compose down
 
-# Remove current data (CAREFUL!)
-mv data data.broken
+# Move broken data aside (don't delete yet!)
+mv data data.broken-$(date +%Y%m%d)
 
-# Restore from backup
-tar -xzf backups/homebrews-20251029-143022.tar.gz
+# Restore from most recent backup
+tar -xzf backup-20251029-143022.tar.gz
 
 # Use previous framework version
-echo "VERSION=v1.1.0" > .env.temp
-cat .env >> .env.temp
-mv .env.temp .env
+sed -i 's/VERSION=.*/VERSION=v1.1.0/' .env
 
-# Start
+# Start fresh
 docker-compose pull
 docker-compose up -d
+
+# Verify it works
+docker-compose logs -f
+
+# If successful, you can later delete data.broken-*
+# If still broken, restore older backup
 ```
 
 ---
