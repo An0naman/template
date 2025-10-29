@@ -42,10 +42,10 @@
         
         <!-- Time-based Progress Bar (only shown when intended_end_date exists) -->
         {% if entry.show_end_dates and entry.intended_end_date %}
-        <div id="timeProgressBar" class="time-progress-bar mt-2">
+        <div id="timeProgressBar" class="time-progress-bar mt-1">
             <div class="time-progress-track">
                 <div id="timeProgressFill" class="time-progress-fill"></div>
-                <div id="timeProgressOverdue" class="time-progress-overdue"></div>
+                <div id="timeProgressOverdue" class="time-progress-fill-overdue"></div>
             </div>
         </div>
         
@@ -64,15 +64,12 @@
                 <span id="timeline-days-elapsed">0</span> days elapsed
             </small>
             <div id="statusLegendCompact" class="status-legend-compact"></div>
+            {% if not (entry.show_end_dates and entry.intended_end_date) %}
             <small class="text-muted" id="timeline-remaining-text">
-                {% if entry.show_end_dates and entry.intended_end_date %}
-                <i class="fas fa-hourglass-half me-1"></i>
-                <span id="timeline-days-remaining">0</span> days remaining
-                {% else %}
                 <i class="fas fa-info-circle me-1"></i>
                 Current: <span id="currentStatusName">Active</span>
-                {% endif %}
             </small>
+            {% endif %}
         </div>
     </div>
 
@@ -224,22 +221,40 @@
     position: absolute;
     left: 0;
     top: 0;
+    z-index: 1; /* Behind milestones */
 }
 
-.time-progress-overdue {
+.time-progress-fill-overdue {
     height: 100%;
     background: repeating-linear-gradient(
         45deg,
         #dc3545,
         #dc3545 10px,
-        #a02a3a 10px,
-        #a02a3a 20px
+        #c82333 10px,
+        #c82333 20px
     );
     border-radius: 0 0.25rem 0.25rem 0;
+    transition: width 0.5s ease;
     position: absolute;
     right: 0;
     top: 0;
-    transition: width 0.5s ease;
+    z-index: 1; /* Behind milestones */
+    pointer-events: none; /* Don't block interactions with milestones */
+}
+
+/* Label for overdue bar */
+.time-progress-fill-overdue::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    z-index: 1;
 }
 
 .time-progress-target {
@@ -479,8 +494,7 @@
                 loadStatusColors(),
                 loadStatusChanges(),
                 {% if entry.show_end_dates and entry.intended_end_date %}
-                calculateProgress(),
-                loadAndRenderMilestones()
+                loadAndRenderMilestones() // This will call calculateProgress() after rendering milestones
                 {% endif %}
             ]);
         } catch (error) {
@@ -540,11 +554,11 @@
             // Update entry intended_end_date from server
             await refreshEntryData();
             
-            // Recalculate progress with new end date
-            calculateProgress();
-            
-            // Render milestones on time progress bar
+            // Render milestones on time progress bar FIRST
             renderMilestones(milestones);
+            
+            // Then recalculate progress (which will use the rendered milestone sizes)
+            calculateProgress();
         } catch (error) {
             console.error('Error loading milestones:', error);
         }
@@ -634,8 +648,18 @@
             marker.style.left = `${startPosition}%`;
             marker.style.width = `${width}%`;
             
-            // Set color based on target state
-            const stateColor = milestone.target_state_color || '#ffc107';
+            // Set color - use actual status color if this is the current status, otherwise use target state color
+            const currentStatusName = '{{ entry.status_name }}';
+            let stateColor;
+            
+            if (milestone.target_state_name === currentStatusName && statusColors[currentStatusName]) {
+                // Entry is currently in this state - use the actual status color from the entry
+                stateColor = statusColors[currentStatusName];
+            } else {
+                // Use the milestone's target state color
+                stateColor = milestone.target_state_color || '#ffc107';
+            }
+            
             marker.style.setProperty('--milestone-color', stateColor);
             marker.style.background = stateColor;
             
@@ -651,17 +675,17 @@
             timeProgressBar.appendChild(marker);
         });
         
-        // If overdue, add the overdue section AFTER the milestones
+        // Add overdue section as a milestone-style marker if entry is overdue
         if (isOverdue && overdueDays > 0) {
             const overdueStart = (totalPlannedDays / totalDisplayDays) * 100;
             const overdueWidth = (overdueDays / totalDisplayDays) * 100;
             
             const overdueMarker = document.createElement('div');
-            overdueMarker.className = 'time-progress-milestone time-progress-overdue';
+            overdueMarker.className = 'time-progress-milestone';
             overdueMarker.style.left = `${overdueStart}%`;
             overdueMarker.style.width = `${overdueWidth}%`;
             overdueMarker.style.background = '#dc3545'; // Red for overdue
-            overdueMarker.style.opacity = '0.7';
+            overdueMarker.style.setProperty('--milestone-color', '#dc3545');
             overdueMarker.setAttribute('data-label', `Overdue (${overdueDays}d)`);
             
             {% if entry.actual_end_date %}
@@ -1042,34 +1066,48 @@
             timeProgressFill.style.setProperty('--status-color', statusColor);
         }
         
-        if (timeProgressFill && timeProgressTrack) {
+        if (timeProgressFill && timeProgressOverdue && timeProgressTrack) {
             if (daysRemaining < 0) {
-                // Entry is overdue - scale the entire timeline to fit
+                // Entry is overdue
                 const overdueDays = Math.abs(daysRemaining);
-                const totalDisplayDays = totalDays + overdueDays; // Created to Today
                 
-                // Calculate percentages based on total display (created to today)
-                const intendedPercentage = (totalDays / totalDisplayDays) * 100;
-                const overduePercentage = (overdueDays / totalDisplayDays) * 100;
+                // Look for any milestone element with "Overdue" in its label
+                const overdueMilestone = Array.from(timeProgressTrack.querySelectorAll('.time-progress-milestone'))
+                    .find(el => el.getAttribute('data-label')?.includes('Overdue'));
                 
-                // Fill bar shows intended timeline as percentage of total
-                timeProgressFill.style.width = intendedPercentage + '%';
+                console.log('Looking for overdue milestone:', overdueMilestone);
+                console.log('All milestones:', timeProgressTrack.querySelectorAll('.time-progress-milestone'));
                 
-                // Overdue section shows overdue days as percentage of total
-                if (timeProgressOverdue) {
+                if (overdueMilestone) {
+                    // Use the exact computed width from the milestone element
+                    const computedStyle = window.getComputedStyle(overdueMilestone);
+                    const overdueWidth = computedStyle.width;
+                    const trackWidth = timeProgressTrack.offsetWidth;
+                    const overduePercentage = (parseFloat(overdueWidth) / trackWidth) * 100;
+                    
+                    console.log('Found overdue milestone! Width:', overdueWidth, 'Percentage:', overduePercentage);
+                    
+                    // Set the overdue bar to match the milestone's size
+                    timeProgressFill.style.width = (100 - overduePercentage) + '%';
+                    timeProgressOverdue.style.width = overduePercentage + '%';
+                } else {
+                    console.log('Overdue milestone NOT found, using fallback calculation');
+                    // Fallback calculation if milestone not found
+                    const totalDisplayDays = totalDays + overdueDays;
+                    const intendedPercentage = (totalDays / totalDisplayDays) * 100;
+                    const overduePercentage = (overdueDays / totalDisplayDays) * 100;
+                    
+                    timeProgressFill.style.width = intendedPercentage + '%';
                     timeProgressOverdue.style.width = overduePercentage + '%';
                 }
+                
+                timeProgressOverdue.setAttribute('data-label', `Overdue (${overdueDays}d)`);
+                timeProgressOverdue.title = `${overdueDays} days overdue`;
             } else {
-                // Entry is on track - timeline is from created to intended end
+                // Entry is on track - show progress within intended timeline
                 const fillPercentage = Math.min(100, percentage);
-                
-                // Fill bar shows progress
                 timeProgressFill.style.width = fillPercentage + '%';
-                
-                // No overdue section
-                if (timeProgressOverdue) {
-                    timeProgressOverdue.style.width = '0%';
-                }
+                timeProgressOverdue.style.width = '0%';
             }
         }
         
@@ -1077,26 +1115,6 @@
         const daysElapsedElement = document.getElementById('timeline-days-elapsed');
         if (daysElapsedElement) {
             daysElapsedElement.textContent = daysElapsed;
-        }
-        
-        const daysRemainingElement = document.getElementById('timeline-days-remaining');
-        if (daysRemainingElement) {
-            daysRemainingElement.textContent = Math.max(0, daysRemaining);
-        }
-        
-        // Update remaining text
-        const remainingText = document.getElementById('timeline-remaining-text');
-        if (remainingText) {
-            if (daysRemaining === 0) {
-                remainingText.innerHTML = '<i class="fas fa-check-circle me-1"></i>Target reached!';
-                remainingText.className = 'text-success fw-bold';
-            } else if (daysRemaining < 0) {
-                remainingText.innerHTML = `<i class="fas fa-exclamation-triangle me-1"></i>${Math.abs(daysRemaining)} days overdue`;
-                remainingText.className = 'text-danger fw-bold';
-            } else {
-                remainingText.innerHTML = `<i class="fas fa-hourglass-half me-1"></i><span id="timeline-days-remaining">${daysRemaining}</span> days remaining`;
-                remainingText.className = 'text-muted';
-            }
         }
     }
     {% endif %}
