@@ -33,9 +33,16 @@ COPY scripts/ scripts/
 # Copy migrations directory
 COPY migrations/ migrations/
 
+# Copy and set up the entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Expose the port your Flask app runs on (from app/config.py's PORT)
 # We'll standardize this to 5001 for the container's internal port.
 EXPOSE 5001
+
+# Use entrypoint script to run migrations before starting app
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # Command to run your Flask application
 CMD ["python", "run.py"]

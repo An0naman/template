@@ -64,6 +64,8 @@ cd template
 # Build and run with Docker Compose
 docker-compose up -d
 
+# Database migrations run automatically on startup! ✨
+
 # Access the application
 open http://localhost:5000
 ```
@@ -73,6 +75,8 @@ open http://localhost:5000
 2. **Configure entry types** via Settings → Data Structure → Entry Types
 3. **Set up themes** via Settings → System Configuration → System Theme
 4. **Configure notifications** via Settings → Overdue Notification Settings
+
+> 💡 **Note**: Database migrations run automatically on container startup - no manual database updates needed!
 
 ---
 
@@ -120,6 +124,12 @@ template/
 - **[Sensors & IoT](docs/features/SENSORS.md)** - Device integration
 - **[Notifications](docs/features/NOTIFICATIONS.md)** - Alert system
 - **[Dashboards](docs/features/DASHBOARDS.md)** - Custom dashboards
+
+### **Database & Migrations** ⭐ NEW
+- **[Migration Guide](docs/MIGRATIONS.md)** - 🔄 Complete database migration system
+- **[Quick Reference](docs/MIGRATIONS_QUICK_REF.md)** - Common migration commands
+- **[Implementation Summary](docs/MIGRATION_SYSTEM_IMPLEMENTATION.md)** - Technical details
+- **🎯 Automatic migrations on deployment** - No manual database updates needed!
 
 ### **Framework Usage**
 - **[Framework Guide](docs/framework/FRAMEWORK_USAGE.md)** - ⭐ Use as a multi-app framework
