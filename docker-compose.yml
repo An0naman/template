@@ -2,7 +2,7 @@ name: template
 
 services:
   template:
-    build: .
+    image: ghcr.io/an0naman/template:latest
     container_name: template
     restart: always
     network_mode: host
