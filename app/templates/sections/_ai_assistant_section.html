@@ -52,6 +52,188 @@ function resetActionButton() {
     button.classList.add('btn-outline-secondary');
 }
 
+// Planning Mode Functions
+var currentPlan = null;
+var planningMode = false;
+
+async function enterPlanningMode() {
+    planningMode = true;
+    currentAction = null;
+    
+    // Update button
+    const buttonText = document.getElementById('selectedActionText');
+    const button = document.getElementById('aiActionButton');
+    buttonText.innerHTML = '<i class="fas fa-calendar-check me-1"></i>Planning Mode';
+    button.classList.remove('btn-outline-secondary');
+    button.classList.add('btn-info');
+    
+    // Clear chat and show welcome message
+    const messagesContainer = document.getElementById('chatMessages');
+    messagesContainer.innerHTML = '';
+    
+    addMessageToChat('assistant', `🎯 Planning Mode activated! 
+
+I'll help you create a milestone plan for this entry. I can:
+- Analyze your entry context and historical data
+- Research typical timelines for your project type
+- Suggest realistic milestone dates
+- Adjust the plan based on your feedback
+
+What would you like to plan?`);
+    
+    document.getElementById('chatInput').placeholder = "E.g., 'Help me plan this fermentation' or 'Create a timeline for this project'";
+    document.getElementById('chatInput').focus();
+}
+
+async function generatePlan(userPrompt) {
+    const loadingId = addMessageToChat('assistant', 'Analyzing entry context and generating plan...', true);
+    
+    try {
+        const response = await fetch(`/api/entries/{{ entry.id }}/generate_plan`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: userPrompt })
+        });
+        
+        const data = await response.json();
+        document.getElementById(loadingId).remove();
+        
+        if (data.success) {
+            currentPlan = data.plan;
+            
+            // Add context summary
+            addMessageToChat('assistant', `📊 ${data.context_summary}
+
+I've created a proposed plan. You can review it in the preview area below and either apply it or discuss changes.`);
+            
+            // Render the plan in preview area
+            renderPlanCard(data.plan);
+            
+        } else {
+            addMessageToChat('assistant', `❌ Error: ${data.error || 'Failed to generate plan'}`);
+        }
+    } catch (error) {
+        console.error('Plan generation error:', error);
+        document.getElementById(loadingId).remove();
+        addMessageToChat('assistant', '❌ Failed to generate plan. Please try again.');
+    }
+}
+
+function renderPlanCard(plan) {
+    // Show plan in the preview area instead of in chat
+    const previewContainer = document.getElementById('planPreview');
+    const previewContent = document.getElementById('planPreviewContent');
+    
+    let milestoneHTML = '';
+    plan.milestones.forEach((milestone, index) => {
+        const statusIcon = index === 0 ? '✓' : '→';
+        const statusColor = milestone.state_color || '#6c757d';
+        
+        milestoneHTML += `
+            <div class="milestone-step mb-3" data-milestone-index="${index}">
+                <div class="d-flex align-items-start">
+                    <span class="badge rounded-pill me-2" style="background-color: ${statusColor};">${statusIcon}</span>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between">
+                            <strong>${milestone.target_date}</strong>
+                            ${milestone.duration_days ? `<span class="badge bg-info">${milestone.duration_days} days</span>` : ''}
+                        </div>
+                        <div class="fw-bold">${milestone.status_name}</div>
+                        ${milestone.notes ? `<small class="text-muted">${milestone.notes}</small>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    previewContent.innerHTML = `
+        <div class="mb-3">
+            <h5 class="mb-1">${plan.title || 'Proposed Milestone Plan'}</h5>
+            <small class="text-muted">Total Duration: ${plan.duration_total_days} days</small>
+        </div>
+        ${plan.reasoning ? `<div class="alert alert-info mb-3"><small><strong>Reasoning:</strong> ${plan.reasoning}</small></div>` : ''}
+        <div class="plan-timeline">
+            ${milestoneHTML}
+        </div>
+    `;
+    
+    // Show the preview container
+    previewContainer.classList.remove('d-none');
+}
+
+async function applyPlanPreview() {
+    if (!currentPlan) {
+        addMessageToChat('assistant', '❌ No plan to apply');
+        return;
+    }
+    
+    const loadingId = addMessageToChat('assistant', 'Creating milestones...', true);
+    
+    try {
+        const response = await fetch(`/api/entries/{{ entry.id }}/apply_plan`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ plan: currentPlan })
+        });
+        
+        const data = await response.json();
+        document.getElementById(loadingId).remove();
+        
+        if (data.success) {
+            addMessageToChat('assistant', `✅ ${data.message}
+
+The milestones are now visible in the Progress & Status section below. I'll continue to monitor your progress!`);
+            
+            // Close the preview
+            closePlanPreview();
+            
+            // Refresh timeline section if it exists
+            if (window.timelineModule && typeof window.timelineModule.refresh === 'function') {
+                window.timelineModule.refresh();
+            }
+            
+            currentPlan = null;
+        } else {
+            addMessageToChat('assistant', `❌ Error: ${data.error || 'Failed to apply plan'}`);
+        }
+    } catch (error) {
+        console.error('Apply plan error:', error);
+        document.getElementById(loadingId).remove();
+        addMessageToChat('assistant', '❌ Failed to apply plan. Please try again.');
+    }
+}
+
+function closePlanPreview() {
+    const previewContainer = document.getElementById('planPreview');
+    previewContainer.classList.add('d-none');
+}
+
+function refinePlanPreview() {
+    addMessageToChat('assistant', `Sure! Tell me what you'd like to change:
+
+- Move a milestone date?
+- Add or remove a step?
+- Adjust the timeline?
+
+Just describe what you want, and I'll update the plan.`);
+    
+    document.getElementById('chatInput').placeholder = "E.g., 'Move bottling to day 15' or 'Add dry hopping step'";
+    document.getElementById('chatInput').focus();
+}
+
+function exitPlanningMode() {
+    planningMode = false;
+    currentPlan = null;
+    
+    // Remove plan card if present
+    const planCard = document.getElementById('current-plan-card');
+    if (planCard) planCard.remove();
+    
+    resetActionButton();
+    addMessageToChat('assistant', 'Planning mode exited. How else can I help?');
+    document.getElementById('chatInput').placeholder = "Ask AI or request description changes...";
+}
+
 async function sendChatMessage() {
     const input = document.getElementById('chatInput');
     const message = input.value.trim();
@@ -63,6 +245,18 @@ async function sendChatMessage() {
     currentAction = null;
     input.value = '';
     input.placeholder = "Continue the conversation or start a new request...";
+    
+    // Check if in planning mode
+    if (planningMode && !actionToSend) {
+        // Check if user is asking for a new plan or refining existing one
+        if (!currentPlan || message.toLowerCase().includes('new plan') || message.toLowerCase().includes('start over')) {
+            await generatePlan(message);
+        } else {
+            // Refining existing plan - regenerate with refinement prompt
+            await generatePlan(`Based on the previous plan, ${message}`);
+        }
+        return;
+    }
     
     const loadingId = addMessageToChat('assistant', 'Thinking...', true);
     
@@ -269,6 +463,29 @@ async function saveDescriptionUpdate(description) {
         </div>
     </div>
     
+    <!-- Plan Preview Area (Hidden by default) -->
+    <div class="plan-preview d-none mb-3" id="planPreview">
+        <div class="card border-success">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-calendar-check me-2"></i>Proposed Plan</span>
+                <div>
+                    <button class="btn btn-sm btn-light me-2" onclick="refinePlanPreview()">
+                        <i class="fas fa-comments me-1"></i>Discuss Changes
+                    </button>
+                    <button class="btn btn-sm btn-success" onclick="applyPlanPreview()">
+                        <i class="fas fa-check me-1"></i>Apply to Entry
+                    </button>
+                    <button class="btn btn-sm btn-outline-light" onclick="closePlanPreview()">
+                        <i class="fas fa-times me-1"></i>Cancel
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="planPreviewContent"></div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Chat Input -->
     <div class="chat-input">
         <div class="input-group">
@@ -283,6 +500,15 @@ async function saveDescriptionUpdate(description) {
                     <i class="fas fa-lightbulb me-2"></i>Improve Description
                 </a></li>
                 <li><hr class="dropdown-divider"></li>
+                <!-- Planning Mode: show_end_dates={{ entry.show_end_dates }}, intended_end_date={{ entry.intended_end_date }} -->
+                {% if entry.show_end_dates and entry.intended_end_date %}
+                <li><a class="dropdown-item" href="#" onclick="enterPlanningMode(); return false;">
+                    <i class="fas fa-calendar-check me-2"></i>Plan Milestones
+                </a></li>
+                <li><hr class="dropdown-divider"></li>
+                {% else %}
+                <!-- Planning mode hidden: show_end_dates={{ entry.show_end_dates }}, intended_end_date={{ entry.intended_end_date }} -->
+                {% endif %}
                 <li><a class="dropdown-item" href="#" onclick="selectAction('wikipedia', 'Provide Wikipedia-style information', 'Wikipedia', 'wikipedia-w'); return false;">
                     <i class="fab fa-wikipedia-w me-2"></i>Wikipedia Style
                 </a></li>
@@ -347,6 +573,43 @@ async function saveDescriptionUpdate(description) {
     0%, 20% { content: '.'; }
     40% { content: '..'; }
     60%, 100% { content: '...'; }
+}
+
+/* Planning Mode Styles */
+.plan-card {
+    animation: fadeIn 0.5s ease;
+    margin: 1rem 0;
+}
+
+.plan-card .card {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.milestone-step {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: 6px;
+    background: var(--bs-light);
+    transition: all 0.2s ease;
+}
+
+.milestone-step:hover {
+    background: var(--bs-secondary-bg-subtle);
+    transform: translateX(4px);
+}
+
+.milestone-step .badge {
+    min-width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
+
+.plan-timeline {
+    max-height: 400px;
+    overflow-y: auto;
 }
 </style>
 

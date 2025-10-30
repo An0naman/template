@@ -2,7 +2,10 @@ name: template
 
 services:
   template:
-    image: ghcr.io/an0naman/template:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: template:local
     container_name: template
     restart: always
     network_mode: host

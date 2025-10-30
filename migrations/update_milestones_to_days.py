@@ -79,6 +79,8 @@ def migrate():
                 completed_at TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                order_position INTEGER DEFAULT 0,
+                duration_days INTEGER DEFAULT 7,
                 FOREIGN KEY (entry_id) REFERENCES Entry(id) ON DELETE CASCADE,
                 FOREIGN KEY (target_state_id) REFERENCES EntryState(id) ON DELETE CASCADE,
                 CHECK(days_from_start >= 0)
@@ -93,11 +95,13 @@ def migrate():
             print("⚠️  Note: target_date values will be lost. Manual recreation recommended.")
             cursor.execute("""
                 INSERT INTO EntryStateMilestone 
-                (id, entry_id, target_state_id, days_from_start, notes, is_completed, completed_at, created_at, updated_at)
+                (id, entry_id, target_state_id, days_from_start, notes, is_completed, completed_at, created_at, updated_at, order_position, duration_days)
                 SELECT 
                     id, entry_id, target_state_id, 
                     7 as days_from_start,  -- Default to 7 days, needs manual update
-                    notes, is_completed, completed_at, created_at, updated_at
+                    notes, is_completed, completed_at, created_at, updated_at,
+                    0 as order_position,  -- Default order
+                    7 as duration_days  -- Default duration
                 FROM EntryStateMilestone_backup
             """)
             print("✓ Data migrated (with default days_from_start=7)")
