@@ -7,6 +7,9 @@ services:
     restart: always
     network_mode: host
     
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    
     # Bluetooth support for Niimbot printers
     devices:
       - /dev/bus/usb:/dev/bus/usb
@@ -52,6 +55,24 @@ services:
         - container: /app/data
           description:
             en_us: Application data directory containing SQLite database and files
+
+  # Watchtower - Automatic container updates
+  watchtower:
+    image: containrrr/watchtower
+    container_name: template-watchtower
+    restart: always
+    
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    
+    environment:
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_INCLUDE_STOPPED=false
+      - WATCHTOWER_LABEL_ENABLE=true
+      - TZ=UTC
+    
+    command: --label-enable
 
 x-casaos:
   architectures:
