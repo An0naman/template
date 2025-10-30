@@ -62,10 +62,6 @@ class DashboardService:
                 query += " AND e.entry_type_id = ?"
                 params.append(int(search['type_filter']))
             
-            if search['status_filter']:
-                query += " AND e.status = ?"
-                params.append(search['status_filter'])
-            
             # Specific states filter (comma-separated list of states)
             # sqlite3.Row objects don't have .get(), check for key existence
             if 'specific_states' in search.keys() and search['specific_states']:
@@ -75,6 +71,10 @@ class DashboardService:
                     state_conditions = ' OR '.join(['LOWER(e.status) = LOWER(?)' for _ in states])
                     query += f" AND ({state_conditions})"
                     params.extend(states)
+            elif search['status_filter']:
+                # Only apply status_filter if specific_states is not set
+                query += " AND e.status = ?"
+                params.append(search['status_filter'])
             
             # Date range filter
             if search['date_range']:
@@ -106,6 +106,10 @@ class DashboardService:
             # Result limit
             limit = int(search['result_limit'] or 50)
             query += f" LIMIT {limit}"
+            
+            # Debug logging
+            logger.info(f"Saved search {search_id} query: {query}")
+            logger.info(f"Saved search {search_id} params: {params}")
             
             cursor.execute(query, params)
             rows = cursor.fetchall()
@@ -249,13 +253,16 @@ class DashboardService:
             
             # Query sensor data (supporting both legacy and shared sensor data)
             placeholders = ','.join(['?' for _ in entry_ids])
+            rows = []
             
-            # Try shared sensor data first
+            # Try SensorDataEntryRanges first (for range-based sensor data)
             query = f"""
-                SELECT ssd.sensor_type, ssd.value, ssd.recorded_at, sdel.entry_id
+                SELECT ssd.sensor_type, ssd.value, ssd.recorded_at, sder.entry_id
                 FROM SharedSensorData ssd
-                JOIN SensorDataEntryLinks sdel ON ssd.id = sdel.shared_sensor_data_id
-                WHERE sdel.entry_id IN ({placeholders})
+                JOIN SensorDataEntryRanges sder ON 
+                    ssd.sensor_type = sder.sensor_type 
+                    AND ssd.id BETWEEN sder.start_sensor_id AND sder.end_sensor_id
+                WHERE sder.entry_id IN ({placeholders})
                 AND ssd.sensor_type = ?
             """
             params = entry_ids + [sensor_type]
@@ -266,8 +273,34 @@ class DashboardService:
             
             query += " ORDER BY ssd.recorded_at ASC"
             
+            logger.info(f"Sensor data query (ranges) for entries {entry_ids}, sensor {sensor_type}: {query}")
+            logger.info(f"Sensor data params: {params}")
+            
             cursor.execute(query, params)
             rows = cursor.fetchall()
+            logger.info(f"Sensor data ranges returned {len(rows)} rows")
+            
+            # If no range data, try direct links (SensorDataEntryLinks)
+            if not rows:
+                query = f"""
+                    SELECT ssd.sensor_type, ssd.value, ssd.recorded_at, sdel.entry_id
+                    FROM SharedSensorData ssd
+                    JOIN SensorDataEntryLinks sdel ON ssd.id = sdel.shared_sensor_data_id
+                    WHERE sdel.entry_id IN ({placeholders})
+                    AND ssd.sensor_type = ?
+                """
+                params = entry_ids + [sensor_type]
+                
+                if time_filter:
+                    query += " AND ssd.recorded_at >= ?"
+                    params.append(time_filter)
+                
+                query += " ORDER BY ssd.recorded_at ASC"
+                
+                logger.info(f"Sensor data query (links): {query}")
+                cursor.execute(query, params)
+                rows = cursor.fetchall()
+                logger.info(f"Sensor data links returned {len(rows)} rows")
             
             # If no shared data, try legacy sensor data
             if not rows:
@@ -285,8 +318,10 @@ class DashboardService:
                 
                 query += " ORDER BY recorded_at ASC"
                 
+                logger.info(f"Sensor data query (legacy): {query}")
                 cursor.execute(query, params)
                 rows = cursor.fetchall()
+                logger.info(f"Sensor data legacy returned {len(rows)} rows")
             
             data_points = []
             for row in rows:
