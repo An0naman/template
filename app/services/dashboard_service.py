@@ -73,7 +73,9 @@ class DashboardService:
                     params.extend(states)
             elif search['status_filter']:
                 # Only apply status_filter if specific_states is not set
-                query += " AND e.status = ?"
+                # status_filter is a category (active/inactive), not a state name
+                # Need to join with EntryState to filter by category
+                query += " AND EXISTS (SELECT 1 FROM EntryState es WHERE es.entry_type_id = e.entry_type_id AND LOWER(es.name) = LOWER(e.status) AND es.category = ?)"
                 params.append(search['status_filter'])
             
             # Date range filter
