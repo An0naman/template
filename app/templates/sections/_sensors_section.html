@@ -21,16 +21,16 @@
     </div>
     
     <div class="card-body">
-        {# Sensor Type and Time Range Filters #}
+        {# Sensor Type, Time Range, and Chart Type Filters #}
         <div class="row mb-3">
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <label for="sensorTypeSelect" class="form-label">Sensor Type</label>
                 <select class="form-select" id="sensorTypeSelect" onchange="onSensorTypeChange()">
                     <option value="">All Sensors</option>
                     {# Options populated dynamically via JavaScript #}
                 </select>
             </div>
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <label for="timeRangeSelect" class="form-label">Time Range</label>
                 <select class="form-select" id="timeRangeSelect" onchange="onTimeRangeChange()">
                     <option value="24h">Last 24 Hours</option>
@@ -38,6 +38,14 @@
                     <option value="30d">Last 30 Days</option>
                     <option value="90d">Last 90 Days</option>
                     <option value="custom">Custom Range</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="chartTypeSelect" class="form-label">Chart Type</label>
+                <select class="form-select" id="chartTypeSelect" onchange="onChartTypeChange()">
+                    <option value="line">Line Chart</option>
+                    <option value="bar">Bar Chart</option>
+                    <option value="area">Area Chart</option>
                 </select>
             </div>
         </div>

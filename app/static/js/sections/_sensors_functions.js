@@ -10,6 +10,7 @@ let sensorTypes = [];
 let sensorChartV2 = null;  // Renamed to avoid collision with V1 sensors.js
 let currentSensorType = '';
 let currentTimeRange = '30d';  // Changed from 7d to 30d to capture more data
+let currentChartType = 'line';  // Current chart type selection
 let customStartDate = null;
 let customEndDate = null;
 let autoRefreshInterval = null;
@@ -18,14 +19,12 @@ let autoRefreshInterval = null;
  * Initialize the sensor section
  */
 async function initializeSensorSection() {
-	console.log('V2 initializeSensorSection() called');
 	try {
 		// Load saved configuration first
 		loadSensorConfiguration();
 		
 		// Load sensor types for this entry type
 		await loadSensorTypes();
-		console.log('V2 loadSensorTypes() await completed, calling loadSensorDataV2()');
         
 		// Load sensor data
 		await loadSensorDataV2();
@@ -47,22 +46,18 @@ async function initializeSensorSection() {
  */
 async function loadSensorTypes() {
 	try {
-		console.log('V2 loadSensorTypes() called');
 		const response = await fetch(`/api/entry/${window.currentEntryId}/sensor-types`);
 		if (!response.ok) throw new Error('Failed to load sensor types');
         
 		const data = await response.json();
-		console.log('V2 sensor types loaded:', data.sensor_types);
 		sensorTypes = data.sensor_types || [];
         
 		// Populate sensor type selectors
 		try {
 			populateSensorTypeSelect();
-			console.log('V2 populateSensorTypeSelect() completed successfully');
 		} catch (selectError) {
 			console.error('Error in populateSensorTypeSelect:', selectError);
 		}
-		console.log('V2 loadSensorTypes() returning');
         
 	} catch (error) {
 		console.error('Error loading sensor types:', error);
@@ -70,20 +65,17 @@ async function loadSensorTypes() {
 		sensorTypes = ['Temperature', 'Humidity', 'Pressure', 'pH', 'Light', 'CO2'];
 		populateSensorTypeSelect();
 	}
-	console.log('V2 loadSensorTypes() completed');
 }
 
 /**
  * Populate sensor type dropdown
  */
 function populateSensorTypeSelect() {
-	console.log('V2 populateSensorTypeSelect() called');
 	const selects = ['sensorTypeSelect', 'addSensorType', 'defaultSensorType'];
     
 	selects.forEach(selectId => {
 		const select = document.getElementById(selectId);
 		if (!select) {
-			console.log(`V2: Element ${selectId} not found, skipping`);
 			return;
 		}
         
@@ -110,7 +102,6 @@ function populateSensorTypeSelect() {
 				// Update global variable if this is the main dropdown
 				if (selectId === 'sensorTypeSelect') {
 					currentSensorType = savedValue;
-					console.log('V2: Applied saved sensor type to main dropdown:', savedValue);
 				}
 			}
 		}
@@ -118,21 +109,81 @@ function populateSensorTypeSelect() {
 }
 
 /**
+ * Get available chart types based on data type
+ * @param {string} dataType - 'numeric' or 'categorical'
+ * @returns {Array} - Array of available chart type objects {value, label}
+ */
+function getAvailableChartTypes(dataType) {
+	// FIXED: Logic was inverted - now correctly showing options for each data type
+	if (dataType === 'numeric') {
+		// For numeric data, all chart types are available
+		return [
+			{ value: 'line', label: 'Line Chart' },
+			{ value: 'bar', label: 'Bar Chart' },
+			{ value: 'area', label: 'Area Chart' }
+		];
+	} else {
+		// For categorical data: timeline, bar, and pie chart
+		return [
+			{ value: 'line', label: 'Timeline (Line)' },
+			{ value: 'bar', label: 'Bar Chart' },
+			{ value: 'pie', label: 'Pie Chart' }
+		];
+	}
+}
+
+/**
+ * Update chart type selector based on current data type
+ */
+function updateChartTypeSelector() {
+	const chartTypeSelect = document.getElementById('chartTypeSelect');
+	if (!chartTypeSelect) return;
+	
+	// Determine data type based on current selection
+	let dataType = 'numeric'; // default
+	
+	if (currentSensorType && filteredData.length > 0) {
+		// Single sensor selected - detect its type
+		dataType = detectDataType(filteredData);
+	} else if (!currentSensorType && sensorData.length > 0) {
+		// "All Sensors" view - always numeric (categorical filtered out)
+		dataType = 'numeric';
+	}
+	
+	// Get available chart types for this data type
+	const availableTypes = getAvailableChartTypes(dataType);
+	
+	// Save current selection
+	const currentSelection = chartTypeSelect.value;
+	
+	// Repopulate dropdown
+	chartTypeSelect.innerHTML = '';
+	availableTypes.forEach(type => {
+		const option = document.createElement('option');
+		option.value = type.value;
+		option.textContent = type.label;
+		chartTypeSelect.appendChild(option);
+	});
+	
+	// Restore selection if still valid, otherwise use first available
+	if (availableTypes.some(t => t.value === currentSelection)) {
+		chartTypeSelect.value = currentSelection;
+		currentChartType = currentSelection;
+	} else {
+		chartTypeSelect.value = availableTypes[0].value;
+		currentChartType = availableTypes[0].value;
+	}
+}
+
+/**
  * Filter sensor data based on current filters (V2 version)
  */
 function filterSensorDataV2(data) {
-	console.log('V2 filterSensorDataV2() input:', data.length, 'readings');
-	console.log('V2 currentSensorType:', currentSensorType);
-	console.log('V2 currentTimeRange:', currentTimeRange);
-	
 	let filtered = data;
 	
 	// Filter by sensor type
 	if (currentSensorType) {
-		const beforeTypeFilter = filtered.length;
 		filtered = filtered.filter(r => r.sensor_type === currentSensorType);
-		console.log('V2 Type filter:', beforeTypeFilter, '→', filtered.length, 'readings');
-		console.log('V2 Sample sensor types in data:', [...new Set(data.map(r => r.sensor_type))].slice(0, 5));
 	}
 	
 	// Filter by time range
@@ -146,7 +197,6 @@ function filterSensorDataV2(data) {
 		filtered = filtered.filter(r => new Date(r.recorded_at).getTime() <= endTime);
 	}
 	
-	console.log('V2 filtered from', data.length, 'to', filtered.length, 'readings');
 	return filtered;
 }
 
@@ -154,7 +204,6 @@ function filterSensorDataV2(data) {
  * Load sensor data for the current entry
  */
 async function loadSensorDataV2() {
-	console.log('V2 loadSensorDataV2() called');
 	showLoading(true);
     
 	try {
@@ -163,20 +212,15 @@ async function loadSensorDataV2() {
 		if (!response.ok) throw new Error('Failed to load sensor data');
         
 		const data = await response.json();
-		console.log('V2 sensor data loaded:', data?.length || 0, 'readings');
 		
 		// V1 API returns array directly, not wrapped in {readings: [...]}
 		sensorData = data || [];
-		console.log('V2 ABOUT TO FILTER - sensorData length:', sensorData.length);
-		console.log('V2 ABOUT TO FILTER - currentSensorType:', currentSensorType);
 		
 		// Apply client-side filtering
 		try {
-			console.log('V2 CALLING filterSensorDataV2 NOW');
 			filteredData = filterSensorDataV2(sensorData);
-			console.log('V2 AFTER FILTER - filteredData length:', filteredData.length);
 		} catch (err) {
-			console.error('V2 ERROR in filterSensorDataV2:', err);
+			console.error('Error in filterSensorDataV2:', err);
 			filteredData = sensorData; // Fallback to unfiltered
 		}
         
@@ -230,7 +274,6 @@ function getTimeRangeParams() {
  * Update all display elements with current data
  */
 async function updateDisplay() {
-	console.log('V2 updateDisplay() called, filteredData length:', filteredData.length);
 	if (filteredData.length === 0) {
 		showNoData();
 		return;
@@ -239,6 +282,9 @@ async function updateDisplay() {
 	// Hide no data message
 	document.getElementById('noDataMessage').style.display = 'none';
     
+	// Update chart type selector based on data type
+	updateChartTypeSelector();
+	
 	// Update statistics
 	updateStatistics();
     
@@ -358,36 +404,22 @@ async function updateChart() {
 		sensorChartV2.destroy();
 	}
 	
-	// Get saved chart type preference from global variable (loaded from DB)
-	// This is set during loadSensorConfiguration() which is called on init
-	// Fallback to fetching from API if not set
-	let chartType = 'line'; // default
-	try {
-		const response = await fetch('/api/user_preferences/sensor_default_chart_type');
-		const data = await response.json();
-		if (data.success && data.preference_value) {
-			chartType = data.preference_value;
-		}
-	} catch (error) {
-		console.warn('Could not load chart type preference, using default:', error);
-	}
+	// Use the current chart type from global state
+	const chartType = currentChartType;
 	
 	// When viewing a specific sensor type, detect if it's numeric or categorical
 	// When viewing "All Sensors", only show numeric sensors to avoid mixing types
 	if (currentSensorType) {
 		// Single sensor type selected - detect its data type
 		const dataType = detectDataType(filteredData);
-		console.log('V2 Detected data type for', currentSensorType, ':', dataType);
 		
 		// For categorical data, force bar chart or timeline visualization
 		if (dataType === 'categorical') {
-			console.log('V2 Using categorical visualization for text-based data');
 			renderCategoricalChart(filteredData, chartType);
 			return;
 		}
 	} else {
 		// "All Sensors" selected - filter to only numeric sensors
-		console.log('V2 All Sensors view - filtering to numeric data only');
 		// Group by sensor type and check each type
 		const sensorTypeGroups = {};
 		filteredData.forEach(reading => {
@@ -404,8 +436,6 @@ async function updateChart() {
 			const dataType = detectDataType(readings);
 			if (dataType === 'numeric') {
 				numericData.push(...readings);
-			} else {
-				console.log('V2 Excluding categorical sensor type from All Sensors view:', type);
 			}
 		});
 		
@@ -423,17 +453,25 @@ async function updateChart() {
 	filteredData.forEach(reading => {
 		const type = reading.sensor_type;
 		if (!datasets[type]) {
+			// Set background color based on chart type
+			let bgColor;
+			if (chartType === 'bar') {
+				bgColor = getColorForSensorType(type, 0.7);
+			} else if (chartType === 'area') {
+				bgColor = getColorForSensorType(type, 0.2); // Transparent for area fill
+			} else {
+				bgColor = 'transparent'; // No fill for line charts
+			}
+			
 			datasets[type] = {
 				label: `${type} ${reading.unit || ''}`.trim(),
 				data: [],
 				borderColor: getColorForSensorType(type),
-				backgroundColor: chartType === 'bar' 
-					? getColorForSensorType(type, 0.7)
-					: getColorForSensorType(type) + '33', // Add transparency for line/area
+				backgroundColor: bgColor,
 				borderWidth: 2,
 				pointRadius: 3,
 				pointHoverRadius: 5,
-				fill: chartType === 'area'
+				fill: chartType === 'area' // Only fill for area charts
 			};
 		}
 		datasets[type].data.push({
@@ -443,9 +481,12 @@ async function updateChart() {
 	});
     
 	// Create chart with saved chart type preference
+	// Note: 'area' is actually a line chart with fill=true, so map it to 'line'
+	const actualChartType = (chartType === 'area') ? 'line' : chartType;
+	
 	const ctx = canvas.getContext('2d');
 	sensorChartV2 = new Chart(ctx, {
-		type: chartType,
+		type: actualChartType,
 		data: {
 			datasets: Object.values(datasets)
 		},
@@ -564,12 +605,10 @@ function detectDataType(data) {
 	// If any text values found, treat as categorical
 	// This ensures "on"/"off" is categorical even if mixed with numbers
 	if (textCount > 0) {
-		console.log('V2 Detected categorical data:', { textCount, numericCount, sample: sample.map(r => r.value).slice(0, 5) });
 		return 'categorical';
 	}
 	
 	// Otherwise numeric
-	console.log('V2 Detected numeric data:', { numericCount, sample: sample.map(r => r.value).slice(0, 5) });
 	return 'numeric';
 }
 
@@ -578,6 +617,12 @@ function detectDataType(data) {
  * E.g., relay states: "on"/"off", door states: "open"/"closed", etc.
  */
 function renderCategoricalChart(data, preferredChartType) {
+	// If pie chart requested, use specialized pie chart function
+	if (preferredChartType === 'pie') {
+		renderCategoricalPieChart(data);
+		return;
+	}
+	
 	const canvas = document.getElementById('sensorChart');
 	const ctx = canvas.getContext('2d');
 	
@@ -594,19 +639,18 @@ function renderCategoricalChart(data, preferredChartType) {
 		}
 	});
 	
-	console.log('V2 Categorical values found:', categoryArray);
-	console.log('V2 Category mapping:', categoryMap);
+	// Create dataset configuration based on chart type
+	const isBarChart = preferredChartType === 'bar';
 	
-	// Create a single dataset with stepped line connection (digital signal style)
 	const dataset = {
 		label: data[0]?.sensor_type || 'Sensor States',
 		data: [],
-		showLine: true, // Show line connecting points
-		stepped: 'after', // Creates digital/stepped line - horizontal then vertical
+		showLine: !isBarChart, // Show line for timeline, hide for bar
+		stepped: !isBarChart ? 'after' : false, // Stepped line for timeline only
 		borderColor: 'rgba(108, 117, 125, 0.5)', // Gray line
 		borderWidth: 2,
-		pointRadius: 8,
-		pointHoverRadius: 12,
+		pointRadius: isBarChart ? 6 : 8, // Slightly smaller points for bar chart
+		pointHoverRadius: isBarChart ? 8 : 12,
 		pointBackgroundColor: [],
 		pointBorderColor: [],
 		pointBorderWidth: 2,
@@ -628,11 +672,6 @@ function renderCategoricalChart(data, preferredChartType) {
 			originalValue: reading.value,
 			timestamp: reading.recorded_at
 		});
-		
-		// Debug first few points
-		if (dataset.data.length <= 3) {
-			console.log(`V2 Point ${dataset.data.length}: value="${reading.value}", normalized="${value}", y=${yPosition}`);
-		}
 	});
 	
 	// Add a plugin to draw colored background zones for each state row
@@ -777,6 +816,96 @@ function renderCategoricalChart(data, preferredChartType) {
 						display: true,
 						color: 'rgba(0, 0, 0, 0.1)',
 						lineWidth: 1
+					}
+				}
+			}
+		}
+	});
+}
+
+/**
+ * Render pie chart for categorical data showing distribution of states
+ */
+function renderCategoricalPieChart(data) {
+	const canvas = document.getElementById('sensorChart');
+	const ctx = canvas.getContext('2d');
+	
+	// Count occurrences of each categorical value
+	const categoryCount = {};
+	data.forEach(reading => {
+		const value = String(reading.value).toLowerCase().trim();
+		categoryCount[value] = (categoryCount[value] || 0) + 1;
+	});
+	
+	// Prepare data for pie chart
+	const labels = Object.keys(categoryCount);
+	const counts = Object.values(categoryCount);
+	const colors = labels.map(label => getCategoryColor(label, 0.8));
+	const borderColors = labels.map(label => getCategoryColor(label, 1));
+	
+	// Calculate percentages for display
+	const total = counts.reduce((sum, count) => sum + count, 0);
+	const percentages = counts.map(count => ((count / total) * 100).toFixed(1));
+	
+	// Create pie chart
+	sensorChartV2 = new Chart(ctx, {
+		type: 'pie',
+		data: {
+			labels: labels.map(label => label.toUpperCase()),
+			datasets: [{
+				data: counts,
+				backgroundColor: colors,
+				borderColor: borderColors,
+				borderWidth: 2
+			}]
+		},
+		options: {
+			responsive: true,
+			maintainAspectRatio: false,
+			plugins: {
+				legend: {
+					display: true,
+					position: 'right',
+					labels: {
+						font: {
+							size: 14
+						},
+						generateLabels: function(chart) {
+							const data = chart.data;
+							if (data.labels.length && data.datasets.length) {
+								return data.labels.map((label, i) => {
+									const value = data.datasets[0].data[i];
+									const percentage = percentages[i];
+									return {
+										text: `${label}: ${value} (${percentage}%)`,
+										fillStyle: data.datasets[0].backgroundColor[i],
+										strokeStyle: data.datasets[0].borderColor[i],
+										lineWidth: 2,
+										hidden: false,
+										index: i
+									};
+								});
+							}
+							return [];
+						}
+					}
+				},
+				tooltip: {
+					callbacks: {
+						label: function(context) {
+							const label = context.label || '';
+							const value = context.parsed || 0;
+							const percentage = percentages[context.dataIndex];
+							return `${label}: ${value} readings (${percentage}%)`;
+						}
+					}
+				},
+				title: {
+					display: true,
+					text: `${data[0]?.sensor_type || 'Sensor'} State Distribution`,
+					font: {
+						size: 16,
+						weight: 'bold'
 					}
 				}
 			}
@@ -1088,7 +1217,6 @@ function setupFormHandlers() {
 	if (sensorTypeSelect) {
 		sensorTypeSelect.addEventListener('change', async function() {
 			currentSensorType = this.value;
-			console.log('V2: Sensor type changed to:', currentSensorType);
 			await loadSensorDataV2();
 		});
 	}
@@ -1098,7 +1226,6 @@ function setupFormHandlers() {
 	if (timeRangeSelect) {
 		timeRangeSelect.addEventListener('change', async function() {
 			currentTimeRange = this.value;
-			console.log('V2: Time range changed to:', currentTimeRange);
 			
 			// Show/hide custom date inputs
 			const customDates = document.getElementById('customDateRange');
@@ -1112,13 +1239,34 @@ function setupFormHandlers() {
 		});
 	}
 	
+	// Chart type filter
+	const chartTypeSelect = document.getElementById('chartTypeSelect');
+	if (chartTypeSelect) {
+		chartTypeSelect.addEventListener('change', async function() {
+			currentChartType = this.value;
+			
+			// Save preference to database
+			try {
+				await fetch('/api/user_preferences/sensor_default_chart_type', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ value: currentChartType })
+				});
+			} catch (error) {
+				console.error('Failed to save chart type preference:', error);
+			}
+			
+			// Re-render chart with new type
+			await updateChart();
+		});
+	}
+	
 	// Apply custom date range button
 	const applyCustomBtn = document.getElementById('applyCustomRange');
 	if (applyCustomBtn) {
 		applyCustomBtn.addEventListener('click', async function() {
 			customStartDate = document.getElementById('customStartDate').value;
 			customEndDate = document.getElementById('customEndDate').value;
-			console.log('V2: Custom date range:', customStartDate, 'to', customEndDate);
 			await loadSensorDataV2();
 		});
 	}
@@ -1127,7 +1275,6 @@ function setupFormHandlers() {
 	const refreshBtn = document.getElementById('refreshSensorData');
 	if (refreshBtn) {
 		refreshBtn.addEventListener('click', async function() {
-			console.log('V2: Refresh clicked');
 			await loadSensorDataV2();
 		});
 	}
@@ -1436,8 +1583,6 @@ if (document.readyState === 'loading') {
  */
 async function loadSensorConfiguration() {
 	try {
-		console.log('V2 Loading sensor configuration from database');
-		
 		// Fetch all sensor preferences from API
 		const response = await fetch('/api/user_preferences');
 		const data = await response.json();
@@ -1479,10 +1624,17 @@ async function loadSensorConfiguration() {
 		
 		// Load default chart type
 		const defaultChartType = prefs.sensor_default_chart_type || 'line';
-		const chartTypeSelect = document.getElementById('defaultChartType');
-		if (chartTypeSelect) {
-			chartTypeSelect.value = defaultChartType;
+		const chartTypeConfigSelect = document.getElementById('defaultChartType');
+		if (chartTypeConfigSelect) {
+			chartTypeConfigSelect.value = defaultChartType;
 		}
+		// Apply the default chart type to the main chart type selector and global state
+		const mainChartTypeSelect = document.getElementById('chartTypeSelect');
+		if (mainChartTypeSelect) {
+			mainChartTypeSelect.value = defaultChartType;
+		}
+		// Always update the global currentChartType variable
+		currentChartType = defaultChartType;
 		
 		// Load default time range
 		const defaultTimeRange = prefs.sensor_default_time_range || '7d';
@@ -1510,8 +1662,6 @@ async function loadSensorConfiguration() {
 				showButton.style.display = 'block';
 			}
 		}
-		
-		console.log('V2 Configuration loaded from database:', { autoRefresh, showTable: showTableValue, defaultSensorType, defaultChartType, defaultTimeRange });
 	} catch (error) {
 		console.error('Error loading sensor configuration:', error);
 	}
@@ -1598,8 +1748,6 @@ async function saveSensorConfiguration() {
 		if (modal) modal.hide();
 		
 		showNotification('Configuration saved successfully to database', 'success');
-		
-		console.log('V2 Configuration saved to database:', { autoRefresh, showDataTable, defaultSensorType, defaultChartType, defaultTimeRange });
 	} catch (error) {
 		console.error('Error saving sensor configuration:', error);
 		showNotification('Failed to save configuration', 'error');
