@@ -20,8 +20,8 @@ let autoRefreshInterval = null;
  */
 async function initializeSensorSection() {
 	try {
-		// Load saved configuration first
-		loadSensorConfiguration();
+		// Load saved configuration first (must await to set currentSensorType before loading data)
+		await loadSensorConfiguration();
 		
 		// Load sensor types for this entry type
 		await loadSensorTypes();
@@ -95,14 +95,11 @@ function populateSensorTypeSelect() {
 		});
 		
 		// Restore saved value for both config and main dropdown
+		// Use currentSensorType which was already loaded from database preferences
 		if (selectId === 'defaultSensorType' || selectId === 'sensorTypeSelect') {
-			const savedValue = localStorage.getItem('sensorDefaultSensorType') || '';
-			if (savedValue) {
-				select.value = savedValue;
-				// Update global variable if this is the main dropdown
-				if (selectId === 'sensorTypeSelect') {
-					currentSensorType = savedValue;
-				}
+			if (currentSensorType) {
+				select.value = currentSensorType;
+				console.log(`🔧 populateSensorTypeSelect: Set ${selectId} to`, currentSensorType);
 			}
 		}
 	});
@@ -135,7 +132,7 @@ function getAvailableChartTypes(dataType) {
 /**
  * Update chart type selector based on current data type
  */
-function updateChartTypeSelector() {
+async function updateChartTypeSelector() {
 	const chartTypeSelect = document.getElementById('chartTypeSelect');
 	if (!chartTypeSelect) return;
 	
@@ -153,8 +150,35 @@ function updateChartTypeSelector() {
 	// Get available chart types for this data type
 	const availableTypes = getAvailableChartTypes(dataType);
 	
-	// Save current selection
-	const currentSelection = chartTypeSelect.value;
+	// Try to load saved preference for this specific sensor type from JSON structure
+	let preferredType = null;
+	try {
+		const response = await fetch('/api/user_preferences');
+		if (response.ok) {
+			const data = await response.json();
+			const prefKey = `sensor_preferences_entry_${window.currentEntryId}`;
+			const prefsJson = data.preferences?.[prefKey];
+			
+			if (prefsJson) {
+				try {
+					const prefs = JSON.parse(prefsJson);
+					const chartTypes = prefs.chart_types || {};
+					preferredType = currentSensorType ? chartTypes[currentSensorType] : null;
+					
+					console.log('📊 updateChartTypeSelector:', {
+						currentSensorType,
+						dataType,
+						preferredType,
+						availableTypes: availableTypes.map(t => t.value)
+					});
+				} catch (e) {
+					console.error('Failed to parse preferences:', e);
+				}
+			}
+		}
+	} catch (error) {
+		console.error('Failed to load chart type preference:', error);
+	}
 	
 	// Repopulate dropdown
 	chartTypeSelect.innerHTML = '';
@@ -165,11 +189,19 @@ function updateChartTypeSelector() {
 		chartTypeSelect.appendChild(option);
 	});
 	
-	// Restore selection if still valid, otherwise use first available
-	if (availableTypes.some(t => t.value === currentSelection)) {
+	// Priority: saved preference > current selection > first available
+	const currentSelection = chartTypeSelect.value;
+	
+	if (preferredType && availableTypes.some(t => t.value === preferredType)) {
+		// Use saved preference if valid
+		chartTypeSelect.value = preferredType;
+		currentChartType = preferredType;
+	} else if (availableTypes.some(t => t.value === currentSelection)) {
+		// Keep current if still valid
 		chartTypeSelect.value = currentSelection;
 		currentChartType = currentSelection;
 	} else {
+		// Fall back to first available
 		chartTypeSelect.value = availableTypes[0].value;
 		currentChartType = availableTypes[0].value;
 	}
@@ -282,8 +314,8 @@ async function updateDisplay() {
 	// Hide no data message
 	document.getElementById('noDataMessage').style.display = 'none';
     
-	// Update chart type selector based on data type
-	updateChartTypeSelector();
+	// Update chart type selector based on data type (await since it loads preferences)
+	await updateChartTypeSelector();
 	
 	// Update statistics
 	updateStatistics();
@@ -1245,12 +1277,37 @@ function setupFormHandlers() {
 		chartTypeSelect.addEventListener('change', async function() {
 			currentChartType = this.value;
 			
-			// Save preference to database
+			// Save preference per sensor type using JSON structure
 			try {
-				await fetch('/api/user_preferences/sensor_default_chart_type', {
+				// Load existing preferences
+				const response = await fetch('/api/user_preferences');
+				let prefs = {};
+				if (response.ok) {
+					const data = await response.json();
+					const prefKey = `sensor_preferences_entry_${window.currentEntryId}`;
+					const existing = data.preferences?.[prefKey];
+					if (existing) {
+						try {
+							prefs = JSON.parse(existing);
+						} catch (e) {
+							console.error('Failed to parse existing preferences:', e);
+						}
+					}
+				}
+				
+				// Update chart type for current sensor
+				if (!prefs.chart_types) prefs.chart_types = {};
+				if (currentSensorType) {
+					prefs.chart_types[currentSensorType] = currentChartType;
+				}
+				prefs.saved_at = new Date().toISOString();
+				
+				// Save back
+				const prefKey = `sensor_preferences_entry_${window.currentEntryId}`;
+				await fetch(`/api/user_preferences/${prefKey}`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ value: currentChartType })
+					body: JSON.stringify({ value: JSON.stringify(prefs) })
 				});
 			} catch (error) {
 				console.error('Failed to save chart type preference:', error);
@@ -1303,6 +1360,42 @@ function setupFormHandlers() {
 		addSource.addEventListener('change', function() {
 			const deviceSection = document.getElementById('deviceSourceSection');
 			if (deviceSection) deviceSection.style.display = this.value === 'device' ? 'block' : 'none';
+		});
+	}
+	
+	// Modal sensor type change - update chart type dropdown to show saved preference
+	const modalSensorTypeSelect = document.getElementById('defaultSensorType');
+	if (modalSensorTypeSelect) {
+		modalSensorTypeSelect.addEventListener('change', async function() {
+			const selectedSensorType = this.value;
+			const chartTypeSelect = document.getElementById('defaultChartType');
+			
+			if (!chartTypeSelect) return;
+			
+			// Load saved preference for this sensor type from JSON structure
+			try {
+				const response = await fetch('/api/user_preferences');
+				if (response.ok) {
+					const data = await response.json();
+					const prefKey = `sensor_preferences_entry_${window.currentEntryId}`;
+					const prefsJson = data.preferences?.[prefKey];
+					
+					let savedChartType = 'line'; // default
+					if (prefsJson) {
+						try {
+							const prefs = JSON.parse(prefsJson);
+							const chartTypes = prefs.chart_types || {};
+							savedChartType = chartTypes[selectedSensorType] || 'line';
+						} catch (e) {
+							console.error('Failed to parse preferences:', e);
+						}
+					}
+					
+					chartTypeSelect.value = savedChartType;
+				}
+			} catch (error) {
+				console.error('Failed to load chart type preference:', error);
+			}
 		});
 	}
 }
@@ -1580,6 +1673,7 @@ if (document.readyState === 'loading') {
 
 /**
  * Load sensor configuration from database (via API)
+ * Uses per-entry JSON structure
  */
 async function loadSensorConfiguration() {
 	try {
@@ -1592,24 +1686,38 @@ async function loadSensorConfiguration() {
 			return;
 		}
 		
-		const prefs = data.preferences || {};
+		const allPrefs = data.preferences || {};
+		
+		// Load per-entry preferences
+		const prefKey = `sensor_preferences_entry_${window.currentEntryId}`;
+		let prefs = {};
+		
+		if (allPrefs[prefKey]) {
+			try {
+				prefs = JSON.parse(allPrefs[prefKey]);
+			} catch (e) {
+				console.error('Failed to parse sensor preferences:', e);
+				// Fall back to empty preferences
+				prefs = {};
+			}
+		}
 		
 		// Load auto-refresh setting
-		const autoRefresh = prefs.sensor_auto_refresh === 'true';
+		const autoRefresh = prefs.auto_refresh === true;
 		const autoRefreshCheckbox = document.getElementById('autoRefresh');
 		if (autoRefreshCheckbox) {
 			autoRefreshCheckbox.checked = autoRefresh;
 		}
 		
 		// Load show table setting (default to false/hidden)
-		const showTableValue = prefs.sensor_show_table === 'true';
+		const showTableValue = prefs.show_table === true;
 		const showTableCheckbox = document.getElementById('showDataTable');
 		if (showTableCheckbox) {
 			showTableCheckbox.checked = showTableValue;
 		}
 		
 		// Load default sensor type
-		const defaultSensorType = prefs.sensor_default_type || '';
+		const defaultSensorType = prefs.default_sensor_type || '';
 		const sensorTypeConfigSelect = document.getElementById('defaultSensorType');
 		if (sensorTypeConfigSelect) {
 			sensorTypeConfigSelect.value = defaultSensorType;
@@ -1621,9 +1729,12 @@ async function loadSensorConfiguration() {
 		}
 		// Always update the global currentSensorType variable
 		currentSensorType = defaultSensorType;
+		console.log('🔧 loadSensorConfiguration: Set currentSensorType to', currentSensorType);
 		
-		// Load default chart type
-		const defaultChartType = prefs.sensor_default_chart_type || 'line';
+		// Load default chart type - check for per-sensor preference first
+		const chartTypes = prefs.chart_types || {};
+		const defaultChartType = chartTypes[defaultSensorType] || 'line';
+		
 		const chartTypeConfigSelect = document.getElementById('defaultChartType');
 		if (chartTypeConfigSelect) {
 			chartTypeConfigSelect.value = defaultChartType;
@@ -1637,7 +1748,7 @@ async function loadSensorConfiguration() {
 		currentChartType = defaultChartType;
 		
 		// Load default time range
-		const defaultTimeRange = prefs.sensor_default_time_range || '7d';
+		const defaultTimeRange = prefs.default_time_range || '7d';
 		const timeRangeSelect = document.getElementById('defaultTimeRange');
 		if (timeRangeSelect) {
 			timeRangeSelect.value = defaultTimeRange;
@@ -1669,6 +1780,7 @@ async function loadSensorConfiguration() {
 
 /**
  * Save sensor configuration to database via API
+ * Uses per-entry JSON structure for better organization
  */
 async function saveSensorConfiguration() {
 	try {
@@ -1679,26 +1791,47 @@ async function saveSensorConfiguration() {
 		const defaultChartType = document.getElementById('defaultChartType')?.value || 'line';
 		const defaultTimeRange = document.getElementById('defaultTimeRange')?.value || '7d';
 		
-		// Save to database via API
+		// Load existing preferences to preserve chart types for other sensors
+		const response = await fetch('/api/user_preferences');
+		let existingPrefs = {};
+		if (response.ok) {
+			const data = await response.json();
+			const prefKey = `sensor_preferences_entry_${window.currentEntryId}`;
+			const existing = data.preferences?.[prefKey];
+			if (existing) {
+				try {
+					existingPrefs = JSON.parse(existing);
+				} catch (e) {
+					console.error('Failed to parse existing preferences:', e);
+				}
+			}
+		}
+		
+		// Build preference object with chart types preserved
+		const chartTypes = existingPrefs.chart_types || {};
+		if (defaultSensorType) {
+			chartTypes[defaultSensorType] = defaultChartType;
+		}
+		
 		const preferences = {
-			sensor_auto_refresh: autoRefresh.toString(),
-			sensor_show_table: showDataTable.toString(),
-			sensor_default_type: defaultSensorType,
-			sensor_default_chart_type: defaultChartType,
-			sensor_default_time_range: defaultTimeRange
+			auto_refresh: autoRefresh,
+			show_table: showDataTable,
+			default_sensor_type: defaultSensorType,
+			default_time_range: defaultTimeRange,
+			chart_types: chartTypes,
+			saved_at: new Date().toISOString()
 		};
 		
-		// Save each preference
-		for (const [key, value] of Object.entries(preferences)) {
-			const response = await fetch(`/api/user_preferences/${key}`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ value: value })
-			});
-			
-			if (!response.ok) {
-				throw new Error(`Failed to save ${key}`);
-			}
+		// Save as single JSON object per entry
+		const prefKey = `sensor_preferences_entry_${window.currentEntryId}`;
+		const saveResponse = await fetch(`/api/user_preferences/${prefKey}`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ value: JSON.stringify(preferences) })
+		});
+		
+		if (!saveResponse.ok) {
+			throw new Error('Failed to save preferences');
 		}
 		
 		// Apply settings
