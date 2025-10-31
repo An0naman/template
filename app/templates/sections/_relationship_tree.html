@@ -1,0 +1,75 @@
+{# Relationship Tree - Recursive component for displaying hierarchical relationships #}
+{% macro render_tree_node(node, level=0, current_entry_id=None) %}
+  <div class="tree-node level-{{ level }}" 
+       data-entry-id="{{ node.id }}"
+       style="padding-left: {{ level * 20 }}px;">
+    
+    <div class="tree-node-content {% if node.id == current_entry_id %}current-entry{% elif node.is_parent|default(false) %}parent-entry{% endif %}">
+      
+      <!-- Expand/Collapse Icon (if has children) -->
+      {% if node.children and node.children|length > 0 %}
+        <button class="tree-toggle-btn" data-node-id="{{ node.id }}">
+          <i class="fas fa-chevron-down"></i>
+        </button>
+      {% else %}
+        <span class="tree-spacer"></span>
+      {% endif %}
+
+      <!-- Entry Type Icon -->
+      <span class="tree-entry-type" 
+            style="color: {{ node.entry_type.color }};"
+            title="{{ node.entry_type.label }}">
+        <i class="{{ node.entry_type.icon }}"></i>
+      </span>
+
+      <!-- Entry Title and Link -->
+      <a href="/entry/{{ node.id }}" 
+         class="tree-entry-link {% if node.id == current_entry_id %}fw-bold{% endif %}"
+         target="_blank">
+        {{ node.title }}
+        {% if node.id == current_entry_id %}
+          <span class="badge bg-success ms-2">Current</span>
+        {% elif node.is_parent|default(false) %}
+          <span class="badge bg-info ms-2">Parent</span>
+        {% endif %}
+      </a>
+
+      <!-- Status Badge -->
+      {% if node.status %}
+        <span class="status-badge status-{{ node.status|lower|replace(' ', '-') }} ms-2">
+          {{ node.status }}
+        </span>
+      {% endif %}
+
+      <!-- Relationship Type Label (for child nodes) -->
+      {% if node.relationship_type %}
+        <small class="text-muted ms-2">
+          <i class="fas fa-link"></i> {{ node.relationship_type }}
+        </small>
+      {% endif %}
+    </div>
+
+    <!-- Children (recursive) -->
+    {% if node.children and node.children|length > 0 %}
+      <div class="tree-children" data-parent-id="{{ node.id }}">
+        {% for child in node.children %}
+          {{ render_tree_node(child, level + 1, current_entry_id) }}
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+{# Main tree container #}
+<div class="relationship-tree">
+  {% if hierarchy and hierarchy|length > 0 %}
+    {% for root_node in hierarchy %}
+      {{ render_tree_node(root_node, 0, entry_id) }}
+    {% endfor %}
+  {% else %}
+    <div class="empty-state">
+      <i class="fas fa-sitemap"></i>
+      <p class="text-muted">No hierarchical relationships found</p>
+    </div>
+  {% endif %}
+</div>

@@ -1,0 +1,148 @@
+{# Relationships Section for Entry Detail V2 #}
+
+<div class="content-section relationships-section" 
+     data-section-type="relationships"
+     data-entry-id="{{ entry.id }}">
+  
+  <!-- Section Header -->
+  <div class="section-header mb-3">
+    <div class="section-title">
+      <i class="fas fa-link"></i>
+      <h5>Related Records</h5>
+      <span class="badge bg-secondary ms-2">{{ relationships.all_relationships|length }}</span>
+    </div>
+  </div>
+
+  <!-- Section Content -->
+  <div class="section-content" id="relatedRecordsContainer{{ entry.id }}">
+    
+    {% if relationships.total_count > 0 %}
+      <!-- View Tabs -->
+      <ul class="nav nav-tabs relationships-tabs" role="tablist">
+        <li class="nav-item">
+          <button class="nav-link active" 
+                  id="all-tab-btn"
+                  data-bs-toggle="tab" 
+                  data-bs-target="#all-tab"
+                  type="button"
+                  role="tab">
+            <i class="fas fa-link"></i> 
+            All Relationships
+          </button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link" 
+                  id="hierarchy-tab-btn"
+                  data-bs-toggle="tab" 
+                  data-bs-target="#hierarchy-tab"
+                  type="button"
+                  role="tab">
+            <i class="fas fa-sitemap"></i> 
+            Hierarchy
+          </button>
+        </li>
+      </ul>
+
+      <!-- Tab Content -->
+      <div class="tab-content relationships-tab-content">
+        
+        <!-- All Relationships Tab -->
+        <div class="tab-pane fade show active" 
+             id="all-tab" 
+             role="tabpanel"
+             aria-labelledby="all-tab-btn">
+          
+          <div class="relationships-grouped">
+            
+            <!-- Display all outgoing relationships grouped by type -->
+            {% for rel_type, rels in relationships.grouped_outgoing.items() %}
+              <div class="relationship-group mb-4">
+                <h6 class="relationship-group-title">
+                  <i class="fas fa-folder"></i>
+                  {{ rel_type }} 
+                  <span class="badge bg-secondary">{{ rels|length }}</span>
+                </h6>
+                <div class="relationships-list">
+                  {% for rel in rels %}
+                    {% include 'sections/_relationship_card.html' %}
+                  {% endfor %}
+                </div>
+              </div>
+            {% endfor %}
+            
+            <!-- Display all incoming relationships grouped by type -->
+            {% for rel_type, rels in relationships.grouped_incoming.items() %}
+              <div class="relationship-group mb-4">
+                <h6 class="relationship-group-title">
+                  <i class="fas fa-folder"></i>
+                  {{ rel_type }} 
+                  <span class="badge bg-secondary">{{ rels|length }}</span>
+                </h6>
+                <div class="relationships-list">
+                  {% for rel in rels %}
+                    {% include 'sections/_relationship_card.html' %}
+                  {% endfor %}
+                </div>
+              </div>
+            {% endfor %}
+            
+            <!-- Show empty state if no relationships -->
+            {% if not relationships.grouped_outgoing and not relationships.grouped_incoming %}
+              <div class="empty-state">
+                <i class="fas fa-link"></i>
+                <p>No relationships found</p>
+              </div>
+            {% endif %}
+            
+          </div>
+          
+        </div>
+
+        <!-- Hierarchy Tab -->
+        <div class="tab-pane fade" 
+             id="hierarchy-tab" 
+             role="tabpanel"
+             aria-labelledby="hierarchy-tab-btn">
+          
+          <div id="hierarchy-loading" class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2 text-muted">Loading hierarchy...</p>
+          </div>
+          
+          <div id="hierarchy-content" style="display: none;">
+            <!-- Will be populated via JavaScript -->
+          </div>
+          
+        </div>
+
+      </div>
+    {% else %}
+      <!-- Empty State -->
+      <div class="empty-state">
+        <i class="fas fa-link"></i>
+        <h6>No Relationships Yet</h6>
+        <p class="text-muted">Create your first relationship to connect this entry with others.</p>
+        <button class="btn btn-primary" 
+                data-bs-toggle="modal" 
+                data-bs-target="#addRelationshipModal{{ entry.id }}">
+          <i class="fas fa-plus"></i> Add First Relationship
+        </button>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Add Relationship Modal -->
+{% include 'modals/_add_relationship_modal.html' %}
+
+<!-- Initialize relationship section JavaScript -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof initializeRelationshipsSection === 'function') {
+      initializeRelationshipsSection({{ entry.id }});
+    }
+  });
+</script>

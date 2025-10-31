@@ -346,9 +346,136 @@ def entry_detail_v2(entry_id):
         # Build section_order from the sorted visible sections
         section_order = [s['section_type'] for s in visible_sections]
     
+    # Get relationship data for the relationships section
+    relationships_data = {}
+    
+    # Fetch outgoing relationships (where this entry is the source)
+    # Use CASE to select the correct label based on current entry's type
+    cursor.execute('''
+        SELECT
+            er.id AS relationship_id,
+            er.target_entry_id AS related_entry_id,
+            e_to.title AS related_entry_title,
+            e_to.status AS related_entry_status,
+            COALESCE(es_to.color, '#6c757d') AS related_entry_status_color,
+            et_to.id AS related_entry_type_id,
+            et_to.singular_label AS related_entry_type_label,
+            rd.id AS definition_id,
+            rd.name AS definition_name,
+            CASE 
+                WHEN rd.entry_type_id_from = ? THEN rd.label_from_side
+                ELSE rd.label_to_side
+            END AS relationship_type,
+            er.quantity,
+            er.unit
+        FROM EntryRelationship er
+        JOIN RelationshipDefinition rd ON er.relationship_type = rd.id
+        JOIN Entry e_to ON er.target_entry_id = e_to.id
+        JOIN EntryType et_to ON e_to.entry_type_id = et_to.id
+        LEFT JOIN EntryState es_to ON es_to.entry_type_id = e_to.entry_type_id AND es_to.name = e_to.status
+        WHERE er.source_entry_id = ?
+        ORDER BY rd.name, e_to.title
+    ''', (entry_data['entry_type_id'], entry_id))
+    
+    outgoing_relationships = []
+    for row in cursor.fetchall():
+        outgoing_relationships.append({
+            'id': row['relationship_id'],
+            'related_entry_id': row['related_entry_id'],
+            'related_entry_title': row['related_entry_title'],
+            'related_entry_status': row['related_entry_status'],
+            'related_entry_status_color': row['related_entry_status_color'],
+            'related_entry_type': {
+                'id': row['related_entry_type_id'],
+                'label': row['related_entry_type_label'],
+                'icon': 'fas fa-link',  # Default icon
+                'color': '#6c757d'  # Default color (Bootstrap secondary)
+            },
+            'relationship_type': row['relationship_type'],
+            'definition_name': row['definition_name'],
+            'quantity': row['quantity'],
+            'unit': row['unit']
+        })
+    
+    # Fetch incoming relationships (where this entry is the target)
+    # Use CASE to select the correct label based on current entry's type
+    cursor.execute('''
+        SELECT
+            er.id AS relationship_id,
+            er.source_entry_id AS related_entry_id,
+            e_from.title AS related_entry_title,
+            e_from.status AS related_entry_status,
+            COALESCE(es_from.color, '#6c757d') AS related_entry_status_color,
+            et_from.id AS related_entry_type_id,
+            et_from.singular_label AS related_entry_type_label,
+            rd.id AS definition_id,
+            rd.name AS definition_name,
+            CASE 
+                WHEN rd.entry_type_id_to = ? THEN rd.label_to_side
+                ELSE rd.label_from_side
+            END AS relationship_type,
+            er.quantity,
+            er.unit
+        FROM EntryRelationship er
+        JOIN RelationshipDefinition rd ON er.relationship_type = rd.id
+        JOIN Entry e_from ON er.source_entry_id = e_from.id
+        JOIN EntryType et_from ON e_from.entry_type_id = et_from.id
+        LEFT JOIN EntryState es_from ON es_from.entry_type_id = e_from.entry_type_id AND es_from.name = e_from.status
+        WHERE er.target_entry_id = ?
+        ORDER BY rd.name, e_from.title
+    ''', (entry_data['entry_type_id'], entry_id))
+    
+    incoming_relationships = []
+    for row in cursor.fetchall():
+        incoming_relationships.append({
+            'id': row['relationship_id'],
+            'related_entry_id': row['related_entry_id'],
+            'related_entry_title': row['related_entry_title'],
+            'related_entry_status': row['related_entry_status'],
+            'related_entry_status_color': row['related_entry_status_color'],
+            'related_entry_type': {
+                'id': row['related_entry_type_id'],
+                'label': row['related_entry_type_label'],
+                'icon': 'fas fa-link',  # Default icon
+                'color': '#6c757d'  # Default color (Bootstrap secondary)
+            },
+            'relationship_type': row['relationship_type'],
+            'definition_name': row['definition_name'],
+            'quantity': row['quantity'],
+            'unit': row['unit'],
+            'is_incoming': True
+        })
+    
+    # Group outgoing relationships by type
+    grouped_outgoing = {}
+    for rel in outgoing_relationships:
+        rel_type = rel['relationship_type']
+        if rel_type not in grouped_outgoing:
+            grouped_outgoing[rel_type] = []
+        grouped_outgoing[rel_type].append(rel)
+    
+    # Group incoming relationships by type
+    grouped_incoming = {}
+    for rel in incoming_relationships:
+        rel_type = rel['relationship_type']
+        if rel_type not in grouped_incoming:
+            grouped_incoming[rel_type] = []
+        grouped_incoming[rel_type].append(rel)
+    
+    relationships_data = {
+        'outgoing': outgoing_relationships,
+        'incoming': incoming_relationships,
+        'grouped_outgoing': grouped_outgoing,
+        'grouped_incoming': grouped_incoming,
+        'outgoing_count': len(outgoing_relationships),
+        'incoming_count': len(incoming_relationships),
+        'total_count': len(outgoing_relationships) + len(incoming_relationships)
+    }
+    
     # Debug logging
     print(f"DEBUG V2 Entry {entry_id} - section_rows: {section_rows}")
     print(f"DEBUG V2 Entry {entry_id} - section_config: {section_config}")
+    print(f"DEBUG V2 Entry {entry_id} - relationships: {relationships_data['total_count']} total")
 
     # Create response with cache-busting headers
     from flask import make_response
@@ -357,7 +484,8 @@ def entry_detail_v2(entry_id):
                            entry=entry_data,
                            section_config=section_config,
                            section_order=section_order,
-                           section_rows=section_rows))
+                           section_rows=section_rows,
+                           relationships=relationships_data))
     
     # Add cache control headers to force browser to reload
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'

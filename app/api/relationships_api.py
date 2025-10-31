@@ -397,3 +397,232 @@ def update_relationship_quantity_unit(relationship_id):
         conn.rollback()
         logger.error(f"Error updating relationship quantity/unit: {e}", exc_info=True)
         return jsonify({"error": f"An internal error occurred: {e}"}), 500
+
+
+@relationships_api_bp.route('/entries/<int:entry_id>/relationships/incoming', methods=['GET'])
+def get_incoming_relationships(entry_id):
+    """Get all relationships where this entry is the target (incoming relationships)"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Get the current entry's title for the query
+        cursor.execute("SELECT title FROM Entry WHERE id = ?", (entry_id,))
+        entry_row = cursor.fetchone()
+        if not entry_row:
+            return jsonify({"error": "Entry not found."}), 404
+        current_entry_title = entry_row['title']
+        
+        # Query relationships where current entry is the target
+        cursor.execute('''
+            SELECT
+                er.id AS relationship_id,
+                er.source_entry_id AS related_entry_id,
+                e_from.title AS related_entry_title,
+                e_from.status AS related_entry_status,
+                et_from.id AS related_entry_type_id,
+                et_from.singular_label AS related_entry_type_label,
+                rd.id AS definition_id,
+                rd.name AS definition_name,
+                rd.label_from_side,
+                rd.label_to_side,
+                er.quantity,
+                er.unit
+            FROM EntryRelationship er
+            JOIN RelationshipDefinition rd ON er.relationship_type = rd.id
+            JOIN Entry e_from ON er.source_entry_id = e_from.id
+            JOIN EntryType et_from ON e_from.entry_type_id = et_from.id
+            WHERE er.target_entry_id = ?
+            ORDER BY rd.name, e_from.title
+        ''', (entry_id,))
+        
+        relationships = []
+        for row in cursor.fetchall():
+            relationships.append({
+                'id': row['relationship_id'],
+                'related_entry_id': row['related_entry_id'],
+                'related_entry_title': row['related_entry_title'],
+                'related_entry_status': row['related_entry_status'],
+                'related_entry_type': {
+                    'id': row['related_entry_type_id'],
+                    'label': row['related_entry_type_label'],
+                    'icon': 'fas fa-link',  # Default icon
+                    'color': '#6c757d'  # Default color
+                },
+                'relationship_type': row['label_to_side'],  # Use "to" label since we're on the receiving end
+                'definition_name': row['definition_name'],
+                'quantity': row['quantity'],
+                'unit': row['unit'],
+                'is_incoming': True
+            })
+        
+        return jsonify({'relationships': relationships}), 200
+        
+    except Exception as e:
+        logger.error(f"Error fetching incoming relationships: {e}", exc_info=True)
+        return jsonify({"error": f"An internal error occurred: {e}"}), 500
+
+
+@relationships_api_bp.route('/entries/<int:entry_id>/relationships/grouped', methods=['GET'])
+def get_grouped_relationships(entry_id):
+    """Get relationships grouped by type (for outgoing relationships)"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Get current entry title
+        cursor.execute("SELECT title FROM Entry WHERE id = ?", (entry_id,))
+        entry_row = cursor.fetchone()
+        if not entry_row:
+            return jsonify({"error": "Entry not found."}), 404
+        
+        # Query outgoing relationships
+        cursor.execute('''
+            SELECT
+                er.id AS relationship_id,
+                er.target_entry_id AS related_entry_id,
+                e_to.title AS related_entry_title,
+                e_to.status AS related_entry_status,
+                et_to.id AS related_entry_type_id,
+                et_to.singular_label AS related_entry_type_label,
+                rd.id AS definition_id,
+                rd.name AS definition_name,
+                rd.label_from_side AS relationship_type,
+                er.quantity,
+                er.unit
+            FROM EntryRelationship er
+            JOIN RelationshipDefinition rd ON er.relationship_type = rd.id
+            JOIN Entry e_to ON er.target_entry_id = e_to.id
+            JOIN EntryType et_to ON e_to.entry_type_id = et_to.id
+            WHERE er.source_entry_id = ?
+            ORDER BY rd.name, e_to.title
+        ''', (entry_id,))
+        
+        # Group by relationship type
+        grouped = {}
+        for row in cursor.fetchall():
+            rel_type = row['relationship_type']
+            if rel_type not in grouped:
+                grouped[rel_type] = []
+            
+            grouped[rel_type].append({
+                'id': row['relationship_id'],
+                'related_entry_id': row['related_entry_id'],
+                'related_entry_title': row['related_entry_title'],
+                'related_entry_status': row['related_entry_status'],
+                'related_entry_type': {
+                    'id': row['related_entry_type_id'],
+                    'label': row['related_entry_type_label'],
+                    'icon': 'fas fa-link',  # Default icon
+                    'color': '#6c757d'  # Default color
+                },
+                'definition_name': row['definition_name'],
+                'quantity': row['quantity'],
+                'unit': row['unit']
+            })
+        
+        return jsonify({'grouped': grouped}), 200
+        
+    except Exception as e:
+        logger.error(f"Error fetching grouped relationships: {e}", exc_info=True)
+        return jsonify({"error": f"An internal error occurred: {e}"}), 500
+
+
+@relationships_api_bp.route('/entries/<int:entry_id>/relationships/hierarchy', methods=['GET'])
+def get_relationship_hierarchy(entry_id):
+    """Get hierarchical tree of parent-child relationships"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        max_depth = request.args.get('max_depth', 3, type=int)
+        
+        def build_tree(current_entry_id, depth=0, visited=None):
+            """Recursively build relationship tree"""
+            if visited is None:
+                visited = set()
+            
+            if depth >= max_depth or current_entry_id in visited:
+                return None
+            
+            visited.add(current_entry_id)
+            
+            # Get current entry details
+            cursor.execute('''
+                SELECT e.id, e.title, e.status,
+                       et.singular_label
+                FROM Entry e
+                JOIN EntryType et ON e.entry_type_id = et.id
+                WHERE e.id = ?
+            ''', (current_entry_id,))
+            
+            entry = cursor.fetchone()
+            if not entry:
+                return None
+            
+            node = {
+                'id': entry['id'],
+                'title': entry['title'],
+                'status': entry['status'],
+                'entry_type': {
+                    'label': entry['singular_label'],
+                    'icon': 'fas fa-link',  # Default icon
+                    'color': '#6c757d'  # Default color
+                },
+                'children': []
+            }
+            
+            # Get child relationships (where current entry is source and relationship indicates parent->child)
+            cursor.execute('''
+                SELECT er.id, er.target_entry_id, rd.label_from_side
+                FROM EntryRelationship er
+                JOIN RelationshipDefinition rd ON er.relationship_type = rd.id
+                WHERE er.source_entry_id = ?
+                AND (rd.label_from_side LIKE '%Parent%' OR rd.label_from_side LIKE '%parent%' 
+                     OR rd.label_from_side LIKE '%Contains%' OR rd.label_from_side LIKE '%Has%')
+                ORDER BY er.id
+            ''', (current_entry_id,))
+            
+            child_relationships = cursor.fetchall()
+            
+            for rel in child_relationships:
+                child_node = build_tree(rel['target_entry_id'], depth + 1, visited.copy())
+                if child_node:
+                    child_node['relationship_id'] = rel['id']
+                    child_node['relationship_type'] = rel['label_from_side']
+                    node['children'].append(child_node)
+            
+            return node
+        
+        # Start by finding parent entries
+        cursor.execute('''
+            SELECT er.source_entry_id, rd.label_to_side
+            FROM EntryRelationship er
+            JOIN RelationshipDefinition rd ON er.relationship_type = rd.id
+            WHERE er.target_entry_id = ?
+            AND (rd.label_from_side LIKE '%Parent%' OR rd.label_from_side LIKE '%parent%'
+                 OR rd.label_from_side LIKE '%Contains%' OR rd.label_from_side LIKE '%Has%')
+        ''', (entry_id,))
+        
+        parent_relationships = cursor.fetchall()
+        
+        hierarchy = []
+        if parent_relationships:
+            # Build tree from parents
+            for parent_rel in parent_relationships:
+                parent_node = build_tree(parent_rel['source_entry_id'], 0)
+                if parent_node:
+                    parent_node['is_parent'] = True
+                    hierarchy.append(parent_node)
+        else:
+            # No parents, start with current entry
+            current_node = build_tree(entry_id, 0)
+            if current_node:
+                current_node['is_current'] = True
+                hierarchy.append(current_node)
+        
+        return jsonify({'hierarchy': hierarchy}), 200
+        
+    except Exception as e:
+        logger.error(f"Error fetching relationship hierarchy: {e}", exc_info=True)
+        return jsonify({"error": f"An internal error occurred: {e}"}), 500

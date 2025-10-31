@@ -1,0 +1,90 @@
+{# Add Relationship Modal #}
+<div class="modal fade" id="addRelationshipModal{{ entry.id }}" tabindex="-1" aria-labelledby="addRelationshipModalLabel{{ entry.id }}" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addRelationshipModalLabel{{ entry.id }}">
+          <i class="fas fa-link"></i> Add Relationship
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="addRelationshipForm{{ entry.id }}">
+          <!-- Current Entry Info -->
+          <div class="alert alert-info">
+            <strong>From:</strong> {{ entry.title }}
+          </div>
+
+          <!-- Relationship Definition Selection -->
+          <div class="mb-3">
+            <label for="relationshipDefinition{{ entry.id }}" class="form-label">Relationship Type</label>
+            <select class="form-select" id="relationshipDefinition{{ entry.id }}" required>
+              <option value="">Select relationship type...</option>
+              <!-- Will be populated via JavaScript -->
+            </select>
+            <small class="form-text text-muted">
+              Choose the type of relationship to create
+            </small>
+          </div>
+
+          <!-- Entry Selection -->
+          <div class="mb-3">
+            <label for="relatedEntry{{ entry.id }}" class="form-label">Related Entry</label>
+            <select class="form-select" id="relatedEntry{{ entry.id }}" required>
+              <option value="">Search and select entry...</option>
+              <!-- Will be populated via JavaScript with searchable dropdown -->
+            </select>
+          </div>
+
+          <!-- Create New Entry Toggle -->
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="createNewEntry{{ entry.id }}">
+            <label class="form-check-label" for="createNewEntry{{ entry.id }}">
+              Create a new entry instead
+            </label>
+          </div>
+
+          <!-- New Entry Fields (hidden by default) -->
+          <div id="newEntryFields{{ entry.id }}" style="display: none;">
+            <div class="mb-3">
+              <label for="newEntryTitle{{ entry.id }}" class="form-label">New Entry Title</label>
+              <input type="text" class="form-control" id="newEntryTitle{{ entry.id }}" placeholder="Enter title">
+            </div>
+            <div class="mb-3">
+              <label for="newEntryDescription{{ entry.id }}" class="form-label">Description</label>
+              <textarea class="form-control" id="newEntryDescription{{ entry.id }}" rows="3" placeholder="Enter description"></textarea>
+            </div>
+          </div>
+
+          <!-- Quantity and Unit Fields (shown when applicable) -->
+          <div id="quantityUnitFields{{ entry.id }}" style="display: none;">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="relationshipQuantity{{ entry.id }}" class="form-label">Quantity</label>
+                  <input type="number" step="any" class="form-control" id="relationshipQuantity{{ entry.id }}" placeholder="e.g., 2.5">
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="relationshipUnit{{ entry.id }}" class="form-label">Unit</label>
+                  <input type="text" class="form-control" id="relationshipUnit{{ entry.id }}" placeholder="e.g., kg, liters">
+                  <small class="form-text text-muted">
+                    Common: g, kg, ml, l, cup, tbsp, tsp, pcs
+                  </small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="submitRelationship{{ entry.id }}">
+          <i class="fas fa-plus"></i> Add Relationship
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

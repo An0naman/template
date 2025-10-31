@@ -1,0 +1,43 @@
+{# Relationship Card - Compact version showing only entry name and status #}
+<div class="relationship-card" data-relationship-id="{{ rel.id }}">
+  
+  <div class="relationship-card-body">
+    <!-- Entry Link -->
+    <a href="/entry/{{ rel.related_entry_id }}" 
+       class="relationship-entry-link"
+       title="{{ rel.related_entry_type.label }} - {{ rel.relationship_type }}">
+      {{ rel.related_entry_title }}
+    </a>
+    
+    <!-- Status Badge -->
+    {% if rel.related_entry_status %}
+      {% set text_color = '#ffffff' %}
+      {% if rel.related_entry_status_color in ['#ffc107', '#0dcaf0', '#f8f9fa', '#e9ecef', '#ffeb3b', '#ffd700'] %}
+        {% set text_color = '#000000' %}
+      {% endif %}
+      <span class="status-badge" style="background-color: {{ rel.related_entry_status_color }}; color: {{ text_color }};">
+        {{ rel.related_entry_status }}
+      </span>
+    {% endif %}
+    
+    <!-- Quantity and Unit (if applicable) -->
+    {% if rel.quantity or rel.unit %}
+      <span class="relationship-metadata">
+        <i class="fas fa-balance-scale"></i>
+        {% if rel.quantity %}{{ rel.quantity }}{% endif %}
+        {% if rel.unit %} {{ rel.unit }}{% endif %}
+      </span>
+    {% endif %}
+  </div>
+
+  <div class="relationship-card-actions">
+    <!-- Delete Button -->
+    <button class="btn btn-sm btn-icon btn-danger delete-relationship-btn" 
+            data-relationship-id="{{ rel.id }}"
+            data-entry-title="{{ rel.related_entry_title }}"
+            title="Delete relationship">
+      <i class="fas fa-trash"></i>
+    </button>
+  </div>
+
+</div>
