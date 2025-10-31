@@ -132,6 +132,50 @@ def add_entry():
         conn.rollback()
         return jsonify({'error': 'An internal error occurred.'}), 500
 
+@entry_api_bp.route('/entries/<int:entry_id>', methods=['GET'])
+def get_entry(entry_id):
+    """Get a single entry by ID with its entry type information"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT e.id, e.title, e.description, e.intended_end_date, e.actual_end_date, 
+                   e.status, e.created_at, e.entry_type_id, 
+                   et.singular_label AS entry_type_label,
+                   et.name AS entry_type_name,
+                   et.has_sensors,
+                   et.enabled_sensor_types
+            FROM Entry e
+            JOIN EntryType et ON e.entry_type_id = et.id
+            WHERE e.id = ?
+        ''', (entry_id,))
+        
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'error': 'Entry not found'}), 404
+        
+        entry = {
+            'id': row['id'],
+            'title': row['title'],
+            'description': row['description'],
+            'intended_end_date': row['intended_end_date'],
+            'actual_end_date': row['actual_end_date'],
+            'status': row['status'],
+            'created_at': row['created_at'],
+            'entry_type_id': row['entry_type_id'],
+            'entry_type_label': row['entry_type_label'],
+            'entry_type_name': row['entry_type_name'],
+            'has_sensors': bool(row['has_sensors']),
+            'enabled_sensor_types': row['enabled_sensor_types'] or ''
+        }
+        
+        return jsonify(entry)
+        
+    except Exception as e:
+        logger.error(f"Error fetching entry {entry_id}: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
 @entry_api_bp.route('/entries/<int:entry_id>', methods=['PATCH'])
 def update_entry(entry_id):
     data = request.json
@@ -274,6 +318,18 @@ def get_sensor_data_for_entry(entry_id):
         cursor = conn.cursor()
         all_data = []
         
+        # Get the entry's enabled sensor types to filter data
+        cursor.execute('''
+            SELECT et.enabled_sensor_types
+            FROM Entry e
+            JOIN EntryType et ON e.entry_type_id = et.id
+            WHERE e.id = ?
+        ''', (entry_id,))
+        result = cursor.fetchone()
+        enabled_sensor_types = None
+        if result and result['enabled_sensor_types']:
+            enabled_sensor_types = [t.strip() for t in result['enabled_sensor_types'].split(',')]
+        
         # 1. Try to get data from range-based sensor model first (most efficient)
         try:
             from ..services.range_based_sensor_service import RangeBasedSensorService
@@ -308,6 +364,8 @@ def get_sensor_data_for_entry(entry_id):
                         'value': item['value'],
                         'recorded_at': item['recorded_at'],
                         'source': 'shared',
+                        'source_type': item.get('source_type'),
+                        'source_id': item.get('source_id'),
                         'link_type': item.get('link_type', 'primary'),
                         'total_linked_entries': item.get('total_linked_entries', 1)
                     })
@@ -332,6 +390,10 @@ def get_sensor_data_for_entry(entry_id):
                 'link_type': 'primary',
                 'total_linked_entries': 1
             })
+        
+        # Filter by enabled sensor types if configured
+        if enabled_sensor_types is not None:
+            all_data = [d for d in all_data if d['sensor_type'] in enabled_sensor_types]
         
         # Sort all data by recorded_at descending
         all_data.sort(key=lambda x: x['recorded_at'], reverse=True)

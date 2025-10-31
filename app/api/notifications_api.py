@@ -334,6 +334,50 @@ def delete_notification_rule(rule_id):
         conn.rollback()
         return jsonify({'error': 'An internal error occurred.'}), 500
 
+@notifications_api_bp.route('/notification_rules/<int:rule_id>', methods=['PATCH'])
+def patch_notification_rule(rule_id):
+    """Partially update a notification rule (e.g., toggle active status)"""
+    data = request.json
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Check if rule exists
+        cursor.execute('SELECT id FROM NotificationRule WHERE id = ?', (rule_id,))
+        if not cursor.fetchone():
+            return jsonify({'error': 'Notification rule not found.'}), 404
+        
+        # Build dynamic UPDATE query based on provided fields
+        update_fields = []
+        update_values = []
+        
+        allowed_fields = ['is_active', 'name', 'description', 'priority', 'cooldown_minutes']
+        
+        for field in allowed_fields:
+            if field in data:
+                update_fields.append(f"{field} = ?")
+                update_values.append(data[field])
+        
+        if not update_fields:
+            return jsonify({'error': 'No valid fields to update'}), 400
+        
+        # Add rule_id to values
+        update_values.append(rule_id)
+        
+        # Execute update
+        query = f"UPDATE NotificationRule SET {', '.join(update_fields)} WHERE id = ?"
+        cursor.execute(query, update_values)
+        
+        conn.commit()
+        
+        return jsonify({'message': 'Notification rule updated successfully!', 'id': rule_id}), 200
+        
+    except Exception as e:
+        logger.error(f"Error patching notification rule {rule_id}: {e}", exc_info=True)
+        conn.rollback()
+        return jsonify({'error': 'An internal error occurred.'}), 500
+
 @notifications_api_bp.route('/notification_rules/<int:rule_id>', methods=['PUT'])
 def update_notification_rule(rule_id):
     """Update a notification rule"""

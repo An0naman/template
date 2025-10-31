@@ -233,13 +233,13 @@
             <div class="modal-body">
                 <ul class="nav nav-tabs mb-3" id="configTabs" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="enabled-tab" data-bs-toggle="tab" data-bs-target="#enabled" type="button" role="tab">
-                            Enabled Types
+                        <button class="nav-link active" id="display-tab" data-bs-toggle="tab" data-bs-target="#display" type="button" role="tab">
+                            Display Settings
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="display-tab" data-bs-toggle="tab" data-bs-target="#display" type="button" role="tab">
-                            Display Settings
+                        <button class="nav-link" id="enabled-tab" data-bs-toggle="tab" data-bs-target="#enabled" type="button" role="tab">
+                            Enabled Types
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
@@ -247,22 +247,16 @@
                             Alerts & Thresholds
                         </button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="devices-tab" data-bs-toggle="tab" data-bs-target="#devices" type="button" role="tab">
+                            Devices & Sources
+                        </button>
+                    </li>
                 </ul>
                 
                 <div class="tab-content" id="configTabsContent">
-                    {# Enabled Types Tab #}
-                    <div class="tab-pane fade show active" id="enabled" role="tabpanel">
-                        <p class="text-muted">Select which sensor types are enabled for this entry type:</p>
-                        <div id="enabledSensorTypesList" class="list-group">
-                            {# Populated dynamically #}
-                        </div>
-                        <button type="button" class="btn btn-sm btn-outline-primary mt-3" onclick="addCustomSensorType()">
-                            <i class="fas fa-plus me-1"></i>Add Custom Type
-                        </button>
-                    </div>
-                    
-                    {# Display Settings Tab #}
-                    <div class="tab-pane fade" id="display" role="tabpanel">
+                    {# Display Settings Tab - First Tab (Active) #}
+                    <div class="tab-pane fade show active" id="display" role="tabpanel">
                         <div class="mb-3">
                             <label for="defaultSensorType" class="form-label">Default Sensor Type</label>
                             <select class="form-select" id="defaultSensorType">
@@ -307,17 +301,56 @@
                         </div>
                     </div>
                     
-                    {# Alerts & Thresholds Tab #}
-                    <div class="tab-pane fade" id="alerts" role="tabpanel">
-                        <p class="text-muted">Configure alert thresholds for sensor readings:</p>
-                        <div id="alertConfigList">
-                            {# Populated dynamically per sensor type #}
+                    {# Enabled Types Tab - Second Tab #}
+                    <div class="tab-pane fade" id="enabled" role="tabpanel">
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-info-circle me-1"></i>
+                            <strong>Configure which sensor types are available for this entry type.</strong>
+                            Changes will affect all entries of this type.
                         </div>
-                        <div class="alert alert-info mt-3 mb-0">
+                        <div id="enabledSensorTypesList" class="border rounded" style="max-height: 300px; overflow-y: auto;">
+                            <div class="text-center p-3">
+                                <i class="fas fa-spinner fa-spin"></i> Loading sensor types...
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {# Alerts & Thresholds Tab - Third Tab #}
+                    <div class="tab-pane fade" id="alerts" role="tabpanel">
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-info-circle me-1"></i>
+                            <strong>Manage sensor alarms for this entry type.</strong>
+                            Alarms trigger notifications when readings cross defined thresholds.
+                        </div>
+                        <div id="alertConfigList" style="max-height: 400px; overflow-y: auto;">
+                            <div class="text-center p-3">
+                                <i class="fas fa-spinner fa-spin"></i> Click this tab to load alarms...
+                            </div>
+                        </div>
+                        <div class="alert alert-secondary mt-3 mb-0">
                             <small>
-                                <i class="fas fa-info-circle me-1"></i>
-                                Alerts will trigger notifications when sensor values exceed thresholds.
-                                Configure notification delivery in <a href="/settings">System Settings</a>.
+                                <i class="fas fa-lightbulb me-1"></i>
+                                <strong>Tip:</strong> Alarms can be configured for all entries of this type or specific entries.
+                                Use the full <a href="/maintenance/manage_sensor_alarms" target="_blank">Sensor Alarms page</a> for advanced configuration.
+                            </small>
+                        </div>
+                    </div>
+                    
+                    {# Devices & Sources Tab - Fourth Tab #}
+                    <div class="tab-pane fade" id="devices" role="tabpanel">
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-info-circle me-1"></i>
+                            <strong>Connected devices and data sources</strong> that are recording sensor data for this entry.
+                        </div>
+                        <div id="deviceListModal" style="max-height: 400px; overflow-y: auto;">
+                            <div class="text-center p-3 text-muted">
+                                <i class="fas fa-spinner fa-spin"></i> Click this tab to load devices...
+                            </div>
+                        </div>
+                        <div class="alert alert-secondary mt-3 mb-0">
+                            <small>
+                                <i class="fas fa-lightbulb me-1"></i>
+                                <strong>Tip:</strong> Manage devices and configure data collection on the <a href="/manage_devices" target="_blank">Devices page</a>.
                             </small>
                         </div>
                     </div>
@@ -378,3 +411,39 @@
         </div>
     </div>
 </div>
+
+<script>
+// Wire up the configure sensors modal tabs
+document.addEventListener('DOMContentLoaded', function() {
+    // Wire up tab click events to load content on demand
+    const enabledTab = document.getElementById('enabled-tab');
+    if (enabledTab) {
+        enabledTab.addEventListener('click', function() {
+            // Load enabled types when the Enabled Types tab is clicked
+            if (typeof populateEnabledSensorTypes === 'function') {
+                populateEnabledSensorTypes();
+            }
+        });
+    }
+    
+    const alertsTab = document.getElementById('alerts-tab');
+    if (alertsTab) {
+        alertsTab.addEventListener('click', function() {
+            // Load alerts when the Alerts & Thresholds tab is clicked
+            if (typeof populateSensorAlerts === 'function') {
+                populateSensorAlerts();
+            }
+        });
+    }
+    
+    const devicesTab = document.getElementById('devices-tab');
+    if (devicesTab) {
+        devicesTab.addEventListener('click', function() {
+            // Load devices when the Devices & Sources tab is clicked
+            if (typeof populateDevices === 'function') {
+                populateDevices();
+            }
+        });
+    }
+});
+</script>

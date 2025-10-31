@@ -1028,12 +1028,6 @@ function updateTable(page = 1) {
 			<td><span class="badge bg-secondary">${reading.sensor_type}</span></td>
 			<td>${displayValue}</td>
 			<td>
-				<small class="text-muted">
-					<i class="fas fa-${reading.source_type === 'device' ? 'microchip' : reading.source_type === 'api' ? 'cloud' : 'user'}"></i>
-					${reading.source_id || reading.source_type}
-				</small>
-			</td>
-			<td>
 				<button class="btn btn-sm btn-outline-primary" onclick="editSensorReading(${reading.id})" title="Edit">
 					<i class="fas fa-edit"></i>
 				</button>
@@ -1779,6 +1773,448 @@ async function loadSensorConfiguration() {
 }
 
 /**
+ * Populate the Enabled Types tab in the configuration modal
+ */
+async function populateEnabledSensorTypes() {
+	const container = document.getElementById('enabledSensorTypesList');
+	if (!container) return;
+	
+	try {
+		// Show loading state
+		container.innerHTML = '<div class="text-center p-3"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+		
+		// Fetch all available sensor types from system
+		const systemParamsResponse = await fetch('/api/system_params');
+		if (!systemParamsResponse.ok) throw new Error('Failed to load system parameters');
+		const systemParams = await systemParamsResponse.json();
+		
+		const sensorTypesString = systemParams.sensor_types || '';
+		const availableSensorTypes = sensorTypesString.split(',')
+			.map(type => type.trim())
+			.filter(type => type !== '');
+		
+		if (availableSensorTypes.length === 0) {
+			container.innerHTML = `
+				<div class="text-center text-muted p-3">
+					<i class="fas fa-robot fa-2x mb-2 d-block"></i>
+					<p>No sensor types discovered yet.</p>
+					<p class="small">Sensor types are automatically discovered when devices are added to the system.</p>
+				</div>
+			`;
+			return;
+		}
+		
+		// Fetch current entry's entry type and enabled sensor types
+		const entryResponse = await fetch(`/api/entries/${window.currentEntryId}`);
+		if (!entryResponse.ok) throw new Error('Failed to load entry data');
+		const entryData = await entryResponse.json();
+		
+		const enabledTypes = entryData.enabled_sensor_types 
+			? entryData.enabled_sensor_types.split(',').map(t => t.trim()).filter(t => t !== '')
+			: [];
+		
+		// Build checkboxes HTML
+		let html = '<div class="p-2">';
+		html += '<p class="text-muted small mb-3">Select which sensor types are available for entries of this type:</p>';
+		
+		availableSensorTypes.forEach(sensorType => {
+			const isChecked = enabledTypes.includes(sensorType);
+			const checkboxId = `enabledType_${sensorType.replace(/\s+/g, '_')}`;
+			
+			html += `
+				<div class="form-check mb-2">
+					<input class="form-check-input enabled-sensor-type-checkbox" 
+						   type="checkbox" 
+						   value="${sensorType}" 
+						   id="${checkboxId}"
+						   ${isChecked ? 'checked' : ''}>
+					<label class="form-check-label" for="${checkboxId}">
+						${sensorType}
+					</label>
+				</div>
+			`;
+		});
+		
+		html += '</div>';
+		html += `
+			<div class="border-top pt-3 px-2">
+				<button type="button" class="btn btn-sm btn-success w-100" onclick="saveEnabledSensorTypes()">
+					<i class="fas fa-save me-1"></i>Save Enabled Types
+				</button>
+			</div>
+		`;
+		
+		container.innerHTML = html;
+		
+	} catch (error) {
+		console.error('Error loading enabled sensor types:', error);
+		container.innerHTML = `
+			<div class="alert alert-danger m-2">
+				<i class="fas fa-exclamation-triangle me-1"></i>
+				Failed to load sensor types: ${error.message}
+			</div>
+		`;
+	}
+}
+
+/**
+ * Save enabled sensor types for the entry's entry type
+ */
+async function saveEnabledSensorTypes() {
+	try {
+		// Get selected sensor types
+		const checkboxes = document.querySelectorAll('.enabled-sensor-type-checkbox:checked');
+		const selectedTypes = Array.from(checkboxes).map(cb => cb.value);
+		
+		// Get the entry's entry type ID
+		const entryResponse = await fetch(`/api/entries/${window.currentEntryId}`);
+		if (!entryResponse.ok) throw new Error('Failed to load entry data');
+		const entryData = await entryResponse.json();
+		const entryTypeId = entryData.entry_type_id;
+		
+		// Update the entry type's enabled sensor types
+		const updateResponse = await fetch(`/api/entry_types/${entryTypeId}`, {
+			method: 'PATCH',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				enabled_sensor_types: selectedTypes.join(',')
+			})
+		});
+		
+		if (!updateResponse.ok) {
+			const errorData = await updateResponse.json();
+			throw new Error(errorData.error || 'Failed to update sensor types');
+		}
+		
+		showNotification('Enabled sensor types updated successfully', 'success');
+		
+		// Reload sensor types for this entry to reflect changes
+		await loadSensorTypes();
+		
+		// Reload sensor data to apply any filtering based on new enabled types
+		await loadSensorDataV2();
+		
+	} catch (error) {
+		console.error('Error saving enabled sensor types:', error);
+		showNotification('Failed to save enabled sensor types: ' + error.message, 'error');
+	}
+}
+
+/**
+ * Populate the Alerts & Thresholds tab in the configuration modal
+ */
+async function populateSensorAlerts() {
+	const container = document.getElementById('alertConfigList');
+	if (!container) return;
+	
+	try {
+		// Show loading state
+		container.innerHTML = '<div class="text-center p-3"><i class="fas fa-spinner fa-spin"></i> Loading alarms...</div>';
+		
+		// Get current entry's entry type
+		const entryResponse = await fetch(`/api/entries/${window.currentEntryId}`);
+		if (!entryResponse.ok) throw new Error('Failed to load entry data');
+		const entryData = await entryResponse.json();
+		const entryTypeId = entryData.entry_type_id;
+		const entryTypeName = entryData.entry_type_label;
+		
+		// Fetch all notification rules
+		const rulesResponse = await fetch('/api/notification_rules');
+		if (!rulesResponse.ok) throw new Error('Failed to load notification rules');
+		const allRules = await rulesResponse.json();
+		
+		// Filter rules relevant to this entry (by entry type or specific entry)
+		const relevantRules = allRules.filter(rule => 
+			rule.entry_type_id === entryTypeId || rule.entry_id === window.currentEntryId
+		);
+		
+		if (relevantRules.length === 0) {
+			container.innerHTML = `
+				<div class="text-center text-muted p-3">
+					<i class="fas fa-bell-slash fa-2x mb-2 d-block"></i>
+					<p>No sensor alarms configured for this entry type yet.</p>
+					<p class="small">Sensor alarms trigger notifications when readings cross defined thresholds.</p>
+					<button class="btn btn-sm btn-success mt-2" onclick="openCreateAlarmModal()">
+						<i class="fas fa-plus me-1"></i>Create First Alarm
+					</button>
+				</div>
+			`;
+			return;
+		}
+		
+		// Build alarms list
+		let html = '<div class="list-group">';
+		
+		relevantRules.forEach(rule => {
+			const isActive = rule.is_active !== 0;
+			const priorityClass = `priority-${rule.priority}`;
+			const scopeText = rule.entry_id ? 'This entry only' : `All ${entryTypeName}`;
+			
+			// Format condition
+			let conditionText = '';
+			if (rule.condition_type === 'greater_than') {
+				conditionText = `> ${rule.threshold_value}`;
+			} else if (rule.condition_type === 'less_than') {
+				conditionText = `< ${rule.threshold_value}`;
+			} else if (rule.condition_type === 'equals') {
+				conditionText = `= ${rule.threshold_value}`;
+			} else if (rule.condition_type === 'between') {
+				conditionText = `${rule.threshold_value} - ${rule.threshold_value_secondary || '?'}`;
+			}
+			if (rule.threshold_unit) {
+				conditionText += ` ${rule.threshold_unit}`;
+			}
+			
+			html += `
+				<div class="list-group-item ${priorityClass}" style="border-left-width: 4px;">
+					<div class="d-flex justify-content-between align-items-start">
+						<div class="flex-grow-1">
+							<div class="d-flex align-items-center mb-1">
+								<h6 class="mb-0 me-2">${rule.name}</h6>
+								<span class="badge bg-${isActive ? 'success' : 'secondary'} me-2">
+									${isActive ? 'Active' : 'Inactive'}
+								</span>
+								<span class="badge bg-${getPriorityBadgeColor(rule.priority)}">
+									${rule.priority.toUpperCase()}
+								</span>
+							</div>
+							${rule.description ? `<p class="text-muted small mb-1">${rule.description}</p>` : ''}
+							<div class="small">
+								<strong>${rule.sensor_type}</strong> ${conditionText}
+								<span class="text-muted ms-2">• ${scopeText}</span>
+								<span class="text-muted ms-2">• Cooldown: ${rule.cooldown_minutes}min</span>
+							</div>
+						</div>
+						<div class="btn-group btn-group-sm ms-2">
+							<button class="btn btn-outline-primary" onclick="toggleAlarmStatus(${rule.id}, ${!isActive})" title="${isActive ? 'Deactivate' : 'Activate'}">
+								<i class="fas fa-${isActive ? 'pause' : 'play'}"></i>
+							</button>
+							<button class="btn btn-outline-danger" onclick="deleteAlarm(${rule.id})" title="Delete">
+								<i class="fas fa-trash"></i>
+							</button>
+						</div>
+					</div>
+				</div>
+			`;
+		});
+		
+		html += '</div>';
+		html += `
+			<div class="mt-3 d-grid">
+				<button class="btn btn-success" onclick="openCreateAlarmModal()">
+					<i class="fas fa-plus me-1"></i>Create New Alarm
+				</button>
+			</div>
+		`;
+		
+		container.innerHTML = html;
+		
+	} catch (error) {
+		console.error('Error loading sensor alarms:', error);
+		container.innerHTML = `
+			<div class="alert alert-danger m-2">
+				<i class="fas fa-exclamation-triangle me-1"></i>
+				Failed to load sensor alarms: ${error.message}
+			</div>
+		`;
+	}
+}
+
+/**
+ * Get bootstrap color class for priority badge
+ */
+function getPriorityBadgeColor(priority) {
+	const colors = {
+		'low': 'info',
+		'medium': 'warning',
+		'high': 'danger',
+		'critical': 'danger'
+	};
+	return colors[priority] || 'secondary';
+}
+
+/**
+ * Toggle alarm active status
+ */
+async function toggleAlarmStatus(ruleId, activate) {
+	try {
+		const response = await fetch(`/api/notification_rules/${ruleId}`, {
+			method: 'PATCH',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				is_active: activate ? 1 : 0
+			})
+		});
+		
+		if (!response.ok) {
+			throw new Error('Failed to update alarm status');
+		}
+		
+		showNotification(`Alarm ${activate ? 'activated' : 'deactivated'} successfully`, 'success');
+		
+		// Reload alerts
+		await populateSensorAlerts();
+		
+	} catch (error) {
+		console.error('Error toggling alarm status:', error);
+		showNotification('Failed to update alarm status: ' + error.message, 'error');
+	}
+}
+
+/**
+ * Delete an alarm
+ */
+async function deleteAlarm(ruleId) {
+	if (!confirm('Are you sure you want to delete this alarm? This action cannot be undone.')) {
+		return;
+	}
+	
+	try {
+		const response = await fetch(`/api/notification_rules/${ruleId}`, {
+			method: 'DELETE'
+		});
+		
+		if (!response.ok) {
+			throw new Error('Failed to delete alarm');
+		}
+		
+		showNotification('Alarm deleted successfully', 'success');
+		
+		// Reload alerts
+		await populateSensorAlerts();
+		
+	} catch (error) {
+		console.error('Error deleting alarm:', error);
+		showNotification('Failed to delete alarm: ' + error.message, 'error');
+	}
+}
+
+/**
+ * Open the create alarm modal (redirects to manage sensor alarms page)
+ */
+function openCreateAlarmModal() {
+	// Navigate to the full sensor alarms management page
+	window.location.href = '/manage_sensor_alarms';
+}
+
+/**
+ * Populate the Devices & Sources tab in the configuration modal
+ */
+async function populateDevices() {
+	const container = document.getElementById('deviceListModal');
+	if (!container) return;
+	
+	try {
+		// Show loading state
+		container.innerHTML = '<div class="text-center p-3"><i class="fas fa-spinner fa-spin"></i> Loading devices...</div>';
+		
+		// Get linked devices for this entry
+		const devicesResponse = await fetch(`/api/entries/${entryId}/linked-devices`);
+		if (!devicesResponse.ok) throw new Error('Failed to load linked devices');
+		
+		const devicesData = await devicesResponse.json();
+		const linkedDevices = devicesData.linked_devices || [];
+		
+		// Get sensor data statistics for each device
+		// Match by device_id (the string identifier like "ESP32-001") not the database ID
+		const deviceStats = {};
+		sensorData.forEach(reading => {
+			// source_id from SharedSensorData contains the device_id string
+			const deviceId = reading.source_id;
+			if (deviceId && reading.source_type === 'device') {
+				if (!deviceStats[deviceId]) {
+					deviceStats[deviceId] = {
+						sensorTypes: new Set(),
+						count: 0,
+						lastSeen: reading.recorded_at
+					};
+				}
+				deviceStats[deviceId].count++;
+				deviceStats[deviceId].sensorTypes.add(reading.sensor_type);
+				if (new Date(reading.recorded_at) > new Date(deviceStats[deviceId].lastSeen)) {
+					deviceStats[deviceId].lastSeen = reading.recorded_at;
+				}
+			}
+		});
+		
+		// Build device cards HTML
+		if (linkedDevices.length === 0) {
+			container.innerHTML = `
+				<div class="text-center text-muted p-4">
+					<i class="fas fa-robot fa-3x mb-3 opacity-50"></i>
+					<p class="mb-0">No devices linked to this entry.</p>
+					<p class="small">Link devices from the <a href="/manage_devices" class="alert-link">Device Management</a> page.</p>
+				</div>
+			`;
+			return;
+		}
+		
+		let html = '<div class="list-group">';
+		
+		linkedDevices.forEach(device => {
+			// Get stats for this device
+			const stats = deviceStats[device.device_id] || { sensorTypes: new Set(), count: 0, lastSeen: null };
+			const sensorTypesArray = Array.from(stats.sensorTypes);
+			const sensorTypesList = sensorTypesArray.length > 0 ? sensorTypesArray.join(', ') : 'No data yet';
+			
+			// Determine status
+			let statusBadge = '';
+			let statusIcon = 'microchip';
+			if (device.status === 'online') {
+				statusBadge = '<span class="badge bg-success ms-2">Online</span>';
+				statusIcon = 'microchip text-success';
+			} else if (device.status === 'offline') {
+				statusBadge = '<span class="badge bg-danger ms-2">Offline</span>';
+				statusIcon = 'microchip text-danger';
+			} else if (device.status === 'disabled') {
+				statusBadge = '<span class="badge bg-secondary ms-2">Disabled</span>';
+				statusIcon = 'microchip text-muted';
+			}
+			
+			html += `
+				<div class="list-group-item">
+					<div class="d-flex justify-content-between align-items-start">
+						<div class="flex-grow-1">
+							<div class="d-flex align-items-center mb-2">
+								<i class="fas fa-${statusIcon} me-2"></i>
+								<h6 class="mb-0">${device.device_name}</h6>
+								${statusBadge}
+								<span class="badge bg-info ms-2">${device.device_type}</span>
+							</div>
+							<div class="small text-muted mb-1">
+								<i class="fas fa-network-wired me-1"></i>
+								<a href="http://${device.ip}" target="_blank" class="text-decoration-none">
+									${device.ip} <i class="fas fa-external-link-alt ms-1"></i>
+								</a>
+							</div>
+							<div class="small text-muted mb-1">
+								<strong>Device ID:</strong> ${device.device_id}
+							</div>
+						</div>
+					</div>
+				</div>
+			`;
+		});
+		
+		html += '</div>';
+		container.innerHTML = html;
+		
+	} catch (error) {
+		console.error('Error loading devices:', error);
+		container.innerHTML = `
+			<div class="alert alert-danger m-2">
+				<i class="fas fa-exclamation-triangle me-1"></i>
+				Failed to load devices: ${error.message}
+			</div>
+		`;
+	}
+}
+
+/**
  * Save sensor configuration to database via API
  * Uses per-entry JSON structure for better organization
  */
@@ -1897,4 +2333,11 @@ window.toggleDataTable = toggleDataTable;
 window.showNotification = showNotification;
 window.loadSensorConfiguration = loadSensorConfiguration;
 window.saveSensorConfiguration = saveSensorConfiguration;
+window.populateEnabledSensorTypes = populateEnabledSensorTypes;
+window.saveEnabledSensorTypes = saveEnabledSensorTypes;
+window.populateSensorAlerts = populateSensorAlerts;
+window.toggleAlarmStatus = toggleAlarmStatus;
+window.deleteAlarm = deleteAlarm;
+window.openCreateAlarmModal = openCreateAlarmModal;
+window.populateDevices = populateDevices;
 
