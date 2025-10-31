@@ -85,6 +85,12 @@ def serialize_entry_relationship(relationship_row, is_inverse=False):
         "is_inverse": is_inverse
     }
     
+    # Add status information if available
+    if 'related_entry_status' in relationship_row.keys():
+        result['related_entry_status'] = relationship_row['related_entry_status']
+    if 'related_entry_status_color' in relationship_row.keys():
+        result['related_entry_status_color'] = relationship_row['related_entry_status_color']
+    
     # Add source/target IDs if available
     if 'source_entry_id' in relationship_row.keys():
         result['source_entry_id'] = relationship_row['source_entry_id']

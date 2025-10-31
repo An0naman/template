@@ -185,10 +185,13 @@ def get_entry_relationships(entry_id):
             rd.cardinality_to,
             rd.allow_quantity_unit,
             er.quantity,
-            er.unit
+            er.unit,
+            e_to.status AS related_entry_status,
+            es.color AS related_entry_status_color
         FROM EntryRelationship er
         JOIN RelationshipDefinition rd ON er.relationship_type = rd.id
         JOIN Entry e_to ON er.target_entry_id = e_to.id
+        LEFT JOIN EntryState es ON e_to.status = es.name AND e_to.entry_type_id = es.entry_type_id
         WHERE er.source_entry_id = ?
         ORDER BY rd.name, e_to.title
     ''', (current_entry_title, entry_id))
@@ -213,10 +216,13 @@ def get_entry_relationships(entry_id):
             rd.cardinality_to,
             rd.allow_quantity_unit,
             er.quantity,
-            er.unit
+            er.unit,
+            e_from.status AS related_entry_status,
+            es.color AS related_entry_status_color
         FROM EntryRelationship er
         JOIN RelationshipDefinition rd ON er.relationship_type = rd.id
         JOIN Entry e_from ON er.source_entry_id = e_from.id
+        LEFT JOIN EntryState es ON e_from.status = es.name AND e_from.entry_type_id = es.entry_type_id
         WHERE er.target_entry_id = ?
         ORDER BY rd.name, e_from.title
     ''', (current_entry_title, entry_id))
@@ -315,26 +321,57 @@ def delete_entry_relationship(relationship_id):
 def add_new_entry_relationship(entry_id):
     data = request.get_json()
     definition_id = data.get('definition_id')
-    new_entry_name = data.get('name', '').strip()
+    new_entry_title = data.get('name', '').strip()  # Frontend sends 'name', we use it as 'title'
     new_entry_description = data.get('description', '').strip()
+    quantity = data.get('quantity')
+    unit = data.get('unit')
 
-    if not definition_id or not new_entry_name:
-        return jsonify({"error": "Missing relationship definition ID or new entry name."}), 400
+    if not definition_id or not new_entry_title:
+        return jsonify({"error": "Missing relationship definition ID or new entry title."}), 400
 
     conn = get_db()
     cursor = conn.cursor()
     try:
-        # Create the new entry
+        # Get the relationship definition to find the target entry type
         cursor.execute('''
-            INSERT INTO Entry (name, description) VALUES (?, ?)
-        ''', (new_entry_name, new_entry_description))
+            SELECT entry_type_id_to, allow_quantity_unit 
+            FROM RelationshipDefinition 
+            WHERE id = ?
+        ''', (definition_id,))
+        rel_def = cursor.fetchone()
+        
+        if not rel_def:
+            return jsonify({"error": "Relationship definition not found."}), 404
+        
+        target_entry_type_id = rel_def['entry_type_id_to']
+        allow_quantity_unit = rel_def['allow_quantity_unit']
+        
+        # Clear quantity/unit if not allowed
+        if not allow_quantity_unit:
+            quantity = None
+            unit = None
+        else:
+            # Convert quantity to float if provided
+            if quantity is not None and quantity != '':
+                try:
+                    quantity = float(quantity)
+                except (ValueError, TypeError):
+                    return jsonify({"error": "Quantity must be a valid number."}), 400
+            else:
+                quantity = None
+
+        # Create the new entry with the correct entry_type_id
+        cursor.execute('''
+            INSERT INTO Entry (title, description, entry_type_id, created_at) 
+            VALUES (?, ?, ?, datetime('now'))
+        ''', (new_entry_title, new_entry_description, target_entry_type_id))
         new_entry_id = cursor.lastrowid
 
         # Add the relationship
         cursor.execute('''
-            INSERT INTO EntryRelationship (source_entry_id, target_entry_id, relationship_type)
-            VALUES (?, ?, ?)
-        ''', (entry_id, new_entry_id, definition_id))
+            INSERT INTO EntryRelationship (source_entry_id, target_entry_id, relationship_type, quantity, unit)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (entry_id, new_entry_id, definition_id, quantity, unit))
         conn.commit()
 
         return jsonify({"message": "New entry and relationship added successfully!", "new_entry_id": new_entry_id}), 201

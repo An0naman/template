@@ -1,105 +1,9 @@
-{# Relationships Section for Entry De  <!-- Section Header -->
-  <div class="section-header mb-3">
-    <h5>
-      <i class="fas fa-link me-2"></i>
-      Related Records
-    </h5>
-  </div>
+{# Relationships Section for Entry Detail V2 #}
 
-  <!-- View Tabs -->
-  <ul class="nav nav-tabs mb-3" role="tablist">
-    <li class="nav-item">
-      <button class="nav-link active" 
-              id="byTypeTab{{ entry.id }}"
-              data-bs-toggle="tab" 
-              data-bs-target="#byTypeView{{ entry.id }}"
-              type="button"
-              role="tab">
-        <i class="fas fa-list me-1"></i> By Type
-      </button>
-    </li>
-    <li class="nav-item">
-      <button class="nav-link" 
-              id="hierarchyTab{{ entry.id }}"
-              data-bs-toggle="tab" 
-              data-bs-target="#hierarchyView{{ entry.id }}"
-              type="button"
-              role="tab">
-        <i class="fas fa-sitemap me-1"></i> Hierarchy
-      </button>
-    </li>
-  </ul>
-
-  <!-- Tab Content -->
-  <div class="tab-content">
-    
-    <!-- By Type View -->
-    <div class="tab-pane fade show active" id="byTypeView{{ entry.id }}" role="tabpanel">
-      <!-- Loading State -->
-      <div id="relationshipsLoading{{ entry.id }}" class="text-center py-4">
-        <div class="spinner-border text-primary" role="status">
-          <span class="visually-hidden">Loading...</span>
-        </div>
-        <p class="mt-2 text-muted">Loading relationships...</p>
-      </div>
-
-      <!-- Section Content -->
-      <div id="relatedRecordsContainer{{ entry.id }}" style="display: none;">
-        <!-- Will be populated via JavaScript with cards for each relationship type -->
-      </div>
-    </div>
-    
-    <!-- Hierarchy View -->
-    <div class="tab-pane fade" id="hierarchyView{{ entry.id }}" role="tabpanel">
-      <div id="hierarchyLoading{{ entry.id }}" class="text-center py-4">
-        <div class="spinner-border text-primary" role="status">
-          <span class="visually-hidden">Loading...</span>
-        </div>
-        <p class="mt-2 text-muted">Loading hierarchy...</p>
-      </div>
-      <div id="hierarchyContent{{ entry.id }}" style="display: none;">
-        <!-- Will be populated with hierarchy tree -->
-      </div>
-    </div>
-    
-  </div>ple Version #}
-
-<div class="content-section relationships-section" id="relationshipsSection{{ entry.id }}">
+<div class="relationships-section" id="relationshipsSection{{ entry.id }}">
   
-  <!-- Section Head    function renderRelationshipRow(rel, def) {
-        // Get contrasting text color for status badge
-        const getContrastColor = (hexColor) => {
-            if (!hexColor) return '#000';
-            const r = parseInt(hexColor.slice(1, 3), 16);
-            const g = parseInt(hexColor.slice(3, 5), 16);
-            const b = parseInt(hexColor.slice(5, 7), 16);
-            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-            return luminance > 0.5 ? '#000' : '#fff';
-        };
-        
-        const statusColor = rel.related_entry_type?.color || '#6c757d';
-        const textColor = getContrastColor(statusColor);
-        
-        return `
-            <tr class="relationship-item-row">
-                <td>
-                    <a href="/entry/${rel.related_entry_id}" class="text-decoration-none">
-                        ${escapeHtml(rel.related_entry_title)}
-                    </a>
-                    ${rel.related_entry_status ? `
-                        <span class="badge ms-2" style="background-color: ${statusColor}; color: ${textColor}; font-size: 0.75rem;">
-                            ${escapeHtml(rel.related_entry_status)}
-                        </span>
-                    ` : ''}
-                </td>
-                ${def.allow_quantity_unit ? `
-                    <td class="text-center" style="width: 150px;">
-                        <small class="text-muted">
-                            ${rel.quantity ? `${rel.quantity} ${rel.unit || ''}` : '-'}
-                        </small>
-                    </td>
-                ` : ''}
-                <td class="text-end" style="width: 120px;">`ass="section-header mb-3">
+  <!-- Section Header -->
+  <div class="section-header mb-3">
     <h5>
       <i class="fas fa-link me-2"></i>
       Related Records
@@ -122,12 +26,20 @@
 </div>
 
 <style>
-/* Relationship cards styling */
+/* Relationship cards styling with theme support */
 .relationship-type-card {
     margin-bottom: 1rem;
-    border: 1px solid var(--bs-border-color);
+    border: 1px solid var(--theme-border-color, var(--bs-border-color));
     border-radius: 0.5rem;
     overflow: hidden;
+    background-color: var(--theme-card-bg, var(--bs-body-bg));
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.relationship-type-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
 }
 
 .relationship-type-card .card-header {
@@ -142,10 +54,12 @@
 .relationship-type-card .card-header h6 {
     margin: 0;
     font-weight: 600;
+    color: var(--bs-body-color);
 }
 
 .relationship-type-card .card-body {
     padding: 0;
+    background-color: var(--theme-card-body-bg, var(--bs-body-bg));
 }
 
 .relationship-type-card table {
@@ -154,14 +68,62 @@
 
 .relationship-type-card .table > :not(caption) > * > * {
     padding: 0.5rem 1rem;
+    border-color: var(--theme-border-color, var(--bs-border-color));
+}
+
+.relationship-item-row {
+    transition: background-color 0.15s ease;
 }
 
 .relationship-item-row:hover {
-    background-color: var(--bs-secondary-bg);
+    background-color: var(--theme-hover-bg, var(--bs-secondary-bg));
+}
+
+.relationship-link {
+    color: var(--bs-body-color) !important;
+    text-decoration: none;
+    transition: opacity 0.2s ease;
+}
+
+.relationship-link:hover {
+    opacity: 0.7;
+    text-decoration: underline;
 }
 
 .btn-add-relationship {
     white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.btn-add-relationship:hover:not(:disabled) {
+    transform: scale(1.05);
+}
+
+.btn-add-relationship:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Dark mode adjustments */
+[data-bs-theme="dark"] .relationship-type-card {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+[data-bs-theme="dark"] .relationship-type-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* Empty state styling */
+.relationships-empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--bs-secondary-color);
+}
+
+.relationships-empty-state i {
+    font-size: 3rem;
+    opacity: 0.25;
+    margin-bottom: 1rem;
 }
 </style>
 
@@ -223,8 +185,8 @@
         
         if (definitions.length === 0) {
             container.innerHTML = `
-                <div class="text-center py-4 text-muted">
-                    <i class="fas fa-link fa-3x mb-3 opacity-25"></i>
+                <div class="relationships-empty-state">
+                    <i class="fas fa-link"></i>
                     <p>No relationship types available for this entry type.</p>
                 </div>
             `;
@@ -281,12 +243,30 @@
     }
     
     function renderRelationshipRow(rel, def) {
+        // Get contrasting text color for status badge
+        const getContrastColor = (hexColor) => {
+            if (!hexColor) return '#fff';
+            const r = parseInt(hexColor.slice(1, 3), 16);
+            const g = parseInt(hexColor.slice(3, 5), 16);
+            const b = parseInt(hexColor.slice(5, 7), 16);
+            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            return luminance > 0.5 ? '#000' : '#fff';
+        };
+        
+        const statusColor = rel.related_entry_status_color || '#6c757d';
+        const textColor = getContrastColor(statusColor);
+        
         return `
             <tr class="relationship-item-row">
                 <td>
-                    <a href="/entry/${rel.related_entry_id}" class="text-decoration-none">
+                    <a href="/entry/${rel.related_entry_id}" class="relationship-link">
                         ${escapeHtml(rel.related_entry_title)}
                     </a>
+                    ${rel.related_entry_status ? `
+                        <span class="badge ms-2" style="background-color: ${statusColor}; color: ${textColor}; font-size: 0.75rem;">
+                            ${escapeHtml(rel.related_entry_status)}
+                        </span>
+                    ` : ''}
                 </td>
                 ${def.allow_quantity_unit ? `
                     <td class="text-center" style="width: 150px;">
@@ -603,7 +583,7 @@
         try {
             const payload = {
                 definition_id: parseInt(definitionId),
-                target_entry_id: parseInt(targetEntryId)
+                related_entry_id: parseInt(targetEntryId)
             };
             
             if (quantity) payload.quantity = parseFloat(quantity);
@@ -738,97 +718,6 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
-    }
-    
-    // Load hierarchy when tab is shown
-    function loadHierarchy() {
-        const hierarchyLoading = document.getElementById('hierarchyLoading' + entryId);
-        const hierarchyContent = document.getElementById('hierarchyContent' + entryId);
-        
-        // Check if already loaded
-        if (hierarchyContent.dataset.loaded === 'true') {
-            hierarchyLoading.style.display = 'none';
-            hierarchyContent.style.display = 'block';
-            return;
-        }
-        
-        hierarchyLoading.style.display = 'block';
-        hierarchyContent.style.display = 'none';
-        
-        fetch(`/api/entries/${entryId}/relationship_hierarchy`)
-            .then(response => response.json())
-            .then(data => {
-                renderHierarchyTree(data);
-                hierarchyContent.dataset.loaded = 'true';
-                hierarchyLoading.style.display = 'none';
-                hierarchyContent.style.display = 'block';
-            })
-            .catch(error => {
-                console.error('Error loading hierarchy:', error);
-                hierarchyContent.innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        Error loading hierarchy: ${error.message}
-                    </div>
-                `;
-                hierarchyLoading.style.display = 'none';
-                hierarchyContent.style.display = 'block';
-            });
-    }
-    
-    function renderHierarchyTree(node, level = 0) {
-        const hierarchyContent = document.getElementById('hierarchyContent' + entryId);
-        
-        if (level === 0) {
-            // Root node - clear and start fresh
-            hierarchyContent.innerHTML = '';
-        }
-        
-        if (!node) {
-            hierarchyContent.innerHTML = '<div class="text-center py-4 text-muted">No hierarchy data available</div>';
-            return;
-        }
-        
-        const indent = level * 30;
-        const isCurrentEntry = node.id === entryId;
-        
-        const nodeHtml = `
-            <div class="hierarchy-node" style="margin-left: ${indent}px; margin-bottom: 0.5rem;">
-                <div class="d-flex align-items-center p-2 rounded ${isCurrentEntry ? 'bg-primary bg-opacity-10 border border-primary' : 'border'}">
-                    <i class="fas fa-${node.icon || 'link'} me-2" style="color: ${node.color || '#6c757d'};"></i>
-                    ${isCurrentEntry ? `
-                        <strong>${escapeHtml(node.title)}</strong>
-                        <span class="badge bg-primary ms-2">Current</span>
-                    ` : `
-                        <a href="/entry/${node.id}" class="text-decoration-none">
-                            ${escapeHtml(node.title)}
-                        </a>
-                    `}
-                    ${node.status ? `
-                        <span class="badge ms-2" style="background-color: ${node.color || '#6c757d'}; font-size: 0.75rem;">
-                            ${escapeHtml(node.status)}
-                        </span>
-                    ` : ''}
-                </div>
-            </div>
-        `;
-        
-        hierarchyContent.insertAdjacentHTML('beforeend', nodeHtml);
-        
-        // Render children recursively
-        if (node.children && node.children.length > 0) {
-            node.children.forEach(child => {
-                renderHierarchyTree(child, level + 1);
-            });
-        }
-    }
-    
-    // Set up hierarchy tab click handler
-    const hierarchyTab = document.getElementById('hierarchyTab' + entryId);
-    if (hierarchyTab) {
-        hierarchyTab.addEventListener('shown.bs.tab', function() {
-            loadHierarchy();
-        });
     }
     
     // Initialize on load
