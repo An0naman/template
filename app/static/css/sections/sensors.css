@@ -1,0 +1,527 @@
+/**
+ * Sensor Data Section Styles for Entry v2
+ * Responsive design with mobile-first approach
+ */
+
+/* ===== Sensor Card Base Styles ===== */
+.sensor-card-header {
+    background: linear-gradient(135deg, var(--bs-primary) 0%, var(--bs-primary-dark, #0056b3) 100%);
+    color: white;
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.sensor-card-header h5 {
+    font-weight: 600;
+}
+
+/* ===== Statistics Cards ===== */
+.sensor-stat-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border-width: 2px;
+}
+
+.sensor-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.sensor-stat-card h4 {
+    font-weight: 700;
+    font-size: 1.75rem;
+}
+
+.sensor-stat-card small {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ===== Chart Container ===== */
+#chartContainer {
+    position: relative;
+    min-height: 300px;
+    padding: 1rem;
+    background: var(--bs-body-bg);
+    border-radius: 0.5rem;
+}
+
+#sensorChart {
+    max-height: 400px;
+}
+
+/* Chart loading overlay */
+.chart-loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    z-index: 10;
+}
+
+[data-bs-theme="dark"] .chart-loading-overlay {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+/* ===== Data Table Styles ===== */
+#sensorDataTable .table {
+    font-size: 0.9rem;
+}
+
+#sensorDataTable thead {
+    background: var(--bs-secondary-bg);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+#sensorDataTable tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+#sensorDataTable tbody tr:hover {
+    background-color: var(--bs-tertiary-bg);
+}
+
+#sensorDataTable .badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+/* Table action buttons */
+#sensorDataTable .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+/* ===== Filter Controls ===== */
+.sensor-filter-section {
+    background: var(--bs-secondary-bg);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.sensor-filter-section label {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--bs-secondary-color);
+}
+
+.sensor-filter-section .form-select,
+.sensor-filter-section .form-control {
+    font-size: 0.9rem;
+}
+
+/* ===== Device List ===== */
+#deviceList {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+#deviceList::-webkit-scrollbar {
+    width: 6px;
+}
+
+#deviceList::-webkit-scrollbar-track {
+    background: var(--bs-secondary-bg);
+    border-radius: 3px;
+}
+
+#deviceList::-webkit-scrollbar-thumb {
+    background: var(--bs-border-color);
+    border-radius: 3px;
+}
+
+#deviceList::-webkit-scrollbar-thumb:hover {
+    background: var(--bs-secondary-color);
+}
+
+.device-item {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--bs-border-color);
+    transition: background-color 0.15s ease;
+}
+
+.device-item:last-child {
+    border-bottom: none;
+}
+
+.device-item:hover {
+    background-color: var(--bs-tertiary-bg);
+}
+
+.device-status-online {
+    color: var(--bs-success);
+}
+
+.device-status-offline {
+    color: var(--bs-danger);
+}
+
+/* ===== Loading & Empty States ===== */
+#loadingIndicator {
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+#noDataMessage {
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border: 2px dashed var(--bs-border-color);
+    border-radius: 0.5rem;
+}
+
+#noDataMessage i {
+    font-size: 3rem;
+    opacity: 0.3;
+    display: block;
+    margin-bottom: 1rem;
+}
+
+/* ===== Modal Customizations ===== */
+.sensor-modal .modal-header {
+    background: linear-gradient(135deg, var(--bs-primary) 0%, var(--bs-primary-dark, #0056b3) 100%);
+    color: white;
+}
+
+.sensor-modal .modal-header .btn-close {
+    filter: invert(1);
+}
+
+.sensor-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 2rem;
+    background: var(--bs-secondary-bg);
+    border: 2px solid var(--bs-border-color);
+    transition: all 0.2s ease;
+}
+
+.sensor-type-badge:hover {
+    background: var(--bs-primary);
+    color: white;
+    border-color: var(--bs-primary);
+    transform: translateY(-1px);
+}
+
+.sensor-type-badge.active {
+    background: var(--bs-primary);
+    color: white;
+    border-color: var(--bs-primary);
+}
+
+/* ===== Pagination Styles ===== */
+#sensorPagination {
+    margin-top: 1rem;
+}
+
+#sensorPagination .page-link {
+    color: var(--bs-primary);
+    border-color: var(--bs-border-color);
+}
+
+#sensorPagination .page-item.active .page-link {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-primary);
+}
+
+#sensorPagination .page-item.disabled .page-link {
+    color: var(--bs-secondary-color);
+}
+
+/* ===== Time Range Selector ===== */
+.time-range-pills {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.time-range-pill {
+    padding: 0.5rem 1rem;
+    border-radius: 2rem;
+    background: var(--bs-secondary-bg);
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.time-range-pill:hover {
+    background: var(--bs-tertiary-bg);
+    border-color: var(--bs-border-color);
+}
+
+.time-range-pill.active {
+    background: var(--bs-primary);
+    color: white;
+    border-color: var(--bs-primary);
+}
+
+/* ===== Bulk Import Preview ===== */
+#importPreview {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    background: var(--bs-body-bg);
+}
+
+#importPreview .table {
+    font-size: 0.85rem;
+}
+
+/* ===== Responsive Design ===== */
+
+/* Tablets and below */
+@media (max-width: 768px) {
+    #sensorStats .col-md-3 {
+        margin-bottom: 0.5rem;
+    }
+    
+    #sensorStats h4 {
+        font-size: 1.5rem;
+    }
+    
+    #chartContainer {
+        min-height: 250px;
+    }
+    
+    #sensorChart {
+        max-height: 300px;
+    }
+    
+    #sensorDataTable {
+        font-size: 0.85rem;
+    }
+    
+    #sensorDataTable .table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+    
+    .sensor-filter-section .row {
+        gap: 0.5rem;
+    }
+    
+    .btn-group .btn-sm {
+        padding: 0.375rem 0.5rem;
+    }
+    
+    .btn-group .btn-sm span {
+        display: none;
+    }
+}
+
+/* Mobile phones */
+@media (max-width: 576px) {
+    #sensorStats {
+        flex-direction: column;
+    }
+    
+    #sensorStats .col-md-3 {
+        width: 100%;
+    }
+    
+    #chartContainer {
+        padding: 0.5rem;
+        min-height: 200px;
+    }
+    
+    #sensorChart {
+        max-height: 250px;
+    }
+    
+    .sensor-filter-section {
+        padding: 0.75rem;
+    }
+    
+    .card-header h5 {
+        font-size: 1rem;
+    }
+    
+    .btn-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .btn-group .btn {
+        width: 100%;
+        border-radius: 0.25rem !important;
+        margin-bottom: 0.25rem;
+    }
+    
+    #deviceList {
+        font-size: 0.85rem;
+    }
+    
+    .modal-dialog {
+        margin: 0.5rem;
+    }
+    
+    .modal-body {
+        padding: 1rem;
+    }
+}
+
+/* ===== Dark Mode Specific Adjustments ===== */
+[data-bs-theme="dark"] {
+    .sensor-card-header {
+        background: linear-gradient(135deg, var(--bs-primary) 0%, #003d82 100%);
+    }
+    
+    #chartContainer {
+        background: var(--bs-dark);
+        border: 1px solid var(--bs-border-color);
+    }
+    
+    .sensor-stat-card {
+        background: var(--bs-dark);
+    }
+    
+    #noDataMessage {
+        background: var(--bs-dark);
+    }
+    
+    .sensor-filter-section {
+        background: var(--bs-dark);
+    }
+}
+
+/* ===== Print Styles ===== */
+@media print {
+    .btn-group,
+    .sensor-filter-section,
+    #sensorDataTable,
+    .modal,
+    .pagination {
+        display: none !important;
+    }
+    
+    #chartContainer {
+        page-break-inside: avoid;
+    }
+    
+    .card {
+        box-shadow: none;
+        border: 1px solid #000;
+    }
+}
+
+/* ===== Animation Classes ===== */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.sensor-data-row {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.sensor-updating {
+    animation: pulse 1.5s infinite;
+}
+
+/* ===== Accessibility ===== */
+.sensor-section [role="button"]:focus,
+.sensor-section button:focus,
+.sensor-section .form-control:focus,
+.sensor-section .form-select:focus {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: 2px;
+}
+
+.visually-hidden-but-announced {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ===== Export Button ===== */
+.export-btn {
+    position: relative;
+    overflow: hidden;
+}
+
+.export-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    transform: translate(-50%, -50%);
+    transition: width 0.3s, height 0.3s;
+}
+
+.export-btn:active::after {
+    width: 200px;
+    height: 200px;
+}
+
+/* ===== Tooltip Enhancements ===== */
+.sensor-tooltip {
+    position: relative;
+    cursor: help;
+}
+
+.sensor-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.5rem;
+    background: var(--bs-dark);
+    color: white;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    z-index: 1000;
+}
+
+.sensor-tooltip:hover::after {
+    opacity: 1;
+}

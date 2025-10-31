@@ -304,3 +304,64 @@ class SharedSensorDataService:
             summary['sensor_types'] = []
             
         return summary
+
+    @staticmethod
+    def format_readings_for_chart(readings: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Convert raw readings into Chart.js friendly datasets grouped by sensor type"""
+        datasets = {}
+        for r in readings:
+            try:
+                value = float(r.get('value'))
+            except (TypeError, ValueError):
+                continue
+
+            stype = r.get('sensor_type')
+            if stype not in datasets:
+                datasets[stype] = {
+                    'label': stype,
+                    'unit': r.get('metadata', {}).get('unit', r.get('unit', '')),
+                    'data': []
+                }
+
+            datasets[stype]['data'].append({
+                'x': r.get('recorded_at'),
+                'y': value
+            })
+
+        # Convert to list and sort each dataset by timestamp asc
+        result = []
+        for stype, d in datasets.items():
+            d['data'].sort(key=lambda x: x['x'])
+            result.append(d)
+
+        return {'datasets': result}
+
+    @staticmethod
+    def aggregate_statistics(readings: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Compute aggregated statistics across readings (global and per-type)"""
+        stats = {
+            'total': 0,
+            'by_type': {}
+        }
+
+        for r in readings:
+            try:
+                value = float(r.get('value'))
+            except (TypeError, ValueError):
+                continue
+
+            stats['total'] += 1
+            stype = r.get('sensor_type')
+            t = stats['by_type'].setdefault(stype, {'count': 0, 'sum': 0.0, 'min': None, 'max': None})
+            t['count'] += 1
+            t['sum'] += value
+            t['min'] = value if t['min'] is None else min(t['min'], value)
+            t['max'] = value if t['max'] is None else max(t['max'], value)
+
+        # Finalize averages
+        for stype, t in stats['by_type'].items():
+            t['average'] = (t['sum'] / t['count']) if t['count'] else None
+            # remove sum from output
+            t.pop('sum', None)
+
+        return stats

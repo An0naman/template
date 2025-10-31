@@ -1,0 +1,378 @@
+{# Sensor Data Modals for Entry v2 #}
+
+{# Add Sensor Data Modal #}
+<div class="modal fade" id="addSensorDataModal" tabindex="-1" aria-labelledby="addSensorDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addSensorDataModalLabel">
+                    <i class="fas fa-plus-circle me-2"></i>Add Sensor Reading
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="addSensorDataForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="addSensorType" class="form-label">Sensor Type</label>
+                        <select class="form-select" id="addSensorType" required onchange="onAddSensorTypeChange()">
+                            <option value="">Select sensor type...</option>
+                            {# Populated dynamically from enabled sensor types #}
+                        </select>
+                        <div class="form-text">Or add a new sensor type below</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="addNewSensorType" class="form-label">New Sensor Type (Optional)</label>
+                        <input type="text" class="form-control" id="addNewSensorType" placeholder="e.g., Temperature">
+                        <div class="form-text">Leave blank to use selected type above</div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="addValue" class="form-label">Value</label>
+                                <input type="number" step="any" class="form-control" id="addValue" required placeholder="e.g., 22.5">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="addUnit" class="form-label">Unit</label>
+                                <input type="text" class="form-control" id="addUnit" placeholder="e.g., °C" value="">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="addTimestamp" class="form-label">Timestamp</label>
+                        <input type="datetime-local" class="form-control" id="addTimestamp">
+                        <div class="form-text">Leave blank for current time</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="addSource" class="form-label">Source</label>
+                        <select class="form-select" id="addSource">
+                            <option value="manual">Manual Entry</option>
+                            <option value="device">Device/Sensor</option>
+                            <option value="api">API Import</option>
+                        </select>
+                    </div>
+                    
+                    <div id="deviceSourceSection" class="mb-3" style="display: none;">
+                        <label for="addDeviceId" class="form-label">Device ID</label>
+                        <input type="text" class="form-control" id="addDeviceId" placeholder="e.g., ESP32_001">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="addNotes" class="form-label">Notes (Optional)</label>
+                        <textarea class="form-control" id="addNotes" rows="2" placeholder="Additional context or notes"></textarea>
+                    </div>
+                    
+                    <div class="alert alert-info mb-0">
+                        <small>
+                            <i class="fas fa-info-circle me-1"></i>
+                            This reading will be added to the current entry. To share data across multiple entries, use the bulk import feature.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>Add Reading
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# Edit Sensor Data Modal #}
+<div class="modal fade" id="editSensorDataModal" tabindex="-1" aria-labelledby="editSensorDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editSensorDataModalLabel">
+                    <i class="fas fa-edit me-2"></i>Edit Sensor Reading
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editSensorDataForm">
+                <input type="hidden" id="editSensorId">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editSensorType" class="form-label">Sensor Type</label>
+                        <input type="text" class="form-control" id="editSensorType" disabled>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="editValue" class="form-label">Value</label>
+                                <input type="number" step="any" class="form-control" id="editValue" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="editUnit" class="form-label">Unit</label>
+                                <input type="text" class="form-control" id="editUnit">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editTimestamp" class="form-label">Timestamp</label>
+                        <input type="datetime-local" class="form-control" id="editTimestamp" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editNotes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="editNotes" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" onclick="deleteSensorReading()">
+                        <i class="fas fa-trash me-1"></i>Delete
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# Bulk Import Modal #}
+<div class="modal fade" id="bulkImportSensorModal" tabindex="-1" aria-labelledby="bulkImportSensorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkImportSensorModalLabel">
+                    <i class="fas fa-file-import me-2"></i>Bulk Import Sensor Data
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="importFormat" class="form-label">Import Format</label>
+                    <select class="form-select" id="importFormat" onchange="onImportFormatChange()">
+                        <option value="csv">CSV File</option>
+                        <option value="json">JSON File</option>
+                        <option value="manual">Manual Entry (JSON)</option>
+                    </select>
+                </div>
+                
+                <div id="fileUploadSection">
+                    <div class="mb-3">
+                        <label for="importFile" class="form-label">Select File</label>
+                        <input type="file" class="form-control" id="importFile" accept=".csv,.json">
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <strong>CSV Format:</strong><br>
+                        <code>sensor_type,value,unit,timestamp,source_type,source_id</code><br>
+                        <small class="text-muted">Example: Temperature,22.5,°C,2025-10-31T10:00:00,device,ESP32_001</small>
+                    </div>
+                </div>
+                
+                <div id="manualJsonSection" style="display: none;">
+                    <div class="mb-3">
+                        <label for="importJson" class="form-label">JSON Data</label>
+                        <textarea class="form-control font-monospace" id="importJson" rows="10" placeholder='[
+  {
+    "sensor_type": "Temperature",
+    "value": "22.5",
+    "unit": "°C",
+    "recorded_at": "2025-10-31T10:00:00Z",
+    "source_type": "device",
+    "source_id": "ESP32_001"
+  }
+]'></textarea>
+                    </div>
+                </div>
+                
+                <div id="importPreview" style="display: none;">
+                    <h6>Import Preview:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Value</th>
+                                    <th>Timestamp</th>
+                                    <th>Source</th>
+                                </tr>
+                            </thead>
+                            <tbody id="importPreviewBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-muted"><span id="importCount">0</span> readings ready to import</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="processImport()" id="importButton">
+                    <i class="fas fa-upload me-1"></i>Import Data
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Configure Sensors Modal #}
+<div class="modal fade" id="configureSensorsModal" tabindex="-1" aria-labelledby="configureSensorsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="configureSensorsModalLabel">
+                    <i class="fas fa-cog me-2"></i>Sensor Configuration
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs mb-3" id="configTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="enabled-tab" data-bs-toggle="tab" data-bs-target="#enabled" type="button" role="tab">
+                            Enabled Types
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="display-tab" data-bs-toggle="tab" data-bs-target="#display" type="button" role="tab">
+                            Display Settings
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="alerts-tab" data-bs-toggle="tab" data-bs-target="#alerts" type="button" role="tab">
+                            Alerts & Thresholds
+                        </button>
+                    </li>
+                </ul>
+                
+                <div class="tab-content" id="configTabsContent">
+                    {# Enabled Types Tab #}
+                    <div class="tab-pane fade show active" id="enabled" role="tabpanel">
+                        <p class="text-muted">Select which sensor types are enabled for this entry type:</p>
+                        <div id="enabledSensorTypesList" class="list-group">
+                            {# Populated dynamically #}
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary mt-3" onclick="addCustomSensorType()">
+                            <i class="fas fa-plus me-1"></i>Add Custom Type
+                        </button>
+                    </div>
+                    
+                    {# Display Settings Tab #}
+                    <div class="tab-pane fade" id="display" role="tabpanel">
+                        <div class="mb-3">
+                            <label for="defaultSensorType" class="form-label">Default Sensor Type</label>
+                            <select class="form-select" id="defaultSensorType">
+                                <option value="">All Sensors</option>
+                                {# Options populated dynamically via JavaScript #}
+                            </select>
+                            <div class="form-text">Select which sensor type to show by default when loading the page</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="defaultChartType" class="form-label">Default Chart Type</label>
+                            <select class="form-select" id="defaultChartType">
+                                <option value="line">Line Chart</option>
+                                <option value="bar">Bar Chart</option>
+                                <option value="area">Area Chart</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="defaultTimeRange" class="form-label">Default Time Range</label>
+                            <select class="form-select" id="defaultTimeRange">
+                                <option value="24h">Last 24 Hours</option>
+                                <option value="7d">Last 7 Days</option>
+                                <option value="30d">Last 30 Days</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="autoRefresh">
+                            <label class="form-check-label" for="autoRefresh">
+                                Auto-refresh data every 60 seconds
+                            </label>
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="showDataTable" checked>
+                            <label class="form-check-label" for="showDataTable">
+                                Show data table by default
+                            </label>
+                        </div>
+                    </div>
+                    
+                    {# Alerts & Thresholds Tab #}
+                    <div class="tab-pane fade" id="alerts" role="tabpanel">
+                        <p class="text-muted">Configure alert thresholds for sensor readings:</p>
+                        <div id="alertConfigList">
+                            {# Populated dynamically per sensor type #}
+                        </div>
+                        <div class="alert alert-info mt-3 mb-0">
+                            <small>
+                                <i class="fas fa-info-circle me-1"></i>
+                                Alerts will trigger notifications when sensor values exceed thresholds.
+                                Configure notification delivery in <a href="/settings">System Settings</a>.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="saveSensorConfiguration()">
+                    <i class="fas fa-save me-1"></i>Save Configuration
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Export Data Modal #}
+<div class="modal fade" id="exportSensorDataModal" tabindex="-1" aria-labelledby="exportSensorDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exportSensorDataModalLabel">
+                    <i class="fas fa-download me-2"></i>Export Sensor Data
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="exportFormat" class="form-label">Export Format</label>
+                    <select class="form-select" id="exportFormat">
+                        <option value="csv">CSV (Excel Compatible)</option>
+                        <option value="json">JSON</option>
+                        <option value="xlsx">Excel (.xlsx)</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="exportTimeRange" class="form-label">Time Range</label>
+                    <select class="form-select" id="exportTimeRange">
+                        <option value="current">Current View</option>
+                        <option value="all">All Data</option>
+                        <option value="custom">Custom Range</option>
+                    </select>
+                </div>
+                
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="exportIncludeMetadata" checked>
+                    <label class="form-check-label" for="exportIncludeMetadata">
+                        Include metadata (source, device info, etc.)
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="exportSensorData()">
+                    <i class="fas fa-file-download me-1"></i>Export
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

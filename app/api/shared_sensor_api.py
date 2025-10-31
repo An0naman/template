@@ -286,3 +286,254 @@ def list_shared_sensor_data():
     except Exception as e:
         logger.error(f"Error listing shared sensor data: {e}", exc_info=True)
         return jsonify({'error': 'An internal error occurred'}), 500
+
+# ===== Entry v2 Integration Endpoints =====
+
+@shared_sensor_api_bp.route('/entry/<int:entry_id>/sensor-data', methods=['GET'])
+def get_entry_sensor_data_v2(entry_id):
+    """
+    Get sensor data for an entry with filtering and statistics
+    Optimized for Entry v2 sensor section
+    
+    Query params:
+    - sensor_type: filter by sensor type
+    - start_date: filter from date (ISO format)
+    - end_date: filter to date (ISO format)
+    - limit: max records to return (default 1000)
+    - include_stats: include statistics (default true)
+    """
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Verify entry exists
+        cursor.execute('SELECT id FROM Entry WHERE id = ?', (entry_id,))
+        if not cursor.fetchone():
+            return jsonify({'error': 'Entry not found'}), 404
+        
+        # Build query
+        query = '''
+            SELECT ssd.id, ssd.sensor_type, ssd.value, ssd.recorded_at,
+                   ssd.source_type, ssd.source_id, ssd.metadata,
+                   sel.link_type
+            FROM SharedSensorData ssd
+            JOIN SensorDataEntryLinks sel ON ssd.id = sel.shared_sensor_data_id
+            WHERE sel.entry_id = ?
+        '''
+        params = [entry_id]
+        
+        # Add filters
+        if request.args.get('sensor_type'):
+            query += ' AND ssd.sensor_type = ?'
+            params.append(request.args.get('sensor_type'))
+        
+        if request.args.get('start_date'):
+            query += ' AND ssd.recorded_at >= ?'
+            params.append(request.args.get('start_date'))
+        
+        if request.args.get('end_date'):
+            query += ' AND ssd.recorded_at <= ?'
+            params.append(request.args.get('end_date'))
+        
+        query += ' ORDER BY ssd.recorded_at DESC'
+        
+        # Add limit
+        limit = int(request.args.get('limit', 1000))
+        query += ' LIMIT ?'
+        params.append(limit)
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        
+        # Format results
+        readings = []
+        for row in rows:
+            try:
+                metadata = json.loads(row['metadata']) if row['metadata'] else {}
+            except json.JSONDecodeError:
+                metadata = {}
+            
+            # Extract unit from metadata or value string
+            unit = metadata.get('unit', '')
+            
+            readings.append({
+                'id': row['id'],
+                'sensor_type': row['sensor_type'],
+                'value': row['value'],
+                'unit': unit,
+                'recorded_at': row['recorded_at'],
+                'source_type': row['source_type'],
+                'source_id': row['source_id'],
+                'link_type': row['link_type'],
+                'metadata': metadata
+            })
+        
+        result = {'readings': readings}
+        
+        # Include statistics if requested
+        if request.args.get('include_stats', 'true').lower() == 'true' and readings:
+            stats = calculate_sensor_statistics(readings)
+            result['statistics'] = stats
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error getting sensor data for entry {entry_id}: {e}", exc_info=True)
+        return jsonify({'error': 'An internal error occurred'}), 500
+
+@shared_sensor_api_bp.route('/entry/<int:entry_id>/sensor-types', methods=['GET'])
+def get_entry_sensor_types(entry_id):
+    """
+    Get available sensor types for an entry based on entry type configuration
+    """
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Get entry type and enabled sensor types
+        cursor.execute('''
+            SELECT et.enabled_sensor_types, et.has_sensors
+            FROM Entry e
+            JOIN EntryType et ON e.entry_type_id = et.id
+            WHERE e.id = ?
+        ''', (entry_id,))
+        
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'error': 'Entry not found'}), 404
+        
+        if not row['has_sensors']:
+            return jsonify({'sensor_types': [], 'message': 'Sensors not enabled for this entry type'})
+        
+        # Parse enabled sensor types
+        enabled_types = []
+        if row['enabled_sensor_types']:
+            enabled_types = [t.strip() for t in row['enabled_sensor_types'].split(',') if t.strip()]
+        
+        # Also get sensor types currently in use for this entry
+        cursor.execute('''
+            SELECT DISTINCT ssd.sensor_type
+            FROM SharedSensorData ssd
+            JOIN SensorDataEntryLinks sel ON ssd.id = sel.shared_sensor_data_id
+            WHERE sel.entry_id = ?
+        ''', (entry_id,))
+        
+        active_types = [row['sensor_type'] for row in cursor.fetchall()]
+        
+        # Combine enabled types and active types
+        all_types = list(set(enabled_types + active_types))
+        all_types.sort()
+        
+        return jsonify({
+            'sensor_types': all_types,
+            'enabled_types': enabled_types,
+            'active_types': active_types
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting sensor types for entry {entry_id}: {e}", exc_info=True)
+        return jsonify({'error': 'An internal error occurred'}), 500
+
+@shared_sensor_api_bp.route('/shared_sensor_data/<int:sensor_id>', methods=['PUT'])
+def update_sensor_data(sensor_id):
+    """
+    Update an existing sensor reading
+    """
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Verify sensor exists
+        cursor.execute('SELECT id FROM SharedSensorData WHERE id = ?', (sensor_id,))
+        if not cursor.fetchone():
+            return jsonify({'error': 'Sensor reading not found'}), 404
+        
+        data = request.json
+        
+        # Build update query
+        update_fields = []
+        params = []
+        
+        if 'value' in data:
+            update_fields.append('value = ?')
+            params.append(data['value'])
+        
+        if 'recorded_at' in data:
+            update_fields.append('recorded_at = ?')
+            params.append(data['recorded_at'])
+        
+        if 'metadata' in data:
+            update_fields.append('metadata = ?')
+            params.append(json.dumps(data['metadata']))
+        
+        if not update_fields:
+            return jsonify({'error': 'No fields to update'}), 400
+        
+        params.append(sensor_id)
+        
+        query = f"UPDATE SharedSensorData SET {', '.join(update_fields)} WHERE id = ?"
+        cursor.execute(query, params)
+        conn.commit()
+        
+        return jsonify({'message': 'Sensor reading updated successfully', 'id': sensor_id})
+        
+    except Exception as e:
+        logger.error(f"Error updating sensor data {sensor_id}: {e}", exc_info=True)
+        return jsonify({'error': 'An internal error occurred'}), 500
+
+@shared_sensor_api_bp.route('/shared_sensor_data/<int:sensor_id>', methods=['DELETE'])
+def delete_sensor_data(sensor_id):
+    """
+    Delete a sensor reading (will cascade delete all links)
+    """
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Verify sensor exists
+        cursor.execute('SELECT id FROM SharedSensorData WHERE id = ?', (sensor_id,))
+        if not cursor.fetchone():
+            return jsonify({'error': 'Sensor reading not found'}), 404
+        
+        # Delete sensor data (links will cascade delete)
+        cursor.execute('DELETE FROM SharedSensorData WHERE id = ?', (sensor_id,))
+        conn.commit()
+        
+        return jsonify({'message': 'Sensor reading deleted successfully'})
+        
+    except Exception as e:
+        logger.error(f"Error deleting sensor data {sensor_id}: {e}", exc_info=True)
+        return jsonify({'error': 'An internal error occurred'}), 500
+
+def calculate_sensor_statistics(readings):
+    """Calculate statistics for sensor readings"""
+    if not readings:
+        return {}
+    
+    # Group by sensor type
+    by_type = {}
+    for reading in readings:
+        sensor_type = reading['sensor_type']
+        if sensor_type not in by_type:
+            by_type[sensor_type] = []
+        try:
+            by_type[sensor_type].append(float(reading['value']))
+        except (ValueError, TypeError):
+            continue
+    
+    # Calculate stats for each type
+    stats = {}
+    for sensor_type, values in by_type.items():
+        if not values:
+            continue
+        
+        stats[sensor_type] = {
+            'count': len(values),
+            'current': values[0] if values else None,
+            'average': sum(values) / len(values),
+            'min': min(values),
+            'max': max(values),
+            'range': max(values) - min(values)
+        }
+    
+    return stats
