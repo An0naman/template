@@ -3,11 +3,19 @@
 <div class="relationships-section" id="relationshipsSection{{ entry.id }}">
   
   <!-- Section Header -->
-  <div class="section-header mb-3">
-    <h5>
+  <div class="section-header mb-3 d-flex justify-content-between align-items-center">
+    <h5 class="mb-0">
       <i class="fas fa-link me-2"></i>
       Related Records
     </h5>
+    <button id="toggleEmptyRelationships{{ entry.id }}" 
+            class="btn btn-sm btn-outline-secondary" 
+            onclick="toggleEmptyRelationships{{ entry.id }}()"
+            title="Show/hide relationship types with no records"
+            style="display: none;">
+      <i class="fas fa-eye me-1"></i>
+      <span class="toggle-text">Show Empty</span>
+    </button>
   </div>
 
   <!-- Loading State -->
@@ -34,7 +42,31 @@
     overflow: visible; /* Changed from hidden to allow dropdown menus to overflow */
     background-color: var(--theme-card-bg, var(--bs-body-bg));
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    transition: box-shadow 0.2s ease, transform 0.2s ease, opacity 0.3s ease, max-height 0.3s ease;
+}
+
+/* Empty relationship cards - hidden by default */
+.empty-relationship-card {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    margin-bottom: 0;
+    transition: opacity 0.3s ease, max-height 0.3s ease, margin-bottom 0.3s ease;
+}
+
+/* Visual distinction for empty cards when shown */
+.empty-relationship-card .card-header {
+    background-color: var(--bs-light);
+    opacity: 0.85;
+}
+
+.empty-relationship-card .card-body {
+    background-color: var(--bs-light);
+}
+
+[data-bs-theme="dark"] .empty-relationship-card .card-header,
+[data-bs-theme="dark"] .empty-relationship-card .card-body {
+    background-color: var(--bs-dark);
 }
 
 .relationship-type-card:hover {
@@ -222,6 +254,7 @@
         }
         
         let html = '';
+        let hasEmptyCards = false;
         
         definitions.forEach(def => {
             const isFromSide = def.entry_type_id_from === currentEntryTypeId;
@@ -232,8 +265,14 @@
             const relevantCardinality = isFromSide ? def.cardinality_from : def.cardinality_to;
             const canAddMore = relevantCardinality === -1 || relationships.length < relevantCardinality;
             
+            // Check if this card is empty
+            const isEmpty = relationships.length === 0;
+            if (isEmpty) hasEmptyCards = true;
+            
             html += `
-                <div class="relationship-type-card" data-definition-id="${def.id}">
+                <div class="relationship-type-card ${isEmpty ? 'empty-relationship-card' : ''}" 
+                     data-definition-id="${def.id}"
+                     style="${isEmpty ? 'display: none;' : ''}">
                     <div class="card-header">
                         <h6>${escapeHtml(displayLabel || def.name)}</h6>
                         <div class="d-flex gap-2 align-items-center flex-wrap">
@@ -284,6 +323,12 @@
         });
         
         container.innerHTML = html;
+        
+        // Show/hide the toggle button based on whether there are empty cards
+        const toggleBtn = document.getElementById('toggleEmptyRelationships' + entryId);
+        if (toggleBtn) {
+            toggleBtn.style.display = hasEmptyCards ? 'inline-block' : 'none';
+        }
         
         // Attach event listeners
         attachEventListeners();
@@ -965,6 +1010,52 @@
         div.textContent = text;
         return div.innerHTML;
     }
+    
+    // Toggle visibility of empty relationship cards
+    window['toggleEmptyRelationships' + entryId] = function() {
+        const emptyCards = document.querySelectorAll('#relationshipsSection' + entryId + ' .empty-relationship-card');
+        const toggleBtn = document.getElementById('toggleEmptyRelationships' + entryId);
+        const toggleText = toggleBtn.querySelector('.toggle-text');
+        const toggleIcon = toggleBtn.querySelector('i');
+        
+        // Check current state - if any empty card is hidden, we're in "hidden" state
+        const isHidden = Array.from(emptyCards).some(card => card.style.display === 'none');
+        
+        emptyCards.forEach(card => {
+            if (isHidden) {
+                // Show the card
+                card.style.display = 'block';
+                card.style.opacity = '0';
+                card.style.maxHeight = '0';
+                card.style.marginBottom = '0';
+                // Trigger reflow
+                card.offsetHeight;
+                // Animate in
+                setTimeout(() => {
+                    card.style.opacity = '1';
+                    card.style.maxHeight = '1000px';
+                    card.style.marginBottom = '1rem';
+                }, 10);
+            } else {
+                // Hide the card
+                card.style.opacity = '0';
+                card.style.maxHeight = '0';
+                card.style.marginBottom = '0';
+                setTimeout(() => {
+                    card.style.display = 'none';
+                }, 300); // Match transition duration
+            }
+        });
+        
+        // Update button text and icon
+        if (isHidden) {
+            toggleText.textContent = 'Hide Empty';
+            toggleIcon.className = 'fas fa-eye-slash me-1';
+        } else {
+            toggleText.textContent = 'Show Empty';
+            toggleIcon.className = 'fas fa-eye me-1';
+        }
+    };
     
     // Initialize on load
     loadRelationships();
