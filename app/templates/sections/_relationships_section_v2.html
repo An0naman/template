@@ -1,4 +1,4 @@
-{# Relationships Section for Entry Detail V2 #}
+{# Relationships Section for Entry Detail V2 - Updated: 2025-11-02 - Hierarchy by Relationship Type #}
 
 <div class="relationships-section" id="relationshipsSection{{ entry.id }}">
   
@@ -28,7 +28,53 @@
 
   <!-- Section Content -->
   <div id="relatedRecordsContainer{{ entry.id }}" style="display: none;">
-    <!-- Will be populated via JavaScript with cards for each relationship type -->
+    
+    <!-- Tabs Navigation -->
+    <ul class="nav nav-tabs mb-3" id="relationshipsTabs{{ entry.id }}" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="groupedTab{{ entry.id }}-tab" data-bs-toggle="tab" 
+                data-bs-target="#groupedTab{{ entry.id }}" type="button" role="tab" 
+                aria-controls="groupedTab{{ entry.id }}" aria-selected="true">
+          <i class="fas fa-th-list me-1"></i> Grouped View
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="hierarchyTab{{ entry.id }}-tab" data-bs-toggle="tab" 
+                data-bs-target="#hierarchyTab{{ entry.id }}" type="button" role="tab" 
+                aria-controls="hierarchyTab{{ entry.id }}" aria-selected="false">
+          <i class="fas fa-sitemap me-1"></i> Hierarchy View
+        </button>
+      </li>
+    </ul>
+    
+    <!-- Tab Content -->
+    <div class="tab-content" id="relationshipsTabContent{{ entry.id }}">
+      
+      <!-- Grouped View Tab (default) -->
+      <div class="tab-pane fade show active" id="groupedTab{{ entry.id }}" role="tabpanel" 
+           aria-labelledby="groupedTab{{ entry.id }}-tab">
+        <div id="groupedViewContainer{{ entry.id }}">
+          <!-- Will be populated via JavaScript with cards for each relationship type -->
+        </div>
+      </div>
+      
+      <!-- Hierarchy View Tab -->
+      <div class="tab-pane fade" id="hierarchyTab{{ entry.id }}" role="tabpanel" 
+           aria-labelledby="hierarchyTab{{ entry.id }}-tab">
+        
+        <div id="hierarchyLoading{{ entry.id }}" class="text-center py-4" style="display: none;">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-2 text-muted">Loading hierarchy...</p>
+        </div>
+        
+        <div id="hierarchyContent{{ entry.id }}">
+          <!-- Will be populated via JavaScript when tab is activated -->
+        </div>
+      </div>
+      
+    </div>
   </div>
 
 </div>
@@ -185,12 +231,168 @@
     position: relative;
     z-index: 10;
 }
+
+/* Hierarchy Tree Styles */
+.relationship-tree {
+    padding: 1rem 0;
+}
+
+.tree-node {
+    margin-bottom: 0.25rem;
+}
+
+.tree-node-content {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    transition: background-color 0.15s ease;
+}
+
+.tree-node-content:hover {
+    background-color: var(--theme-hover-bg, var(--bs-secondary-bg));
+}
+
+.tree-node-content.current-entry {
+    background-color: rgba(13, 110, 253, 0.1);
+    border-left: 3px solid #0d6efd;
+}
+
+[data-bs-theme="dark"] .tree-node-content.current-entry {
+    background-color: rgba(13, 110, 253, 0.2);
+}
+
+.tree-node-content.parent-entry {
+    background-color: rgba(13, 202, 240, 0.1);
+    border-left: 3px solid #0dcaf0;
+}
+
+[data-bs-theme="dark"] .tree-node-content.parent-entry {
+    background-color: rgba(13, 202, 240, 0.15);
+}
+
+.tree-toggle-btn {
+    background: none;
+    border: none;
+    padding: 0.25rem;
+    margin-right: 0.5rem;
+    cursor: pointer;
+    color: var(--bs-secondary);
+    transition: transform 0.2s ease, color 0.2s ease;
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tree-toggle-btn:hover {
+    color: var(--bs-primary);
+}
+
+.tree-toggle-btn i {
+    transition: transform 0.2s ease;
+}
+
+.tree-spacer {
+    display: inline-block;
+    width: 20px;
+    margin-right: 0.5rem;
+}
+
+.tree-entry-type {
+    margin-right: 0.5rem;
+    font-size: 1rem;
+}
+
+.tree-direction-icon {
+    margin-right: 0.5rem;
+    font-size: 0.875rem;
+    display: inline-flex;
+    align-items: center;
+}
+
+.tree-direction-icon i {
+    font-size: 0.75rem;
+}
+
+.tree-entry-link {
+    color: var(--bs-body-color);
+    text-decoration: none;
+    margin-right: 0.5rem;
+    transition: color 0.2s ease;
+}
+
+.tree-entry-link:hover {
+    color: var(--bs-primary);
+    text-decoration: underline;
+}
+
+.tree-children {
+    overflow: hidden;
+    max-height: 5000px;
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+    opacity: 1;
+}
+
+.tree-children.collapsed {
+    max-height: 0;
+    opacity: 0;
+}
+
+.status-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    background-color: var(--bs-secondary);
+    color: white;
+}
+
+/* Empty state for hierarchy */
+.hierarchy-empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--bs-secondary-color);
+}
+
+.hierarchy-empty-state i {
+    font-size: 3rem;
+    opacity: 0.25;
+    margin-bottom: 1rem;
+    display: block;
+}
+
+/* Tabs styling */
+.nav-tabs {
+    border-bottom: 2px solid var(--bs-border-color);
+}
+
+.nav-tabs .nav-link {
+    color: var(--bs-secondary-color);
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+}
+
+.nav-tabs .nav-link:hover {
+    color: var(--bs-body-color);
+    border-bottom-color: var(--bs-secondary);
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--bs-primary);
+    background-color: transparent;
+    border-bottom-color: var(--bs-primary);
+}
 </style>
 
 <script>
+// Version: 2025-11-02-20:20 - Hierarchy by Relationship Type with Full Descendants
 (function() {
     const entryId = {{ entry.id }};
     const currentEntryTypeId = {{ entry.entry_type_id }};
+    
+    console.log('=== Relationships Section V2 Loaded - Version 2025-11-02-20:20 ===');
     
     // Store definitions globally for this entry
     let relationshipDefinitions = [];
@@ -241,7 +443,12 @@
     }
     
     function renderRelationshipCards(definitions, groupedRelationships) {
-        const container = document.getElementById('relatedRecordsContainer' + entryId);
+        const container = document.getElementById('groupedViewContainer' + entryId);
+        
+        if (!container) {
+            console.error('Grouped view container not found');
+            return;
+        }
         
         if (definitions.length === 0) {
             container.innerHTML = `
@@ -1057,7 +1264,255 @@
         }
     };
     
+    // Hierarchy view functionality
+    let hierarchyLoaded = false;
+    
+    async function loadHierarchy() {
+        if (hierarchyLoaded) return;
+        
+        const loadingDiv = document.getElementById('hierarchyLoading' + entryId);
+        const contentDiv = document.getElementById('hierarchyContent' + entryId);
+        
+        if (!loadingDiv || !contentDiv) return;
+        
+        loadingDiv.style.display = 'flex';
+        contentDiv.innerHTML = '';
+        
+        try {
+            const response = await fetch(`/api/entries/${entryId}/relationships/hierarchy`);
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to load hierarchy');
+            }
+            
+            const hierarchy = data.hierarchy || [];
+            renderHierarchyTree(hierarchy, contentDiv);
+            hierarchyLoaded = true;
+            
+        } catch (error) {
+            console.error('Error loading hierarchy:', error);
+            contentDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error loading hierarchy: ${escapeHtml(error.message)}
+                    <button class="btn btn-sm btn-outline-danger ms-3" onclick="retryLoadHierarchy${entryId}()">
+                        <i class="fas fa-redo me-1"></i>Retry
+                    </button>
+                </div>
+            `;
+        } finally {
+            loadingDiv.style.display = 'none';
+        }
+    }
+    
+    function renderHierarchyTree(hierarchy, container) {
+        console.log('renderHierarchyTree called with:', hierarchy);
+        console.log('Hierarchy length:', hierarchy ? hierarchy.length : 0);
+        console.log('First node:', hierarchy && hierarchy.length > 0 ? hierarchy[0] : null);
+        
+        if (!hierarchy || hierarchy.length === 0) {
+            container.innerHTML = `
+                <div class="hierarchy-empty-state">
+                    <i class="fas fa-sitemap"></i>
+                    <p class="text-muted">No hierarchical relationships found</p>
+                    <small class="text-muted d-block mb-2">Parent-child relationships will appear here</small>
+                    <a href="/manage_relationships" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-cog me-1"></i>Configure Relationship Definitions
+                    </a>
+                </div>
+            `;
+            return;
+        }
+        
+        // Build HTML for each relationship type tree
+        let treeHtml = '';
+        if (hierarchy.length > 1) {
+            console.log('Multiple trees detected:', hierarchy.length);
+            // Multiple relationship types - show separate trees with headers
+            treeHtml = hierarchy.map((rootNode, index) => {
+                const relationshipTypeName = rootNode.relationship_type_name || `Relationship ${index + 1}`;
+                console.log(`Tree ${index + 1}: ${relationshipTypeName}`);
+                const treeContent = renderTreeNode(rootNode, 0);
+                return `
+                    <div class="relationship-tree-section mb-4">
+                        <div class="tree-header mb-3 p-2" style="background-color: var(--bs-light); border-left: 3px solid var(--bs-primary); border-radius: 0.25rem;">
+                            <h6 class="text-primary mb-0">
+                                <i class="fas fa-sitemap me-2"></i>${escapeHtml(relationshipTypeName)}
+                            </h6>
+                        </div>
+                        <div class="relationship-tree">${treeContent}</div>
+                    </div>
+                `;
+            }).join('<hr class="my-3">');
+        } else {
+            // Single relationship type tree
+            const rootNode = hierarchy[0];
+            const relationshipTypeName = rootNode.relationship_type_name;
+            console.log('Single tree - relationship type name:', relationshipTypeName);
+            console.log('Root node:', rootNode);
+            const headerHtml = relationshipTypeName ? `
+                <div class="tree-header mb-3 p-2" style="background-color: var(--bs-light); border-left: 3px solid var(--bs-primary); border-radius: 0.25rem;">
+                    <h6 class="text-primary mb-0">
+                        <i class="fas fa-sitemap me-2"></i>${escapeHtml(relationshipTypeName)}
+                    </h6>
+                </div>
+            ` : '';
+            console.log('Header HTML:', headerHtml);
+            treeHtml = `${headerHtml}<div class="relationship-tree">${renderTreeNode(rootNode, 0)}</div>`;
+            console.log('Final tree HTML length:', treeHtml.length);
+        }
+        
+        container.innerHTML = treeHtml;
+        
+        // Initialize tree toggles after rendering
+        initializeTreeToggles();
+    }
+    
+    function renderTreeNode(node, level) {
+        const isTarget = node.is_target || false;  // The entry we're viewing
+        const hasChildren = node.children && node.children.length > 0;
+        
+        const nodeClasses = ['tree-node-content'];
+        if (isTarget) nodeClasses.push('current-entry');
+        
+        let html = `
+            <div class="tree-node level-${level}" data-entry-id="${node.id}" style="padding-left: ${level * 20}px;">
+                <div class="${nodeClasses.join(' ')}">
+        `;
+        
+        // Toggle button or spacer
+        if (hasChildren) {
+            html += `
+                <button class="tree-toggle-btn" data-node-id="${node.id}">
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+            `;
+        } else {
+            html += `<span class="tree-spacer"></span>`;
+        }
+        
+        // Entry type icon
+        html += `
+            <span class="tree-entry-type" 
+                  style="color: ${node.entry_type.color || '#6c757d'};"
+                  title="${escapeHtml(node.entry_type.label)}">
+                <i class="${node.entry_type.icon || 'fas fa-link'}"></i>
+            </span>
+        `;
+        
+        // Direction indicator (parent/child arrow)
+        const direction = node.direction || 'unknown';
+        if (direction === 'ancestor') {
+            html += `
+                <span class="tree-direction-icon" title="Parent/Ancestor">
+                    <i class="fas fa-arrow-up text-primary"></i>
+                </span>
+            `;
+        } else if (direction === 'descendant') {
+            html += `
+                <span class="tree-direction-icon" title="Child/Descendant">
+                    <i class="fas fa-arrow-down text-success"></i>
+                </span>
+            `;
+        }
+        
+        // Entry title and link
+        html += `
+            <a href="/entry/${node.id}/v2" 
+               class="tree-entry-link ${isTarget ? 'fw-bold' : ''}"
+               target="_blank">
+                ${escapeHtml(node.title)}
+        `;
+        
+        // Badge for current/target entry
+        if (isTarget) {
+            html += `<span class="badge bg-success ms-2">Current</span>`;
+        }
+        html += `</a>`;
+        
+        // Status badge
+        if (node.status) {
+            html += `
+                <span class="status-badge ms-2">
+                    ${escapeHtml(node.status)}
+                </span>
+            `;
+        }
+        
+        // Relationship type label
+        if (node.relationship_type) {
+            html += `
+                <small class="text-muted ms-2">
+                    <i class="fas fa-link"></i> ${escapeHtml(node.relationship_type)}
+                </small>
+            `;
+        }
+        
+        html += `</div>`; // Close tree-node-content
+        
+        // Children (recursive)
+        if (hasChildren) {
+            html += `<div class="tree-children" data-parent-id="${node.id}">`;
+            for (const child of node.children) {
+                html += renderTreeNode(child, level + 1);
+            }
+            html += `</div>`;
+        }
+        
+        html += `</div>`; // Close tree-node
+        
+        return html;
+    }
+    
+    function initializeTreeToggles() {
+        const toggleButtons = document.querySelectorAll('.tree-toggle-btn');
+        
+        toggleButtons.forEach(button => {
+            // Remove existing listeners by cloning
+            const newButton = button.cloneNode(true);
+            button.parentNode.replaceChild(newButton, button);
+            
+            newButton.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const nodeId = this.dataset.nodeId;
+                const childrenDiv = document.querySelector(`.tree-children[data-parent-id="${nodeId}"]`);
+                const icon = this.querySelector('i');
+                
+                if (childrenDiv) {
+                    childrenDiv.classList.toggle('collapsed');
+                    
+                    if (childrenDiv.classList.contains('collapsed')) {
+                        icon.style.transform = 'rotate(-90deg)';
+                    } else {
+                        icon.style.transform = 'rotate(0deg)';
+                    }
+                }
+            });
+        });
+    }
+    
+    // Retry function for hierarchy loading
+    window['retryLoadHierarchy' + entryId] = function() {
+        hierarchyLoaded = false;
+        loadHierarchy();
+    };
+    
+    // Setup tab event listeners
+    function setupTabListeners() {
+        const hierarchyTab = document.getElementById('hierarchyTab' + entryId + '-tab');
+        
+        if (hierarchyTab) {
+            hierarchyTab.addEventListener('shown.bs.tab', function() {
+                loadHierarchy();
+            });
+        }
+    }
+    
     // Initialize on load
     loadRelationships();
+    setupTabListeners();
 })();
 </script>

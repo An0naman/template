@@ -50,6 +50,8 @@ def serialize_relationship_definition(definition):
         "label_from_side": definition['label_from_side'],
         "label_to_side": definition['label_to_side'],
         "allow_quantity_unit": bool(definition['allow_quantity_unit']),
+        "is_hierarchical": bool(definition['is_hierarchical']),
+        "hierarchy_direction": definition['hierarchy_direction'],
         "is_active": bool(definition['is_active'])
     }
 

@@ -248,6 +248,7 @@
                             <th>From Label</th>
                             <th>To Label</th>
                             <th class="text-center">Qty / Unit</th>
+                            <th class="text-center">Hierarchical</th>
                             <th class="text-center">Active</th>
                             <th class="text-center">Actions</th>
                         </tr>
@@ -269,6 +270,13 @@
                                     {% endif %}
                                 </td>
                                 <td class="text-center">
+                                    {% if def.is_hierarchical %}
+                                        <i class="fas fa-sitemap status-icon text-primary" title="Hierarchical (Parent-Child)"></i>
+                                    {% else %}
+                                        <i class="fas fa-times-circle status-icon text-muted" title="Not Hierarchical"></i>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
                                     {% if def.is_active %}
                                         <i class="fas fa-toggle-on status-icon text-success" title="Active"></i>
                                     {% else %}
@@ -287,6 +295,8 @@
                                             data-label-from-side="{{ def.label_from_side }}"
                                             data-label-to-side="{{ def.label_to_side }}"
                                             data-allow-quantity-unit="{{ def.allow_quantity_unit | int }}"
+                                            data-is-hierarchical="{{ def.is_hierarchical | int }}"
+                                            data-hierarchy-direction="{{ def.hierarchy_direction or 'from_to_child' }}"
                                             data-is-active="{{ def.is_active | int }}"
                                             title="Edit">
                                         <i class="fas fa-edit"></i>
@@ -385,6 +395,21 @@
                             </label>
                         </div>
                         <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="isHierarchical">
+                            <label class="form-check-label" for="isHierarchical">
+                                Hierarchical Relationship (Parent-Child)
+                            </label>
+                            <div class="form-text">Enable this to show this relationship in the hierarchy tree view. Use for parent-child, contains, or has-part relationships.</div>
+                        </div>
+                        <div class="mb-3" id="hierarchyDirectionContainer" style="display: none;">
+                            <label for="hierarchyDirection" class="form-label">Hierarchy Direction:</label>
+                            <select class="form-select" id="hierarchyDirection">
+                                <option value="from_to_child">From side is Parent → To side is Child</option>
+                                <option value="to_from_child">To side is Parent → From side is Child</option>
+                            </select>
+                            <div class="form-text">Specify which side of the relationship represents the parent (higher in hierarchy) and which represents the child (lower in hierarchy).</div>
+                        </div>
+                        <div class="form-check mb-3">
                             <input class="form-check-input" type="checkbox" id="isActive" checked>
                             <label class="form-check-label" for="isActive">
                                 Is Active
@@ -423,6 +448,9 @@
                 labelFromSide: document.getElementById('labelFromSide'),
                 labelToSide: document.getElementById('labelToSide'),
                 allowQuantityUnit: document.getElementById('allowQuantityUnit'),
+                isHierarchical: document.getElementById('isHierarchical'),
+                hierarchyDirection: document.getElementById('hierarchyDirection'),
+                hierarchyDirectionContainer: document.getElementById('hierarchyDirectionContainer'),
                 isActive: document.getElementById('isActive'),
                 addButton: document.getElementById('showAddRelationshipDefinitionModalBtn'),
                 tableBody: document.getElementById('relationshipDefinitionsTableBody')
@@ -505,6 +533,11 @@
                                         '<i class="fas fa-times-circle status-icon text-muted" title="No Qty / Unit"></i>'}
                                 </td>
                                 <td class="text-center">
+                                    ${def.is_hierarchical ? 
+                                        '<i class="fas fa-sitemap status-icon text-primary" title="Hierarchical (Parent-Child)"></i>' : 
+                                        '<i class="fas fa-times-circle status-icon text-muted" title="Not Hierarchical"></i>'}
+                                </td>
+                                <td class="text-center">
                                     ${def.is_active ? 
                                         '<i class="fas fa-toggle-on status-icon text-success" title="Active"></i>' : 
                                         '<i class="fas fa-toggle-off status-icon text-muted" title="Inactive"></i>'}
@@ -521,6 +554,8 @@
                                             data-label-from-side="${def.label_from_side}"
                                             data-label-to-side="${def.label_to_side}"
                                             data-allow-quantity-unit="${def.allow_quantity_unit ? 1 : 0}"
+                                            data-is-hierarchical="${def.is_hierarchical ? 1 : 0}"
+                                            data-hierarchy-direction="${def.hierarchy_direction || 'from_to_child'}"
                                             data-is-active="${def.is_active ? 1 : 0}"
                                             title="Edit">
                                         <i class="fas fa-edit"></i>
@@ -561,6 +596,9 @@
                         elements.labelFromSide.value = this.dataset.labelFromSide;
                         elements.labelToSide.value = this.dataset.labelToSide;
                         elements.allowQuantityUnit.checked = (this.dataset.allowQuantityUnit === '1');
+                        elements.isHierarchical.checked = (this.dataset.isHierarchical === '1');
+                        elements.hierarchyDirection.value = this.dataset.hierarchyDirection || 'from_to_child';
+                        elements.hierarchyDirectionContainer.style.display = elements.isHierarchical.checked ? 'block' : 'none';
                         elements.isActive.checked = (this.dataset.isActive === '1');
                         elements.definitionName.readOnly = true;
                         relationshipDefinitionModal.show();
@@ -592,6 +630,15 @@
                 });
             }
 
+            // Toggle hierarchy direction dropdown based on hierarchical checkbox
+            elements.isHierarchical.addEventListener('change', function() {
+                if (this.checked) {
+                    elements.hierarchyDirectionContainer.style.display = 'block';
+                } else {
+                    elements.hierarchyDirectionContainer.style.display = 'none';
+                }
+            });
+
             // Add New Definition button listener
             elements.addButton.addEventListener('click', function() {
                 elements.definitionId.value = '';
@@ -600,6 +647,7 @@
                 elements.definitionName.value = ''; // Clear the field
                 document.getElementById('relationshipDefinitionModalLabel').textContent = 'Add New Relationship Definition';
                 elements.isActive.checked = true;
+                elements.hierarchyDirectionContainer.style.display = 'none'; // Hide direction by default
                 relationshipDefinitionModal.show();
             });
 
@@ -621,6 +669,8 @@
                     label_from_side: elements.labelFromSide.value,
                     label_to_side: elements.labelToSide.value,
                     allow_quantity_unit: elements.allowQuantityUnit.checked ? 1 : 0,
+                    is_hierarchical: elements.isHierarchical.checked ? 1 : 0,
+                    hierarchy_direction: elements.hierarchyDirection.value,
                     is_active: elements.isActive.checked ? 1 : 0
                 };
 

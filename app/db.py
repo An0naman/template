@@ -200,12 +200,35 @@ def init_db():
                 label_from_side TEXT NOT NULL,  -- e.g., "parent of", "part of"
                 label_to_side TEXT NOT NULL,    -- e.g., "child of", "has part"
                 allow_quantity_unit INTEGER DEFAULT 0, -- 1 for true, 0 for false
+                is_hierarchical INTEGER DEFAULT 0, -- 1 if parent-child relationship, 0 otherwise
+                hierarchy_direction TEXT DEFAULT 'from_to_child', -- 'from_to_child' means FROM is parent, TO is child; 'to_from_child' means TO is parent, FROM is child
                 is_active INTEGER DEFAULT 1, -- 1 for active, 0 for inactive
                 FOREIGN KEY (entry_type_id_from) REFERENCES EntryType(id) ON DELETE RESTRICT,
                 FOREIGN KEY (entry_type_id_to) REFERENCES EntryType(id) ON DELETE RESTRICT
             );
         ''')
 
+        # Migration: Add is_hierarchical column to RelationshipDefinition if it doesn't exist
+        try:
+            cursor.execute("PRAGMA table_info(RelationshipDefinition)")
+            rd_columns = [col[1] for col in cursor.fetchall()]
+            
+            if 'is_hierarchical' not in rd_columns:
+                cursor.execute('''
+                    ALTER TABLE RelationshipDefinition
+                    ADD COLUMN is_hierarchical INTEGER DEFAULT 0
+                ''')
+                logger.info("Added is_hierarchical column to RelationshipDefinition table")
+            
+            if 'hierarchy_direction' not in rd_columns:
+                cursor.execute('''
+                    ALTER TABLE RelationshipDefinition
+                    ADD COLUMN hierarchy_direction TEXT DEFAULT 'from_to_child'
+                ''')
+                logger.info("Added hierarchy_direction column to RelationshipDefinition table")
+        except Exception as e:
+            logger.error(f"Error adding columns to RelationshipDefinition: {e}")
+        
         # Migration: Add label printing columns to Entry table if they don't exist
         try:
             cursor.execute("PRAGMA table_info(Entry)")
