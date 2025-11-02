@@ -860,6 +860,9 @@
                             <option value="">All Status</option>
                             <option value="active">✓ Active (Ongoing)</option>
                             <option value="inactive">✕ Inactive (Completed)</option>
+                            <optgroup label="Specific Status">
+                                <!-- Will be populated dynamically based on selected entry type -->
+                            </optgroup>
                         </select>
                     </div>
                     
@@ -1307,11 +1310,82 @@
                 }
             }
             
+            // Function to populate quick status filter with specific statuses
+            async function populateQuickStatusFilter(entryTypeId = null) {
+                try {
+                    const optgroup = quickStatusFilter.querySelector('optgroup');
+                    const currentValue = quickStatusFilter.value;
+                    
+                    // Clear existing specific statuses
+                    optgroup.innerHTML = '';
+                    
+                    const statesMap = new Map();
+                    
+                    if (entryTypeId) {
+                        // Load states only for the selected entry type
+                        const statesResponse = await fetch(`/api/entry_types/${entryTypeId}/states`);
+                        const states = await statesResponse.json();
+                        
+                        states.forEach(state => {
+                            if (!statesMap.has(state.name)) {
+                                statesMap.set(state.name, {
+                                    name: state.name,
+                                    category: state.category,
+                                    color: state.color
+                                });
+                            }
+                        });
+                    } else {
+                        // Load all states from all entry types
+                        const response = await fetch('/api/entry_types');
+                        const entryTypes = await response.json();
+                        
+                        for (const entryType of entryTypes) {
+                            const statesResponse = await fetch(`/api/entry_types/${entryType.id}/states`);
+                            const states = await statesResponse.json();
+                            
+                            states.forEach(state => {
+                                if (!statesMap.has(state.name)) {
+                                    statesMap.set(state.name, {
+                                        name: state.name,
+                                        category: state.category,
+                                        color: state.color
+                                    });
+                                }
+                            });
+                        }
+                    }
+                    
+                    // Add status options sorted by name
+                    const sortedStates = Array.from(statesMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+                    sortedStates.forEach(state => {
+                        const option = document.createElement('option');
+                        option.value = `status:${state.name.toLowerCase()}`;
+                        option.textContent = state.name;
+                        option.dataset.category = state.category;
+                        optgroup.appendChild(option);
+                    });
+                    
+                    // Restore previous selection if it still exists
+                    if (currentValue && currentValue.startsWith('status:')) {
+                        const option = Array.from(quickStatusFilter.options).find(opt => opt.value === currentValue);
+                        if (option) {
+                            quickStatusFilter.value = currentValue;
+                        } else {
+                            quickStatusFilter.value = '';
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error populating quick status filter:', error);
+                }
+            }
+            
             // Function to initialize states based on current filters
             async function initializeStates() {
                 const selectedTypeId = quickTypeFilter.value;
                 const selectedStatusCategory = quickStatusFilter.value;
                 await loadAllStates(selectedTypeId || null, selectedStatusCategory || null);
+                await populateQuickStatusFilter(selectedTypeId || null);
             }
             
             // Load saved search parameters from database
@@ -1608,8 +1682,18 @@
                         // Type: show if no type selected OR entry type ID matches selected type ID
                         const showForType = !selectedType || entryTypeId === selectedType;
                         
-                        // Status category: show if no status selected OR entry status category matches selected status category
-                        const showForStatus = !selectedStatus || statusCategory === selectedStatus;
+                        // Status: handle both category and specific status
+                        let showForStatus = true;
+                        if (selectedStatus) {
+                            if (selectedStatus.startsWith('status:')) {
+                                // Specific status selected from quick filter
+                                const specificStatus = selectedStatus.substring(7); // Remove 'status:' prefix
+                                showForStatus = status === specificStatus;
+                            } else {
+                                // Category selected (active/inactive)
+                                showForStatus = statusCategory === selectedStatus;
+                            }
+                        }
                         
                         // Specific state: show if no specific states selected OR entry status matches any selected state
                         const showForSpecificState = selectedSpecificStates.length === 0 || selectedSpecificStates.includes(status);
@@ -1773,11 +1857,12 @@
             
             // Add event listeners for live filtering
             quickSearch.addEventListener('input', performLiveFilter);
-            quickTypeFilter.addEventListener('change', function() {
+            quickTypeFilter.addEventListener('change', async function() {
                 // Reload states when type changes
                 const selectedTypeId = quickTypeFilter.value;
                 const selectedStatusCategory = quickStatusFilter.value;
-                loadAllStates(selectedTypeId || null, selectedStatusCategory || null);
+                await loadAllStates(selectedTypeId || null, selectedStatusCategory || null);
+                await populateQuickStatusFilter(selectedTypeId || null);
                 
                 performLiveFilter();
             });

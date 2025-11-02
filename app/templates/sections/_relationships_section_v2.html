@@ -205,19 +205,46 @@
             const canAddMore = relevantCardinality === -1 || relationships.length < relevantCardinality;
             
             html += `
-                <div class="relationship-type-card">
+                <div class="relationship-type-card" data-definition-id="${def.id}">
                     <div class="card-header">
                         <h6>${escapeHtml(displayLabel || def.name)}</h6>
-                        <button class="btn btn-sm btn-primary btn-add-relationship" 
-                                data-definition-id="${def.id}"
-                                data-label="${escapeHtml(displayLabel || def.name)}"
-                                data-target-type-id="${isFromSide ? def.entry_type_id_to : def.entry_type_id_from}"
-                                data-target-type-label="${isFromSide ? def.entry_type_to_label : def.entry_type_from_label}"
-                                data-allow-quantity="${def.allow_quantity_unit}"
-                                ${!canAddMore ? 'disabled' : ''}
-                                title="${canAddMore ? 'Add ' + (displayLabel || def.name) : 'Maximum entries reached'}">
-                            <i class="fas fa-plus me-1"></i>Add
-                        </button>
+                        <div class="d-flex gap-2 align-items-center flex-wrap">
+                            <select class="form-select form-select-sm relationship-status-filter" 
+                                    data-definition-id="${def.id}"
+                                    style="width: auto; min-width: 120px;"
+                                    title="Filter by status category">
+                                <option value="">All Status</option>
+                                <option value="active">✓ Active</option>
+                                <option value="inactive">✕ Inactive</option>
+                            </select>
+                            <div class="dropdown relationship-state-filter-container" data-definition-id="${def.id}">
+                                <button class="btn btn-outline-secondary dropdown-toggle relationship-state-dropdown-btn" 
+                                        type="button" 
+                                        data-bs-toggle="dropdown" 
+                                        aria-expanded="false"
+                                        style="min-width: 150px; text-align: left;">
+                                    <span class="relationship-state-label">All States</span>
+                                </button>
+                                <ul class="dropdown-menu relationship-state-menu" style="max-height: 300px; overflow-y: auto;">
+                                    <!-- Will be populated dynamically with checkboxes -->
+                                </ul>
+                            </div>
+                            <button class="btn btn-sm btn-outline-secondary btn-save-filter" 
+                                    data-definition-id="${def.id}"
+                                    title="Save current filter as default for this relationship type">
+                                <i class="fas fa-save"></i>
+                            </button>
+                            <button class="btn btn-sm btn-primary btn-add-relationship" 
+                                    data-definition-id="${def.id}"
+                                    data-label="${escapeHtml(displayLabel || def.name)}"
+                                    data-target-type-id="${isFromSide ? def.entry_type_id_to : def.entry_type_id_from}"
+                                    data-target-type-label="${isFromSide ? def.entry_type_to_label : def.entry_type_from_label}"
+                                    data-allow-quantity="${def.allow_quantity_unit}"
+                                    ${!canAddMore ? 'disabled' : ''}
+                                    title="${canAddMore ? 'Add ' + (displayLabel || def.name) : 'Maximum entries reached'}">
+                                <i class="fas fa-plus me-1"></i>Add
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body">
                         ${relationships.length > 0 ? `
@@ -240,6 +267,14 @@
         
         // Attach event listeners
         attachEventListeners();
+        
+        // Load states for each relationship definition's filter dropdown
+        definitions.forEach(def => {
+            loadStatesForDefinition(def.id);
+        });
+        
+        // Load and apply saved filter preferences
+        loadFilterPreferences();
     }
     
     function renderRelationshipRow(rel, def) {
@@ -255,9 +290,11 @@
         
         const statusColor = rel.related_entry_status_color || '#6c757d';
         const textColor = getContrastColor(statusColor);
+        // Determine status category - we'll need to get this from the API or infer it
+        const statusCategory = rel.related_entry_status_category || 'active'; // Default to active if not provided
         
         return `
-            <tr class="relationship-item-row">
+            <tr class="relationship-item-row" data-status-category="${statusCategory}">
                 <td>
                     <a href="/entry/${rel.related_entry_id}" class="relationship-link">
                         ${escapeHtml(rel.related_entry_title)}
@@ -298,7 +335,307 @@
         `;
     }
     
+    // Function to apply both status and state filters
+    function applyFilters(definitionId) {
+        const card = document.querySelector(`.relationship-type-card[data-definition-id="${definitionId}"]`);
+        if (!card) return;
+        
+        const statusFilter = card.querySelector('.relationship-status-filter');
+        const stateMenu = card.querySelector('.relationship-state-menu');
+        const selectedCategory = statusFilter ? statusFilter.value : '';
+        
+        // Get all selected states from checkboxes
+        let selectedStates = [];
+        if (stateMenu) {
+            const checkboxes = stateMenu.querySelectorAll('.state-checkbox:not([value=""])');
+            selectedStates = Array.from(checkboxes)
+                .filter(cb => cb.checked)
+                .map(cb => cb.value.toLowerCase());
+        }
+        
+        const rows = card.querySelectorAll('.relationship-item-row');
+        rows.forEach(row => {
+            const rowCategory = row.dataset.statusCategory || 'active';
+            const rowState = (row.dataset.status || '').toLowerCase();
+            
+            const matchesCategory = !selectedCategory || rowCategory === selectedCategory;
+            // Match if no states selected OR row state is in selected states
+            const matchesState = selectedStates.length === 0 || selectedStates.includes(rowState);
+            
+            if (matchesCategory && matchesState) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+    
+    // Function to load available states for a relationship definition
+    async function loadStatesForDefinition(definitionId) {
+        try {
+            const def = relationshipDefinitions.find(d => d.id == definitionId);
+            if (!def) return;
+            
+            const isFromSide = def.entry_type_id_from === currentEntryTypeId;
+            const targetTypeId = isFromSide ? def.entry_type_id_to : def.entry_type_id_from;
+            
+            // Fetch states for the target entry type
+            const response = await fetch(`/api/entry_types/${targetTypeId}/states`);
+            const states = await response.json();
+            
+            // Populate the state filter dropdown
+            const card = document.querySelector(`.relationship-type-card[data-definition-id="${definitionId}"]`);
+            if (!card) return;
+            
+            const stateMenu = card.querySelector('.relationship-state-menu');
+            if (!stateMenu) return;
+            
+            // Clear existing items
+            stateMenu.innerHTML = '';
+            
+            // Group states by category
+            const activeStates = states.filter(s => s.category === 'active');
+            const inactiveStates = states.filter(s => s.category === 'inactive');
+            
+            // Add "All States" option at the top
+            const allStatesItem = document.createElement('li');
+            allStatesItem.innerHTML = `
+                <div class="dropdown-item">
+                    <div class="form-check">
+                        <input class="form-check-input state-checkbox" type="checkbox" value="" id="state-all-${definitionId}" checked>
+                        <label class="form-check-label" for="state-all-${definitionId}">
+                            All States
+                        </label>
+                    </div>
+                </div>
+            `;
+            stateMenu.appendChild(allStatesItem);
+            
+            // Add divider
+            const divider = document.createElement('li');
+            divider.innerHTML = '<hr class="dropdown-divider">';
+            stateMenu.appendChild(divider);
+            
+            // Add active states
+            if (activeStates.length > 0) {
+                const activeHeader = document.createElement('li');
+                activeHeader.innerHTML = '<h6 class="dropdown-header">✓ Active States</h6>';
+                stateMenu.appendChild(activeHeader);
+                
+                activeStates.sort((a, b) => a.name.localeCompare(b.name)).forEach(state => {
+                    const item = document.createElement('li');
+                    item.innerHTML = `
+                        <div class="dropdown-item">
+                            <div class="form-check">
+                                <input class="form-check-input state-checkbox" type="checkbox" value="${state.name}" id="state-${definitionId}-${state.id}">
+                                <label class="form-check-label" for="state-${definitionId}-${state.id}">
+                                    ${state.name}
+                                </label>
+                            </div>
+                        </div>
+                    `;
+                    stateMenu.appendChild(item);
+                });
+            }
+            
+            // Add inactive states
+            if (inactiveStates.length > 0) {
+                const inactiveHeader = document.createElement('li');
+                inactiveHeader.innerHTML = '<h6 class="dropdown-header">✕ Inactive States</h6>';
+                stateMenu.appendChild(inactiveHeader);
+                
+                inactiveStates.sort((a, b) => a.name.localeCompare(b.name)).forEach(state => {
+                    const item = document.createElement('li');
+                    item.innerHTML = `
+                        <div class="dropdown-item">
+                            <div class="form-check">
+                                <input class="form-check-input state-checkbox" type="checkbox" value="${state.name}" id="state-${definitionId}-${state.id}">
+                                <label class="form-check-label" for="state-${definitionId}-${state.id}">
+                                    ${state.name}
+                                </label>
+                            </div>
+                        </div>
+                    `;
+                    stateMenu.appendChild(item);
+                });
+            }
+            
+            // Add event listeners to checkboxes
+            const checkboxes = stateMenu.querySelectorAll('.state-checkbox');
+            const allCheckbox = stateMenu.querySelector(`#state-all-${definitionId}`);
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function(e) {
+                    e.stopPropagation(); // Prevent dropdown from closing
+                    
+                    if (this === allCheckbox) {
+                        // If "All States" is checked, uncheck all others
+                        if (this.checked) {
+                            checkboxes.forEach(cb => {
+                                if (cb !== allCheckbox) cb.checked = false;
+                            });
+                        }
+                    } else {
+                        // If any specific state is checked, uncheck "All States"
+                        if (this.checked) {
+                            allCheckbox.checked = false;
+                        } else {
+                            // If all specific states are unchecked, check "All States"
+                            const anyChecked = Array.from(checkboxes).some(cb => cb !== allCheckbox && cb.checked);
+                            if (!anyChecked) {
+                                allCheckbox.checked = true;
+                            }
+                        }
+                    }
+                    
+                    // Update button label and apply filters
+                    updateStateFilterLabel(definitionId);
+                    applyFilters(definitionId);
+                });
+            });
+            
+            // Prevent dropdown from closing when clicking inside
+            stateMenu.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+            
+        } catch (error) {
+            console.error('Error loading states for definition:', error);
+        }
+    }
+    
+    // Helper function to update the dropdown button label
+    function updateStateFilterLabel(definitionId) {
+        const card = document.querySelector(`.relationship-type-card[data-definition-id="${definitionId}"]`);
+        if (!card) return;
+        
+        const stateMenu = card.querySelector('.relationship-state-menu');
+        const label = card.querySelector('.relationship-state-label');
+        if (!stateMenu || !label) return;
+        
+        const checkboxes = Array.from(stateMenu.querySelectorAll('.state-checkbox:not(#state-all-' + definitionId + ')'));
+        const checkedBoxes = checkboxes.filter(cb => cb.checked);
+        const allCheckbox = stateMenu.querySelector(`#state-all-${definitionId}`);
+        
+        if (allCheckbox && allCheckbox.checked) {
+            label.textContent = 'All States';
+        } else if (checkedBoxes.length === 0) {
+            label.textContent = 'All States';
+        } else if (checkedBoxes.length === 1) {
+            label.textContent = checkedBoxes[0].value;
+        } else {
+            label.textContent = `${checkedBoxes.length} states selected`;
+        }
+    }
+    
+    // Function to save filter preference for a relationship definition
+    async function saveFilterPreference(definitionId) {
+        try {
+            const card = document.querySelector(`.relationship-type-card[data-definition-id="${definitionId}"]`);
+            if (!card) return;
+            
+            const statusFilter = card.querySelector('.relationship-status-filter');
+            const stateMenu = card.querySelector('.relationship-state-menu');
+            
+            // Get all selected states from checkboxes and join as comma-separated string
+            let selectedStates = [];
+            if (stateMenu) {
+                const checkboxes = stateMenu.querySelectorAll('.state-checkbox:not([value=""])');
+                selectedStates = Array.from(checkboxes)
+                    .filter(cb => cb.checked)
+                    .map(cb => cb.value);
+            }
+            
+            const preference = {
+                relationship_definition_id: parseInt(definitionId),
+                status_category: statusFilter ? statusFilter.value : '',
+                specific_state: selectedStates.join(',')  // Save as comma-separated string
+            };
+            
+            const response = await fetch('/api/relationship_filter_preferences', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(preference)
+            });
+            
+            if (response.ok) {
+                showNotification('Filter preference saved successfully', 'success');
+            } else {
+                throw new Error('Failed to save preference');
+            }
+        } catch (error) {
+            console.error('Error saving filter preference:', error);
+            showNotification('Error saving preference: ' + error.message, 'danger');
+        }
+    }
+    
+    // Function to load saved filter preferences
+    async function loadFilterPreferences() {
+        try {
+            const response = await fetch('/api/relationship_filter_preferences');
+            const preferences = await response.json();
+            
+            preferences.forEach(pref => {
+                const card = document.querySelector(`.relationship-type-card[data-definition-id="${pref.relationship_definition_id}"]`);
+                if (!card) return;
+                
+                const statusFilter = card.querySelector('.relationship-status-filter');
+                const stateMenu = card.querySelector('.relationship-state-menu');
+                
+                if (statusFilter && pref.status_category) {
+                    statusFilter.value = pref.status_category;
+                }
+                if (stateMenu && pref.specific_state) {
+                    // Parse comma-separated states and check corresponding checkboxes
+                    const statesToSelect = pref.specific_state.split(',').filter(s => s.trim());
+                    const checkboxes = stateMenu.querySelectorAll('.state-checkbox');
+                    const allCheckbox = stateMenu.querySelector(`[value=""]`);
+                    
+                    if (statesToSelect.length > 0) {
+                        // Uncheck "All States"
+                        if (allCheckbox) allCheckbox.checked = false;
+                        
+                        // Check the specified states
+                        checkboxes.forEach(checkbox => {
+                            if (checkbox.value && statesToSelect.includes(checkbox.value)) {
+                                checkbox.checked = true;
+                            } else if (checkbox.value) {
+                                checkbox.checked = false;
+                            }
+                        });
+                    }
+                    
+                    // Update the dropdown label
+                    updateStateFilterLabel(pref.relationship_definition_id);
+                }
+                
+                // Apply the loaded filters
+                applyFilters(pref.relationship_definition_id);
+            });
+        } catch (error) {
+            console.error('Error loading filter preferences:', error);
+        }
+    }
+    
     function attachEventListeners() {
+        // Status filter dropdowns (category filter)
+        document.querySelectorAll('.relationship-status-filter').forEach(filter => {
+            filter.addEventListener('change', function() {
+                applyFilters(this.dataset.definitionId);
+            });
+        });
+        
+        // State filter checkboxes are handled in loadStatesForDefinition()
+        // No need to attach listeners here since they're added when the dropdown is populated
+        
+        // Save filter buttons
+        document.querySelectorAll('.btn-save-filter').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const definitionId = this.dataset.definitionId;
+                await saveFilterPreference(definitionId);
+            });
+        });
+        
         // Add relationship buttons
         document.querySelectorAll('.btn-add-relationship').forEach(btn => {
             btn.addEventListener('click', function() {

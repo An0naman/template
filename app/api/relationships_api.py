@@ -2,6 +2,7 @@
 from flask import Blueprint, request, jsonify, g, current_app
 import sqlite3
 import logging
+import json
 from ..serializers import serialize_relationship_definition, serialize_entry_relationship # Import serializers
 
 # Define a Blueprint for Relationships API
@@ -187,7 +188,8 @@ def get_entry_relationships(entry_id):
             er.quantity,
             er.unit,
             e_to.status AS related_entry_status,
-            es.color AS related_entry_status_color
+            es.color AS related_entry_status_color,
+            es.category AS related_entry_status_category
         FROM EntryRelationship er
         JOIN RelationshipDefinition rd ON er.relationship_type = rd.id
         JOIN Entry e_to ON er.target_entry_id = e_to.id
@@ -218,7 +220,8 @@ def get_entry_relationships(entry_id):
             er.quantity,
             er.unit,
             e_from.status AS related_entry_status,
-            es.color AS related_entry_status_color
+            es.color AS related_entry_status_color,
+            es.category AS related_entry_status_category
         FROM EntryRelationship er
         JOIN RelationshipDefinition rd ON er.relationship_type = rd.id
         JOIN Entry e_from ON er.source_entry_id = e_from.id
@@ -662,4 +665,65 @@ def get_relationship_hierarchy(entry_id):
         
     except Exception as e:
         logger.error(f"Error fetching relationship hierarchy: {e}", exc_info=True)
+        return jsonify({"error": f"An internal error occurred: {e}"}), 500
+
+
+@relationships_api_bp.route('/relationship_filter_preferences', methods=['GET'])
+def get_relationship_filter_preferences():
+    """Get all relationship filter preferences"""
+    try:
+        from ..db import get_user_preference
+        preferences_json = get_user_preference('relationship_filters', '{}')
+        preferences_dict = json.loads(preferences_json) if preferences_json else {}
+        
+        # Convert dict to array format expected by frontend
+        preferences_array = []
+        for def_id, pref_data in preferences_dict.items():
+            preferences_array.append({
+                'relationship_definition_id': int(def_id),
+                'status_category': pref_data.get('status_category', ''),
+                'specific_state': pref_data.get('specific_state', '')
+            })
+        
+        return jsonify(preferences_array), 200
+    except Exception as e:
+        logger.error(f"Error getting relationship filter preferences: {e}", exc_info=True)
+        return jsonify({"error": f"An internal error occurred: {e}"}), 500
+
+
+@relationships_api_bp.route('/relationship_filter_preferences', methods=['POST'])
+def save_relationship_filter_preference():
+    """Save a relationship filter preference for a specific definition"""
+    try:
+        data = request.get_json()
+        # Accept both 'definition_id' and 'relationship_definition_id' for compatibility
+        definition_id = data.get('relationship_definition_id') or data.get('definition_id')
+        status_category = data.get('status_category', '')
+        specific_state = data.get('specific_state', '')
+        
+        if not definition_id:
+            return jsonify({'success': False, 'error': 'relationship_definition_id is required'}), 400
+        
+        from ..db import get_user_preference, set_user_preference
+        
+        # Get existing preferences
+        preferences_json = get_user_preference('relationship_filters', '{}')
+        preferences = json.loads(preferences_json) if preferences_json else {}
+        
+        # Update the preference for this definition
+        preferences[str(definition_id)] = {
+            'status_category': status_category,
+            'specific_state': specific_state
+        }
+        
+        # Save back to database
+        success = set_user_preference('relationship_filters', json.dumps(preferences))
+        
+        if success:
+            return jsonify({'success': True}), 200
+        else:
+            return jsonify({'success': False, 'error': 'Failed to save preference'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error saving relationship filter preference: {e}", exc_info=True)
         return jsonify({"error": f"An internal error occurred: {e}"}), 500
