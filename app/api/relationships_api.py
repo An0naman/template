@@ -671,6 +671,60 @@ def get_relationship_hierarchy(entry_id):
             cursor.execute(query, params)
             return cursor.fetchall()
         
+        def get_all_hierarchical_parents(child_id):
+            """Get ALL parents from ANY hierarchical relationship type"""
+            query = '''
+                SELECT 
+                    er.id as relationship_id,
+                    CASE 
+                        WHEN rd.hierarchy_direction = 'from_to_child' THEN er.source_entry_id
+                        WHEN rd.hierarchy_direction = 'to_from_child' THEN er.target_entry_id
+                    END as parent_id,
+                    rd.id as relationship_type_id,
+                    rd.name as relationship_type_name,
+                    CASE 
+                        WHEN rd.hierarchy_direction = 'from_to_child' THEN rd.label_to_side
+                        WHEN rd.hierarchy_direction = 'to_from_child' THEN rd.label_to_side
+                    END as relationship_label
+                FROM EntryRelationship er
+                JOIN RelationshipDefinition rd ON er.relationship_type = rd.id
+                WHERE rd.is_hierarchical = 1
+                AND (
+                    (rd.hierarchy_direction = 'from_to_child' AND er.target_entry_id = ?)
+                    OR (rd.hierarchy_direction = 'to_from_child' AND er.source_entry_id = ?)
+                )
+                ORDER BY rd.name, parent_id
+            '''
+            cursor.execute(query, [child_id, child_id])
+            return cursor.fetchall()
+        
+        def get_all_hierarchical_children(parent_id):
+            """Get ALL children from ANY hierarchical relationship type"""
+            query = '''
+                SELECT 
+                    er.id as relationship_id,
+                    CASE 
+                        WHEN rd.hierarchy_direction = 'from_to_child' THEN er.target_entry_id
+                        WHEN rd.hierarchy_direction = 'to_from_child' THEN er.source_entry_id
+                    END as child_id,
+                    rd.id as relationship_type_id,
+                    rd.name as relationship_type_name,
+                    CASE 
+                        WHEN rd.hierarchy_direction = 'from_to_child' THEN rd.label_from_side
+                        WHEN rd.hierarchy_direction = 'to_from_child' THEN rd.label_from_side
+                    END as relationship_label
+                FROM EntryRelationship er
+                JOIN RelationshipDefinition rd ON er.relationship_type = rd.id
+                WHERE rd.is_hierarchical = 1
+                AND (
+                    (rd.hierarchy_direction = 'from_to_child' AND er.source_entry_id = ?)
+                    OR (rd.hierarchy_direction = 'to_from_child' AND er.target_entry_id = ?)
+                )
+                ORDER BY rd.name, child_id
+            '''
+            cursor.execute(query, [parent_id, parent_id])
+            return cursor.fetchall()
+        
         def build_lineage_for_relationship_type(target_id, relationship_type_id, relationship_type_name, depth=0, visited=None):
             """
             Build a lineage tree for a specific relationship type
@@ -706,33 +760,6 @@ def get_relationship_hierarchy(entry_id):
                     result = cursor.fetchone()
                     return result['entry_type_id'] if result else None
                 return None
-            
-            def get_all_hierarchical_children(parent_id):
-                """Get ALL children from ANY hierarchical relationship type - ONLY children, never parents"""
-                query = '''
-                    SELECT 
-                        er.id as relationship_id,
-                        CASE 
-                            WHEN rd.hierarchy_direction = 'from_to_child' THEN er.target_entry_id
-                            WHEN rd.hierarchy_direction = 'to_from_child' THEN er.source_entry_id
-                        END as child_id,
-                        rd.id as relationship_type_id,
-                        rd.name as relationship_type_name,
-                        CASE 
-                            WHEN rd.hierarchy_direction = 'from_to_child' THEN rd.label_from_side
-                            WHEN rd.hierarchy_direction = 'to_from_child' THEN rd.label_from_side
-                        END as relationship_label
-                    FROM EntryRelationship er
-                    JOIN RelationshipDefinition rd ON er.relationship_type = rd.id
-                    WHERE rd.is_hierarchical = 1
-                    AND (
-                        (rd.hierarchy_direction = 'from_to_child' AND er.source_entry_id = ?)
-                        OR (rd.hierarchy_direction = 'to_from_child' AND er.target_entry_id = ?)
-                    )
-                    ORDER BY rd.name, child_id
-                '''
-                cursor.execute(query, [parent_id, parent_id])
-                return cursor.fetchall()
             
             # Build descendants only (follow children downward, never back up to parents)
             def build_descendants_only(current_id, root_entry_type, depth=0, node_visited=None):
@@ -890,35 +917,163 @@ def get_relationship_hierarchy(entry_id):
             
             return tree
         
-        # Step 1: Get all unique relationship types that this entry participates in
-        cursor.execute('''
-            SELECT DISTINCT 
-                rd.id as relationship_type_id,
-                rd.name as relationship_type_name
-            FROM EntryRelationship er
-            JOIN RelationshipDefinition rd ON er.relationship_type = rd.id
-            WHERE rd.is_hierarchical = 1
-            AND (er.source_entry_id = ? OR er.target_entry_id = ?)
-            ORDER BY rd.name
-        ''', (entry_id, entry_id))
-        
-        relationship_types = cursor.fetchall()
-        
-        # Step 2: Build separate tree for each relationship type
-        # Show ALL trees where this entry participates - some as parent, some as child
-        hierarchy_trees = []
-        
-        for rel_type in relationship_types:
-            rel_type_id = rel_type['relationship_type_id']
-            rel_type_name = rel_type['relationship_type_name']
+        # Build a single unified hierarchy tree combining all hierarchical relationships
+        def find_root_ancestors(start_id, visited=None):
+            """Find all root ancestors (entries with no parents)"""
+            if visited is None:
+                visited = set()
             
-            # Build the full lineage tree (ancestors → target → descendants)
-            tree = build_lineage_for_relationship_type(entry_id, rel_type_id, rel_type_name)
-            if tree:
-                hierarchy_trees.append(tree)
+            if start_id in visited:
+                return []
+            
+            visited.add(start_id)
+            
+            parents = get_all_hierarchical_parents(start_id)
+            
+            if not parents:
+                # This is a root - no parents
+                return [start_id]
+            
+            # Recursively find roots from all parents
+            roots = []
+            for parent_rel in parents:
+                parent_id = parent_rel['parent_id']
+                if parent_id:
+                    parent_roots = find_root_ancestors(parent_id, visited.copy())
+                    roots.extend(parent_roots)
+            
+            return roots
+        
+        def build_tree_from_node(current_id, target_id, visited=None):
+            """Build tree starting from current node, going down toward and through target"""
+            if visited is None:
+                visited = set()
+            
+            if current_id in visited:
+                return None
+            
+            visited.add(current_id)
+            
+            entry = get_entry_details(current_id)
+            if not entry:
+                return None
+            
+            is_target = (current_id == target_id)
+            
+            node = {
+                'id': entry['id'],
+                'title': entry['title'],
+                'status': entry['status'],
+                'entry_type': {
+                    'label': entry['singular_label'],
+                    'icon': 'fas fa-link',
+                    'color': '#6c757d'
+                },
+                'is_target': is_target,
+                'direction': 'current' if is_target else ('ancestor' if not is_target else 'unknown'),
+                'children': []
+            }
+            
+            # Get ALL hierarchical children
+            all_children = get_all_hierarchical_children(current_id)
+            
+            if is_target:
+                # TARGET ENTRY: Show ALL children with their grandchildren
+                for child_rel in all_children:
+                    child_id = child_rel['child_id']
+                    if child_id and child_id not in visited:
+                        child_entry = get_entry_details(child_id)
+                        if child_entry:
+                            child_node = {
+                                'id': child_entry['id'],
+                                'title': child_entry['title'],
+                                'status': child_entry['status'],
+                                'entry_type': {
+                                    'label': child_entry['singular_label'],
+                                    'icon': 'fas fa-link',
+                                    'color': '#6c757d'
+                                },
+                                'is_target': False,
+                                'direction': 'descendant',
+                                'relationship_id': child_rel['relationship_id'],
+                                'relationship_type': child_rel['relationship_label'],
+                                'children': []
+                            }
+                            
+                            # Get grandchildren (children of this child)
+                            grandchildren = get_all_hierarchical_children(child_id)
+                            for grandchild_rel in grandchildren:
+                                grandchild_id = grandchild_rel['child_id']
+                                if grandchild_id and grandchild_id not in visited and grandchild_id != target_id:
+                                    grandchild_entry = get_entry_details(grandchild_id)
+                                    if grandchild_entry:
+                                        grandchild_node = {
+                                            'id': grandchild_entry['id'],
+                                            'title': grandchild_entry['title'],
+                                            'status': grandchild_entry['status'],
+                                            'entry_type': {
+                                                'label': grandchild_entry['singular_label'],
+                                                'icon': 'fas fa-link',
+                                                'color': '#6c757d'
+                                            },
+                                            'is_target': False,
+                                            'direction': 'descendant',
+                                            'relationship_id': grandchild_rel['relationship_id'],
+                                            'relationship_type': grandchild_rel['relationship_label'],
+                                            'children': []
+                                        }
+                                        child_node['children'].append(grandchild_node)
+                            
+                            node['children'].append(child_node)
+            else:
+                # ANCESTOR ENTRY: Only show the child that leads to target
+                for child_rel in all_children:
+                    child_id = child_rel['child_id']
+                    if child_id and child_id not in visited:
+                        # Check if this child is the target or leads to target
+                        if child_id == target_id or is_ancestor_of(child_id, target_id, visited.copy()):
+                            child_node = build_tree_from_node(child_id, target_id, visited.copy())
+                            if child_node:
+                                child_node['relationship_id'] = child_rel['relationship_id']
+                                child_node['relationship_type'] = child_rel['relationship_label']
+                                node['children'].append(child_node)
+                                break  # Only show ONE path to target
+            
+            return node
+        
+        def is_ancestor_of(potential_ancestor_id, target_id, checked=None):
+            """Check if potential_ancestor_id is an ancestor of target_id"""
+            if checked is None:
+                checked = set()
+            
+            if potential_ancestor_id == target_id:
+                return True
+            
+            if potential_ancestor_id in checked:
+                return False
+            
+            checked.add(potential_ancestor_id)
+            
+            children = get_all_hierarchical_children(potential_ancestor_id)
+            for child_rel in children:
+                child_id = child_rel['child_id']
+                if child_id and is_ancestor_of(child_id, target_id, checked):
+                    return True
+            
+            return False
+        
+        # Find root ancestors and build tree from each
+        root_ids = find_root_ancestors(entry_id)
+        
+        if root_ids:
+            # Build from the first root (or you could build from all roots)
+            unified_tree = build_tree_from_node(root_ids[0], entry_id)
+        else:
+            # No roots found, start from entry itself
+            unified_tree = build_tree_from_node(entry_id, entry_id)
         
         return jsonify({
-            'hierarchy': hierarchy_trees,
+            'hierarchy': [unified_tree] if unified_tree else [],
             'target_entry_id': entry_id
         }), 200
         
