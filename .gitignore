@@ -75,3 +75,10 @@ uploads/
 # SQLite temporary files
 *.db-shm
 *.db-wal
+
+# Debug and test scripts
+check_89_93.py
+debug_entry_85_relationships.py
+test_entry_85_debug.py
+test_entry_85_parents.py
+test_hierarchy_function.py
