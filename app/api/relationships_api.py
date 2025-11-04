@@ -694,6 +694,7 @@ def get_relationship_hierarchy(entry_id):
             entry_type_id = entry_row['entry_type_id']
             
             # Find RelationshipDefinitions where this entry type is a CHILD
+            # According to user's CASE logic: entry_type_id_to = X means X is CHILD (regardless of direction)
             query = '''
                 SELECT 
                     rd.id,
@@ -705,14 +706,9 @@ def get_relationship_hierarchy(entry_id):
                     rd.label_to_side
                 FROM RelationshipDefinition rd
                 WHERE rd.is_hierarchical = 1
-                AND (rd.entry_type_id_from = ? OR rd.entry_type_id_to = ?)
-                AND (
-                    (rd.entry_type_id_to = ? AND rd.hierarchy_direction = 'from_to_child')
-                    OR
-                    (rd.entry_type_id_to = ? AND rd.hierarchy_direction = 'to_from_child')
-                )
+                AND rd.entry_type_id_to = ?
             '''
-            cursor.execute(query, [entry_type_id, entry_type_id, entry_type_id, entry_type_id])
+            cursor.execute(query, [entry_type_id])
             child_definitions = cursor.fetchall()
             
             logger.info(f"get_direct_parents({entry_id}): Found {len(child_definitions)} definition(s) where type {entry_type_id} is child")
@@ -810,6 +806,7 @@ def get_relationship_hierarchy(entry_id):
             entry_type_id = entry_row['entry_type_id']
             
             # Find RelationshipDefinitions where this entry type is a PARENT
+            # According to user's CASE logic: entry_type_id_from = X means X is PARENT (regardless of direction)
             query = '''
                 SELECT 
                     rd.id,
@@ -821,14 +818,9 @@ def get_relationship_hierarchy(entry_id):
                     rd.label_to_side
                 FROM RelationshipDefinition rd
                 WHERE rd.is_hierarchical = 1
-                AND (rd.entry_type_id_from = ? OR rd.entry_type_id_to = ?)
-                AND (
-                    (rd.entry_type_id_from = ? AND rd.hierarchy_direction = 'from_to_child')
-                    OR
-                    (rd.entry_type_id_from = ? AND rd.hierarchy_direction = 'to_from_child')
-                )
+                AND rd.entry_type_id_from = ?
             '''
-            cursor.execute(query, [entry_type_id, entry_type_id, entry_type_id, entry_type_id])
+            cursor.execute(query, [entry_type_id])
             parent_definitions = cursor.fetchall()
             
             logger.info(f"get_direct_children({entry_id}): Found {len(parent_definitions)} definition(s) where type {entry_type_id} is parent")
@@ -936,10 +928,11 @@ def get_relationship_hierarchy(entry_id):
             STEP 3) Recursive - Undertake step 2 recursively for each child.
             """
             
-            def build_upward_to_root(current_id, target_id, visited=None, depth=0):
+            def build_upward_to_root(current_id, target_id, via_parent_id=None, visited=None, depth=0):
                 """
                 Build a node and recursively build upward to find all ancestors.
                 This builds the path from root down to target.
+                via_parent_id: If specified, only follow paths that go through this intermediate entry
                 """
                 if visited is None:
                     visited = set()
@@ -984,16 +977,33 @@ def get_relationship_hierarchy(entry_id):
                     for child in children_data:
                         child_id = child['id']
                         if child_id and child_id not in visited:
-                            # Check if this child is the target or leads to the target
-                            if child_id == target_id or is_ancestor_of_target(child_id, target_id, visited.copy()):
-                                # This child leads to target, include it
-                                child_node = build_upward_to_root(child_id, target_id, visited.copy(), depth + 1)
-                                if child_node:
-                                    child_node['relationship_id'] = child['relationship_id']
-                                    child_node['relationship_type'] = child['relationship_type']
-                                    node['children'].append(child_node)
-                                    # Only show one path to target (don't add siblings)
-                                    break
+                            # Check if this child leads to target
+                            child_leads_to_target = (child_id == target_id or is_ancestor_of_target(child_id, target_id, visited.copy()))
+                            
+                            if not child_leads_to_target:
+                                continue
+                            
+                            # If via_parent_id is specified AND we haven't reached it yet
+                            # only follow paths through that parent
+                            if via_parent_id and current_id != via_parent_id:
+                                child_leads_to_via_parent = (
+                                    child_id == via_parent_id or 
+                                    is_ancestor_of_target(child_id, via_parent_id, visited.copy())
+                                )
+                                if not child_leads_to_via_parent:
+                                    continue
+                            
+                            # Once we reach via_parent_id, clear the constraint so we can reach target
+                            next_via_parent = None if current_id == via_parent_id else via_parent_id
+                            
+                            # This child is on the correct path, include it
+                            child_node = build_upward_to_root(child_id, target_id, next_via_parent, visited.copy(), depth + 1)
+                            if child_node:
+                                child_node['relationship_id'] = child['relationship_id']
+                                child_node['relationship_type'] = child['relationship_type']
+                                node['children'].append(child_node)
+                                # Only show one path to target (don't add siblings)
+                                break
                 
                 return node
             
@@ -1019,22 +1029,28 @@ def get_relationship_hierarchy(entry_id):
                 
                 return False
             
-            def find_root_ancestor(start_id, visited=None):
-                """Recursively find the topmost ancestor"""
+            def find_all_root_ancestors(start_id, visited=None):
+                """Recursively find ALL topmost ancestors (can be multiple if entry has multiple parent lineages)"""
                 if visited is None:
                     visited = set()
                 
                 if start_id in visited:
-                    return start_id
+                    return []
                 
                 visited.add(start_id)
                 parents = get_all_hierarchical_parents(start_id)
                 
                 if not parents:
-                    return start_id  # This is the root
+                    return [start_id]  # This is a root
                 
-                # Follow first parent up to find root (could pick any parent)
-                return find_root_ancestor(parents[0]['parent_id'], visited)
+                # Follow ALL parents to find all roots
+                all_roots = []
+                for parent in parents:
+                    parent_id = parent['parent_id']
+                    roots = find_all_root_ancestors(parent_id, visited.copy())
+                    all_roots.extend(roots)
+                
+                return all_roots
             
             # STEP 1: Get DIRECT parents of the target entry
             direct_parents = get_all_hierarchical_parents(target_id)
@@ -1063,34 +1079,28 @@ def get_relationship_hierarchy(entry_id):
                 logger.info(f"STEP 1: Root node has {len(root_node['children'])} direct child(ren)")
                 return [root_node]
             
-            # Target has parents - create separate structures for each parent lineage
+            # Target has parents - create a tree for EACH root of EACH parent
+            # This ensures multiple paths through different parents are shown separately
             hierarchy_trees = []
             
-            # Group parents by relationship definition to avoid duplicate trees
-            parents_by_rel_def = {}
-            for parent in direct_parents:
-                rel_def_id = parent.get('relationship_def_id', parent.get('relationship_type_id', ''))
-                if rel_def_id not in parents_by_rel_def:
-                    parents_by_rel_def[rel_def_id] = parent
-            
-            logger.info(f"STEP 1: Creating {len(parents_by_rel_def)} separate tree(s) for different parent relationships")
-            
-            # Build a tree for each parent relationship
-            for rel_def_id, parent_info in parents_by_rel_def.items():
+            # For each direct parent, find all its roots and create separate trees
+            for parent_info in direct_parents:
                 parent_id = parent_info['parent_id']
                 rel_type_name = parent_info['relationship_type_name']
                 
-                logger.info(f"STEP 1: Building tree for parent {parent_id} via '{rel_type_name}'")
+                # Find all possible roots for this parent
+                roots_for_parent = find_all_root_ancestors(parent_id)
+                logger.info(f"STEP 1: Parent {parent_id} has {len(roots_for_parent)} root(s): {roots_for_parent}")
                 
-                # Find the root ancestor for this lineage
-                root_id = find_root_ancestor(parent_id)
-                logger.info(f"STEP 1: Root ancestor is {root_id}")
-                
-                # Build the complete structure from root down to target (and target's descendants)
-                tree = build_upward_to_root(root_id, target_id, set(), 0)
-                if tree:
-                    hierarchy_trees.append(tree)
-                    logger.info(f"STEP 1: Tree built successfully")
+                # Create a separate tree for each root
+                for root_id in roots_for_parent:
+                    logger.info(f"STEP 1: Building tree from root {root_id} via parent {parent_id}")
+                    
+                    # Build the complete structure from root down to target, going through this specific parent
+                    tree = build_upward_to_root(root_id, target_id, parent_id, set(), 0)
+                    if tree:
+                        hierarchy_trees.append(tree)
+                        logger.info(f"STEP 1: Tree built successfully")
             
             logger.info(f"STEP 1: Returning {len(hierarchy_trees)} hierarchy tree(s)")
             return hierarchy_trees
