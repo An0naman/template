@@ -599,11 +599,13 @@ def get_relationship_hierarchy(entry_id):
             }), 200
         
         def get_entry_details(entry_id):
-            """Get entry details"""
+            """Get entry details including status color"""
             cursor.execute('''
-                SELECT e.id, e.title, e.status, et.singular_label
+                SELECT e.id, e.title, e.status, et.singular_label,
+                       COALESCE(es.color, '#6c757d') AS status_color
                 FROM Entry e
                 JOIN EntryType et ON e.entry_type_id = et.id
+                LEFT JOIN EntryState es ON e.status = es.name AND e.entry_type_id = es.entry_type_id
                 WHERE e.id = ?
             ''', (entry_id,))
             return cursor.fetchone()
@@ -715,13 +717,16 @@ def get_relationship_hierarchy(entry_id):
             
             # For each definition, find actual relationships involving this entry
             for defn in child_definitions:
-                # Determine which side has the parent type
+                # Determine which side has the parent type and use the label for that side
+                # We want the label that describes what the PARENT is (from the parent's side)
                 if defn['entry_type_id_to'] == entry_type_id:
                     # Entry type is in TO position, so FROM type is the parent
-                    relationship_label = defn['label_from_side']
+                    # Use label_to_side because we want the label FROM the parent's perspective
+                    relationship_label = defn['label_to_side']
                 else:
                     # Entry type is in FROM position, so TO type is the parent
-                    relationship_label = defn['label_to_side']
+                    # Use label_from_side because we want the label FROM the parent's perspective
+                    relationship_label = defn['label_from_side']
                 
                 # Find all EntryRelationship records matching this definition and entry
                 rel_query = '''
@@ -751,6 +756,7 @@ def get_relationship_hierarchy(entry_id):
                             'id': parent_entry['id'],
                             'title': parent_entry['title'],
                             'status': parent_entry['status'],
+                            'status_color': parent_entry['status_color'],
                             'entry_type': {
                                 'label': parent_entry['singular_label'],
                                 'icon': 'fas fa-link',
@@ -828,13 +834,16 @@ def get_relationship_hierarchy(entry_id):
             children = []
             # For each definition, find actual relationships involving this entry
             for defn in parent_definitions:
-                # Determine which side has the child type
+                # Determine which side has the child type and use the label for that side
+                # We want the label that describes what the CHILD is (from the child's side)
                 if defn['entry_type_id_from'] == entry_type_id:
                     # Entry type is in FROM position, so TO type is the child
-                    relationship_label = defn['label_to_side']
+                    # Use label_from_side because we want the label FROM the child's perspective
+                    relationship_label = defn['label_from_side']
                 else:
                     # Entry type is in TO position, so FROM type is the child
-                    relationship_label = defn['label_from_side']
+                    # Use label_to_side because we want the label FROM the child's perspective
+                    relationship_label = defn['label_to_side']
                 
                 # Find all EntryRelationship records matching this definition and entry
                 rel_query = '''
@@ -864,6 +873,7 @@ def get_relationship_hierarchy(entry_id):
                             'id': child_entry['id'],
                             'title': child_entry['title'],
                             'status': child_entry['status'],
+                            'status_color': child_entry['status_color'],
                             'entry_type': {
                                 'label': child_entry['singular_label'],
                                 'icon': 'fas fa-link',
@@ -954,6 +964,7 @@ def get_relationship_hierarchy(entry_id):
                     'id': entry['id'],
                     'title': entry['title'],
                     'status': entry['status'],
+                    'status_color': entry['status_color'],
                     'entry_type': {
                         'label': entry['singular_label'],
                         'icon': 'fas fa-link',
@@ -1068,6 +1079,7 @@ def get_relationship_hierarchy(entry_id):
                     'id': entry['id'],
                     'title': entry['title'],
                     'status': entry['status'],
+                    'status_color': entry['status_color'],
                     'entry_type': {
                         'label': entry['singular_label'],
                         'icon': 'fas fa-link',

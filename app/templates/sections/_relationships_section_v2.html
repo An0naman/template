@@ -397,6 +397,16 @@
     // Store definitions globally for this entry
     let relationshipDefinitions = [];
     
+    // Utility function: Get contrasting text color for a background color
+    function getContrastColor(hexColor) {
+        if (!hexColor) return '#fff';
+        const r = parseInt(hexColor.slice(1, 3), 16);
+        const g = parseInt(hexColor.slice(3, 5), 16);
+        const b = parseInt(hexColor.slice(5, 7), 16);
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        return luminance > 0.5 ? '#000' : '#fff';
+    }
+    
     async function loadRelationships() {
         const loadingEl = document.getElementById('relationshipsLoading' + entryId);
         const containerEl = document.getElementById('relatedRecordsContainer' + entryId);
@@ -550,16 +560,6 @@
     }
     
     function renderRelationshipRow(rel, def) {
-        // Get contrasting text color for status badge
-        const getContrastColor = (hexColor) => {
-            if (!hexColor) return '#fff';
-            const r = parseInt(hexColor.slice(1, 3), 16);
-            const g = parseInt(hexColor.slice(3, 5), 16);
-            const b = parseInt(hexColor.slice(5, 7), 16);
-            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-            return luminance > 0.5 ? '#000' : '#fff';
-        };
-        
         const statusColor = rel.related_entry_status_color || '#6c757d';
         const textColor = getContrastColor(statusColor);
         // Determine status category - we'll need to get this from the API or infer it
@@ -1431,10 +1431,12 @@
         }
         html += `</a>`;
         
-        // Status badge
+        // Status badge with dynamic color
         if (node.status) {
+            const statusColor = node.status_color || '#6c757d';
+            const textColor = getContrastColor(statusColor);
             html += `
-                <span class="status-badge ms-2">
+                <span class="badge ms-2" style="background-color: ${statusColor}; color: ${textColor};">
                     ${escapeHtml(node.status)}
                 </span>
             `;

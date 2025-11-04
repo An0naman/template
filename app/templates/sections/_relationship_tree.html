@@ -36,7 +36,13 @@
 
       <!-- Status Badge -->
       {% if node.status %}
-        <span class="status-badge status-{{ node.status|lower|replace(' ', '-') }} ms-2">
+        {% set status_color = node.status_color if node.status_color else '#6c757d' %}
+        {% if status_color in ['#ffc107', '#0dcaf0', '#f8f9fa', '#e9ecef', '#ffeb3b', '#ffd700'] %}
+          {% set text_color = '#000000' %}
+        {% else %}
+          {% set text_color = '#ffffff' %}
+        {% endif %}
+        <span class="badge ms-2" style="background-color: {{ status_color }}; color: {{ text_color }};">
           {{ node.status }}
         </span>
       {% endif %}
