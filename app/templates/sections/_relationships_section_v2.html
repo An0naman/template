@@ -830,7 +830,7 @@
         });
     }
     
-    function openAddRelationshipModal(definitionId, label, targetTypeId, targetTypeLabel, allowQuantity) {
+    async function openAddRelationshipModal(definitionId, label, targetTypeId, targetTypeLabel, allowQuantity) {
         // Create and show modal
         const modalId = 'addRelModal_' + definitionId;
         
@@ -840,9 +840,155 @@
             existingModal.remove();
         }
         
+        // Check if this definition has any current relationships
+        let hasCurrentRelationships = false;
+        try {
+            const relResponse = await fetch(`/api/entries/${entryId}/relationships`);
+            const relationships = await relResponse.json();
+            hasCurrentRelationships = relationships.some(rel => rel.definition_id == definitionId);
+        } catch (error) {
+            console.error('Error checking current relationships:', error);
+        }
+        
+        // Only check for shared relationship opportunities if there are NO current relationships for this definition
+        let importOpportunitiesHtml = '';
+        if (!hasCurrentRelationships) {
+            try {
+                const response = await fetch(`/api/entries/${entryId}/shared_relationship_opportunities`);
+                if (response.ok) {
+                    const allOpportunities = await response.json();
+                    
+                    // Filter opportunities to only those matching this definition
+                    const relevantOpportunities = allOpportunities.filter(opp => 
+                        opp.relationship_definition && opp.relationship_definition.id == definitionId
+                    );
+                    
+                    if (relevantOpportunities.length > 0) {
+                        const totalTargets = relevantOpportunities.reduce((sum, opp) => 
+                            sum + opp.potential_targets.length, 0);
+                        
+                        importOpportunitiesHtml = `
+                            <div class="alert alert-info mb-3">
+                                <i class="fas fa-lightbulb me-2"></i>
+                                <strong>Quick Import Available:</strong> 
+                                Found ${totalTargets} ${escapeHtml(targetTypeLabel.toLowerCase())}${totalTargets !== 1 ? 's' : ''} 
+                                from ${relevantOpportunities.length} related ${relevantOpportunities.length === 1 ? 'entry' : 'entries'}.
+                                <button type="button" 
+                                        class="btn btn-sm btn-success ms-2" 
+                                        id="btnShowImport_${definitionId}">
+                                    <i class="fas fa-download me-1"></i>
+                                    Import from Existing
+                                </button>
+                            </div>
+                            <div id="importSection_${definitionId}" style="display: none;" class="mb-3">
+                                ${relevantOpportunities.map((opp, oppIndex) => {
+                                    const intermediateEntry = opp.intermediate_entry;
+                                    const targets = opp.potential_targets;
+                                    const relDef = opp.relationship_definition;
+                                    
+                                    return `
+                                        <div class="card mb-2">
+                                            <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <strong>From: ${escapeHtml(intermediateEntry.title)}</strong>
+                                                    <span class="badge bg-secondary ms-2">${targets.length} available</span>
+                                                </div>
+                                                <div>
+                                                    <button type="button" class="btn btn-sm btn-success" 
+                                                            onclick="selectAllInGroup${definitionId}(${oppIndex})">
+                                                        <i class="fas fa-check-double"></i> All
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary ms-1" 
+                                                            onclick="deselectAllInGroup${definitionId}(${oppIndex})">
+                                                        <i class="fas fa-times"></i> None
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="card-body p-2" id="targetGroup_${definitionId}_${oppIndex}">
+                                                ${targets.map((target, targetIndex) => {
+                                                    const targetEntry = target.target_entry;
+                                                    const sourceRel = target.source_relationship;
+                                                    const uniqueId = definitionId + '_' + oppIndex + '_' + targetIndex;
+                                                    
+                                                    return `
+                                                        <div class="form-check border rounded p-2 mb-2 import-target-item" 
+                                                             data-group="${oppIndex}">
+                                                            <input class="form-check-input import-entry-checkbox" 
+                                                                   type="checkbox" 
+                                                                   checked
+                                                                   value="${targetEntry.id}"
+                                                                   id="import_${uniqueId}"
+                                                                   data-definition-id="${relDef.id}"
+                                                                   data-quantity="${sourceRel.quantity || ''}"
+                                                                   data-unit="${sourceRel.unit || ''}">
+                                                            <label class="form-check-label d-flex justify-content-between align-items-start w-100" 
+                                                                   for="import_${uniqueId}">
+                                                                <div class="flex-grow-1">
+                                                                    <strong>${escapeHtml(targetEntry.title)}</strong>
+                                                                    ${targetEntry.status ? `
+                                                                        <span class="badge ms-2" 
+                                                                              style="background-color: ${targetEntry.status_color || '#6c757d'}; font-size: 0.7rem;">
+                                                                            ${escapeHtml(targetEntry.status)}
+                                                                        </span>
+                                                                    ` : ''}
+                                                                </div>
+                                                                ${relDef.allow_quantity_unit && (sourceRel.quantity || sourceRel.unit) ? `
+                                                                    <div class="text-end ms-2">
+                                                                        <small class="text-muted d-block">
+                                                                            ${sourceRel.quantity || ''} ${sourceRel.unit || ''}
+                                                                        </small>
+                                                                    </div>
+                                                                ` : ''}
+                                                            </label>
+                                                        </div>
+                                                    `;
+                                                }).join('')}
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                                <div class="d-flex gap-2 mt-3">
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-secondary" 
+                                            id="btnSelectAllImport_${definitionId}">
+                                        Select All
+                                    </button>
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-secondary" 
+                                            id="btnDeselectAllImport_${definitionId}">
+                                        Deselect All
+                                    </button>
+                                    <button type="button" 
+                                            class="btn btn-sm btn-success ms-auto" 
+                                            id="btnExecuteImport_${definitionId}">
+                                        <i class="fas fa-check me-1"></i>
+                                        Import Selected
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <hr class="my-3">
+                        `;
+                        
+                        // Create group selection functions dynamically
+                        window[`selectAllInGroup${definitionId}`] = function(groupIndex) {
+                            document.querySelectorAll(`#targetGroup_${definitionId}_${groupIndex} .import-entry-checkbox`)
+                                .forEach(cb => cb.checked = true);
+                        };
+                        window[`deselectAllInGroup${definitionId}`] = function(groupIndex) {
+                            document.querySelectorAll(`#targetGroup_${definitionId}_${groupIndex} .import-entry-checkbox`)
+                                .forEach(cb => cb.checked = false);
+                        };
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking shared relationship opportunities:', error);
+            }
+        }
+        
         const modalHtml = `
             <div class="modal fade" id="${modalId}" tabindex="-1">
-                <div class="modal-dialog">
+                <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title">
@@ -852,6 +998,8 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
+                            ${importOpportunitiesHtml}
+                            
                             <!-- Search existing entries -->
                             <div class="mb-3">
                                 <label class="form-label">Search Existing ${escapeHtml(targetTypeLabel)}</label>
@@ -1075,6 +1223,54 @@
             // Close modal
             bootstrap.Modal.getInstance(document.getElementById(modalId)).hide();
         });
+        
+        // Import functionality handlers
+        const showImportBtn = document.getElementById(`btnShowImport_${definitionId}`);
+        const importSection = document.getElementById(`importSection_${definitionId}`);
+        const selectAllBtn = document.getElementById(`btnSelectAllImport_${definitionId}`);
+        const deselectAllBtn = document.getElementById(`btnDeselectAllImport_${definitionId}`);
+        const executeImportBtn = document.getElementById(`btnExecuteImport_${definitionId}`);
+        
+        if (showImportBtn && importSection) {
+            showImportBtn.addEventListener('click', function() {
+                if (importSection.style.display === 'none') {
+                    importSection.style.display = 'block';
+                    this.innerHTML = '<i class="fas fa-chevron-up me-1"></i>Hide Import Options';
+                } else {
+                    importSection.style.display = 'none';
+                    this.innerHTML = '<i class="fas fa-download me-1"></i>Import from Existing';
+                }
+            });
+        }
+        
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener('click', function() {
+                document.querySelectorAll('.import-entry-checkbox').forEach(cb => cb.checked = true);
+            });
+        }
+        
+        if (deselectAllBtn) {
+            deselectAllBtn.addEventListener('click', function() {
+                document.querySelectorAll('.import-entry-checkbox').forEach(cb => cb.checked = false);
+            });
+        }
+        
+        if (executeImportBtn) {
+            executeImportBtn.addEventListener('click', async function() {
+                const selectedEntryIds = Array.from(document.querySelectorAll('.import-entry-checkbox:checked'))
+                    .map(cb => parseInt(cb.value));
+                
+                if (selectedEntryIds.length === 0) {
+                    alert('Please select at least one entry to import');
+                    return;
+                }
+                
+                await importMultipleEntries(definitionId, selectedEntryIds, allowQuantity);
+                
+                // Close modal
+                bootstrap.Modal.getInstance(document.getElementById(modalId)).hide();
+            });
+        }
     }
     
     async function linkExisting(definitionId, targetEntryId, quantity, unit) {
@@ -1136,6 +1332,73 @@
             showNotification('New entry created and linked successfully', 'success');
         } catch (error) {
             console.error('Error creating entry:', error);
+            showNotification('Error: ' + error.message, 'danger');
+        }
+    }
+    
+    async function importMultipleEntries(definitionId, entryIds, allowQuantity) {
+        try {
+            // Collect all selected entries with their data from the checkboxes
+            const relationships = [];
+            const checkboxes = document.querySelectorAll('.import-entry-checkbox:checked');
+            
+            checkboxes.forEach(cb => {
+                const relationshipData = {
+                    definition_id: parseInt(cb.dataset.definitionId || definitionId),
+                    target_entry_id: parseInt(cb.value)
+                };
+                
+                // Include quantity/unit if they exist in the data attributes
+                if (cb.dataset.quantity) {
+                    relationshipData.quantity = parseFloat(cb.dataset.quantity);
+                }
+                if (cb.dataset.unit) {
+                    relationshipData.unit = cb.dataset.unit;
+                }
+                
+                relationships.push(relationshipData);
+            });
+            
+            if (relationships.length === 0) {
+                showNotification('No entries selected for import', 'warning');
+                return;
+            }
+            
+            // Show progress notification
+            showNotification(`Importing ${relationships.length} relationships...`, 'info');
+            
+            // Use the V1 shared relationships API endpoint
+            const response = await fetch(`/api/entries/${entryId}/create_shared_relationships`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ relationships })
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to import relationships');
+            }
+            
+            const result = await response.json();
+            
+            // Reload relationships
+            await loadRelationships();
+            
+            // Show summary notification
+            if (result.summary) {
+                const { created_count, failed_count } = result.summary;
+                if (failed_count === 0) {
+                    showNotification(`Successfully imported ${created_count} relationships`, 'success');
+                } else if (created_count === 0) {
+                    showNotification(`Failed to import relationships: ${result.failed[0]?.error || 'Unknown error'}`, 'danger');
+                } else {
+                    showNotification(`Imported ${created_count} relationships (${failed_count} failed)`, 'warning');
+                }
+            } else {
+                showNotification('Relationships imported successfully', 'success');
+            }
+        } catch (error) {
+            console.error('Error importing entries:', error);
             showNotification('Error: ' + error.message, 'danger');
         }
     }
