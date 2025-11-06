@@ -1189,3 +1189,65 @@ def save_relationship_filter_preference():
     except Exception as e:
         logger.error(f"Error saving relationship filter preference: {e}", exc_info=True)
         return jsonify({"error": f"An internal error occurred: {e}"}), 500
+
+
+# --- Grid Ordering Endpoints ---
+@relationships_api_bp.route('/entry_types/<int:entry_type_id>/relationship_grid_order', methods=['GET'])
+def get_relationship_grid_order(entry_type_id):
+    """Get the custom grid order for relationship cards for a specific entry type"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT relationship_definition_id, display_order
+            FROM RelationshipGridOrder
+            WHERE entry_type_id = ?
+            ORDER BY display_order
+        ''', (entry_type_id,))
+        
+        rows = cursor.fetchall()
+        order_map = {row['relationship_definition_id']: row['display_order'] for row in rows}
+        
+        return jsonify(order_map), 200
+    except Exception as e:
+        logger.error(f"Error getting relationship grid order for entry type {entry_type_id}: {e}", exc_info=True)
+        return jsonify({"error": f"An internal error occurred: {e}"}), 500
+
+
+@relationships_api_bp.route('/entry_types/<int:entry_type_id>/relationship_grid_order', methods=['POST'])
+def save_relationship_grid_order(entry_type_id):
+    """Save the custom grid order for relationship cards for a specific entry type"""
+    try:
+        data = request.get_json()
+        # Expect format: [{"definition_id": 1, "order": 0}, {"definition_id": 2, "order": 1}, ...]
+        order_list = data.get('order', [])
+        
+        if not isinstance(order_list, list):
+            return jsonify({'success': False, 'error': 'Invalid order format'}), 400
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Delete existing order preferences for this entry type
+        cursor.execute('DELETE FROM RelationshipGridOrder WHERE entry_type_id = ?', (entry_type_id,))
+        
+        # Insert new order preferences
+        for item in order_list:
+            definition_id = item.get('definition_id')
+            display_order = item.get('order')
+            
+            if definition_id is not None and display_order is not None:
+                cursor.execute('''
+                    INSERT OR REPLACE INTO RelationshipGridOrder 
+                    (entry_type_id, relationship_definition_id, display_order, updated_at)
+                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                ''', (entry_type_id, definition_id, display_order))
+        
+        conn.commit()
+        return jsonify({'success': True, 'message': 'Grid order saved successfully'}), 200
+        
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error saving relationship grid order for entry type {entry_type_id}: {e}", exc_info=True)
+        return jsonify({"error": f"An internal error occurred: {e}"}), 500

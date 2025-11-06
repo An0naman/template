@@ -8,14 +8,24 @@
       <i class="fas fa-link me-2"></i>
       Related Records
     </h5>
-    <button id="toggleEmptyRelationships{{ entry.id }}" 
-            class="btn btn-sm btn-outline-secondary" 
-            onclick="toggleEmptyRelationships{{ entry.id }}()"
-            title="Show/hide relationship types with no records"
-            style="display: none;">
-      <i class="fas fa-eye me-1"></i>
-      <span class="toggle-text">Show Empty</span>
-    </button>
+    <div class="d-flex gap-2">
+      <button id="toggleReorderMode{{ entry.id }}" 
+              class="btn btn-sm btn-outline-primary" 
+              onclick="toggleReorderMode{{ entry.id }}()"
+              title="Reorder relationship type cards"
+              style="display: none;">
+        <i class="fas fa-grip-vertical me-1"></i>
+        <span class="reorder-text">Reorder</span>
+      </button>
+      <button id="toggleEmptyRelationships{{ entry.id }}" 
+              class="btn btn-sm btn-outline-secondary" 
+              onclick="toggleEmptyRelationships{{ entry.id }}()"
+              title="Show/hide relationship types with no records"
+              style="display: none;">
+        <i class="fas fa-eye me-1"></i>
+        <span class="toggle-text">Show Empty</span>
+      </button>
+    </div>
   </div>
 
   <!-- Loading State -->
@@ -128,10 +138,10 @@
     justify-content: space-between;
     align-items: center;
     overflow: visible; /* Allow dropdown menus to overflow */
+    gap: 0.5rem;
 }
 
 .relationship-type-card .card-header h6 {
-    margin: 0;
     font-weight: 600;
     color: var(--bs-body-color);
 }
@@ -197,6 +207,39 @@
     text-align: center;
     padding: 3rem 1rem;
     color: var(--bs-secondary-color);
+}
+
+/* Drag-and-drop styling */
+.relationship-type-card.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+}
+
+.relationship-type-card.drag-over {
+    border-top: 3px solid var(--bs-primary);
+}
+
+.card-drag-handle {
+    cursor: grab;
+    user-select: none;
+    color: var(--bs-secondary-color);
+    transition: color 0.2s ease;
+}
+
+.card-drag-handle:hover {
+    color: var(--bs-primary);
+}
+
+.card-drag-handle:active {
+    cursor: grabbing;
+}
+
+.reorder-mode-active .relationship-type-card {
+    cursor: grab;
+}
+
+.reorder-mode-active .relationship-type-card:active {
+    cursor: grabbing;
 }
 
 .relationships-empty-state i {
@@ -407,6 +450,9 @@
         return luminance > 0.5 ? '#000' : '#fff';
     }
     
+    // Store custom grid order
+    let customGridOrder = {};
+    
     async function loadRelationships() {
         const loadingEl = document.getElementById('relationshipsLoading' + entryId);
         const containerEl = document.getElementById('relatedRecordsContainer' + entryId);
@@ -426,6 +472,15 @@
             const relsResponse = await fetch(`/api/entries/${entryId}/relationships`);
             const relationships = await relsResponse.json();
             
+            // Fetch custom grid order for this entry type
+            try {
+                const orderResponse = await fetch(`/api/entry_types/${currentEntryTypeId}/relationship_grid_order`);
+                customGridOrder = await orderResponse.json();
+            } catch (error) {
+                console.warn('Could not load grid order, using default:', error);
+                customGridOrder = {};
+            }
+            
             // Group relationships by definition ID
             const groupedRelationships = {};
             relationships.forEach(rel => {
@@ -435,8 +490,15 @@
                 groupedRelationships[rel.definition_id].push(rel);
             });
             
+            // Sort definitions by custom order if available
+            const sortedDefinitions = [...relationshipDefinitions].sort((a, b) => {
+                const orderA = customGridOrder[a.id] !== undefined ? customGridOrder[a.id] : 999;
+                const orderB = customGridOrder[b.id] !== undefined ? customGridOrder[b.id] : 999;
+                return orderA - orderB;
+            });
+            
             // Render the cards
-            renderRelationshipCards(relationshipDefinitions, groupedRelationships);
+            renderRelationshipCards(sortedDefinitions, groupedRelationships);
             
             loadingEl.style.display = 'none';
             containerEl.style.display = 'block';
@@ -489,9 +551,15 @@
             html += `
                 <div class="relationship-type-card ${isEmpty ? 'empty-relationship-card' : ''}" 
                      data-definition-id="${def.id}"
+                     draggable="false"
                      style="${isEmpty ? 'display: none;' : ''}">
                     <div class="card-header">
-                        <h6>${escapeHtml(displayLabel || def.name)}</h6>
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="fas fa-grip-vertical card-drag-handle" 
+                               style="display: none;"
+                               title="Drag to reorder"></i>
+                            <h6 class="mb-0">${escapeHtml(displayLabel || def.name)}</h6>
+                        </div>
                         <div class="d-flex gap-2 align-items-center flex-wrap">
                             <select class="form-select form-select-sm relationship-state-filter" 
                                     data-definition-id="${def.id}"
@@ -1776,8 +1844,186 @@
         }
     }
     
+    // ========== Grid Reordering Functionality ==========
+    let reorderMode = false;
+    let draggedElement = null;
+    
+    function initializeDragAndDrop() {
+        const container = document.getElementById('groupedViewContainer' + entryId);
+        if (!container) return;
+        
+        const cards = container.querySelectorAll('.relationship-type-card');
+        
+        cards.forEach(card => {
+            const handle = card.querySelector('.card-drag-handle');
+            
+            if (!handle) return;
+            
+            // Make the handle draggable
+            handle.addEventListener('mousedown', function(e) {
+                if (!reorderMode) return;
+                card.setAttribute('draggable', 'true');
+            });
+            
+            handle.addEventListener('mouseup', function(e) {
+                card.setAttribute('draggable', 'false');
+            });
+            
+            // Drag start
+            card.addEventListener('dragstart', function(e) {
+                if (!reorderMode) {
+                    e.preventDefault();
+                    return;
+                }
+                draggedElement = this;
+                this.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+            
+            // Drag end
+            card.addEventListener('dragend', function(e) {
+                this.classList.remove('dragging');
+                this.setAttribute('draggable', 'false');
+                
+                // Remove all drag-over classes
+                const allCards = container.querySelectorAll('.relationship-type-card');
+                allCards.forEach(c => c.classList.remove('drag-over'));
+                
+                // Save the new order
+                saveGridOrder();
+            });
+            
+            // Drag over
+            card.addEventListener('dragover', function(e) {
+                if (!reorderMode || !draggedElement) return;
+                
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                
+                const afterElement = getDragAfterElement(container, e.clientY);
+                if (afterElement == null) {
+                    container.appendChild(draggedElement);
+                } else {
+                    container.insertBefore(draggedElement, afterElement);
+                }
+            });
+            
+            // Drag enter
+            card.addEventListener('dragenter', function(e) {
+                if (!reorderMode || this === draggedElement) return;
+                this.classList.add('drag-over');
+            });
+            
+            // Drag leave
+            card.addEventListener('dragleave', function(e) {
+                this.classList.remove('drag-over');
+            });
+        });
+    }
+    
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.relationship-type-card:not(.dragging):not(.empty-relationship-card)')];
+        
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+    
+    async function saveGridOrder() {
+        const container = document.getElementById('groupedViewContainer' + entryId);
+        if (!container) return;
+        
+        const cards = container.querySelectorAll('.relationship-type-card:not(.empty-relationship-card)');
+        const orderList = [];
+        
+        cards.forEach((card, index) => {
+            const definitionId = parseInt(card.dataset.definitionId);
+            orderList.push({
+                definition_id: definitionId,
+                order: index
+            });
+        });
+        
+        try {
+            const response = await fetch(`/api/entry_types/${currentEntryTypeId}/relationship_grid_order`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ order: orderList })
+            });
+            
+            if (response.ok) {
+                console.log('Grid order saved successfully for entry type');
+                // Show a success message
+                showNotification('Grid order saved for all entries of this type', 'success');
+                // Update the custom order cache
+                orderList.forEach(item => {
+                    customGridOrder[item.definition_id] = item.order;
+                });
+            } else {
+                console.error('Failed to save grid order');
+                showNotification('Failed to save grid order', 'danger');
+            }
+        } catch (error) {
+            console.error('Error saving grid order:', error);
+            showNotification('Error saving grid order', 'danger');
+        }
+    }
+    
+    // Toggle reorder mode
+    window['toggleReorderMode' + entryId] = function() {
+        reorderMode = !reorderMode;
+        
+        const container = document.getElementById('groupedViewContainer' + entryId);
+        const btn = document.getElementById('toggleReorderMode' + entryId);
+        const btnText = btn.querySelector('.reorder-text');
+        const handles = container.querySelectorAll('.card-drag-handle');
+        
+        if (reorderMode) {
+            container.classList.add('reorder-mode-active');
+            btnText.textContent = 'Done';
+            btn.classList.remove('btn-outline-primary');
+            btn.classList.add('btn-primary');
+            handles.forEach(h => h.style.display = 'inline-block');
+        } else {
+            container.classList.remove('reorder-mode-active');
+            btnText.textContent = 'Reorder';
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-outline-primary');
+            handles.forEach(h => h.style.display = 'none');
+        }
+    };
+    
     // Initialize on load
     loadRelationships();
     setupTabListeners();
+    
+    // Show reorder button when cards are loaded
+    const observer = new MutationObserver(function(mutations) {
+        const container = document.getElementById('groupedViewContainer' + entryId);
+        const reorderBtn = document.getElementById('toggleReorderMode' + entryId);
+        
+        if (container && reorderBtn) {
+            const cards = container.querySelectorAll('.relationship-type-card:not(.empty-relationship-card)');
+            if (cards.length > 1) {
+                reorderBtn.style.display = 'inline-block';
+                initializeDragAndDrop();
+                observer.disconnect();
+            }
+        }
+    });
+    
+    const containerEl = document.getElementById('groupedViewContainer' + entryId);
+    if (containerEl) {
+        observer.observe(containerEl, { childList: true, subtree: true });
+    }
 })();
 </script>

@@ -368,6 +368,21 @@ def init_db():
             );
         ''')
 
+        # Create RelationshipGridOrder Table (for custom grid ordering in relationships section)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS RelationshipGridOrder (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                entry_type_id INTEGER NOT NULL,
+                relationship_definition_id INTEGER NOT NULL,
+                display_order INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (entry_type_id) REFERENCES EntryType(id) ON DELETE CASCADE,
+                FOREIGN KEY (relationship_definition_id) REFERENCES RelationshipDefinition(id) ON DELETE CASCADE,
+                UNIQUE(entry_type_id, relationship_definition_id)
+            );
+        ''')
+
         # Create SensorData Table (legacy - for backward compatibility)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS SensorData (
