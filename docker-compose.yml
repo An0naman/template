@@ -24,7 +24,7 @@ services:
     
     volumes:
       - ./data:/app/data  # Bind mount to use the same data directory
-      - ./uploads:/app/static/uploads  # Persist uploaded files (attachments, images, etc.)
+      - ./uploads:/app/app/static/uploads  # Persist uploaded files (attachments, images, etc.) - FIXED PATH
       - /var/run/dbus:/var/run/dbus
       - /run/dbus:/run/dbus
       - /sys/class/bluetooth:/sys/class/bluetooth

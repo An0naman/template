@@ -16,6 +16,9 @@ RUN apt-get update && apt-get install -y \
 # This is where your template.db will reside on the host, mapped into the container
 RUN mkdir -p /app/data
 
+# Create uploads directory for static files (will be mounted as volume)
+RUN mkdir -p /app/app/static/uploads
+
 # Copy requirements.txt and install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

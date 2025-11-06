@@ -16,6 +16,8 @@
     let currentNoteIdInModal = null;
     let bookmarkCounter = 0;
     let editBookmarkCounter = 0;
+    let noteTypeColors = {}; // Store note type colors from configuration
+    let imageViewerModal = null; // Bootstrap modal for image viewing
     
     // DOM Elements
     const toggleNewNoteBtn = document.getElementById('toggleNewNoteBtn');
@@ -69,7 +71,16 @@
             if (modalElement) {
                 noteDetailModal = new bootstrap.Modal(modalElement);
             }
+            
+            // Initialize image viewer modal
+            const imageModalElement = document.getElementById('imageViewerModal');
+            if (imageModalElement) {
+                imageViewerModal = new bootstrap.Modal(imageModalElement);
+            }
         }
+        
+        // Load note type colors from configuration
+        loadNoteTypeColors();
         
         // Load note types
         loadNoteTypes();
@@ -257,6 +268,54 @@
                 return;
             }
         });
+    }
+    
+    // Load note type colors from system configuration
+    async function loadNoteTypeColors() {
+        try {
+            const response = await fetch('/api/system_params');
+            const params = await response.json();
+            
+            // Default colors for built-in note types
+            noteTypeColors = {
+                'General': '#0dcaf0',
+                'Info': '#0dcaf0',
+                'Important': '#dc3545',
+                'Critical': '#dc3545',
+                'Warning': '#fd7e14',
+                'Caution': '#ffc107',
+                'Success': '#198754',
+                'Completed': '#198754'
+            };
+            
+            // Load custom note types and their colors
+            if (params.custom_note_types) {
+                try {
+                    const customNotesConfig = JSON.parse(params.custom_note_types);
+                    let customTypes = [];
+                    
+                    // Handle both old format (array) and new format (object with custom_types array)
+                    if (Array.isArray(customNotesConfig)) {
+                        customTypes = customNotesConfig;
+                    } else if (customNotesConfig.custom_types && Array.isArray(customNotesConfig.custom_types)) {
+                        customTypes = customNotesConfig.custom_types;
+                    }
+                    
+                    // Add custom type colors
+                    customTypes.forEach(noteType => {
+                        if (noteType.name && noteType.color) {
+                            noteTypeColors[noteType.name] = noteType.color;
+                        }
+                    });
+                } catch (e) {
+                    console.warn('Error parsing custom note types:', e);
+                }
+            }
+            
+            console.log('Loaded note type colors:', noteTypeColors);
+        } catch (error) {
+            console.error('Error loading note type colors:', error);
+        }
     }
     
     // Load note types from entry configuration
@@ -934,7 +993,8 @@
                         } else {
                             fullPath = `/static/uploads/${imgPath}`;
                         }
-                        return `<img src="${fullPath}" alt="Attachment" style="height: 80px; width: 80px; object-fit: cover; border-radius: 4px; cursor: pointer;" onclick="window.open('${fullPath}', '_blank')" title="Click to view full size">`;
+                        const fileName = imgPath.split('/').pop();
+                        return `<img src="${fullPath}" alt="Attachment" style="height: 80px; width: 80px; object-fit: cover; border-radius: 4px; cursor: pointer;" onclick="openImageInModal('${fullPath}', '${fileName.replace(/'/g, "\\'")}')" title="Click to view full size">`;
                     }).join('')}
                     ${imageAttachments.length > 3 ? `<div class="d-flex align-items-center justify-content-center" style="height: 80px; width: 80px; background: #f0f0f0; border-radius: 4px;"><small class="text-muted">+${imageAttachments.length - 3} more</small></div>` : ''}
                 </div>
@@ -1040,13 +1100,13 @@
                                         <div class="col">
                                             <div class="card h-100">
                                                 ${isImage ? `
-                                                    <img src="${fullPath}" class="card-img-top" alt="${fileName}" style="height: 150px; object-fit: cover; cursor: pointer;" onclick="window.open('${fullPath}', '_blank')">
+                                                    <img src="${fullPath}" class="card-img-top" alt="${fileName}" style="height: 150px; object-fit: cover; cursor: pointer;" onclick="openImageInModal('${fullPath}', '${fileName.replace(/'/g, "\\'")}')" title="Click to enlarge">
                                                 ` : ''}
                                                 <div class="card-body text-center p-2">
                                                     ${!isImage ? `<i class="${fileIcon} fa-2x mb-2"></i>` : ''}
                                                     <p class="small mb-1 text-truncate" title="${fileName}">${fileName}</p>
                                                     <a href="${fullPath}" target="_blank" class="btn btn-sm btn-outline-primary">
-                                                        <i class="fas fa-${isImage ? 'eye' : 'download'}"></i>
+                                                        <i class="fas fa-${isImage ? 'download' : 'download'}"></i>
                                                     </a>
                                                 </div>
                                             </div>
@@ -1238,14 +1298,22 @@
     }
     
     function getNoteTypeColor(noteType) {
-        const colors = {
-            'General': '#007bff',
-            'Important': '#dc3545',
-            'Warning': '#fd7e14',
-            'Success': '#198754',
-            'Info': '#0dcaf0'
-        };
-        return colors[noteType] || '#6c757d';
+        // Use loaded colors from configuration, fallback to default gray
+        return noteTypeColors[noteType] || '#6c757d';
+    }
+    
+    function openImageViewer(imageSrc, imageTitle) {
+        // Open image in modal viewer
+        const imageElement = document.getElementById('imageViewerImg');
+        const titleElement = document.getElementById('imageViewerTitle');
+        
+        if (imageElement && imageViewerModal) {
+            imageElement.src = imageSrc;
+            if (titleElement) {
+                titleElement.textContent = imageTitle || 'Image preview';
+            }
+            imageViewerModal.show();
+        }
     }
     
     function getReminderIndicator(reminder) {
@@ -1766,6 +1834,11 @@
             alert('An unexpected error occurred.');
         }
     }
+    
+    // Expose image viewer function globally so it can be called from onclick attributes
+    window.openImageInModal = function(imageSrc, imageTitle) {
+        openImageViewer(imageSrc, imageTitle);
+    };
     
 })();
 </script>

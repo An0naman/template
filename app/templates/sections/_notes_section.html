@@ -693,7 +693,84 @@
 .notes-section-v2 .badge.bg-danger {
     background-color: var(--theme-danger, var(--bs-danger)) !important;
 }
+
+/* Image Modal Styling */
+#imageViewerModal .modal-dialog {
+    max-width: 90vw;
+    margin: 1.75rem auto;
+}
+
+#imageViewerModal .modal-content {
+    background-color: rgba(0, 0, 0, 0.95);
+    border: none;
+}
+
+#imageViewerModal .modal-body {
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+    max-height: 85vh;
+}
+
+#imageViewerModal .modal-body img {
+    max-width: 100%;
+    max-height: 85vh;
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+#imageViewerModal .btn-close {
+    background-color: white;
+    opacity: 1;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    margin: 10px;
+}
+
+#imageViewerModal .btn-close:hover {
+    background-color: #f0f0f0;
+}
+
+#imageViewerModal .modal-header {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 1055;
+    border: none;
+    padding: 0;
+}
+
+#imageViewerModal .image-title {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    color: white;
+    padding: 15px 20px;
+    margin: 0;
+    font-size: 14px;
+    text-align: center;
+}
 </style>
+
+{# Image Viewer Modal #}
+<div class="modal fade" id="imageViewerModal" tabindex="-1" aria-labelledby="imageViewerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <img id="imageViewerImg" src="" alt="Image preview">
+            </div>
+            <p class="image-title" id="imageViewerTitle"></p>
+        </div>
+    </div>
+</div>
 
 {# Include JavaScript for Notes functionality #}
 {% include 'sections/_notes_functions.js' %}
