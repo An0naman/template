@@ -396,8 +396,7 @@
                                 {% elif section_type == 'ai_assistant' %}
                                     {% include 'sections/_ai_assistant_section.html' %}
                                 {% elif section_type == 'notes' %}
-                                    <h5>Notes Section</h5>
-                                    <p class="text-muted">Notes content will go here</p>
+                                    {% include 'sections/_notes_section.html' %}
                                 {% elif section_type == 'relationships' %}
                                     {% include 'sections/_relationships_section_v2.html' %}
                                 {% elif section_type == 'labels' %}

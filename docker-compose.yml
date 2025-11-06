@@ -24,6 +24,7 @@ services:
     
     volumes:
       - ./data:/app/data  # Bind mount to use the same data directory
+      - ./uploads:/app/static/uploads  # Persist uploaded files (attachments, images, etc.)
       - /var/run/dbus:/var/run/dbus
       - /run/dbus:/run/dbus
       - /sys/class/bluetooth:/sys/class/bluetooth
@@ -58,6 +59,9 @@ services:
         - container: /app/data
           description:
             en_us: Application data directory containing SQLite database and files
+        - container: /app/static/uploads
+          description:
+            en_us: Uploaded files directory for note attachments and images
 
   # Watchtower - Automatic container updates
   watchtower:

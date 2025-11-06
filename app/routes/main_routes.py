@@ -485,7 +485,10 @@ def entry_detail_v2(entry_id):
                            section_config=section_config,
                            section_order=section_order,
                            section_rows=section_rows,
-                           relationships=relationships_data))
+                           relationships=relationships_data,
+                           allowed_file_types=params.get('allowed_file_types', 
+                               'txt,pdf,png,jpg,jpeg,gif,webp,svg,doc,docx,xls,xlsx,ppt,pptx,mp4,avi,mov,wmv,flv,webm,mkv,mp3,wav,flac,aac,ogg,zip,rar,7z,tar,gz'),
+                           max_file_size=params.get('max_file_size', '50')))
     
     # Add cache control headers to force browser to reload
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'

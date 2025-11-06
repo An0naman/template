@@ -1,0 +1,699 @@
+{# Notes Section V2 - Modular notes with reminders, attachments, and associations #}
+
+<div class="notes-section-v2">
+    {# Add New Note Button and Search/Filter Controls #}
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="collapse" 
+                data-bs-target="#newNoteFormV2" aria-expanded="false" aria-controls="newNoteFormV2"
+                id="toggleNewNoteBtn">
+            <i class="fas fa-plus-circle me-2"></i><span id="toggleNewNoteText">Add Note</span>
+        </button>
+        
+        <div class="flex-grow-1 ms-3">
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">
+                            <i class="fas fa-search"></i>
+                        </span>
+                        <input type="text" 
+                               class="form-control" 
+                               id="notesSearchInput" 
+                               placeholder="Search notes...">
+                        <button type="button" 
+                                class="btn btn-outline-secondary" 
+                                id="clearNotesSearch"
+                                title="Clear search"
+                                style="display: none;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm" id="notesTypeFilter">
+                        <option value="">All Types</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm" id="notesSortOrder">
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="title">By Title</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {# Notes Count Status #}
+    <div class="mb-3">
+        <small class="text-muted" id="notesFilterStatus">
+            <span id="notesCount">0</span> notes
+        </small>
+    </div>
+    
+    {# Reminder Progress Summary #}
+    <div id="reminderProgressSummary" class="alert alert-info mb-3" style="display: none;">
+        <div class="d-flex align-items-center justify-content-between">
+            <div class="flex-grow-1">
+                <h6 class="alert-heading mb-1">
+                    <i class="fas fa-bell me-2"></i>Reminder Progress
+                </h6>
+                <div id="reminderProgressContent">
+                    {# Dynamic reminder progress content #}
+                </div>
+            </div>
+            <div class="ms-3">
+                <button type="button" class="btn btn-sm btn-outline-primary" id="viewAllRemindersBtn">
+                    <i class="fas fa-list me-1"></i>View All
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    {# New Note Form (Collapsible) #}
+    <div class="collapse mb-3" id="newNoteFormV2">
+        <div class="card card-body">
+            {# Core Note Fields #}
+            <div class="mb-3">
+                <label for="noteTitleInput" class="form-label">Title</label>
+                <input type="text" class="form-control" id="noteTitleInput" placeholder="Note title">
+            </div>
+            
+            <div class="mb-3">
+                <label for="noteTypeSelect" class="form-label">Type</label>
+                <select class="form-select" id="noteTypeSelect">
+                    {# Options will be dynamically populated by JavaScript #}
+                </select>
+            </div>
+            
+            <div class="mb-3">
+                <label for="newNoteTextarea" class="form-label">Content</label>
+                <textarea class="form-control" id="newNoteTextarea" rows="4" 
+                          placeholder="Type your note content here..."></textarea>
+            </div>
+            
+            {# Optional Sections - Collapsible Toggles #}
+            <div class="mb-3">
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary" 
+                            data-bs-toggle="collapse" data-bs-target="#associateSection" aria-expanded="false">
+                        <i class="fas fa-link me-1"></i>Associate <i class="fas fa-chevron-down ms-1"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-warning" 
+                            data-bs-toggle="collapse" data-bs-target="#reminderSection" aria-expanded="false">
+                        <i class="fas fa-bell me-1"></i>Reminder <i class="fas fa-chevron-down ms-1"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-info" 
+                            data-bs-toggle="collapse" data-bs-target="#uploadSection" aria-expanded="false">
+                        <i class="fas fa-paperclip me-1"></i>Attachments <i class="fas fa-chevron-down ms-1"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-success" 
+                            data-bs-toggle="collapse" data-bs-target="#bookmarksSection" aria-expanded="false">
+                        <i class="fas fa-bookmark me-1"></i>Bookmarks <i class="fas fa-chevron-down ms-1"></i>
+                    </button>
+                </div>
+            </div>
+            
+            {# Associated Entries Section #}
+            <div class="collapse mb-3" id="associateSection">
+                <div class="border rounded p-3 bg-light">
+                    <label for="associatedEntriesSelect" class="form-label">
+                        <i class="fas fa-link me-1"></i>Associate with Additional Entries
+                    </label>
+                    <select class="form-select" id="associatedEntriesSelect" multiple>
+                        <option value="" disabled>Loading entries...</option>
+                    </select>
+                    <div class="form-text">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Select entries to link this note to. The note will appear in all selected entries.
+                    </div>
+                    <div class="mt-2">
+                        <div id="selectedAssociationsDisplay" class="small text-info" style="display: none;">
+                            {# Selected associations display #}
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" 
+                                id="clearAssociationsBtn" style="display: none;">
+                            <i class="fas fa-times me-1"></i>Clear All
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            {# Reminder Section #}
+            <div class="collapse mb-3" id="reminderSection">
+                <div class="border rounded p-3 bg-light">
+                    <label for="reminderDateInput" class="form-label">
+                        <i class="fas fa-bell text-warning me-1"></i>Reminder Date & Time
+                    </label>
+                    <input type="datetime-local" class="form-control" id="reminderDateInput" 
+                           placeholder="Set reminder">
+                    <div class="form-text">
+                        <i class="fas fa-info-circle me-1"></i> 
+                        Set a specific date and time for this reminder.
+                    </div>
+                    <div class="mt-2 d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" 
+                                onclick="setReminderToToday()">
+                            <i class="fas fa-clock me-1"></i>Today
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" 
+                                onclick="setReminderToTomorrow()">
+                            <i class="fas fa-calendar-day me-1"></i>Tomorrow
+                        </button>
+                        <button type="button" class="btn btn-sm btn-warning" 
+                                onclick="clearReminder()">
+                            <i class="fas fa-times me-1"></i>Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            {# File Upload Section #}
+            <div class="collapse mb-3" id="uploadSection">
+                <div class="border rounded p-3 bg-light">
+                    <label for="fileUploadInput" class="form-label">
+                        <i class="fas fa-paperclip me-1"></i>Attach Files
+                    </label>
+                    <input type="file" class="form-control" id="fileUploadInput" multiple>
+                    <div id="selectedFilesInfo" class="mt-2 small text-muted">No files selected.</div>
+                    <div class="form-text">
+                        <i class="fas fa-info-circle me-1"></i> 
+                        Upload files to attach to this note. Max file size: {{ max_file_size }}MB
+                    </div>
+                </div>
+            </div>
+            
+            {# URL Bookmarks Section #}
+            <div class="collapse mb-3" id="bookmarksSection">
+                <div class="border rounded p-3 bg-light">
+                    <label class="form-label">
+                        <i class="fas fa-bookmark text-success me-1"></i>URL Bookmarks
+                    </label>
+                    <div id="urlBookmarksList" class="mb-2">
+                        {# Dynamic bookmark entries will be inserted here #}
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-success" id="addBookmarkBtn">
+                        <i class="fas fa-plus me-1"></i>Add Bookmark
+                    </button>
+                    <div class="form-text">
+                        <i class="fas fa-info-circle me-1"></i> 
+                        Add reference links with friendly names.
+                    </div>
+                </div>
+            </div>
+            
+            {# Submit Button #}
+            <div class="d-grid gap-2">
+                <button type="button" class="btn btn-primary" id="addNoteBtn">
+                    <i class="fas fa-plus-circle me-2"></i>Add Note
+                </button>
+            </div>
+            
+            {# Status Message #}
+            <div id="noteStatusMessage" class="mt-3"></div>
+        </div>
+    </div>
+    
+    {# Notes List #}
+    <div id="notesList" class="mt-3">
+        <p class="text-muted text-center" id="noNotesMessage">Loading notes...</p>
+    </div>
+</div>
+
+{# Note Detail Modal #}
+<div class="modal fade" id="noteDetailModal" tabindex="-1" aria-labelledby="noteDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="noteDetailModalLabel">Note Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                {# Note Metadata #}
+                <div class="mb-3">
+                    <p><strong>Title:</strong> <span id="modalNoteTitle"></span></p>
+                    <p><strong>Type:</strong> <span id="modalNoteType"></span></p>
+                    <p><strong>Created:</strong> <span id="modalNoteCreated"></span></p>
+                </div>
+                
+                {# Note Relationships (if associated with other entries) #}
+                <div id="modalNoteRelationships" style="display: none;">
+                    <div class="alert alert-info">
+                        <div class="d-flex align-items-center mb-2">
+                            <h6 class="mb-0">
+                                <i class="fas fa-sitemap me-2"></i>Associated Entries
+                            </h6>
+                            <span id="modalRelationshipType" class="badge bg-info ms-2"></span>
+                        </div>
+                        <div id="modalRelationshipDetails">
+                            {# Dynamic relationship details #}
+                        </div>
+                    </div>
+                </div>
+                
+                {# Reminder Information #}
+                <div id="modalNoteReminder" style="display: none;">
+                    <div class="reminder-status-card mb-3 p-3 border rounded">
+                        <div id="reminderDisplayMode">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-bell me-2"></i>Reminder
+                                </h6>
+                                <span id="modalReminderStatus" class="badge"></span>
+                            </div>
+                            <div class="reminder-details">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Scheduled for:</small>
+                                        <div id="modalReminderDate" class="fw-bold"></div>
+                                    </div>
+                                    <div class="col-md-6 text-end">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" id="editReminderBtn">
+                                            <i class="fas fa-edit me-1"></i>Edit
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="reminderProgress" class="mt-2">
+                                    {# Dynamic progress info #}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {# Edit Reminder Form #}
+                        <div id="reminderEditMode" style="display: none;">
+                            <div class="mb-3">
+                                <label for="editReminderDateTime" class="form-label">Reminder Date & Time:</label>
+                                <input type="datetime-local" class="form-control" id="editReminderDateTime">
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-success" id="saveReminderBtn">
+                                    <i class="fas fa-save me-1"></i>Save
+                                </button>
+                                <button type="button" class="btn btn-sm btn-secondary" id="cancelReminderEditBtn">
+                                    Cancel
+                                </button>
+                                <button type="button" class="btn btn-sm btn-danger" id="deleteReminderBtn">
+                                    <i class="fas fa-trash me-1"></i>Remove
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                {# Note Content #}
+                <h6>Content:</h6>
+                <div id="noteContentDisplay">
+                    <div id="modalNoteContent" class="mb-3" style="white-space: pre-wrap;"></div>
+                    
+                    {# URL Bookmarks Display #}
+                    <div id="modalBookmarksDisplay" style="display: none;">
+                        <h6 class="mt-3">URL Bookmarks:</h6>
+                        <div id="modalBookmarksList" class="list-group list-group-flush mb-3">
+                            {# Bookmarks will be populated here #}
+                        </div>
+                    </div>
+                    
+                    <button type="button" class="btn btn-sm btn-primary" id="editNoteContentBtn">
+                        <i class="fas fa-edit me-1"></i>Edit Note
+                    </button>
+                </div>
+                
+                {# Edit Note Form #}
+                <div id="noteContentEditMode" style="display: none;">
+                    <div class="mb-3">
+                        <label for="editNoteTitle" class="form-label">Title:</label>
+                        <input type="text" class="form-control" id="editNoteTitle">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editNoteText" class="form-label">Content:</label>
+                        <textarea class="form-control" id="editNoteText" rows="5"></textarea>
+                    </div>
+                    
+                    {# URL Bookmarks Edit #}
+                    <div class="mb-3">
+                        <label class="form-label">URL Bookmarks:</label>
+                        <div id="editUrlBookmarksContainer">
+                            <div id="editUrlBookmarksList">
+                                {# Dynamic bookmark fields #}
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="editAddBookmarkBtn">
+                                <i class="fas fa-plus me-1"></i>Add Bookmark
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-success" id="saveNoteContentBtn">
+                            <i class="fas fa-save me-1"></i>Save Changes
+                        </button>
+                        <button type="button" class="btn btn-sm btn-secondary" id="cancelNoteContentEditBtn">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                {# Attachments Section #}
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0">Attached Files:</h6>
+                    <button type="button" class="btn btn-sm btn-success" id="addAttachmentsBtn">
+                        <i class="fas fa-paperclip me-1"></i>Add Files
+                    </button>
+                </div>
+                
+                {# Add Attachments Form #}
+                <div id="addAttachmentsForm" style="display: none;" class="mb-3">
+                    <div class="mb-3">
+                        <label for="additionalFiles" class="form-label">Select files:</label>
+                        <input type="file" class="form-control" id="additionalFiles" multiple>
+                        <div class="form-text">Maximum file size: {{ max_file_size }}MB per file</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-success" id="uploadAdditionalFilesBtn">
+                            <i class="fas fa-upload me-1"></i>Upload
+                        </button>
+                        <button type="button" class="btn btn-sm btn-secondary" id="cancelAddAttachmentsBtn">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="modalNoteFiles" class="row row-cols-1 row-cols-md-2 g-2">
+                    <div class="col" id="noAttachmentsPlaceholder">
+                        <div class="text-center text-muted py-4">
+                            <p>No files attached.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-danger" id="deleteNoteFromModalBtn">
+                    <i class="fas fa-trash-alt me-1"></i>Delete Note
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Notes Section V2 Styles */
+.notes-section-v2 .note-card {
+    transition: all 0.2s ease;
+    background-color: var(--theme-bg-card, var(--bs-body-bg));
+    border-color: var(--theme-border, var(--bs-border-color));
+}
+
+.notes-section-v2 .note-card:hover {
+    box-shadow: 0 4px 8px var(--theme-shadow-hover, rgba(0,0,0,0.1));
+}
+
+/* Ensure buttons within notes use theme colors */
+.notes-section-v2 .btn-primary {
+    background-color: var(--theme-primary, var(--bs-primary)) !important;
+    border-color: var(--theme-primary, var(--bs-primary)) !important;
+    color: white !important;
+}
+
+.notes-section-v2 .btn-primary:hover,
+.notes-section-v2 .btn-primary:focus {
+    background-color: var(--theme-primary-hover, var(--theme-primary-darker)) !important;
+    border-color: var(--theme-primary-hover, var(--theme-primary-darker)) !important;
+}
+
+.notes-section-v2 .btn-outline-secondary {
+    color: var(--theme-text, var(--bs-body-color)) !important;
+    border-color: var(--theme-border, var(--bs-border-color)) !important;
+    background-color: transparent;
+}
+
+.notes-section-v2 .btn-outline-secondary:hover,
+.notes-section-v2 .btn-outline-secondary:focus {
+    background-color: var(--theme-bg-surface, var(--bs-secondary-bg)) !important;
+    border-color: var(--theme-text-muted, var(--bs-secondary)) !important;
+    color: var(--theme-text, var(--bs-body-color)) !important;
+}
+
+.notes-section-v2 .btn-danger {
+    background-color: var(--theme-danger, var(--bs-danger)) !important;
+    border-color: var(--theme-danger, var(--bs-danger)) !important;
+}
+
+.notes-section-v2 .btn-danger:hover,
+.notes-section-v2 .btn-danger:focus {
+    background-color: var(--theme-danger-hover, #c82333) !important;
+    border-color: var(--theme-danger-hover, #bd2130) !important;
+}
+
+.notes-section-v2 .btn-outline-success {
+    color: var(--theme-success, var(--bs-success)) !important;
+    border-color: var(--theme-success, var(--bs-success)) !important;
+}
+
+.notes-section-v2 .btn-outline-success:hover,
+.notes-section-v2 .btn-outline-success:focus {
+    background-color: var(--theme-success, var(--bs-success)) !important;
+    border-color: var(--theme-success, var(--bs-success)) !important;
+    color: white !important;
+}
+
+.notes-section-v2 .btn-outline-warning {
+    color: var(--theme-warning, var(--bs-warning)) !important;
+    border-color: var(--theme-warning, var(--bs-warning)) !important;
+}
+
+.notes-section-v2 .btn-outline-warning:hover,
+.notes-section-v2 .btn-outline-warning:focus {
+    background-color: var(--theme-warning, var(--bs-warning)) !important;
+    border-color: var(--theme-warning, var(--bs-warning)) !important;
+    color: var(--theme-text, var(--bs-body-color)) !important;
+}
+
+.notes-section-v2 .btn-outline-info {
+    color: var(--theme-info, var(--bs-info)) !important;
+    border-color: var(--theme-info, var(--bs-info)) !important;
+}
+
+.notes-section-v2 .btn-outline-info:hover,
+.notes-section-v2 .btn-outline-info:focus {
+    background-color: var(--theme-info, var(--bs-info)) !important;
+    border-color: var(--theme-info, var(--bs-info)) !important;
+    color: white !important;
+}
+
+.notes-section-v2 .btn-outline-primary {
+    color: var(--theme-primary, var(--bs-primary)) !important;
+    border-color: var(--theme-primary, var(--bs-primary)) !important;
+}
+
+.notes-section-v2 .btn-outline-primary:hover,
+.notes-section-v2 .btn-outline-primary:focus {
+    background-color: var(--theme-primary, var(--bs-primary)) !important;
+    border-color: var(--theme-primary, var(--bs-primary)) !important;
+    color: white !important;
+}
+
+.notes-section-v2 .btn-outline-danger {
+    color: var(--theme-danger, var(--bs-danger)) !important;
+    border-color: var(--theme-danger, var(--bs-danger)) !important;
+}
+
+.notes-section-v2 .btn-outline-danger:hover,
+.notes-section-v2 .btn-outline-danger:focus {
+    background-color: var(--theme-danger, var(--bs-danger)) !important;
+    border-color: var(--theme-danger, var(--bs-danger)) !important;
+    color: white !important;
+}
+
+/* Smooth transitions for expand/collapse */
+.notes-section-v2 .note-collapsed-view,
+.notes-section-v2 .note-expanded-view {
+    transition: opacity 0.3s ease;
+}
+
+/* Expanded note styling */
+.notes-section-v2 .note-expanded-view {
+    background-color: var(--theme-bg-surface, var(--bs-secondary-bg, #f8f9fa));
+    padding: 1rem;
+    border-radius: 0.25rem;
+}
+
+.notes-section-v2 .note-expanded-view h6 {
+    color: var(--theme-text, var(--bs-body-color, #495057));
+    border-bottom: 2px solid var(--theme-border, var(--bs-border-color, #dee2e6));
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Edit mode styling */
+.notes-section-v2 .note-edit-view {
+    background-color: var(--theme-bg-card, var(--bs-body-bg, #ffffff));
+    padding: 1rem;
+    border-radius: 0.25rem;
+    border: 2px solid var(--theme-primary, var(--bs-primary, #0d6efd));
+}
+
+.notes-section-v2 .note-edit-view h5 {
+    color: var(--theme-text, var(--bs-body-color, #212529));
+}
+
+.notes-section-v2 .bookmark-edit-entry {
+    background-color: var(--theme-bg-card, var(--bs-body-bg, #ffffff));
+    border: 1px solid var(--theme-border, var(--bs-border-color, #dee2e6));
+}
+
+.notes-section-v2 .bookmark-entry {
+    background-color: var(--theme-bg-surface, var(--bs-secondary-bg, #f8f9fa));
+}
+
+.notes-section-v2 .reminder-badge {
+    font-size: 0.75rem;
+}
+
+/* Image preview styling */
+.notes-section-v2 .note-collapsed-view img {
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 1px 3px var(--theme-shadow, rgba(0,0,0,0.12));
+}
+
+.notes-section-v2 .note-collapsed-view img:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px var(--theme-shadow-hover, rgba(0,0,0,0.2));
+}
+
+.notes-section-v2 .note-expanded-view .card-img-top {
+    transition: transform 0.2s;
+    border-bottom: 1px solid var(--theme-border, var(--bs-border-color, #dee2e6));
+}
+
+.notes-section-v2 .note-expanded-view .card-img-top:hover {
+    transform: scale(1.02);
+}
+
+/* Notes list styling */
+.notes-section-v2 #notesList .note-item {
+    border-left: 4px solid var(--theme-primary, var(--bs-primary, #0d6efd));
+    transition: border-color 0.2s;
+}
+
+.notes-section-v2 #notesList .note-item:hover {
+    border-left-color: var(--theme-primary-hover, var(--theme-primary, #0b5ed7));
+}
+
+/* Search and filter controls */
+.notes-section-v2 .input-group-text {
+    background-color: var(--theme-bg-surface, var(--bs-secondary-bg, #f8f9fa));
+    border-right: none;
+}
+
+.notes-section-v2 .input-group .form-control {
+    border-left: none;
+}
+
+.notes-section-v2 .input-group .form-control:focus {
+    border-color: var(--theme-border, var(--bs-border-color, #ced4da));
+    box-shadow: none;
+}
+
+/* Reminder progress styling */
+.reminder-status-card {
+    background-color: var(--theme-bg-surface, var(--bs-secondary-bg, #f8f9fa));
+}
+
+.reminder-status-card .badge {
+    font-size: 0.75rem;
+}
+
+/* Form controls within notes section */
+.notes-section-v2 .form-control,
+.notes-section-v2 .form-select {
+    background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
+    border-color: var(--theme-border, var(--bs-border-color)) !important;
+    color: var(--theme-text, var(--bs-body-color)) !important;
+}
+
+.notes-section-v2 .form-control:focus,
+.notes-section-v2 .form-select:focus {
+    background-color: var(--theme-bg-card, var(--bs-body-bg)) !important;
+    border-color: var(--theme-primary, var(--bs-primary)) !important;
+    color: var(--theme-text, var(--bs-body-color)) !important;
+    box-shadow: 0 0 0 0.2rem rgba(var(--theme-primary-rgb, 13, 110, 253), 0.25) !important;
+}
+
+.notes-section-v2 .form-control::placeholder {
+    color: var(--theme-text-muted, var(--bs-secondary-color)) !important;
+}
+
+/* Text colors in notes section */
+.notes-section-v2 .text-muted {
+    color: var(--theme-text-muted, var(--bs-secondary-color)) !important;
+}
+
+.notes-section-v2 .card-text {
+    color: var(--theme-text, var(--bs-body-color));
+}
+
+/* Alert styling in notes section */
+.notes-section-v2 .alert-info {
+    background-color: var(--theme-bg-info, var(--bs-info-bg-subtle)) !important;
+    border-color: var(--theme-border-info, var(--bs-info-border-subtle)) !important;
+    color: var(--theme-text-info, var(--bs-info-text-emphasis)) !important;
+}
+
+/* Border colors */
+.notes-section-v2 .border,
+.notes-section-v2 .border-rounded {
+    border-color: var(--theme-border, var(--bs-border-color)) !important;
+}
+
+/* Background colors for collapsible sections */
+.notes-section-v2 .bg-light {
+    background-color: var(--theme-bg-surface, var(--bs-secondary-bg)) !important;
+}
+
+/* Modal content styling */
+#noteDetailModal .modal-content {
+    background-color: var(--theme-bg-card, var(--bs-body-bg));
+    border-color: var(--theme-border, var(--bs-border-color));
+}
+
+#noteDetailModal .modal-header {
+    background-color: var(--theme-bg-surface, var(--bs-secondary-bg));
+    border-bottom-color: var(--theme-border, var(--bs-border-color));
+}
+
+#noteDetailModal .modal-footer {
+    background-color: var(--theme-bg-surface, var(--bs-secondary-bg));
+    border-top-color: var(--theme-border, var(--bs-border-color));
+}
+
+#noteDetailModal .modal-title {
+    color: var(--theme-text, var(--bs-body-color));
+}
+
+/* Badge styling in notes */
+.notes-section-v2 .badge {
+    font-size: 0.75rem;
+}
+
+.notes-section-v2 .badge.bg-success {
+    background-color: var(--theme-success, var(--bs-success)) !important;
+}
+
+.notes-section-v2 .badge.bg-warning {
+    background-color: var(--theme-warning, var(--bs-warning)) !important;
+}
+
+.notes-section-v2 .badge.bg-info {
+    background-color: var(--theme-info, var(--bs-info)) !important;
+}
+
+.notes-section-v2 .badge.bg-danger {
+    background-color: var(--theme-danger, var(--bs-danger)) !important;
+}
+</style>
+
+{# Include JavaScript for Notes functionality #}
+{% include 'sections/_notes_functions.js' %}
