@@ -440,6 +440,9 @@
     // Store definitions globally for this entry
     let relationshipDefinitions = [];
     
+    // Note binding state: Map of entry_id -> boolean (whether binding is enabled)
+    let noteBingingState = new Map();
+    
     // Utility function: Get contrasting text color for a background color
     function getContrastColor(hexColor) {
         if (!hexColor) return '#fff';
@@ -655,7 +658,7 @@
                         </small>
                     </td>
                 ` : ''}
-                <td class="text-end" style="width: 100px;">
+                <td class="text-end" style="width: 150px;">
                     <div class="btn-group btn-group-sm">
                         ${def.allow_quantity_unit ? `
                             <button class="btn btn-outline-secondary btn-edit-quantity" 
@@ -666,6 +669,12 @@
                                 <i class="fas fa-edit"></i>
                             </button>
                         ` : ''}
+                        <button class="btn btn-outline-primary btn-bind-notes" 
+                                data-entry-id="${rel.related_entry_id}" 
+                                data-entry-title="${escapeHtml(rel.related_entry_title)}" 
+                                title="Bind notes from this entry">
+                            <i class="fas fa-link"></i>
+                        </button>
                         <button class="btn btn-outline-danger btn-delete-relationship" 
                                 data-relationship-id="${rel.relationship_id}"
                                 data-entry-title="${escapeHtml(rel.related_entry_title)}"
@@ -894,6 +903,15 @@
                 const quantity = this.dataset.quantity;
                 const unit = this.dataset.unit;
                 editQuantity(relationshipId, quantity, unit);
+            });
+        });
+        
+        // Bind notes buttons
+        document.querySelectorAll('.btn-bind-notes').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const targetEntryId = this.dataset.entryId;
+                const targetEntryTitle = this.dataset.entryTitle;
+                showBindNotesModal(targetEntryId, targetEntryTitle);
             });
         });
     }
@@ -1476,6 +1494,11 @@
             return;
         }
         
+        // Get the related entry ID before deletion (for note binding cleanup)
+        const row = document.querySelector(`[data-relationship-id="${relationshipId}"]`)?.closest('tr');
+        const bindNotesBtn = row?.querySelector('.btn-bind-notes');
+        const relatedEntryId = bindNotesBtn ? bindNotesBtn.getAttribute('data-entry-id') : null;
+        
         try {
             const response = await fetch(`/api/relationships/${relationshipId}`, {
                 method: 'DELETE'
@@ -1483,6 +1506,44 @@
             
             if (!response.ok) {
                 throw new Error('Failed to delete relationship');
+            }
+            
+            // Clean up note binding if it exists for this entry
+            if (relatedEntryId) {
+                const entryIdInt = parseInt(relatedEntryId);
+                
+                // Check if there are any remaining relationships with this entry
+                try {
+                    // Call the cleanup API to remove note bindings if no relationships remain
+                    const cleanupResponse = await fetch('/api/note_bindings/cleanup', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            source_entry_id: entryId,
+                            target_entry_id: entryIdInt
+                        })
+                    });
+                    
+                    if (cleanupResponse.ok) {
+                        const cleanupResult = await cleanupResponse.json();
+                        
+                        if (cleanupResult.removed) {
+                            // Remove from local state
+                            noteBingingState.delete(entryIdInt);
+                            
+                            console.log(`Removed note binding for deleted relationship with entry ${entryTitle} (ID: ${entryIdInt})`);
+                            
+                            // Update button state if it still exists
+                            updateBindNotesButtonState(entryIdInt, false);
+                        } else {
+                            console.log(`Note binding automatically removed for ${entryTitle} since relationship was deleted`);
+                        }
+                    } else {
+                        console.error('Failed to cleanup note bindings:', cleanupResponse.statusText);
+                    }
+                } catch (cleanupError) {
+                    console.error('Error cleaning up note bindings:', cleanupError);
+                }
             }
             
             await loadRelationships();
@@ -2002,9 +2063,215 @@
         }
     };
     
+    // ========== Note Binding Functions ==========
+    
+    // Load note binding state from database
+    async function loadNoteBindingState() {
+        try {
+            const response = await fetch(`/api/note_bindings?entry_id=${entryId}`);
+            if (response.ok) {
+                const bindings = await response.json();
+                
+                // Clear existing state
+                noteBingingState.clear();
+                
+                // Populate state from database
+                bindings.forEach(binding => {
+                    if (binding.enabled) {
+                        noteBingingState.set(binding.target_entry_id, true);
+                    }
+                });
+                
+                // Update button states
+                noteBingingState.forEach((isEnabled, entryId) => {
+                    updateBindNotesButtonState(entryId, isEnabled);
+                });
+                
+                console.log('Loaded note binding state from database:', noteBingingState);
+            } else {
+                console.error('Failed to load note binding state:', response.statusText);
+                noteBingingState = new Map();
+            }
+        } catch (error) {
+            console.error('Error loading note binding state:', error);
+            noteBingingState = new Map();
+        }
+    }
+    
+    // Show Bind Notes Modal
+    function showBindNotesModal(targetEntryId, targetEntryTitle) {
+        const modalId = 'bindNotesModal_' + entryId;
+        
+        // Remove existing modal if it exists
+        const existingModal = document.getElementById(modalId);
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        const currentBindingState = noteBingingState.get(parseInt(targetEntryId)) || false;
+        
+        const modalHtml = `
+            <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}Label" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="${modalId}Label">
+                                <i class="fas fa-link me-2"></i>
+                                Bind Notes: ${escapeHtml(targetEntryTitle)}
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Note Binding:</strong> When enabled, any new notes created in this entry will automatically be associated with <strong>${escapeHtml(targetEntryTitle)}</strong>.
+                            </div>
+                            
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="bindNotesToggle_${modalId}" ${currentBindingState ? 'checked' : ''}>
+                                <label class="form-check-label" for="bindNotesToggle_${modalId}">
+                                    <strong>Enable automatic note binding to ${escapeHtml(targetEntryTitle)}</strong>
+                                </label>
+                            </div>
+                            
+                            <div class="border-top pt-3">
+                                <h6><i class="fas fa-question-circle me-2"></i>How it works:</h6>
+                                <ul class="small text-muted mb-0">
+                                    <li>When enabled, new notes in this entry will automatically include ${escapeHtml(targetEntryTitle)} in their associations</li>
+                                    <li>You can still manually add/remove associations when creating notes</li>
+                                    <li>This setting only affects new notes - existing notes are not changed</li>
+                                    <li>You can disable this at any time</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-primary" id="saveBindingBtn_${modalId}">
+                                <i class="fas fa-save me-1"></i>Save Setting
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById(modalId));
+        modal.show();
+        
+        // Add event listeners
+        const saveBtn = document.getElementById('saveBindingBtn_' + modalId);
+        const toggle = document.getElementById('bindNotesToggle_' + modalId);
+        
+        saveBtn.addEventListener('click', async function() {
+            const isEnabled = toggle.checked;
+            const originalText = saveBtn.innerHTML;
+            
+            try {
+                // Show loading state
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
+                
+                // Save to database via API
+                const response = await fetch('/api/note_bindings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        source_entry_id: entryId,
+                        target_entry_id: parseInt(targetEntryId),
+                        enabled: isEnabled
+                    })
+                });
+                
+                if (response.ok) {
+                    // Update local state
+                    noteBingingState.set(parseInt(targetEntryId), isEnabled);
+                    
+                    // Update UI feedback
+                    updateBindNotesButtonState(targetEntryId, isEnabled);
+                    
+                    // Show success message
+                    const alertHtml = `
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="fas fa-check-circle me-2"></i>
+                            Note binding ${isEnabled ? 'enabled' : 'disabled'} for ${escapeHtml(targetEntryTitle)}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    `;
+                    
+                    // Add alert to the page
+                    const alertContainer = document.querySelector('.container-fluid');
+                    if (alertContainer) {
+                        alertContainer.insertAdjacentHTML('afterbegin', alertHtml);
+                        
+                        // Auto-dismiss after 3 seconds
+                        setTimeout(() => {
+                            const alert = alertContainer.querySelector('.alert-success');
+                            if (alert) {
+                                alert.remove();
+                            }
+                        }, 3000);
+                    }
+                    
+                    // Close modal
+                    modal.hide();
+                    
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to save note binding');
+                }
+                
+            } catch (error) {
+                console.error('Error saving note binding:', error);
+                alert(`Error saving note binding: ${error.message}`);
+            } finally {
+                // Restore button state
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalText;
+            }
+        });
+        
+        // Clean up modal when closed
+        document.getElementById(modalId).addEventListener('hidden.bs.modal', function() {
+            this.remove();
+        });
+    }
+    
+    // Update bind notes button visual state
+    function updateBindNotesButtonState(targetEntryId, isEnabled) {
+        const button = document.querySelector(`[data-entry-id="${targetEntryId}"].btn-bind-notes`);
+        if (button) {
+            const icon = button.querySelector('i');
+            if (isEnabled) {
+                // Enabled state - solid blue button with link icon
+                button.classList.remove('btn-outline-primary');
+                button.classList.add('btn-primary');
+                button.title = 'Notes binding enabled - click to configure';
+                if (icon) {
+                    icon.classList.remove('fa-link');
+                    icon.classList.add('fa-link', 'fa-solid');
+                }
+            } else {
+                // Disabled state - outline button with link icon
+                button.classList.remove('btn-primary');
+                button.classList.add('btn-outline-primary');
+                button.title = 'Bind notes from this entry';
+                if (icon) {
+                    icon.classList.remove('fa-solid');
+                    icon.classList.add('fa-link');
+                }
+            }
+        }
+    }
+    
+    // ========== End Note Binding Functions ==========
+    
     // Initialize on load
     loadRelationships();
     setupTabListeners();
+    loadNoteBindingState();
     
     // Show reorder button when cards are loaded
     const observer = new MutationObserver(function(mutations) {
