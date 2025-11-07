@@ -125,8 +125,8 @@ def add_entry():
             (title, description, entry_type_id, intended_end_date, status, datetime.now(timezone.utc).isoformat())
         )
         conn.commit()
-        # Use main_bp.entry_detail_page because it's in a different blueprint
-        return jsonify({'message': 'Entry added successfully!', 'redirect': url_for('main.entry_detail_page', entry_id=cursor.lastrowid)}), 201
+        # Use main_bp.entry_detail_v2 because it's in a different blueprint (now the default view)
+        return jsonify({'message': 'Entry added successfully!', 'redirect': url_for('main.entry_detail_v2', entry_id=cursor.lastrowid)}), 201
     except Exception as e:
         logger.error(f"Error adding entry: {e}", exc_info=True)
         conn.rollback()

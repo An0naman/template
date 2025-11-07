@@ -130,8 +130,9 @@ def entries():
                            theme_css=generate_theme_css(),
                            theme_settings=get_current_theme_settings())
 
-@main_bp.route('/entry/<int:entry_id>')
+@main_bp.route('/entry/<int:entry_id>/v1')
 def entry_detail_page(entry_id):
+    """Legacy entry detail page (V1) - kept for backward compatibility"""
     from ..db import get_system_parameters # Import locally for function use
     from ..api.theme_api import generate_theme_css, get_current_theme_settings
     from ..services.entry_layout_service import EntryLayoutService
@@ -252,9 +253,9 @@ def entry_detail_page(entry_id):
                            theme_css=generate_theme_css(),
                            theme_settings=get_current_theme_settings())
 
-@main_bp.route('/entry/<int:entry_id>/v2')
+@main_bp.route('/entry/<int:entry_id>')
 def entry_detail_v2(entry_id):
-    """Alternative entry detail page using v2 template with dynamic layout"""
+    """Entry detail page using v2 template with dynamic layout (default view)"""
     from ..db import get_system_parameters
     from ..services.entry_layout_service import EntryLayoutService
     
