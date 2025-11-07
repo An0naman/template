@@ -716,6 +716,9 @@
     function displayNotes(notes) {
         notesList.innerHTML = '';
         
+        // Cache notes for image gallery access
+        window.notesCache = notes;
+        
         if (notes.length === 0) {
             noNotesMessage.textContent = 'No notes found.';
             notesList.appendChild(noNotesMessage);
@@ -994,7 +997,7 @@
                             fullPath = `/static/uploads/${imgPath}`;
                         }
                         const fileName = imgPath.split('/').pop();
-                        return `<img src="${fullPath}" alt="Attachment" style="height: 80px; width: 80px; object-fit: cover; border-radius: 4px; cursor: pointer;" onclick="openImageInModal('${fullPath}', '${fileName.replace(/'/g, "\\'")}')" title="Click to view full size">`;
+                        return `<img src="${fullPath}" alt="Attachment" style="height: 80px; width: 80px; object-fit: cover; border-radius: 4px; cursor: pointer;" onclick="openImageInModal('${fullPath}', '${fileName.replace(/'/g, "\\'")}', ${note.id})" title="Click to view full size">`;
                     }).join('')}
                     ${imageAttachments.length > 3 ? `<div class="d-flex align-items-center justify-content-center" style="height: 80px; width: 80px; background: #f0f0f0; border-radius: 4px;"><small class="text-muted">+${imageAttachments.length - 3} more</small></div>` : ''}
                 </div>
@@ -1100,7 +1103,7 @@
                                         <div class="col">
                                             <div class="card h-100">
                                                 ${isImage ? `
-                                                    <img src="${fullPath}" class="card-img-top" alt="${fileName}" style="height: 150px; object-fit: cover; cursor: pointer;" onclick="openImageInModal('${fullPath}', '${fileName.replace(/'/g, "\\'")}')" title="Click to enlarge">
+                                                    <img src="${fullPath}" class="card-img-top" alt="${fileName}" style="height: 150px; object-fit: cover; cursor: pointer;" onclick="openImageInModal('${fullPath}', '${fileName.replace(/'/g, "\\'")}', ${note.id})" title="Click to enlarge">
                                                 ` : ''}
                                                 <div class="card-body text-center p-2">
                                                     ${!isImage ? `<i class="${fileIcon} fa-2x mb-2"></i>` : ''}
@@ -1302,19 +1305,119 @@
         return noteTypeColors[noteType] || '#6c757d';
     }
     
-    function openImageViewer(imageSrc, imageTitle) {
-        // Open image in modal viewer
+    // Gallery state for image carousel
+    let currentImageGallery = [];
+    let currentImageIndex = 0;
+    
+    function openImageViewer(imageSrc, imageTitle, imageGallery = null, startIndex = 0) {
+        // Open image in modal viewer with optional gallery/carousel support
         const imageElement = document.getElementById('imageViewerImg');
         const titleElement = document.getElementById('imageViewerTitle');
+        const counterElement = document.getElementById('imageCounter');
+        const prevBtn = document.getElementById('imagePrevBtn');
+        const nextBtn = document.getElementById('imageNextBtn');
         
         if (imageElement && imageViewerModal) {
-            imageElement.src = imageSrc;
-            if (titleElement) {
-                titleElement.textContent = imageTitle || 'Image preview';
+            // Set up gallery if provided
+            if (imageGallery && Array.isArray(imageGallery) && imageGallery.length > 0) {
+                currentImageGallery = imageGallery;
+                currentImageIndex = startIndex;
+            } else {
+                // Single image mode
+                currentImageGallery = [{ src: imageSrc, title: imageTitle }];
+                currentImageIndex = 0;
             }
+            
+            // Display current image
+            displayCurrentImage();
+            
+            // Show/hide navigation buttons
+            if (currentImageGallery.length > 1) {
+                prevBtn.style.display = 'block';
+                nextBtn.style.display = 'block';
+                counterElement.textContent = `(${currentImageIndex + 1} of ${currentImageGallery.length})`;
+                
+                // Update button states
+                prevBtn.disabled = currentImageIndex === 0;
+                nextBtn.disabled = currentImageIndex === currentImageGallery.length - 1;
+            } else {
+                prevBtn.style.display = 'none';
+                nextBtn.style.display = 'none';
+                counterElement.textContent = '';
+            }
+            
             imageViewerModal.show();
+            
+            // Add click handler to modal body to close when clicking outside image
+            const modalBody = document.querySelector('#imageViewerModal .modal-body');
+            if (modalBody) {
+                const clickHandler = function(e) {
+                    if (e.target === modalBody) {
+                        imageViewerModal.hide();
+                    }
+                };
+                modalBody.addEventListener('click', clickHandler, { once: true });
+            }
         }
     }
+    
+    function displayCurrentImage() {
+        const imageElement = document.getElementById('imageViewerImg');
+        const titleElement = document.getElementById('imageViewerTitle');
+        const counterElement = document.getElementById('imageCounter');
+        const prevBtn = document.getElementById('imagePrevBtn');
+        const nextBtn = document.getElementById('imageNextBtn');
+        
+        if (currentImageGallery.length > 0 && currentImageIndex >= 0 && currentImageIndex < currentImageGallery.length) {
+            const currentImage = currentImageGallery[currentImageIndex];
+            imageElement.src = currentImage.src;
+            if (titleElement) {
+                titleElement.textContent = currentImage.title || 'Image preview';
+            }
+            
+            // Update counter
+            if (currentImageGallery.length > 1) {
+                counterElement.textContent = `(${currentImageIndex + 1} of ${currentImageGallery.length})`;
+                prevBtn.disabled = currentImageIndex === 0;
+                nextBtn.disabled = currentImageIndex === currentImageGallery.length - 1;
+            }
+        }
+    }
+    
+    function navigateImage(direction) {
+        if (direction === 'prev' && currentImageIndex > 0) {
+            currentImageIndex--;
+            displayCurrentImage();
+        } else if (direction === 'next' && currentImageIndex < currentImageGallery.length - 1) {
+            currentImageIndex++;
+            displayCurrentImage();
+        }
+    }
+    
+    // Wire up navigation buttons (on DOMContentLoaded, after modal initialization)
+    document.addEventListener('DOMContentLoaded', function() {
+        const prevBtn = document.getElementById('imagePrevBtn');
+        const nextBtn = document.getElementById('imageNextBtn');
+        
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => navigateImage('prev'));
+        }
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => navigateImage('next'));
+        }
+        
+        // Keyboard navigation (arrow keys)
+        document.addEventListener('keydown', function(e) {
+            const modalElement = document.getElementById('imageViewerModal');
+            if (modalElement && modalElement.classList.contains('show')) {
+                if (e.key === 'ArrowLeft') {
+                    navigateImage('prev');
+                } else if (e.key === 'ArrowRight') {
+                    navigateImage('next');
+                }
+            }
+        });
+    });
     
     function getReminderIndicator(reminder) {
         const reminderDate = new Date(reminder.scheduled_for);
@@ -1836,9 +1939,47 @@
     }
     
     // Expose image viewer function globally so it can be called from onclick attributes
-    window.openImageInModal = function(imageSrc, imageTitle) {
-        openImageViewer(imageSrc, imageTitle);
+    window.openImageInModal = function(imageSrc, imageTitle, noteId = null) {
+        // If noteId is provided, find all images in that note to create a gallery
+        let gallery = null;
+        let startIndex = 0;
+        
+        if (noteId !== null) {
+            const note = window.notesCache?.find(n => n.id === noteId);
+            if (note && note.file_paths) {
+                // Build gallery from all images in the note
+                gallery = note.file_paths
+                    .filter(filePath => {
+                        const fileExt = filePath.split('.').pop().toLowerCase();
+                        return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(fileExt);
+                    })
+                    .map(imgPath => {
+                        // Handle various path formats
+                        let fullPath;
+                        if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) {
+                            fullPath = imgPath;
+                        } else if (imgPath.startsWith('/static/')) {
+                            fullPath = imgPath;
+                        } else if (imgPath.startsWith('uploads/')) {
+                            fullPath = `/static/${imgPath}`;
+                        } else {
+                            fullPath = `/static/uploads/${imgPath}`;
+                        }
+                        const fileName = imgPath.split('/').pop();
+                        return { src: fullPath, title: fileName };
+                    });
+                
+                // Find the index of the clicked image
+                startIndex = gallery.findIndex(img => img.src === imageSrc);
+                if (startIndex === -1) startIndex = 0;
+            }
+        }
+        
+        openImageViewer(imageSrc, imageTitle, gallery, startIndex);
     };
+    
+    // Store notes in window for gallery access
+    window.notesCache = [];
     
 })();
 </script>
