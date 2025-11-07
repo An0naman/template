@@ -93,6 +93,47 @@
             gap: 0.25rem;
         }
 
+        /* Tabs Container */
+        .tabs-container {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            padding: 0.5rem;
+            background: var(--theme-bg-surface, var(--bs-secondary-bg));
+            border-radius: var(--border-radius);
+        }
+
+        .tab-item {
+            padding: 0.5rem 1rem;
+            background: var(--theme-bg-card, var(--bs-body-bg));
+            border: 2px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+        }
+
+        .tab-item:hover {
+            border-color: var(--theme-primary, var(--bs-primary));
+            background: var(--theme-bg-surface, var(--bs-secondary-bg));
+        }
+
+        .tab-item.active {
+            background: var(--theme-primary, var(--bs-primary));
+            color: white;
+            border-color: var(--theme-primary, var(--bs-primary));
+        }
+
+        .tab-item.tab-new {
+            border-style: dashed;
+            opacity: 0.7;
+        }
+
+        .tab-item.tab-new:hover {
+            opacity: 1;
+        }
+
         .section-body {
             flex: 1;
             display: flex;
@@ -237,6 +278,11 @@
 
             <!-- Layout Grid (Center) -->
             <div class="col-md-7 mb-3">
+                <!-- Tabs Container -->
+                <div class="tabs-container mb-3" id="tabsContainer">
+                    <!-- Tabs will be populated by JavaScript -->
+                </div>
+                
                 <div class="grid-stack" id="layoutGrid">
                     <!-- Sections will be added here -->
                 </div>

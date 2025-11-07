@@ -7,6 +7,8 @@ let currentLayout = null;
 let currentEntryType = null;
 let selectedSection = null;
 let availableSectionTypes = [];
+let currentTabs = [];
+let activeTab = 'main';
 
 // Section type icons mapping
 const SECTION_ICONS = {
@@ -106,6 +108,18 @@ async function loadLayout(entryTypeId) {
         }
         
         currentLayout = await response.json();
+        currentTabs = currentLayout.tabs || [];
+        
+        // Ensure active tab still exists, otherwise default to 'main'
+        const tabExists = currentTabs.some(t => t.tab_id === activeTab);
+        if (!tabExists && currentTabs.length > 0) {
+            activeTab = currentTabs[0].tab_id || 'main';
+        }
+        
+        // Render tabs UI
+        renderTabs();
+        
+        // Render layout for active tab
         renderLayout();
         
     } catch (error) {
@@ -123,8 +137,11 @@ function renderLayout() {
     // Clear grid
     gridStack.removeAll();
     
+    // Filter sections by active tab
+    const sectionsInTab = currentLayout.sections.filter(s => (s.tab_id || 'main') === activeTab);
+    
     // Add sections to grid
-    currentLayout.sections.forEach(section => {
+    sectionsInTab.forEach(section => {
         addSectionToGrid(section);
     });
 }
@@ -329,7 +346,7 @@ async function addSectionFromPalette(sectionType) {
     }
     
     try {
-        // Add section via API
+        // Add section via API - add to currently active tab
         const response = await fetch(`/api/entry-layouts/${currentLayout.id}/sections`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -339,7 +356,9 @@ async function addSectionFromPalette(sectionType) {
                 width: sectionTemplate.default_width,
                 height: sectionTemplate.default_height,
                 is_collapsible: sectionTemplate.is_collapsible,
-                config: sectionTemplate.default_config
+                config: sectionTemplate.default_config,
+                tab_id: activeTab,  // Add to currently active tab
+                tab_order: 999  // Add at the end
             })
         });
         
@@ -349,9 +368,13 @@ async function addSectionFromPalette(sectionType) {
         
         const result = await response.json();
         
-        showNotification(`Section "${sectionTemplate.default_title}" added`, 'success');
+        // Get the tab label for better notification
+        const currentTabObj = currentTabs.find(t => t.tab_id === activeTab);
+        const tabLabel = currentTabObj ? currentTabObj.tab_label : activeTab;
         
-        // Reload layout
+        showNotification(`Section "${sectionTemplate.default_title}" added to ${tabLabel} tab`, 'success');
+        
+        // Reload layout (which will stay on current tab)
         await loadLayout(currentLayout.entry_type_id);
         
     } catch (error) {
@@ -451,6 +474,18 @@ function renderSectionProperties(section) {
         </div>
         
         <div class="mb-3">
+            <label class="form-label">Tab</label>
+            <select class="form-select form-select-sm" id="sectionTabSelect">
+                ${currentTabs.map(tab => `
+                    <option value="${tab.tab_id}" ${section.tab_id === tab.tab_id ? 'selected' : ''}>
+                        ${tab.tab_label}
+                    </option>
+                `).join('')}
+            </select>
+            <small class="text-muted">Which tab this section appears on</small>
+        </div>
+        
+        <div class="mb-3">
             <label class="form-label">Position & Size</label>
             <div class="row g-2">
                 <div class="col-6">
@@ -518,6 +553,7 @@ async function saveSectionProperties() {
     
     const updates = {
         title: document.getElementById('sectionTitleInput').value,
+        tab_id: document.getElementById('sectionTabSelect').value,
         is_visible: document.getElementById('sectionVisibleSwitch').checked ? 1 : 0,
         is_collapsible: document.getElementById('sectionCollapsibleSwitch').checked ? 1 : 0,
         width: parseInt(document.getElementById('sectionWidthInput').value),
@@ -571,4 +607,146 @@ function clearSectionSelection() {
             Select a section to configure its properties
         </p>
     `;
+}
+
+// ============================================================================
+// Tab Management Functions
+// ============================================================================
+
+// Render tabs UI
+function renderTabs() {
+    const tabsContainer = document.getElementById('tabsContainer');
+    
+    if (!tabsContainer || !currentTabs || currentTabs.length === 0) {
+        return;
+    }
+    
+    tabsContainer.innerHTML = currentTabs.map(tab => `
+        <div class="tab-item ${tab.tab_id === activeTab ? 'active' : ''}" 
+             onclick="switchTab('${tab.tab_id}')">
+            <i class="fas ${tab.tab_icon || 'fa-folder'} me-2"></i>
+            <span>${tab.tab_label}</span>
+            ${tab.tab_id !== 'main' && editMode ? `
+                <button class="btn btn-sm btn-link p-0 ms-2 text-danger" 
+                        onclick="deleteTab(event, ${tab.id})" 
+                        title="Delete tab">
+                    <i class="fas fa-times"></i>
+                </button>
+            ` : ''}
+        </div>
+    `).join('');
+    
+    // Add "new tab" button in edit mode
+    if (editMode) {
+        tabsContainer.innerHTML += `
+            <div class="tab-item tab-new" onclick="showCreateTabModal()">
+                <i class="fas fa-plus me-2"></i>
+                <span>New Tab</span>
+            </div>
+        `;
+    }
+}
+
+// Switch active tab
+function switchTab(tabId) {
+    activeTab = tabId;
+    renderTabs();
+    renderLayout();
+}
+
+// Create new tab
+async function createTab(tabData) {
+    try {
+        const response = await fetch(`/api/entry-layouts/${currentLayout.id}/tabs`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(tabData)
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to create tab');
+        }
+        
+        showNotification('Tab created successfully', 'success');
+        
+        // Reload layout
+        await loadLayout(currentLayout.entry_type_id);
+        
+    } catch (error) {
+        console.error('Error creating tab:', error);
+        showNotification('Failed to create tab', 'error');
+    }
+}
+
+// Delete tab
+async function deleteTab(event, tabId) {
+    event.stopPropagation();
+    
+    if (!confirm('Delete this tab? All sections in this tab will be moved to the Overview tab.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/entry-layout-tabs/${tabId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to delete tab');
+        }
+        
+        showNotification('Tab deleted successfully', 'success');
+        
+        // Switch to main tab if deleted tab was active
+        const deletedTab = currentTabs.find(t => t.id === tabId);
+        if (deletedTab && deletedTab.tab_id === activeTab) {
+            activeTab = 'main';
+        }
+        
+        // Reload layout
+        await loadLayout(currentLayout.entry_type_id);
+        
+    } catch (error) {
+        console.error('Error deleting tab:', error);
+        showNotification('Failed to delete tab', 'error');
+    }
+}
+
+// Show create tab modal
+function showCreateTabModal() {
+    const tabLabel = prompt('Enter tab name:');
+    
+    if (!tabLabel || tabLabel.trim() === '') {
+        return;
+    }
+    
+    // Generate tab_id from label
+    const tabId = tabLabel.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+    
+    // Icon selection (simplified for now)
+    const iconOptions = {
+        'sensors': 'fa-thermometer-half',
+        'sensor': 'fa-thermometer-half',
+        'history': 'fa-history',
+        'timeline': 'fa-stream',
+        'data': 'fa-database',
+        'analytics': 'fa-chart-line',
+        'details': 'fa-info-circle',
+        'settings': 'fa-cog'
+    };
+    
+    let icon = 'fa-folder';
+    for (const [keyword, iconClass] of Object.entries(iconOptions)) {
+        if (tabLabel.toLowerCase().includes(keyword)) {
+            icon = iconClass;
+            break;
+        }
+    }
+    
+    createTab({
+        tab_id: tabId,
+        tab_label: tabLabel,
+        tab_icon: icon,
+        display_order: currentTabs.length
+    });
 }

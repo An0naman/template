@@ -378,3 +378,121 @@ def get_entry_type_info(entry_type_id):
     except Exception as e:
         logger.error(f"Error getting entry type info: {e}", exc_info=True)
         return jsonify({'error': 'Failed to get entry type info'}), 500
+
+
+# ============================================================================
+# Tab Management Endpoints
+# ============================================================================
+
+@entry_layout_api_bp.route('/entry-layouts/<int:layout_id>/tabs', methods=['GET'])
+def get_layout_tabs(layout_id):
+    """
+    Get all tabs for a layout.
+    """
+    try:
+        tabs = EntryLayoutService.get_tabs_for_layout(layout_id)
+        return jsonify(tabs), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting tabs for layout {layout_id}: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to get tabs'}), 500
+
+
+@entry_layout_api_bp.route('/entry-layouts/<int:layout_id>/tabs', methods=['POST'])
+def create_layout_tab(layout_id):
+    """
+    Create a new tab for a layout.
+    
+    Expected JSON body:
+    {
+        "tab_id": "sensors",  // unique identifier
+        "tab_label": "Sensor Data",  // display name
+        "tab_icon": "fa-thermometer-half",  // FontAwesome icon (optional)
+        "display_order": 1  // optional
+    }
+    """
+    try:
+        data = request.json
+        
+        if not data or 'tab_id' not in data or 'tab_label' not in data:
+            return jsonify({'error': 'tab_id and tab_label are required'}), 400
+        
+        tab_id = EntryLayoutService.create_tab(layout_id, data)
+        
+        if tab_id:
+            return jsonify({
+                'message': 'Tab created successfully',
+                'tab_id': tab_id
+            }), 201
+        else:
+            return jsonify({'error': 'Failed to create tab'}), 500
+        
+    except Exception as e:
+        logger.error(f"Error creating tab for layout {layout_id}: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to create tab'}), 500
+
+
+@entry_layout_api_bp.route('/entry-layout-tabs/<int:tab_id>', methods=['PUT'])
+def update_layout_tab(tab_id):
+    """
+    Update a tab's properties.
+    
+    Expected JSON body (all fields optional):
+    {
+        "tab_label": "New Label",
+        "tab_icon": "fa-new-icon",
+        "display_order": 2,
+        "is_visible": true
+    }
+    """
+    try:
+        data = request.json
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        success = EntryLayoutService.update_tab(tab_id, data)
+        
+        if success:
+            return jsonify({'message': 'Tab updated successfully'}), 200
+        else:
+            return jsonify({'error': 'Failed to update tab'}), 500
+        
+    except Exception as e:
+        logger.error(f"Error updating tab {tab_id}: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to update tab'}), 500
+
+
+@entry_layout_api_bp.route('/entry-layout-tabs/<int:tab_id>', methods=['DELETE'])
+def delete_layout_tab(tab_id):
+    """
+    Delete a tab. Sections in this tab will be moved to the 'main' tab.
+    Cannot delete the 'main' tab.
+    """
+    try:
+        success = EntryLayoutService.delete_tab(tab_id)
+        
+        if success:
+            return jsonify({'message': 'Tab deleted successfully'}), 200
+        else:
+            return jsonify({'error': 'Failed to delete tab'}), 500
+        
+    except Exception as e:
+        logger.error(f"Error deleting tab {tab_id}: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to delete tab'}), 500
+
+
+@entry_layout_api_bp.route('/entry-layouts/<int:layout_id>/sections-by-tab', methods=['GET'])
+def get_sections_by_tab(layout_id):
+    """
+    Get all sections organized by tab for a layout.
+    
+    Returns a dictionary with tab_id as keys and lists of sections as values.
+    """
+    try:
+        sections_by_tab = EntryLayoutService.get_sections_by_tab(layout_id)
+        return jsonify(sections_by_tab), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting sections by tab for layout {layout_id}: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to get sections by tab'}), 500

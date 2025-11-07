@@ -358,8 +358,114 @@
 <div class="container-fluid py-3">
     <!-- DEBUG: section_order = {{ section_order }} -->
     <!-- DEBUG: section_config keys = {{ section_config.keys()|list }} -->
+    <!-- DEBUG: tabs = {{ tabs }} -->
     
-    {# CSS Grid container for all sections #}
+    {% if tabs and tabs|length > 1 %}
+    {# Render tabs interface if multiple tabs exist #}
+    <ul class="nav nav-tabs mb-3" id="entryTabs" role="tablist">
+        {% for tab in tabs %}
+        {% if tab.is_visible %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if loop.first %}active{% endif %}" 
+                    id="tab-{{ tab.tab_id }}-tab" 
+                    data-bs-toggle="tab" 
+                    data-bs-target="#tab-{{ tab.tab_id }}" 
+                    type="button" 
+                    role="tab" 
+                    aria-controls="tab-{{ tab.tab_id }}" 
+                    aria-selected="{% if loop.first %}true{% else %}false{% endif %}">
+                <i class="fas {{ tab.tab_icon or 'fa-folder' }} me-2"></i>{{ tab.tab_label }}
+            </button>
+        </li>
+        {% endif %}
+        {% endfor %}
+    </ul>
+    
+    <div class="tab-content" id="entryTabsContent">
+        {% for tab in tabs %}
+        {% if tab.is_visible %}
+        <div class="tab-pane fade {% if loop.first %}show active{% endif %}" 
+             id="tab-{{ tab.tab_id }}" 
+             role="tabpanel" 
+             aria-labelledby="tab-{{ tab.tab_id }}-tab">
+            
+            {# CSS Grid container for sections in this tab #}
+            <div class="sections-grid" id="sectionsGrid-{{ tab.tab_id }}">
+                
+                {% set tab_sections = sections_by_tab.get(tab.tab_id, []) %}
+                {% for section in tab_sections %}
+                    {% set section_type = section.section_type %}
+                    {% set config = section_config.get(section_type, {}) %}
+                    
+                    {# Only render if visible #}
+                    {% if config.get('visible', True) %}
+                        
+                        <div class="section-wrapper {{ 'is-collapsible' if config.get('collapsible') else '' }} {{ 'collapsed' if config.get('collapsed') else '' }}" 
+                             id="{{ section_type }}SectionWrapper-{{ tab.tab_id }}"
+                             data-section-type="{{ section_type }}"
+                             data-x="{{ config.get('x', 0) }}"
+                             data-y="{{ config.get('y', 0) }}"
+                             data-width="{{ config.get('width', 12) }}"
+                             data-height="{{ config.get('height', 3) }}"
+                             data-collapsible="{{ 'true' if config.get('collapsible') else 'false' }}"
+                             style="grid-column: {{ config.get('x', 0) + 1 }} / span {{ config.get('width', 12) }}; grid-row: {{ config.get('y', 0) + 1 }} / span {{ config.get('height', 3) }};">
+                            
+                            {# Section container #}
+                            <div class="content-section theme-section"{% if config.get('max_height') %} style="max-height: {{ config.get('max_height') * 80 }}px; overflow-y: auto;"{% endif %}>
+                                <div class="section-content">
+                                        
+                                        {# Section header with title - Only show for non-header sections #}
+                                        {% if config.get('title') and section_type != 'header' %}
+                                        <div class="section-header mb-3">
+                                            <h4 class="section-title">{{ config.get('title') }}</h4>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {# Section-specific content based on type #}
+                                        {% if section_type == 'header' %}
+                                            {% include 'sections/_header_section.html' %}
+                                        {% elif section_type == 'notes' %}
+                                            {% include 'sections/_notes_section.html' %}
+                                        {% elif section_type == 'relationships' %}
+                                            {% include 'sections/_relationships_section.html' %}
+                                        {% elif section_type == 'labels' %}
+                                            {% include 'sections/_labels_section.html' %}
+                                        {% elif section_type == 'sensors' %}
+                                            {% include 'sections/_sensors_section.html' %}
+                                        {% elif section_type == 'reminders' %}
+                                            {% include 'sections/_reminders_section.html' %}
+                                        {% elif section_type == 'ai_assistant' %}
+                                            {% include 'sections/_ai_assistant_section.html' %}
+                                        {% elif section_type == 'attachments' %}
+                                            {% include 'sections/_attachments_section.html' %}
+                                        {% elif section_type == 'form_fields' %}
+                                            {% include 'sections/_form_fields_section.html' %}
+                                        {% elif section_type == 'qr_code' %}
+                                            {% include 'sections/_qr_code_section.html' %}
+                                        {% elif section_type == 'label_printing' %}
+                                            {% include 'sections/_label_printing_section.html' %}
+                                        {% elif section_type == 'relationship_opportunities' %}
+                                            {% include 'sections/_relationship_opportunities_section.html' %}
+                                        {% elif section_type == 'timeline' %}
+                                            {% include 'sections/_timeline_section.html' %}
+                                        {% endif %}
+                                
+                                </div>
+                            </div>
+                        </div>
+                        
+                    {% endif %}
+                {% endfor %}
+                
+            </div>
+            
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+    
+    {% else %}
+    {# Fallback: Single grid for single tab or no tabs #}
     <div class="sections-grid" id="sectionsGrid">
         
         {# Loop through all sections in order #}
@@ -442,6 +548,8 @@
             
         </div>
     </div>
+    {% endif %}
+    {# End of tabs conditional #}
 
 {# Include Sensor Data Modals #}
 {% include 'sections/_sensors_modals.html' %}

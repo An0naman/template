@@ -478,6 +478,10 @@ def entry_detail_v2(entry_id):
     print(f"DEBUG V2 Entry {entry_id} - section_config: {section_config}")
     print(f"DEBUG V2 Entry {entry_id} - relationships: {relationships_data['total_count']} total")
 
+    # Extract tabs and sections by tab
+    tabs = layout.get('tabs', []) if layout else []
+    sections_by_tab = layout.get('sections_by_tab', {}) if layout else {}
+    
     # Create response with cache-busting headers
     from flask import make_response
     response = make_response(render_template('entry_detail_v2.html',
@@ -486,6 +490,8 @@ def entry_detail_v2(entry_id):
                            section_config=section_config,
                            section_order=section_order,
                            section_rows=section_rows,
+                           tabs=tabs,
+                           sections_by_tab=sections_by_tab,
                            relationships=relationships_data,
                            allowed_file_types=params.get('allowed_file_types', 
                                'txt,pdf,png,jpg,jpeg,gif,webp,svg,doc,docx,xls,xlsx,ppt,pptx,mp4,avi,mov,wmv,flv,webm,mkv,mp3,wav,flac,aac,ogg,zip,rar,7z,tar,gz'),
