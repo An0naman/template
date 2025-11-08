@@ -1377,3 +1377,167 @@ def save_section_relationship_grid_order(section_id):
         conn.rollback()
         logger.error(f"Error saving relationship grid order for section {section_id}: {e}", exc_info=True)
         return jsonify({"error": f"An internal error occurred: {e}"}), 500
+
+
+# --- API Endpoints: Section-Level Relationship Preferences ---
+
+@relationships_api_bp.route('/section_relationship_preferences', methods=['GET'])
+def api_get_section_relationship_preferences():
+    """
+    Get section-level relationship preferences (filters and hidden cards).
+    Query Parameters:
+        - entry_type_id (required): The entry type ID
+        - section_id (required): The section definition ID from section_order
+    
+    Returns preferences for all relationship definitions in that section.
+    """
+    entry_type_id = request.args.get('entry_type_id', type=int)
+    section_id = request.args.get('section_id', type=int)
+    
+    if not entry_type_id or not section_id:
+        return jsonify({"error": "entry_type_id and section_id are required"}), 400
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            SELECT 
+                relationship_definition_id,
+                is_hidden,
+                filter_status_category,
+                filter_specific_states
+            FROM section_relationship_preferences
+            WHERE entry_type_id = ? AND section_id = ?
+        ''', (entry_type_id, section_id))
+        
+        rows = cursor.fetchall()
+        preferences = []
+        
+        for row in rows:
+            preferences.append({
+                'relationship_definition_id': row[0],
+                'is_hidden': bool(row[1]),
+                'filter_status_category': row[2] or '',
+                'filter_specific_states': row[3] or ''
+            })
+        
+        return jsonify(preferences), 200
+        
+    except Exception as e:
+        logger.error(f"Error fetching section relationship preferences: {e}", exc_info=True)
+        return jsonify({"error": f"An internal error occurred: {e}"}), 500
+
+
+@relationships_api_bp.route('/section_relationship_preferences', methods=['POST'])
+def api_save_section_relationship_preferences():
+    """
+    Save section-level relationship preference (filter or hidden state).
+    Request Body:
+        - entry_type_id (required): The entry type ID
+        - section_id (required): The section definition ID from section_order
+        - relationship_definition_id (required): The relationship definition ID
+        - is_hidden (optional): Whether the relationship card is hidden
+        - filter_status_category (optional): Status category filter
+        - filter_specific_states (optional): Specific states filter (comma-separated)
+    """
+    data = request.get_json()
+    
+    entry_type_id = data.get('entry_type_id')
+    section_id = data.get('section_id')
+    relationship_definition_id = data.get('relationship_definition_id')
+    is_hidden = data.get('is_hidden')
+    filter_status_category = data.get('filter_status_category', '')
+    filter_specific_states = data.get('filter_specific_states', '')
+    
+    if not all([entry_type_id, section_id, relationship_definition_id is not None]):
+        return jsonify({"error": "entry_type_id, section_id, and relationship_definition_id are required"}), 400
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Check if preference already exists
+        cursor.execute('''
+            SELECT id FROM section_relationship_preferences
+            WHERE entry_type_id = ? AND section_id = ? AND relationship_definition_id = ?
+        ''', (entry_type_id, section_id, relationship_definition_id))
+        
+        existing = cursor.fetchone()
+        
+        if existing:
+            # Update existing preference
+            update_parts = []
+            update_values = []
+            
+            if is_hidden is not None:
+                update_parts.append('is_hidden = ?')
+                update_values.append(int(is_hidden))
+            
+            if filter_status_category is not None:
+                update_parts.append('filter_status_category = ?')
+                update_values.append(filter_status_category)
+            
+            if filter_specific_states is not None:
+                update_parts.append('filter_specific_states = ?')
+                update_values.append(filter_specific_states)
+            
+            if update_parts:
+                update_parts.append('updated_at = CURRENT_TIMESTAMP')
+                update_values.extend([entry_type_id, section_id, relationship_definition_id])
+                
+                cursor.execute(f'''
+                    UPDATE section_relationship_preferences
+                    SET {', '.join(update_parts)}
+                    WHERE entry_type_id = ? AND section_id = ? AND relationship_definition_id = ?
+                ''', update_values)
+        else:
+            # Insert new preference
+            cursor.execute('''
+                INSERT INTO section_relationship_preferences
+                (entry_type_id, section_id, relationship_definition_id, is_hidden, 
+                 filter_status_category, filter_specific_states)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (entry_type_id, section_id, relationship_definition_id, 
+                  int(is_hidden) if is_hidden is not None else 0,
+                  filter_status_category, filter_specific_states))
+        
+        conn.commit()
+        return jsonify({'success': True, 'message': 'Preference saved successfully'}), 200
+        
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error saving section relationship preference: {e}", exc_info=True)
+        return jsonify({"error": f"An internal error occurred: {e}"}), 500
+
+
+@relationships_api_bp.route('/section_relationship_preferences/<int:relationship_definition_id>', methods=['DELETE'])
+def api_delete_section_relationship_preference(relationship_definition_id):
+    """
+    Delete section-level relationship preference (unhide or clear filters).
+    Query Parameters:
+        - entry_type_id (required): The entry type ID
+        - section_id (required): The section definition ID from section_order
+    """
+    entry_type_id = request.args.get('entry_type_id', type=int)
+    section_id = request.args.get('section_id', type=int)
+    
+    if not entry_type_id or not section_id:
+        return jsonify({"error": "entry_type_id and section_id are required"}), 400
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            DELETE FROM section_relationship_preferences
+            WHERE entry_type_id = ? AND section_id = ? AND relationship_definition_id = ?
+        ''', (entry_type_id, section_id, relationship_definition_id))
+        
+        conn.commit()
+        return jsonify({'success': True, 'message': 'Preference deleted successfully'}), 200
+        
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error deleting section relationship preference: {e}", exc_info=True)
+        return jsonify({"error": f"An internal error occurred: {e}"}), 500

@@ -434,9 +434,10 @@
 // Version: 2025-11-08 - Multi-Section Support with Unique IDs
 (function() {
     const entryId = {{ entry.id }};
-    const sectionId = '{{ section_id|default("default") }}';
+    const entryTypeId = {{ entry.entry_type_id }};
+    const sectionId = {{ section_id|default('null') }};  // Section definition ID from section_order
     const sectionUniqueId = '{{ section_unique_id }}';
-    const currentEntryTypeId = {{ entry.entry_type_id }};
+    const currentEntryTypeId = {{ entry.entry_type_id }};  // Keep for compatibility
     
     console.log('=== Relationships Section V2 Loaded - Section:', sectionUniqueId, '===');
     
@@ -799,6 +800,11 @@
     // Function to save filter preference for a relationship definition
     async function saveFilterPreference(definitionId) {
         try {
+            if (!sectionId) {
+                console.error('Section ID is required for saving preferences');
+                return;
+            }
+            
             // Get the container for this specific section instance
             const container = document.getElementById('groupedViewContainer' + sectionUniqueId);
             if (!container) return;
@@ -816,20 +822,21 @@
                     .join(',') : '';
             
             const preference = {
+                entry_type_id: entryTypeId,
+                section_id: sectionId,
                 relationship_definition_id: parseInt(definitionId),
-                section_id: sectionUniqueId,
-                status_category: '',  // No longer used but kept for backend compatibility
-                specific_state: selectedValues
+                filter_status_category: '',
+                filter_specific_states: selectedValues
             };
             
-            const response = await fetch('/api/relationship_filter_preferences', {
+            const response = await fetch('/api/section_relationship_preferences', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(preference)
             });
             
             if (response.ok) {
-                showNotification('Filter preference saved successfully', 'success');
+                showNotification('Filter preference saved for all entries of this type', 'success');
             } else {
                 throw new Error('Failed to save preference');
             }
@@ -839,10 +846,20 @@
         }
     }
     
-    // Function to load saved filter preferences
+    // Function to load saved filter preferences from section-level config
     async function loadFilterPreferences() {
         try {
-            const response = await fetch(`/api/relationship_filter_preferences?section_id=${sectionUniqueId}`);
+            if (!sectionId) {
+                console.warn('Section ID not available, skipping filter preferences load');
+                return;
+            }
+            
+            const response = await fetch(`/api/section_relationship_preferences?entry_type_id=${entryTypeId}&section_id=${sectionId}`);
+            if (!response.ok) {
+                console.warn('Failed to load filter preferences');
+                return;
+            }
+            
             const preferences = await response.json();
             
             // Get the container for this specific section instance
@@ -850,20 +867,15 @@
             if (!container) return;
             
             preferences.forEach(pref => {
-                // Only apply preferences that match this section
-                if (pref.section_id && pref.section_id !== sectionUniqueId) {
-                    return;
-                }
-                
                 // Scope the query to this section's container
                 const card = container.querySelector(`.relationship-type-card[data-definition-id="${pref.relationship_definition_id}"]`);
                 if (!card) return;
                 
                 const stateFilter = card.querySelector('.relationship-state-filter');
                 
-                if (stateFilter && pref.specific_state) {
+                if (stateFilter && pref.filter_specific_states) {
                     // Parse comma-separated values and select them
-                    const values = pref.specific_state.split(',').filter(v => v.trim());
+                    const values = pref.filter_specific_states.split(',').filter(v => v.trim());
                     if (values.length > 0) {
                         // Deselect all first
                         Array.from(stateFilter.options).forEach(option => {

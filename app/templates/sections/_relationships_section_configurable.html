@@ -330,7 +330,8 @@
 (function() {
     const sectionUid = '{{ section_uid }}';
     const entryId = {{ entry.id }};
-    const currentEntryTypeId = {{ entry.entry_type_id }};
+    const entryTypeId = {{ entry.entry_type_id }};
+    const sectionId = {{ section_id|default('null') }};  // Section definition ID from section_order
     
     // Section-level configuration
     const sectionConfig = {
@@ -427,7 +428,7 @@
             });
             
             // Render the cards
-            renderRelationshipCards(sortedDefinitions, groupedRelationships);
+            await renderRelationshipCards(sortedDefinitions, groupedRelationships);
             
             loadingEl.style.display = 'none';
             containerEl.style.display = 'block';
@@ -443,7 +444,7 @@
         }
     }
     
-    function renderRelationshipCards(definitions, groupedRelationships) {
+    async function renderRelationshipCards(definitions, groupedRelationships) {
         const container = document.getElementById('groupedViewContainer' + sectionUid);
         
         if (!container) {
@@ -558,8 +559,8 @@
         // Load and apply saved filter preferences
         loadFilterPreferences();
         
-        // Apply hidden cards from localStorage
-        applyHiddenCardsOnLoad();
+        // Apply hidden cards from database
+        await applyHiddenCardsOnLoad();
         
         // Initialize drag and drop functionality
         initializeDragAndDrop();
@@ -704,6 +705,11 @@
     // Function to save filter preference
     async function saveFilterPreference(definitionId) {
         try {
+            if (!sectionId) {
+                console.error('Section ID is required for saving preferences');
+                return;
+            }
+            
             const container = document.getElementById('groupedViewContainer' + sectionUid);
             if (!container) return;
             
@@ -718,20 +724,21 @@
                     .join(',') : '';
             
             const preference = {
+                entry_type_id: entryTypeId,
+                section_id: sectionId,
                 relationship_definition_id: parseInt(definitionId),
-                section_id: sectionUid,
-                status_category: '',
-                specific_state: selectedValues
+                filter_status_category: '',
+                filter_specific_states: selectedValues
             };
             
-            const response = await fetch('/api/relationship_filter_preferences', {
+            const response = await fetch('/api/section_relationship_preferences', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(preference)
             });
             
             if (response.ok) {
-                showNotification('Filter preference saved successfully', 'success');
+                showNotification('Filter preference saved for all entries of this type', 'success');
             } else {
                 throw new Error('Failed to save preference');
             }
@@ -741,32 +748,39 @@
         }
     }
     
-    // Function to load saved filter preferences
+    // Function to load saved filter preferences from section-level config
     async function loadFilterPreferences() {
         try {
-            const response = await fetch(`/api/relationship_filter_preferences?section_id=${sectionUid}`);
+            if (!sectionId) {
+                console.warn('Section ID not available, skipping filter preferences load');
+                return;
+            }
+            
+            const response = await fetch(`/api/section_relationship_preferences?entry_type_id=${entryTypeId}&section_id=${sectionId}`);
+            if (!response.ok) {
+                console.warn('Failed to load filter preferences');
+                return;
+            }
+            
             const preferences = await response.json();
             
             const container = document.getElementById('groupedViewContainer' + sectionUid);
             if (!container) return;
             
             preferences.forEach(pref => {
-                // Only apply preferences that match this section
-                if (pref.section_id && pref.section_id !== sectionUid) {
-                    return;
-                }
-                
                 const card = container.querySelector(`.relationship-type-card[data-definition-id="${pref.relationship_definition_id}"]`);
                 if (!card) return;
                 
                 const stateFilter = card.querySelector('.relationship-state-filter');
                 
-                if (stateFilter && pref.specific_state) {
-                    const values = pref.specific_state.split(',').filter(v => v.trim());
+                if (stateFilter && pref.filter_specific_states) {
+                    const values = pref.filter_specific_states.split(',').filter(v => v.trim());
                     if (values.length > 0) {
+                        // Deselect all first
                         Array.from(stateFilter.options).forEach(option => {
                             option.selected = false;
                         });
+                        // Select matching values
                         Array.from(stateFilter.options).forEach(option => {
                             if (values.includes(option.value)) {
                                 option.selected = true;
@@ -775,6 +789,7 @@
                     }
                 }
                 
+                // Apply the filter
                 applyFilters(pref.relationship_definition_id);
             });
         } catch (error) {
@@ -810,23 +825,35 @@
         });
     }
     
-    // ========== Hide/Show Card Functionality ==========
+    // ========== Hide/Show Card Functionality (SQL-backed) ==========
     
     // Function to hide a relationship card
     async function hideCard(definitionId) {
         try {
-            // Get current hidden cards list from localStorage
-            const storageKey = `hiddenCards_${sectionUid}`;
-            const hiddenCardsJson = localStorage.getItem(storageKey) || '[]';
-            const hiddenCards = JSON.parse(hiddenCardsJson);
-            
-            // Add this definition to hidden list if not already there
-            if (!hiddenCards.includes(parseInt(definitionId))) {
-                hiddenCards.push(parseInt(definitionId));
-                localStorage.setItem(storageKey, JSON.stringify(hiddenCards));
+            if (!sectionId) {
+                console.error('Section ID is required for hiding cards');
+                return;
             }
             
-            // Hide the card
+            // Save hidden state to database
+            const preference = {
+                entry_type_id: entryTypeId,
+                section_id: sectionId,
+                relationship_definition_id: parseInt(definitionId),
+                is_hidden: true
+            };
+            
+            const response = await fetch('/api/section_relationship_preferences', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(preference)
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to save hidden state');
+            }
+            
+            // Hide the card in UI
             const container = document.getElementById('groupedViewContainer' + sectionUid);
             if (!container) return;
             
@@ -839,7 +866,7 @@
             // Show the "Show Hidden" button
             updateHiddenCardsToggle();
             
-            showNotification('Relationship type hidden. Use "Show Hidden" button to restore.', 'info');
+            showNotification('Relationship type hidden for all entries of this type', 'info');
         } catch (error) {
             console.error('Error hiding card:', error);
             showNotification('Error hiding card: ' + error.message, 'danger');
@@ -918,19 +945,30 @@
     
     async function unhideCard(definitionId) {
         try {
-            // Get current hidden cards list
-            const storageKey = `hiddenCards_${sectionUid}`;
-            const hiddenCardsJson = localStorage.getItem(storageKey) || '[]';
-            const hiddenCards = JSON.parse(hiddenCardsJson);
-            
-            // Remove from hidden list
-            const index = hiddenCards.indexOf(parseInt(definitionId));
-            if (index > -1) {
-                hiddenCards.splice(index, 1);
-                localStorage.setItem(storageKey, JSON.stringify(hiddenCards));
+            if (!sectionId) {
+                console.error('Section ID is required for unhiding cards');
+                return;
             }
             
-            // Remove the manually-hidden class and show the card
+            // Update hidden state in database
+            const preference = {
+                entry_type_id: entryTypeId,
+                section_id: sectionId,
+                relationship_definition_id: parseInt(definitionId),
+                is_hidden: false
+            };
+            
+            const response = await fetch('/api/section_relationship_preferences', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(preference)
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to save unhidden state');
+            }
+            
+            // Remove the manually-hidden class and show the card in UI
             const container = document.getElementById('groupedViewContainer' + sectionUid);
             if (!container) return;
             
@@ -944,7 +982,7 @@
             // Update the "Show Hidden" button visibility
             updateHiddenCardsToggle();
             
-            showNotification('Relationship type unhidden', 'success');
+            showNotification('Relationship type unhidden for all entries of this type', 'success');
         } catch (error) {
             console.error('Error unhiding card:', error);
             showNotification('Error unhiding card: ' + error.message, 'danger');
@@ -952,9 +990,10 @@
     }
     
     function updateHiddenCardsToggle() {
-        const storageKey = `hiddenCards_${sectionUid}`;
-        const hiddenCardsJson = localStorage.getItem(storageKey) || '[]';
-        const hiddenCards = JSON.parse(hiddenCardsJson);
+        const container = document.getElementById('groupedViewContainer' + sectionUid);
+        if (!container) return;
+        
+        const hiddenCards = container.querySelectorAll('.manually-hidden-card');
         
         const toggleBtn = document.getElementById('toggleHiddenCards' + sectionUid);
         if (toggleBtn) {
@@ -962,24 +1001,40 @@
         }
     }
     
-    function applyHiddenCardsOnLoad() {
-        // Apply hidden cards from localStorage
-        const storageKey = `hiddenCards_${sectionUid}`;
-        const hiddenCardsJson = localStorage.getItem(storageKey) || '[]';
-        const hiddenCards = JSON.parse(hiddenCardsJson);
-        
-        const container = document.getElementById('groupedViewContainer' + sectionUid);
-        if (!container) return;
-        
-        hiddenCards.forEach(definitionId => {
-            const card = container.querySelector(`.relationship-type-card[data-definition-id="${definitionId}"]`);
-            if (card) {
-                card.classList.add('manually-hidden-card');
-                card.style.display = 'none';
+    async function applyHiddenCardsOnLoad() {
+        // Load hidden cards from database
+        try {
+            if (!sectionId) {
+                console.warn('Section ID not available, skipping hidden cards load');
+                return;
             }
-        });
-        
-        updateHiddenCardsToggle();
+            
+            const response = await fetch(`/api/section_relationship_preferences?entry_type_id=${entryTypeId}&section_id=${sectionId}`);
+            if (!response.ok) {
+                console.warn('Failed to load hidden card preferences');
+                return;
+            }
+            
+            const preferences = await response.json();
+            
+            const container = document.getElementById('groupedViewContainer' + sectionUid);
+            if (!container) return;
+            
+            // Apply hidden state to each card
+            preferences.forEach(pref => {
+                if (pref.is_hidden) {
+                    const card = container.querySelector(`.relationship-type-card[data-definition-id="${pref.relationship_definition_id}"]`);
+                    if (card) {
+                        card.classList.add('manually-hidden-card');
+                        card.style.display = 'none';
+                    }
+                }
+            });
+            
+            updateHiddenCardsToggle();
+        } catch (error) {
+            console.error('Error loading hidden cards:', error);
+        }
     }
     
     // ========== Grid Reordering Functionality ==========
