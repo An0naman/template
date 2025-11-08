@@ -373,13 +373,15 @@ def init_db():
             CREATE TABLE IF NOT EXISTS RelationshipGridOrder (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 entry_type_id INTEGER NOT NULL,
+                section_id INTEGER,
                 relationship_definition_id INTEGER NOT NULL,
                 display_order INTEGER NOT NULL DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (entry_type_id) REFERENCES EntryType(id) ON DELETE CASCADE,
+                FOREIGN KEY (section_id) REFERENCES EntryLayoutSection(id) ON DELETE CASCADE,
                 FOREIGN KEY (relationship_definition_id) REFERENCES RelationshipDefinition(id) ON DELETE CASCADE,
-                UNIQUE(entry_type_id, relationship_definition_id)
+                UNIQUE(entry_type_id, section_id, relationship_definition_id)
             );
         ''')
 

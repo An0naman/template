@@ -1229,8 +1229,8 @@ def save_relationship_grid_order(entry_type_id):
         conn = get_db()
         cursor = conn.cursor()
         
-        # Delete existing order preferences for this entry type
-        cursor.execute('DELETE FROM RelationshipGridOrder WHERE entry_type_id = ?', (entry_type_id,))
+        # Delete existing order preferences for this entry type (where section_id is NULL)
+        cursor.execute('DELETE FROM RelationshipGridOrder WHERE entry_type_id = ? AND section_id IS NULL', (entry_type_id,))
         
         # Insert new order preferences
         for item in order_list:
@@ -1240,8 +1240,8 @@ def save_relationship_grid_order(entry_type_id):
             if definition_id is not None and display_order is not None:
                 cursor.execute('''
                     INSERT OR REPLACE INTO RelationshipGridOrder 
-                    (entry_type_id, relationship_definition_id, display_order, updated_at)
-                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                    (entry_type_id, section_id, relationship_definition_id, display_order, updated_at)
+                    VALUES (?, NULL, ?, ?, CURRENT_TIMESTAMP)
                 ''', (entry_type_id, definition_id, display_order))
         
         conn.commit()
@@ -1250,4 +1250,104 @@ def save_relationship_grid_order(entry_type_id):
     except Exception as e:
         conn.rollback()
         logger.error(f"Error saving relationship grid order for entry type {entry_type_id}: {e}", exc_info=True)
+        return jsonify({"error": f"An internal error occurred: {e}"}), 500
+
+
+@relationships_api_bp.route('/sections/<int:section_id>/relationship_grid_order', methods=['GET'])
+def get_section_relationship_grid_order(section_id):
+    """Get the custom grid order for relationship cards for a specific section"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # First get the section's entry_type_id
+        cursor.execute('''
+            SELECT etl.entry_type_id
+            FROM EntryLayoutSection els
+            JOIN EntryTypeLayout etl ON els.layout_id = etl.id
+            WHERE els.id = ?
+        ''', (section_id,))
+        
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({"error": "Section not found"}), 404
+        
+        entry_type_id = row['entry_type_id']
+        
+        # Try to get section-specific order first
+        cursor.execute('''
+            SELECT relationship_definition_id, display_order
+            FROM RelationshipGridOrder
+            WHERE section_id = ?
+            ORDER BY display_order
+        ''', (section_id,))
+        
+        rows = cursor.fetchall()
+        
+        # If no section-specific order, fall back to entry-type level order
+        if not rows:
+            cursor.execute('''
+                SELECT relationship_definition_id, display_order
+                FROM RelationshipGridOrder
+                WHERE entry_type_id = ? AND section_id IS NULL
+                ORDER BY display_order
+            ''', (entry_type_id,))
+            rows = cursor.fetchall()
+        
+        order_map = {row['relationship_definition_id']: row['display_order'] for row in rows}
+        
+        return jsonify(order_map), 200
+    except Exception as e:
+        logger.error(f"Error getting relationship grid order for section {section_id}: {e}", exc_info=True)
+        return jsonify({"error": f"An internal error occurred: {e}"}), 500
+
+
+@relationships_api_bp.route('/sections/<int:section_id>/relationship_grid_order', methods=['POST'])
+def save_section_relationship_grid_order(section_id):
+    """Save the custom grid order for relationship cards for a specific section"""
+    try:
+        data = request.get_json()
+        order_list = data.get('order', [])
+        
+        if not isinstance(order_list, list):
+            return jsonify({'success': False, 'error': 'Invalid order format'}), 400
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Get the section's entry_type_id
+        cursor.execute('''
+            SELECT etl.entry_type_id
+            FROM EntryLayoutSection els
+            JOIN EntryTypeLayout etl ON els.layout_id = etl.id
+            WHERE els.id = ?
+        ''', (section_id,))
+        
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'success': False, 'error': 'Section not found'}), 404
+        
+        entry_type_id = row['entry_type_id']
+        
+        # Delete existing order preferences for this section
+        cursor.execute('DELETE FROM RelationshipGridOrder WHERE section_id = ?', (section_id,))
+        
+        # Insert new order preferences
+        for item in order_list:
+            definition_id = item.get('definition_id')
+            display_order = item.get('order')
+            
+            if definition_id is not None and display_order is not None:
+                cursor.execute('''
+                    INSERT OR REPLACE INTO RelationshipGridOrder 
+                    (entry_type_id, section_id, relationship_definition_id, display_order, updated_at)
+                    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ''', (entry_type_id, section_id, definition_id, display_order))
+        
+        conn.commit()
+        return jsonify({'success': True, 'message': 'Section grid order saved successfully'}), 200
+        
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error saving relationship grid order for section {section_id}: {e}", exc_info=True)
         return jsonify({"error": f"An internal error occurred: {e}"}), 500

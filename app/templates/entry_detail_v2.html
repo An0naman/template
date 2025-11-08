@@ -461,7 +461,7 @@
                                         {% elif section_type == 'notes' %}
                                             {% with section_id=section.id %}{% include 'sections/_notes_section.html' %}{% endwith %}
                                         {% elif section_type == 'relationships' %}
-                                            {% with section_id=section.id %}{% include 'sections/_relationships_section.html' %}{% endwith %}
+                                            {% with section_id=section.id, section_config=section.config %}{% include 'sections/_relationships_section_configurable.html' %}{% endwith %}
                                         {% elif section_type == 'labels' %}
                                             {% with section_id=section.id %}{% include 'sections/_labels_section.html' %}{% endwith %}
                                         {% elif section_type == 'sensors' %}
