@@ -19,29 +19,30 @@ def get_available_models():
         import google.generativeai as genai
         
         # List of available Gemini models with metadata
+        # Updated for Gemini 2.x series (current as of 2025)
         models = [
             {
-                'id': 'gemini-1.5-flash',
-                'name': 'Gemini 1.5 Flash',
+                'id': 'gemini-2.5-flash',
+                'name': 'Gemini 2.5 Flash',
                 'description': 'Fast and efficient - Best for most use cases',
                 'recommended': True
             },
             {
-                'id': 'gemini-1.5-flash-8b',
-                'name': 'Gemini 1.5 Flash 8B',
-                'description': 'Fastest and most cost-effective',
-                'recommended': False
-            },
-            {
-                'id': 'gemini-1.5-pro',
-                'name': 'Gemini 1.5 Pro',
+                'id': 'gemini-2.5-pro',
+                'name': 'Gemini 2.5 Pro',
                 'description': 'Most capable - Advanced reasoning',
                 'recommended': False
             },
             {
-                'id': 'gemini-1.5-pro-002',
-                'name': 'Gemini 1.5 Pro (Latest)',
-                'description': 'Latest Pro version with improvements',
+                'id': 'gemini-2.0-flash',
+                'name': 'Gemini 2.0 Flash',
+                'description': 'Stable flash model',
+                'recommended': False
+            },
+            {
+                'id': 'gemini-flash-latest',
+                'name': 'Gemini Flash (Latest)',
+                'description': 'Auto-updates to latest flash model',
                 'recommended': False
             }
         ]
