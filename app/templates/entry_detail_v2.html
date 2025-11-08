@@ -555,7 +555,7 @@
                                 {% elif section_type == 'notes' %}
                                     {% include 'sections/_notes_section.html' %}
                                 {% elif section_type == 'relationships' %}
-                                    {% include 'sections/_relationships_section_v2.html' %}
+                                    {% with section_id=section.id %}{% include 'sections/_relationships_section_v2.html' %}{% endwith %}
                                 {% elif section_type == 'labels' %}
                                     <h5>Labels Section</h5>
                                     <p class="text-muted">Labels content will go here</p>

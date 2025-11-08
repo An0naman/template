@@ -31,6 +31,14 @@
         <i class="fas fa-eye me-1"></i>
         <span class="toggle-text">Show Empty</span>
       </button>
+      <button id="toggleHiddenCards{{ section_uid }}" 
+              class="btn btn-sm btn-outline-info" 
+              onclick="toggleHiddenCards{{ section_uid }}()"
+              title="Show/hide manually hidden relationship types"
+              style="display: none;">
+        <i class="fas fa-eye me-1"></i>
+        <span class="toggle-text">Show Hidden</span>
+      </button>
     </div>
   </div>
 
@@ -290,6 +298,31 @@
     margin-bottom: 1rem;
     display: block;
 }
+
+/* Multi-select dropdown styling */
+.relationship-state-filter[multiple] {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 16px 12px;
+    padding-right: 2.25rem;
+    overflow-y: auto;
+}
+
+[data-bs-theme="dark"] .relationship-state-filter[multiple] {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23dee2e6' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+}
+
+.relationship-state-filter[multiple]:focus {
+    height: auto !important;
+    max-height: 400px;
+    min-height: 31px;
+}
+
+.relationship-type-card .card-header {
+    position: relative;
+    z-index: 10;
+}
 </style>
 
 <script>
@@ -454,7 +487,29 @@
                             <h6 class="mb-0">${escapeHtml(displayLabel || def.name)}</h6>
                             <span class="badge bg-secondary">${relationships.length}</span>
                         </div>
-                        <div class="d-flex gap-2 align-items-center">
+                        <div class="d-flex gap-2 align-items-center flex-wrap">
+                            <select class="form-select form-select-sm relationship-state-filter" 
+                                    data-definition-id="${def.id}"
+                                    multiple
+                                    style="width: auto; min-width: 180px; height: 31px;"
+                                    title="Filter by status (Ctrl+Click for multiple)">
+                                <option value="">All Status</option>
+                                <option value="active">✓ Active (Ongoing)</option>
+                                <option value="inactive">✕ Inactive (Completed)</option>
+                                <optgroup label="Specific Status">
+                                    <!-- Will be populated dynamically -->
+                                </optgroup>
+                            </select>
+                            <button class="btn btn-sm btn-outline-secondary btn-save-filter" 
+                                    data-definition-id="${def.id}"
+                                    title="Save current filter as default for this relationship type">
+                                <i class="fas fa-save"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary btn-hide-card" 
+                                    data-definition-id="${def.id}"
+                                    title="Hide this relationship type in this section">
+                                <i class="fas fa-eye-slash"></i>
+                            </button>
                             <button class="btn btn-sm btn-primary" 
                                     onclick="openAddRelationshipModal${sectionUid}(${def.id}, '${escapeHtml(displayLabel || def.name)}')"
                                     ${!canAddMore ? 'disabled' : ''}
@@ -492,13 +547,32 @@
             reorderBtn.style.display = 'block';
         }
         
+        // Attach event listeners for filters
+        attachEventListeners();
+        
+        // Load states for each relationship definition's filter dropdown
+        definitions.forEach(def => {
+            loadStatesForDefinition(def.id);
+        });
+        
+        // Load and apply saved filter preferences
+        loadFilterPreferences();
+        
+        // Apply hidden cards from localStorage
+        applyHiddenCardsOnLoad();
+        
         // Initialize drag and drop functionality
         initializeDragAndDrop();
     }
     
     function renderRelationshipRow(rel, def) {
+        const statusCategory = rel.related_entry_status_category || 'active';
+        const statusName = rel.related_entry_status || '';
+        
         return `
-            <tr>
+            <tr class="relationship-item-row"
+                data-status-category="${statusCategory}" 
+                data-status="${statusName.toLowerCase()}">
                 <td>
                     <a href="/entry/${rel.related_entry_id}" class="text-decoration-none">
                         <span class="badge" style="background-color: ${rel.related_entry_status_color};">
@@ -523,6 +597,389 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+    
+    // ========== Filter Functionality ==========
+    
+    // Function to apply filters
+    function applyFilters(definitionId) {
+        const container = document.getElementById('groupedViewContainer' + sectionUid);
+        if (!container) return;
+        
+        const card = container.querySelector(`.relationship-type-card[data-definition-id="${definitionId}"]`);
+        if (!card) return;
+        
+        const stateFilter = card.querySelector('.relationship-state-filter');
+        const selectedValues = stateFilter ? Array.from(stateFilter.selectedOptions).map(opt => opt.value) : [];
+        
+        const rows = card.querySelectorAll('.relationship-item-row');
+        rows.forEach(row => {
+            const rowCategory = row.dataset.statusCategory || 'active';
+            const rowState = (row.dataset.status || '').toLowerCase();
+            
+            // If "All Status" is selected or nothing selected, show all rows
+            if (selectedValues.length === 0 || selectedValues.includes('')) {
+                row.style.display = '';
+                return;
+            }
+            
+            // Check if row matches any of the selected filters
+            let matches = false;
+            
+            // Check for category matches (active/inactive)
+            if (selectedValues.includes('active') && rowCategory === 'active') {
+                matches = true;
+            }
+            if (selectedValues.includes('inactive') && rowCategory === 'inactive') {
+                matches = true;
+            }
+            
+            // Check for specific state match
+            if (selectedValues.includes(rowState)) {
+                matches = true;
+            }
+            
+            row.style.display = matches ? '' : 'none';
+        });
+    }
+    
+    // Function to load available states for a relationship definition
+    async function loadStatesForDefinition(definitionId) {
+        try {
+            const def = relationshipDefinitions.find(d => d.id == definitionId);
+            if (!def) return;
+            
+            const isFromSide = def.entry_type_id_from === currentEntryTypeId;
+            const targetTypeId = isFromSide ? def.entry_type_id_to : def.entry_type_id_from;
+            
+            // Fetch states for the target entry type
+            const response = await fetch(`/api/entry_types/${targetTypeId}/states`);
+            const states = await response.json();
+            
+            const container = document.getElementById('groupedViewContainer' + sectionUid);
+            if (!container) return;
+            
+            const card = container.querySelector(`.relationship-type-card[data-definition-id="${definitionId}"]`);
+            if (!card) return;
+            
+            const stateSelect = card.querySelector('.relationship-state-filter');
+            if (!stateSelect) return;
+            
+            const optgroup = stateSelect.querySelector('optgroup');
+            if (!optgroup) return;
+            
+            optgroup.innerHTML = '';
+            
+            // Group states by category
+            const activeStates = states.filter(s => s.category === 'active');
+            const inactiveStates = states.filter(s => s.category === 'inactive');
+            
+            // Add active states
+            if (activeStates.length > 0) {
+                activeStates.sort((a, b) => a.name.localeCompare(b.name)).forEach(state => {
+                    const option = document.createElement('option');
+                    option.value = state.name.toLowerCase();
+                    option.textContent = `✓ ${state.name}`;
+                    option.dataset.category = 'active';
+                    optgroup.appendChild(option);
+                });
+            }
+            
+            // Add inactive states
+            if (inactiveStates.length > 0) {
+                inactiveStates.sort((a, b) => a.name.localeCompare(b.name)).forEach(state => {
+                    const option = document.createElement('option');
+                    option.value = state.name.toLowerCase();
+                    option.textContent = `✕ ${state.name}`;
+                    option.dataset.category = 'inactive';
+                    optgroup.appendChild(option);
+                });
+            }
+            
+        } catch (error) {
+            console.error('Error loading states for definition:', error);
+        }
+    }
+    
+    // Function to save filter preference
+    async function saveFilterPreference(definitionId) {
+        try {
+            const container = document.getElementById('groupedViewContainer' + sectionUid);
+            if (!container) return;
+            
+            const card = container.querySelector(`.relationship-type-card[data-definition-id="${definitionId}"]`);
+            if (!card) return;
+            
+            const stateFilter = card.querySelector('.relationship-state-filter');
+            const selectedValues = stateFilter ? 
+                Array.from(stateFilter.selectedOptions)
+                    .map(opt => opt.value)
+                    .filter(val => val !== '')
+                    .join(',') : '';
+            
+            const preference = {
+                relationship_definition_id: parseInt(definitionId),
+                section_id: sectionUid,
+                status_category: '',
+                specific_state: selectedValues
+            };
+            
+            const response = await fetch('/api/relationship_filter_preferences', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(preference)
+            });
+            
+            if (response.ok) {
+                showNotification('Filter preference saved successfully', 'success');
+            } else {
+                throw new Error('Failed to save preference');
+            }
+        } catch (error) {
+            console.error('Error saving filter preference:', error);
+            showNotification('Error saving preference: ' + error.message, 'danger');
+        }
+    }
+    
+    // Function to load saved filter preferences
+    async function loadFilterPreferences() {
+        try {
+            const response = await fetch(`/api/relationship_filter_preferences?section_id=${sectionUid}`);
+            const preferences = await response.json();
+            
+            const container = document.getElementById('groupedViewContainer' + sectionUid);
+            if (!container) return;
+            
+            preferences.forEach(pref => {
+                // Only apply preferences that match this section
+                if (pref.section_id && pref.section_id !== sectionUid) {
+                    return;
+                }
+                
+                const card = container.querySelector(`.relationship-type-card[data-definition-id="${pref.relationship_definition_id}"]`);
+                if (!card) return;
+                
+                const stateFilter = card.querySelector('.relationship-state-filter');
+                
+                if (stateFilter && pref.specific_state) {
+                    const values = pref.specific_state.split(',').filter(v => v.trim());
+                    if (values.length > 0) {
+                        Array.from(stateFilter.options).forEach(option => {
+                            option.selected = false;
+                        });
+                        Array.from(stateFilter.options).forEach(option => {
+                            if (values.includes(option.value)) {
+                                option.selected = true;
+                            }
+                        });
+                    }
+                }
+                
+                applyFilters(pref.relationship_definition_id);
+            });
+        } catch (error) {
+            console.error('Error loading filter preferences:', error);
+        }
+    }
+    
+    function attachEventListeners() {
+        const container = document.getElementById('groupedViewContainer' + sectionUid);
+        if (!container) return;
+        
+        // State filter dropdowns
+        container.querySelectorAll('.relationship-state-filter').forEach(filter => {
+            filter.addEventListener('change', function() {
+                applyFilters(this.dataset.definitionId);
+            });
+        });
+        
+        // Save filter buttons
+        container.querySelectorAll('.btn-save-filter').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const definitionId = this.dataset.definitionId;
+                await saveFilterPreference(definitionId);
+            });
+        });
+        
+        // Hide card buttons
+        container.querySelectorAll('.btn-hide-card').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const definitionId = this.dataset.definitionId;
+                await hideCard(definitionId);
+            });
+        });
+    }
+    
+    // ========== Hide/Show Card Functionality ==========
+    
+    // Function to hide a relationship card
+    async function hideCard(definitionId) {
+        try {
+            // Get current hidden cards list from localStorage
+            const storageKey = `hiddenCards_${sectionUid}`;
+            const hiddenCardsJson = localStorage.getItem(storageKey) || '[]';
+            const hiddenCards = JSON.parse(hiddenCardsJson);
+            
+            // Add this definition to hidden list if not already there
+            if (!hiddenCards.includes(parseInt(definitionId))) {
+                hiddenCards.push(parseInt(definitionId));
+                localStorage.setItem(storageKey, JSON.stringify(hiddenCards));
+            }
+            
+            // Hide the card
+            const container = document.getElementById('groupedViewContainer' + sectionUid);
+            if (!container) return;
+            
+            const card = container.querySelector(`.relationship-type-card[data-definition-id="${definitionId}"]`);
+            if (card) {
+                card.classList.add('manually-hidden-card');
+                card.style.display = 'none';
+            }
+            
+            // Show the "Show Hidden" button
+            updateHiddenCardsToggle();
+            
+            showNotification('Relationship type hidden. Use "Show Hidden" button to restore.', 'info');
+        } catch (error) {
+            console.error('Error hiding card:', error);
+            showNotification('Error hiding card: ' + error.message, 'danger');
+        }
+    }
+    
+    // Function to toggle visibility of hidden cards
+    window['toggleHiddenCards' + sectionUid] = function() {
+        const container = document.getElementById('groupedViewContainer' + sectionUid);
+        if (!container) return;
+        
+        const hiddenCards = container.querySelectorAll('.manually-hidden-card');
+        const toggleBtn = document.getElementById('toggleHiddenCards' + sectionUid);
+        const toggleText = toggleBtn.querySelector('.toggle-text');
+        const toggleIcon = toggleBtn.querySelector('i');
+        
+        // Check current state
+        const isHidden = Array.from(hiddenCards).some(card => card.style.display === 'none');
+        
+        hiddenCards.forEach(card => {
+            if (isHidden) {
+                // Show the card
+                card.style.display = 'block';
+                // Add an "unhide" button to the card
+                addUnhideButton(card);
+            } else {
+                // Hide the card again
+                card.style.display = 'none';
+                // Remove the unhide button
+                removeUnhideButton(card);
+            }
+        });
+        
+        // Update button text
+        if (isHidden) {
+            toggleText.textContent = 'Hide Hidden';
+            toggleIcon.classList.remove('fa-eye');
+            toggleIcon.classList.add('fa-eye-slash');
+        } else {
+            toggleText.textContent = 'Show Hidden';
+            toggleIcon.classList.remove('fa-eye-slash');
+            toggleIcon.classList.add('fa-eye');
+        }
+    };
+    
+    function addUnhideButton(card) {
+        const definitionId = card.dataset.definitionId;
+        const header = card.querySelector('.card-header');
+        if (!header) return;
+        
+        // Check if button already exists
+        if (header.querySelector('.btn-unhide-card')) return;
+        
+        const buttonGroup = header.querySelector('.d-flex.gap-2');
+        if (!buttonGroup) return;
+        
+        const unhideBtn = document.createElement('button');
+        unhideBtn.className = 'btn btn-sm btn-success btn-unhide-card';
+        unhideBtn.dataset.definitionId = definitionId;
+        unhideBtn.title = 'Unhide this relationship type';
+        unhideBtn.innerHTML = '<i class="fas fa-eye"></i> Unhide';
+        unhideBtn.addEventListener('click', async function() {
+            await unhideCard(definitionId);
+        });
+        
+        // Insert at the beginning of the button group
+        buttonGroup.insertBefore(unhideBtn, buttonGroup.firstChild);
+    }
+    
+    function removeUnhideButton(card) {
+        const unhideBtn = card.querySelector('.btn-unhide-card');
+        if (unhideBtn) {
+            unhideBtn.remove();
+        }
+    }
+    
+    async function unhideCard(definitionId) {
+        try {
+            // Get current hidden cards list
+            const storageKey = `hiddenCards_${sectionUid}`;
+            const hiddenCardsJson = localStorage.getItem(storageKey) || '[]';
+            const hiddenCards = JSON.parse(hiddenCardsJson);
+            
+            // Remove from hidden list
+            const index = hiddenCards.indexOf(parseInt(definitionId));
+            if (index > -1) {
+                hiddenCards.splice(index, 1);
+                localStorage.setItem(storageKey, JSON.stringify(hiddenCards));
+            }
+            
+            // Remove the manually-hidden class and show the card
+            const container = document.getElementById('groupedViewContainer' + sectionUid);
+            if (!container) return;
+            
+            const card = container.querySelector(`.relationship-type-card[data-definition-id="${definitionId}"]`);
+            if (card) {
+                card.classList.remove('manually-hidden-card');
+                card.style.display = 'block';
+                removeUnhideButton(card);
+            }
+            
+            // Update the "Show Hidden" button visibility
+            updateHiddenCardsToggle();
+            
+            showNotification('Relationship type unhidden', 'success');
+        } catch (error) {
+            console.error('Error unhiding card:', error);
+            showNotification('Error unhiding card: ' + error.message, 'danger');
+        }
+    }
+    
+    function updateHiddenCardsToggle() {
+        const storageKey = `hiddenCards_${sectionUid}`;
+        const hiddenCardsJson = localStorage.getItem(storageKey) || '[]';
+        const hiddenCards = JSON.parse(hiddenCardsJson);
+        
+        const toggleBtn = document.getElementById('toggleHiddenCards' + sectionUid);
+        if (toggleBtn) {
+            toggleBtn.style.display = hiddenCards.length > 0 ? 'inline-block' : 'none';
+        }
+    }
+    
+    function applyHiddenCardsOnLoad() {
+        // Apply hidden cards from localStorage
+        const storageKey = `hiddenCards_${sectionUid}`;
+        const hiddenCardsJson = localStorage.getItem(storageKey) || '[]';
+        const hiddenCards = JSON.parse(hiddenCardsJson);
+        
+        const container = document.getElementById('groupedViewContainer' + sectionUid);
+        if (!container) return;
+        
+        hiddenCards.forEach(definitionId => {
+            const card = container.querySelector(`.relationship-type-card[data-definition-id="${definitionId}"]`);
+            if (card) {
+                card.classList.add('manually-hidden-card');
+                card.style.display = 'none';
+            }
+        });
+        
+        updateHiddenCardsToggle();
     }
     
     // ========== Grid Reordering Functionality ==========

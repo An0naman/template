@@ -1132,20 +1132,39 @@ def get_relationship_hierarchy(entry_id):
 
 @relationships_api_bp.route('/relationship_filter_preferences', methods=['GET'])
 def get_relationship_filter_preferences():
-    """Get all relationship filter preferences"""
+    """Get all relationship filter preferences (optionally filtered by section_id)"""
     try:
+        section_id = request.args.get('section_id')
         from ..db import get_user_preference
         preferences_json = get_user_preference('relationship_filters', '{}')
         preferences_dict = json.loads(preferences_json) if preferences_json else {}
         
         # Convert dict to array format expected by frontend
         preferences_array = []
-        for def_id, pref_data in preferences_dict.items():
-            preferences_array.append({
-                'relationship_definition_id': int(def_id),
-                'status_category': pref_data.get('status_category', ''),
-                'specific_state': pref_data.get('specific_state', '')
-            })
+        for key, pref_data in preferences_dict.items():
+            # Key format: "def_id" or "section_id:def_id"
+            if ':' in key:
+                # Section-specific preference
+                pref_section_id, def_id = key.split(':', 1)
+                # If section_id filter is provided, only return matching preferences
+                if section_id and pref_section_id != section_id:
+                    continue
+                preferences_array.append({
+                    'relationship_definition_id': int(def_id),
+                    'section_id': pref_section_id,
+                    'status_category': pref_data.get('status_category', ''),
+                    'specific_state': pref_data.get('specific_state', '')
+                })
+            else:
+                # Global preference (backward compatibility)
+                # Only return if no section_id filter or section_id is 'default'
+                if not section_id or section_id == 'default':
+                    preferences_array.append({
+                        'relationship_definition_id': int(key),
+                        'section_id': None,
+                        'status_category': pref_data.get('status_category', ''),
+                        'specific_state': pref_data.get('specific_state', '')
+                    })
         
         return jsonify(preferences_array), 200
     except Exception as e:
@@ -1155,11 +1174,12 @@ def get_relationship_filter_preferences():
 
 @relationships_api_bp.route('/relationship_filter_preferences', methods=['POST'])
 def save_relationship_filter_preference():
-    """Save a relationship filter preference for a specific definition"""
+    """Save a relationship filter preference for a specific definition and section"""
     try:
         data = request.get_json()
         # Accept both 'definition_id' and 'relationship_definition_id' for compatibility
         definition_id = data.get('relationship_definition_id') or data.get('definition_id')
+        section_id = data.get('section_id')
         status_category = data.get('status_category', '')
         specific_state = data.get('specific_state', '')
         
@@ -1172,8 +1192,14 @@ def save_relationship_filter_preference():
         preferences_json = get_user_preference('relationship_filters', '{}')
         preferences = json.loads(preferences_json) if preferences_json else {}
         
-        # Update the preference for this definition
-        preferences[str(definition_id)] = {
+        # Create key: "section_id:def_id" for section-specific, or just "def_id" for global
+        if section_id:
+            pref_key = f"{section_id}:{definition_id}"
+        else:
+            pref_key = str(definition_id)
+        
+        # Update the preference for this definition (and section if specified)
+        preferences[pref_key] = {
             'status_category': status_category,
             'specific_state': specific_state
         }
