@@ -21,7 +21,7 @@ class ThemeManager {
             
             // Section styling
             sectionStyles: {
-                borderStyle: 'rounded',
+                borderStyle: 'none',
                 spacing: 'normal',
                 background: 'subtle',
                 animation: 'none',
@@ -907,7 +907,7 @@ class ThemeManager {
             customLightMode: {},
             customDarkMode: {},
             sectionStyles: {
-                borderStyle: 'rounded',
+                borderStyle: 'none',
                 spacing: 'normal',
                 background: 'subtle',
                 animation: 'none',

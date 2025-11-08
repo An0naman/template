@@ -1,7 +1,10 @@
 from flask import Blueprint, request, jsonify, render_template, session, g, current_app
 import sqlite3
 import json
+import logging
 from datetime import datetime, time
+
+logger = logging.getLogger(__name__)
 
 def is_dark_mode_time(start_time_str, end_time_str):
     """
@@ -144,7 +147,8 @@ def handle_theme_settings():
                 # Validate section styles
                 if section_styles:
                     # Support both camelCase (from JS) and snake_case (from DB)
-                    border_style = section_styles.get('border_style') or section_styles.get('borderStyle', 'none')
+                    # Prioritize camelCase (current UI value) over snake_case (might be old data)
+                    border_style = section_styles.get('borderStyle') or section_styles.get('border_style', 'none')
                     spacing = section_styles.get('spacing', 'normal')
                     background = section_styles.get('background', 'subtle')
                     animation = section_styles.get('animation', 'none')
@@ -152,7 +156,13 @@ def handle_theme_settings():
                     pattern = section_styles.get('pattern', 'none')
                     decoration = section_styles.get('decoration', 'none')
                     
+                    # Debug logging
+                    logger.info(f"Section styles received: {section_styles}")
+                    logger.info(f"Border style extracted: '{border_style}' (type: {type(border_style).__name__})")
+                    logger.info(f"Valid border styles: {valid_section_border_styles}")
+                    
                     if border_style not in valid_section_border_styles:
+                        logger.error(f"Border style validation failed: '{border_style}' not in {valid_section_border_styles}")
                         return jsonify({'error': 'Invalid section border style selected'}), 400
                     if spacing not in valid_section_spacing:
                         return jsonify({'error': 'Invalid section spacing selected'}), 400
