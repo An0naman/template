@@ -1287,10 +1287,13 @@
                 
                 if (!response.ok) throw new Error('Failed to save AI settings');
                 
-                displayStatus('aiStatusMessage', 'AI settings saved successfully!', 'alert-success');
+                // AI service is automatically reconfigured by the API
+                displayStatus('aiStatusMessage', '✅ AI settings saved and applied successfully! No restart required.', 'alert-success');
                 
                 // Update AI service status after saving
-                checkAiServiceStatus();
+                setTimeout(() => {
+                    checkAiServiceStatus();
+                }, 500);
                 
             } catch (error) {
                 displayStatus('aiStatusMessage', 'Failed to save AI settings: ' + error.message, 'alert-danger');

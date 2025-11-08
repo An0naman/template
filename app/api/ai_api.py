@@ -76,6 +76,32 @@ def ai_status():
         'service': 'Google Gemini' if ai_service.is_available() else 'Not configured'
     })
 
+@ai_api_bp.route('/ai/reconfigure', methods=['POST'])
+def reconfigure_ai():
+    """Force reconfiguration of AI service (useful after settings change)"""
+    try:
+        ai_service = get_ai_service()
+        success = ai_service.reconfigure()
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'AI service successfully reconfigured',
+                'available': True
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'AI service reconfiguration failed - check API key configuration',
+                'available': False
+            })
+    except Exception as e:
+        logger.error(f"Error reconfiguring AI service: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @ai_api_bp.route('/ai/generate_description', methods=['POST'])
 def generate_description():
     """Generate description for an entry"""

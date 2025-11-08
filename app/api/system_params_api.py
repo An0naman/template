@@ -28,6 +28,8 @@ def api_update_system_params():
     conn = get_db()
     cursor = conn.cursor()
     updated_count = 0
+    ai_params_updated = False
+    
     try:
         # Allowed parameter prefixes/names
         allowed_params = [
@@ -40,6 +42,10 @@ def api_update_system_params():
         ]
         
         for param_name, param_value in data.items():
+            # Track if AI-related parameters are being updated
+            if param_name in ['gemini_api_key', 'gemini_model_name', 'gemini_base_prompt']:
+                ai_params_updated = True
+            
             # Allow any parameter in the whitelist OR any parameter starting with 'label_'
             if param_name in allowed_params or param_name.startswith('label_'):
                 cursor.execute(
@@ -56,6 +62,17 @@ def api_update_system_params():
                     )
                     updated_count += 1
         conn.commit()
+        
+        # If AI parameters were updated, reconfigure the AI service
+        if ai_params_updated:
+            try:
+                from app.services.ai_service import get_ai_service
+                ai_service = get_ai_service()
+                ai_service.reconfigure()
+                logger.info("AI service reconfigured after parameter update")
+            except Exception as e:
+                logger.warning(f"Could not reconfigure AI service: {e}")
+        
         return jsonify({'message': f'{updated_count} parameters updated successfully!'}), 200
     except Exception as e:
         logger.error(f"Error updating system parameters: {e}", exc_info=True)

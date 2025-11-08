@@ -19,6 +19,8 @@ class AIService:
     def __init__(self):
         self.model = None
         self.is_configured = False
+        self._last_api_key = None
+        self._last_model_name = None
         self._configure()
     
     def _configure(self):
@@ -48,22 +50,39 @@ class AIService:
             
             if not api_key:
                 logger.warning("GEMINI_API_KEY not found in environment or system parameters. AI features will be disabled.")
+                self.is_configured = False
+                self.model = None
+                self._last_api_key = None
+                self._last_model_name = None
                 return
             
-            genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel(model_name)
-            self.is_configured = True
-            logger.info(f"Gemini AI successfully configured with model: {model_name}")
+            # Check if configuration has changed
+            config_changed = (api_key != self._last_api_key or model_name != self._last_model_name)
+            
+            if config_changed or not self.is_configured:
+                genai.configure(api_key=api_key)
+                self.model = genai.GenerativeModel(model_name)
+                self.is_configured = True
+                self._last_api_key = api_key
+                self._last_model_name = model_name
+                logger.info(f"Gemini AI successfully configured with model: {model_name}")
             
         except Exception as e:
             logger.error(f"Failed to configure Gemini AI: {str(e)}")
             self.is_configured = False
+            self.model = None
+    
+    def reconfigure(self):
+        """Force reconfiguration of the AI service (useful when settings change)"""
+        logger.info("Forcing AI service reconfiguration...")
+        self._configure()
+        return self.is_configured
     
     def is_available(self) -> bool:
         """Check if AI service is available and configured"""
-        # If not currently configured, try to reconfigure (picks up system parameter changes)
-        if not self.is_configured:
-            self._configure()
+        # Always try to reconfigure to pick up any system parameter changes
+        # This is lightweight if nothing changed
+        self._configure()
         return self.is_configured and self.model is not None
     
     def _get_base_prompt(self) -> str:
