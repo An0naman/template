@@ -12,6 +12,60 @@ logger = logging.getLogger(__name__)
 
 ai_api_bp = Blueprint('ai_api', __name__)
 
+@ai_api_bp.route('/ai/models', methods=['GET'])
+def get_available_models():
+    """Get list of available Gemini models"""
+    try:
+        import google.generativeai as genai
+        
+        # List of available Gemini models with metadata
+        models = [
+            {
+                'id': 'gemini-1.5-flash',
+                'name': 'Gemini 1.5 Flash',
+                'description': 'Fast and efficient - Best for most use cases',
+                'recommended': True
+            },
+            {
+                'id': 'gemini-1.5-flash-8b',
+                'name': 'Gemini 1.5 Flash 8B',
+                'description': 'Fastest and most cost-effective',
+                'recommended': False
+            },
+            {
+                'id': 'gemini-1.5-pro',
+                'name': 'Gemini 1.5 Pro',
+                'description': 'Most capable - Advanced reasoning',
+                'recommended': False
+            },
+            {
+                'id': 'gemini-1.5-pro-002',
+                'name': 'Gemini 1.5 Pro (Latest)',
+                'description': 'Latest Pro version with improvements',
+                'recommended': False
+            }
+        ]
+        
+        return jsonify({
+            'models': models,
+            'default': 'gemini-1.5-flash'
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to fetch models: {str(e)}")
+        # Fallback to static list if API call fails
+        return jsonify({
+            'models': [
+                {
+                    'id': 'gemini-1.5-flash',
+                    'name': 'Gemini 1.5 Flash',
+                    'description': 'Fast and efficient',
+                    'recommended': True
+                }
+            ],
+            'default': 'gemini-1.5-flash'
+        })
+
 @ai_api_bp.route('/ai/status', methods=['GET'])
 def ai_status():
     """Check if AI service is available"""

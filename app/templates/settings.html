@@ -198,17 +198,21 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="geminiModelName" class="form-label">
-                                    <i class="fas fa-brain me-1"></i>Gemini Model Name:
+                                    <i class="fas fa-brain me-1"></i>Gemini Model:
                                 </label>
-                                <input type="text" class="form-control" id="geminiModelName" 
-                                       value="{{ params.gemini_model_name if params.gemini_model_name else 'gemini-1.5-flash' }}" 
-                                       placeholder="gemini-1.5-flash">
-                                <small class="text-muted">
-                                    Current models: gemini-1.5-flash (fast), gemini-1.5-pro (advanced)
-                                    <br><a href="https://ai.google.dev/gemini-api/docs/models/gemini" target="_blank" class="text-decoration-none">
-                                        View available models <i class="fas fa-external-link-alt"></i>
-                                    </a>
+                                <select class="form-select" id="geminiModelName">
+                                    <option value="">Loading models...</option>
+                                </select>
+                                <small class="text-muted" id="modelDescription">
+                                    Select a Gemini AI model for content generation
                                 </small>
+                                <div class="mt-1">
+                                    <small class="text-muted">
+                                        <a href="https://ai.google.dev/gemini-api/docs/models/gemini" target="_blank" class="text-decoration-none">
+                                            View all models documentation <i class="fas fa-external-link-alt"></i>
+                                        </a>
+                                    </small>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -1600,6 +1604,60 @@
         }
 
         // AI Service functions
+        async function loadAvailableModels() {
+            try {
+                const response = await fetch('/api/ai/models');
+                const data = await response.json();
+                
+                const selectElement = document.getElementById('geminiModelName');
+                const currentValue = selectElement.value || '{{ params.gemini_model_name if params.gemini_model_name else "gemini-1.5-flash" }}';
+                
+                // Clear existing options
+                selectElement.innerHTML = '';
+                
+                // Populate with available models
+                data.models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.id;
+                    option.textContent = model.name + (model.recommended ? ' (Recommended)' : '');
+                    option.dataset.description = model.description;
+                    
+                    // Set selected if it matches current value
+                    if (model.id === currentValue) {
+                        option.selected = true;
+                        updateModelDescription(model.description);
+                    }
+                    
+                    selectElement.appendChild(option);
+                });
+                
+                // If no model was selected (invalid model name), select default
+                if (!selectElement.value) {
+                    selectElement.value = data.default;
+                    const selectedOption = selectElement.options[selectElement.selectedIndex];
+                    if (selectedOption) {
+                        updateModelDescription(selectedOption.dataset.description);
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error loading models:', error);
+                // Fallback to basic options
+                const selectElement = document.getElementById('geminiModelName');
+                selectElement.innerHTML = `
+                    <option value="gemini-1.5-flash" selected>Gemini 1.5 Flash (Recommended)</option>
+                    <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                `;
+            }
+        }
+        
+        function updateModelDescription(description) {
+            const descElement = document.getElementById('modelDescription');
+            if (descElement && description) {
+                descElement.innerHTML = `<i class="fas fa-info-circle me-1"></i>${description}`;
+            }
+        }
+        
         async function checkAiServiceStatus() {
             try {
                 const response = await fetch('/api/ai/status');
@@ -1652,6 +1710,15 @@
         // Check AI service status on page load
         document.addEventListener('DOMContentLoaded', function() {
             checkAiServiceStatus();
+            loadAvailableModels();
+            
+            // Update description when model selection changes
+            document.getElementById('geminiModelName').addEventListener('change', function(e) {
+                const selectedOption = e.target.options[e.target.selectedIndex];
+                if (selectedOption && selectedOption.dataset.description) {
+                    updateModelDescription(selectedOption.dataset.description);
+                }
+            });
         });
     </script>
     <script src="{{ url_for('static', filename='global-theme-manager.js') }}"></script>
