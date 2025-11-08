@@ -1,7 +1,10 @@
 {# Relationships Section for Entry Detail V2 #}
+{# Expected context: section_id (unique identifier for this section instance) #}
+{% set section_uid = section_id|default('default') %}
 
 <div class="content-section relationships-section" 
      data-section-type="relationships"
+     data-section-id="{{ section_uid }}"
      data-entry-id="{{ entry.id }}">
   
   <!-- Section Header -->
@@ -14,16 +17,16 @@
   </div>
 
   <!-- Section Content -->
-  <div class="section-content" id="relatedRecordsContainer{{ entry.id }}">
+  <div class="section-content" id="relatedRecordsContainer-{{ section_uid }}">
     
     {% if relationships.total_count > 0 %}
       <!-- View Tabs -->
       <ul class="nav nav-tabs relationships-tabs" role="tablist">
         <li class="nav-item">
           <button class="nav-link active" 
-                  id="all-tab-btn"
+                  id="all-tab-btn-{{ section_uid }}"
                   data-bs-toggle="tab" 
-                  data-bs-target="#all-tab"
+                  data-bs-target="#all-tab-{{ section_uid }}"
                   type="button"
                   role="tab">
             <i class="fas fa-link"></i> 
@@ -32,9 +35,9 @@
         </li>
         <li class="nav-item">
           <button class="nav-link" 
-                  id="hierarchy-tab-btn"
+                  id="hierarchy-tab-btn-{{ section_uid }}"
                   data-bs-toggle="tab" 
-                  data-bs-target="#hierarchy-tab"
+                  data-bs-target="#hierarchy-tab-{{ section_uid }}"
                   type="button"
                   role="tab">
             <i class="fas fa-sitemap"></i> 
@@ -48,9 +51,9 @@
         
         <!-- All Relationships Tab -->
         <div class="tab-pane fade show active" 
-             id="all-tab" 
+             id="all-tab-{{ section_uid }}" 
              role="tabpanel"
-             aria-labelledby="all-tab-btn">
+             aria-labelledby="all-tab-btn-{{ section_uid }}">
           
           <div class="relationships-grouped">
             
@@ -100,18 +103,18 @@
 
         <!-- Hierarchy Tab -->
         <div class="tab-pane fade" 
-             id="hierarchy-tab" 
+             id="hierarchy-tab-{{ section_uid }}" 
              role="tabpanel"
-             aria-labelledby="hierarchy-tab-btn">
+             aria-labelledby="hierarchy-tab-btn-{{ section_uid }}">
           
-          <div id="hierarchy-loading" class="text-center py-4">
+          <div id="hierarchy-loading-{{ section_uid }}" class="text-center py-4">
             <div class="spinner-border text-primary" role="status">
               <span class="visually-hidden">Loading...</span>
             </div>
             <p class="mt-2 text-muted">Loading hierarchy...</p>
           </div>
           
-          <div id="hierarchy-content" style="display: none;">
+          <div id="hierarchy-content-{{ section_uid }}" style="display: none;">
             <!-- Will be populated via JavaScript -->
           </div>
           
@@ -126,7 +129,7 @@
         <p class="text-muted">Create your first relationship to connect this entry with others.</p>
         <button class="btn btn-primary" 
                 data-bs-toggle="modal" 
-                data-bs-target="#addRelationshipModal{{ entry.id }}">
+                data-bs-target="#addRelationshipModal-{{ section_uid }}">
           <i class="fas fa-plus"></i> Add First Relationship
         </button>
       </div>
@@ -136,13 +139,15 @@
 </div>
 
 <!-- Add Relationship Modal -->
-{% include 'modals/_add_relationship_modal.html' %}
+{% with modal_id=section_uid %}
+  {% include 'modals/_add_relationship_modal.html' %}
+{% endwith %}
 
 <!-- Initialize relationship section JavaScript -->
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     if (typeof initializeRelationshipsSection === 'function') {
-      initializeRelationshipsSection({{ entry.id }});
+      initializeRelationshipsSection({{ entry.id }}, '{{ section_uid }}');
     }
   });
 </script>

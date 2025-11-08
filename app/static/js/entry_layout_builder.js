@@ -151,12 +151,25 @@ function addSectionToGrid(sectionData) {
     const icon = SECTION_ICONS[sectionData.section_type] || 'fa-square';
     const visibilityClass = !sectionData.is_visible ? 'hidden-section' : '';
     
+    // Count how many sections of this type exist (for instance numbering)
+    const sameSectionTypes = currentLayout.sections.filter(s => 
+        s.section_type === sectionData.section_type && 
+        (s.tab_id || 'main') === (sectionData.tab_id || 'main')
+    );
+    const instanceNumber = sameSectionTypes.length > 1 ? 
+        sameSectionTypes.findIndex(s => s.id === sectionData.id) + 1 : 
+        null;
+    
+    const displayTitle = instanceNumber ? 
+        `${sectionData.title} #${instanceNumber}` : 
+        sectionData.title;
+    
     const content = `
         <div class="layout-section ${visibilityClass}" data-section-id="${sectionData.id}">
             <div class="section-header">
                 <div class="section-title">
                     <i class="fas ${icon}"></i>
-                    <span>${sectionData.title}</span>
+                    <span>${displayTitle}</span>
                     <span class="badge section-type-badge bg-secondary">${sectionData.section_type}</span>
                 </div>
                 <div class="section-actions">
@@ -327,13 +340,6 @@ async function resetLayout() {
 async function addSectionFromPalette(sectionType) {
     if (!editMode) {
         showNotification('Enable edit mode first', 'warning');
-        return;
-    }
-    
-    // Check if section already exists
-    const existingSection = currentLayout.sections.find(s => s.section_type === sectionType);
-    if (existingSection) {
-        showNotification('This section already exists in the layout', 'warning');
         return;
     }
     

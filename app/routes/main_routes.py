@@ -345,7 +345,8 @@ def entry_detail_v2(entry_id):
                 section_rows.append(row_sections)
         
         # Build section_order from the sorted visible sections
-        section_order = [s['section_type'] for s in visible_sections]
+        # Changed to pass full section objects to support multiple instances of same type
+        section_order = visible_sections
     
     # Get relationship data for the relationships section
     relationships_data = {}

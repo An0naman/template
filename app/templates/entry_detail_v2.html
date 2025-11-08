@@ -360,6 +360,26 @@
     <!-- DEBUG: section_config keys = {{ section_config.keys()|list }} -->
     <!-- DEBUG: tabs = {{ tabs }} -->
     
+    {# Collect all collapsible sections for toggle buttons #}
+    {% set all_collapsible_sections = [] %}
+    {% if tabs and tabs|length > 0 %}
+        {% for tab in tabs %}
+            {% if tab.is_visible %}
+                {% set tab_sections = sections_by_tab.get(tab.tab_id, []) %}
+                {% for section in tab_sections %}
+                    {% if section.is_visible and section.is_collapsible and section.section_type != 'header' %}
+                        {% set _ = all_collapsible_sections.append({
+                            'id': section.id,
+                            'type': section.section_type,
+                            'title': section.title,
+                            'tab_id': tab.tab_id
+                        }) %}
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+    
     {% if tabs and tabs|length > 1 %}
     {# Render tabs interface if multiple tabs exist #}
     <ul class="nav nav-tabs mb-3" id="entryTabs" role="tablist">
@@ -393,61 +413,75 @@
             <div class="sections-grid" id="sectionsGrid-{{ tab.tab_id }}">
                 
                 {% set tab_sections = sections_by_tab.get(tab.tab_id, []) %}
+                
+                {# Collect collapsible sections for this specific tab #}
+                {% set tab_collapsible_sections = [] %}
+                {% for sect in tab_sections %}
+                    {% if sect.is_visible and sect.is_collapsible and sect.section_type != 'header' %}
+                        {% set _ = tab_collapsible_sections.append({
+                            'id': sect.id,
+                            'type': sect.section_type,
+                            'title': sect.title,
+                            'tab_id': tab.tab_id
+                        }) %}
+                    {% endif %}
+                {% endfor %}
+                
                 {% for section in tab_sections %}
                     {% set section_type = section.section_type %}
-                    {% set config = section_config.get(section_type, {}) %}
                     
                     {# Only render if visible #}
-                    {% if config.get('visible', True) %}
+                    {% if section.is_visible %}
                         
-                        <div class="section-wrapper {{ 'is-collapsible' if config.get('collapsible') else '' }} {{ 'collapsed' if config.get('collapsed') else '' }}" 
-                             id="{{ section_type }}SectionWrapper-{{ tab.tab_id }}"
+                        <div class="section-wrapper {{ 'is-collapsible' if section.is_collapsible else '' }} {{ 'collapsed' if section.default_collapsed else '' }}" 
+                             id="section-{{ section.id }}-{{ tab.tab_id }}"
+                             data-section-id="{{ section.id }}"
                              data-section-type="{{ section_type }}"
-                             data-x="{{ config.get('x', 0) }}"
-                             data-y="{{ config.get('y', 0) }}"
-                             data-width="{{ config.get('width', 12) }}"
-                             data-height="{{ config.get('height', 3) }}"
-                             data-collapsible="{{ 'true' if config.get('collapsible') else 'false' }}"
-                             style="grid-column: {{ config.get('x', 0) + 1 }} / span {{ config.get('width', 12) }}; grid-row: {{ config.get('y', 0) + 1 }} / span {{ config.get('height', 3) }};">
+                             data-x="{{ section.position_x }}"
+                             data-y="{{ section.position_y }}"
+                             data-width="{{ section.width }}"
+                             data-height="{{ section.height }}"
+                             data-collapsible="{{ 'true' if section.is_collapsible else 'false' }}"
+                             style="grid-column: {{ section.position_x + 1 }} / span {{ section.width }}; grid-row: {{ section.position_y + 1 }} / span {{ section.height }};">
                             
                             {# Section container #}
-                            <div class="content-section theme-section"{% if config.get('max_height') %} style="max-height: {{ config.get('max_height') * 80 }}px; overflow-y: auto;"{% endif %}>
+                            <div class="content-section theme-section"{% if section.config.get('max_height') %} style="max-height: {{ section.config.get('max_height') * 80 }}px; overflow-y: auto;"{% endif %}>
                                 <div class="section-content">
                                         
                                         {# Section header with title - Only show for non-header sections #}
-                                        {% if config.get('title') and section_type != 'header' %}
+                                        {% if section.title and section_type != 'header' %}
                                         <div class="section-header mb-3">
-                                            <h4 class="section-title">{{ config.get('title') }}</h4>
+                                            <h4 class="section-title">{{ section.title }}</h4>
                                         </div>
                                         {% endif %}
                                         
                                         {# Section-specific content based on type #}
                                         {% if section_type == 'header' %}
-                                            {% include 'sections/_header_section.html' %}
+                                            {% with section_id=section.id, collapsible_sections=tab_collapsible_sections %}{% include 'sections/_header_section.html' %}{% endwith %}
                                         {% elif section_type == 'notes' %}
-                                            {% include 'sections/_notes_section.html' %}
+                                            {% with section_id=section.id %}{% include 'sections/_notes_section.html' %}{% endwith %}
                                         {% elif section_type == 'relationships' %}
-                                            {% include 'sections/_relationships_section.html' %}
+                                            {% with section_id=section.id %}{% include 'sections/_relationships_section.html' %}{% endwith %}
                                         {% elif section_type == 'labels' %}
-                                            {% include 'sections/_labels_section.html' %}
+                                            {% with section_id=section.id %}{% include 'sections/_labels_section.html' %}{% endwith %}
                                         {% elif section_type == 'sensors' %}
-                                            {% include 'sections/_sensors_section.html' %}
+                                            {% with section_id=section.id %}{% include 'sections/_sensors_section.html' %}{% endwith %}
                                         {% elif section_type == 'reminders' %}
-                                            {% include 'sections/_reminders_section.html' %}
+                                            {% with section_id=section.id %}{% include 'sections/_reminders_section.html' %}{% endwith %}
                                         {% elif section_type == 'ai_assistant' %}
-                                            {% include 'sections/_ai_assistant_section.html' %}
+                                            {% with section_id=section.id %}{% include 'sections/_ai_assistant_section.html' %}{% endwith %}
                                         {% elif section_type == 'attachments' %}
-                                            {% include 'sections/_attachments_section.html' %}
+                                            {% with section_id=section.id %}{% include 'sections/_attachments_section.html' %}{% endwith %}
                                         {% elif section_type == 'form_fields' %}
-                                            {% include 'sections/_form_fields_section.html' %}
+                                            {% with section_id=section.id %}{% include 'sections/_form_fields_section.html' %}{% endwith %}
                                         {% elif section_type == 'qr_code' %}
-                                            {% include 'sections/_qr_code_section.html' %}
+                                            {% with section_id=section.id %}{% include 'sections/_qr_code_section.html' %}{% endwith %}
                                         {% elif section_type == 'label_printing' %}
-                                            {% include 'sections/_label_printing_section.html' %}
+                                            {% with section_id=section.id %}{% include 'sections/_label_printing_section.html' %}{% endwith %}
                                         {% elif section_type == 'relationship_opportunities' %}
-                                            {% include 'sections/_relationship_opportunities_section.html' %}
+                                            {% with section_id=section.id %}{% include 'sections/_relationship_opportunities_section.html' %}{% endwith %}
                                         {% elif section_type == 'timeline' %}
-                                            {% include 'sections/_timeline_section.html' %}
+                                            {% with section_id=section.id %}{% include 'sections/_timeline_section.html' %}{% endwith %}
                                         {% endif %}
                                 
                                 </div>
@@ -466,39 +500,56 @@
     
     {% else %}
     {# Fallback: Single grid for single tab or no tabs #}
+    
+    {# Collect collapsible sections for fallback mode too #}
+    {% if not all_collapsible_sections %}
+        {% set all_collapsible_sections = [] %}
+        {% for section in section_order %}
+            {% if section.is_visible and section.is_collapsible and section.section_type != 'header' %}
+                {% set _ = all_collapsible_sections.append({
+                    'id': section.id,
+                    'type': section.section_type,
+                    'title': section.title,
+                    'tab_id': 'main'
+                }) %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+    
     <div class="sections-grid" id="sectionsGrid">
         
         {# Loop through all sections in order #}
-        {% for section_type in section_order %}
-            {% set config = section_config.get(section_type, {}) %}
+        {% for section in section_order %}
+            {% set section_type = section.section_type %}
             
             {# Only render if visible #}
-            {% if config.get('visible', True) %}
+            {% if section.is_visible %}
                 
-                <div class="section-wrapper {{ 'is-collapsible' if config.get('collapsible') else '' }} {{ 'collapsed' if config.get('collapsed') else '' }}" 
-                     id="{{ section_type }}SectionWrapper"
+                <div class="section-wrapper {{ 'is-collapsible' if section.is_collapsible else '' }} {{ 'collapsed' if section.default_collapsed else '' }}" 
+                     id="section-{{ section.id }}-main"
+                     data-section-id="{{ section.id }}"
                      data-section-type="{{ section_type }}"
-                     data-x="{{ config.get('x', 0) }}"
-                     data-y="{{ config.get('y', 0) }}"
-                     data-width="{{ config.get('width', 12) }}"
-                     data-height="{{ config.get('height', 3) }}"
-                     data-collapsible="{{ 'true' if config.get('collapsible') else 'false' }}"
-                     style="grid-column: {{ config.get('x', 0) + 1 }} / span {{ config.get('width', 12) }}; grid-row: {{ config.get('y', 0) + 1 }} / span {{ config.get('height', 3) }};">
+                     data-x="{{ section.position_x }}"
+                     data-y="{{ section.position_y }}"
+                     data-width="{{ section.width }}"
+                     data-height="{{ section.height }}"
+                     data-collapsible="{{ 'true' if section.is_collapsible else 'false' }}"
+                     style="grid-column: {{ section.position_x + 1 }} / span {{ section.width }}; grid-row: {{ section.position_y + 1 }} / span {{ section.height }};">
                     
                     {# Section container #}
-                    <div class="content-section theme-section"{% if config.get('max_height') %} style="max-height: {{ config.get('max_height') * 80 }}px; overflow-y: auto;"{% endif %}>
+                    <div class="content-section theme-section"{% if section.config.get('max_height') %} style="max-height: {{ section.config.get('max_height') * 80 }}px; overflow-y: auto;"{% endif %}>
                         <div class="section-content">
                                 
                                 {# Section header with title - Only show for non-header sections #}
-                                {% if config.get('title') and section_type != 'header' %}
+                                {% if section.title and section_type != 'header' %}
                                 <div class="section-header mb-3">
-                                    <h4 class="section-title">{{ config.get('title') }}</h4>
+                                    <h4 class="section-title">{{ section.title }}</h4>
                                 </div>
                                 {% endif %}
                                 
                                 {# Section-specific content based on type #}
                                 {% if section_type == 'header' %}
-                                    {% include 'sections/_header_section.html' %}
+                                    {% with section_id=section.id, collapsible_sections=all_collapsible_sections %}{% include 'sections/_header_section.html' %}{% endwith %}
                                 {% elif section_type == 'ai_assistant' %}
                                     {% include 'sections/_ai_assistant_section.html' %}
                                 {% elif section_type == 'notes' %}
@@ -616,20 +667,41 @@ document.addEventListener('DOMContentLoaded', function() {
 
 /**
  * Toggle section visibility and recalculate grid positions
- * @param {string} sectionType - The section type identifier
+ * @param {number} sectionId - The section database ID
+ * @param {string} tabId - The tab identifier (or 'default' for non-tabbed layouts)
  */
-function toggleSection(sectionType) {
-    const wrapper = document.getElementById(sectionType + 'SectionWrapper');
-    if (!wrapper) return;
+function toggleSection(sectionId, tabId) {
+    console.log('🔘 toggleSection called:', { sectionId, tabId });
+    
+    // Construct the section wrapper ID
+    const wrapperId = `section-${sectionId}-${tabId}`;
+    const wrapper = document.getElementById(wrapperId);
+    
+    console.log('🔍 Looking for section:', wrapperId, 'Found:', !!wrapper);
+    
+    if (!wrapper) {
+        console.error('❌ Section wrapper not found:', wrapperId);
+        console.log('Available sections:', Array.from(document.querySelectorAll('[id^="section-"]')).map(el => el.id));
+        return;
+    }
     
     const isCollapsible = wrapper.dataset.collapsible === 'true';
-    if (!isCollapsible) return;
+    console.log('📦 Section collapsible:', isCollapsible);
     
-    // Toggle collapsed class
+    if (!isCollapsible) {
+        console.log('⚠️ Section is not collapsible, skipping');
+        return;
+    }
+    
+    // Toggle collapsed class (this is what recalculateGridPositions looks for)
     wrapper.classList.toggle('collapsed');
+    const isNowCollapsed = wrapper.classList.contains('collapsed');
+    console.log('✨ Toggled section, now collapsed:', isNowCollapsed);
     
     // Update toggle button state
-    const toggleBtn = document.querySelector(`[data-section="${sectionType}"]`);
+    const toggleBtn = document.querySelector(`[data-section-id="${sectionId}"][data-tab-id="${tabId}"]`);
+    console.log('🔘 Toggle button:', toggleBtn);
+    
     if (toggleBtn) {
         toggleBtn.classList.toggle('section-visible');
         toggleBtn.classList.toggle('section-hidden');
@@ -641,7 +713,8 @@ function toggleSection(sectionType) {
         }
     }
     
-    // Recalculate positions after animation
+    // Recalculate positions after animation to allow sections to flow upward
+    console.log('🔄 Recalculating grid positions after toggle...');
     setTimeout(() => {
         recalculateGridPositions();
     }, 50);
@@ -655,8 +728,18 @@ function toggleSection(sectionType) {
 function recalculateGridPositions() {
     console.log('🔄 Recalculating grid positions...');
     
-    const grid = document.getElementById('sectionsGrid');
-    if (!grid) return;
+    // Find the active grid (either tabbed or single-grid layout)
+    let grid = document.querySelector('.tab-pane.active .sections-grid');
+    if (!grid) {
+        // Fallback to single-grid layout
+        grid = document.getElementById('sectionsGrid');
+    }
+    if (!grid) {
+        console.log('⚠️ No grid found to recalculate');
+        return;
+    }
+    
+    console.log('📐 Found grid:', grid.id);
     
     // Get all section wrappers
     const allSections = Array.from(grid.querySelectorAll('.section-wrapper'));

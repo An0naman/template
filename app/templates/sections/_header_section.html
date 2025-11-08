@@ -32,17 +32,19 @@
         
         <!-- Section Toggle Buttons -->
         <div class="btn-group" role="group" aria-label="Section toggles">
-            {% for section_type, config in section_config.items() %}
-                {% if config.get('visible') and config.get('collapsible') and section_type != 'header' %}
+            {% if collapsible_sections is defined %}
+                {% for sect in collapsible_sections %}
                     <button type="button" 
                             class="btn btn-sm section-toggle-btn section-visible"
-                            onclick="toggleSection('{{ section_type }}')"
-                            data-section="{{ section_type }}"
-                            title="Toggle {{ config.get('title', section_type.replace('_', ' ').title()) }}">
-                        <i class="fas fa-eye me-1"></i>{{ config.get('title', section_type.replace('_', ' ').title()) }}
+                            onclick="toggleSection({{ sect.id }}, '{{ sect.tab_id }}')"
+                            data-section-id="{{ sect.id }}"
+                            data-section-type="{{ sect.type }}"
+                            data-tab-id="{{ sect.tab_id }}"
+                            title="Toggle {{ sect.title or sect.type.replace('_', ' ').title() }}">
+                        <i class="fas fa-eye me-1"></i>{{ sect.title or sect.type.replace('_', ' ').title() }}
                     </button>
-                {% endif %}
-            {% endfor %}
+                {% endfor %}
+            {% endif %}
         </div>
     </div>
 </div>
@@ -520,53 +522,7 @@ document.getElementById('deleteEntryBtn')?.addEventListener('click', function() 
     }
 });
 
-// Section toggle functionality
-function toggleSection(sectionType) {
-    const sectionElement = document.getElementById(sectionType + 'SectionWrapper');
-    const button = document.querySelector(`[data-section="${sectionType}"]`);
-    
-    if (sectionElement) {
-        const isHidden = sectionElement.style.display === 'none';
-        
-        if (isHidden) {
-            // Show with animation
-            sectionElement.style.display = '';
-            sectionElement.classList.remove('hiding');
-            sectionElement.classList.add('showing');
-            
-            // Update button
-            if (button) {
-                button.classList.remove('section-hidden');
-                button.classList.add('section-visible');
-                button.querySelector('i').classList.remove('fa-eye-slash');
-                button.querySelector('i').classList.add('fa-eye');
-            }
-            
-            // Remove animation class after animation completes
-            setTimeout(() => {
-                sectionElement.classList.remove('showing');
-            }, 400);
-        } else {
-            // Hide with animation
-            sectionElement.classList.remove('showing');
-            sectionElement.classList.add('hiding');
-            
-            // Update button
-            if (button) {
-                button.classList.remove('section-visible');
-                button.classList.add('section-hidden');
-                button.querySelector('i').classList.remove('fa-eye');
-                button.querySelector('i').classList.add('fa-eye-slash');
-            }
-            
-            // Set display none after animation completes
-            setTimeout(() => {
-                sectionElement.style.display = 'none';
-                sectionElement.classList.remove('hiding');
-            }, 400);
-        }
-    }
-}
+// Note: toggleSection function is now defined globally in entry_detail_v2.html
 
 // Format the created_at timestamp to locale string on page load
 document.addEventListener('DOMContentLoaded', function() {
