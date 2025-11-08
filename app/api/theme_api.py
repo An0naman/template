@@ -143,7 +143,8 @@ def handle_theme_settings():
                 
                 # Validate section styles
                 if section_styles:
-                    border_style = section_styles.get('border_style', 'none')
+                    # Support both camelCase (from JS) and snake_case (from DB)
+                    border_style = section_styles.get('border_style') or section_styles.get('borderStyle', 'none')
                     spacing = section_styles.get('spacing', 'normal')
                     background = section_styles.get('background', 'subtle')
                     animation = section_styles.get('animation', 'none')

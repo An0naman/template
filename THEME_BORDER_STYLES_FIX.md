@@ -30,6 +30,21 @@ valid_section_border_styles = ['none', 'thin', 'thick', 'dashed']
 valid_section_border_styles = ['none', 'thin', 'thick', 'dashed', 'retro', 'pixelated', 'pokemon', 'nature', 'autumn', 'ocean', 'forest', 'sunset']
 ```
 
+### 1.5. Fixed camelCase/snake_case Mismatch
+
+**File**: `app/api/theme_api.py` (line 146)
+
+The JavaScript frontend sends `borderStyle` (camelCase) but the Python backend was only looking for `border_style` (snake_case). Added support for both:
+
+```python
+# Before:
+border_style = section_styles.get('border_style', 'none')
+
+# After:
+# Support both camelCase (from JS) and snake_case (from DB)
+border_style = section_styles.get('border_style') or section_styles.get('borderStyle', 'none')
+```
+
 ### 2. Enhanced UI with Themed Options
 
 **File**: `app/templates/manage_theme_settings.html` (line 995-1000)
