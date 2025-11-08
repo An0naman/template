@@ -49,8 +49,11 @@ jobs:
         if: success()
         run: |
           echo "Image pushed successfully!"
-          echo "To auto-update DevOps, add webhook configuration below"
-          # Uncomment and configure if you want to trigger a webhook
+          echo "Image tags: ${{ steps.meta.outputs.tags }}"
+          echo ""
+          echo "To auto-update DevOps, configure webhook below"
+          # Example webhook (uncomment and configure with your server URL and secret):
+          # LATEST_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
           # curl -X POST https://your-server.com/webhook/update-devops \
           #   -H "Authorization: Bearer ${{ secrets.WEBHOOK_SECRET }}" \
-          #   -d '{"service": "devops", "image": "${{ steps.meta.outputs.tags }}"}'
+          #   -d "{\"service\": \"devops\", \"image\": \"${LATEST_TAG}\"}"
