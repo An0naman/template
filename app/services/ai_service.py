@@ -826,7 +826,7 @@ class AIService:
             
             # Get recent notes (including shared notes)
             cursor.execute('''
-                SELECT note_title, note_text, type, created_at, entry_id, associated_entry_ids
+                SELECT note_title, note_text, type, created_at, entry_id, associated_entry_ids, file_paths
                 FROM Note
                 WHERE entry_id = ? 
                    OR (associated_entry_ids IS NOT NULL 
@@ -841,20 +841,33 @@ class AIService:
             ''', (entry_id, entry_id))
             
             recent_notes = cursor.fetchall()
-            context['recent_notes'] = [
-                {
+            context['recent_notes'] = []
+            for note in recent_notes:
+                # Safely parse file_paths (can be JSON array or comma-separated string)
+                attachments = []
+                if note['file_paths']:
+                    try:
+                        # Try JSON first
+                        attachments = json.loads(note['file_paths'])
+                    except (json.JSONDecodeError, TypeError):
+                        # Fall back to comma-separated string
+                        if isinstance(note['file_paths'], str) and ',' in note['file_paths']:
+                            attachments = [f.strip() for f in note['file_paths'].split(',')]
+                        elif isinstance(note['file_paths'], str) and note['file_paths']:
+                            attachments = [note['file_paths']]
+                
+                context['recent_notes'].append({
                     'title': note['note_title'] or 'Untitled',
                     'type': note['type'],
                     'preview': note['note_text'][:100] + '...' if len(note['note_text']) > 100 else note['note_text'],
-                    'is_shared': note['entry_id'] != entry_id  # Mark if it's a shared note
-                }
-                for note in recent_notes
-            ]
+                    'is_shared': note['entry_id'] != entry_id,  # Mark if it's a shared note
+                    'attachments': attachments
+                })
             
             # Get all notes content if requested (including shared notes)
             if include_all_notes and context['total_notes'] > 0:
                 cursor.execute('''
-                    SELECT note_title, note_text, type, created_at, entry_id, associated_entry_ids
+                    SELECT note_title, note_text, type, created_at, entry_id, associated_entry_ids, file_paths
                     FROM Note
                     WHERE entry_id = ? 
                        OR (associated_entry_ids IS NOT NULL 
@@ -868,16 +881,29 @@ class AIService:
                 ''', (entry_id, entry_id))
                 
                 all_notes = cursor.fetchall()
-                context['all_notes'] = [
-                    {
+                context['all_notes'] = []
+                for note in all_notes:
+                    # Safely parse file_paths (can be JSON array or comma-separated string)
+                    attachments = []
+                    if note['file_paths']:
+                        try:
+                            # Try JSON first
+                            attachments = json.loads(note['file_paths'])
+                        except (json.JSONDecodeError, TypeError):
+                            # Fall back to comma-separated string
+                            if isinstance(note['file_paths'], str) and ',' in note['file_paths']:
+                                attachments = [f.strip() for f in note['file_paths'].split(',')]
+                            elif isinstance(note['file_paths'], str) and note['file_paths']:
+                                attachments = [note['file_paths']]
+                    
+                    context['all_notes'].append({
                         'title': note['note_title'] or 'Untitled',
                         'type': note['type'],
                         'content': note['note_text'],
                         'created_at': note['created_at'],
-                        'is_shared': note['entry_id'] != entry_id  # Mark if it's a shared note
-                    }
-                    for note in all_notes
-                ]
+                        'is_shared': note['entry_id'] != entry_id,  # Mark if it's a shared note
+                        'attachments': attachments
+                    })
             
             # Get relationships with descriptions (both directions)
             # First get outgoing relationships (where this entry is the source)
@@ -1157,15 +1183,26 @@ You are currently discussing the following entry:
                     context_prompt += "\n**All Notes (Full Content - includes shared notes):**\n"
                     for note in context['all_notes']:
                         shared_indicator = " [SHARED]" if note.get('is_shared') else ""
+                        attachment_info = ""
+                        if note.get('attachments'):
+                            file_names = [path.split('/')[-1] for path in note['attachments']]
+                            attachment_info = f"  Attachments: {', '.join(file_names)}\n"
                         context_prompt += f"\n  [{note['type']}] {note['title']}{shared_indicator}\n"
                         context_prompt += f"  Created: {note['created_at']}\n"
+                        if attachment_info:
+                            context_prompt += attachment_info
                         context_prompt += f"  Content: {note['content']}\n"
                         context_prompt += "  " + "-" * 50 + "\n"
                 elif context.get('recent_notes'):
                     context_prompt += "\n**Recent Notes (Preview - includes shared notes):**\n"
                     for note in context['recent_notes'][:3]:
                         shared_indicator = " [SHARED]" if note.get('is_shared') else ""
-                        context_prompt += f"  - [{note['type']}] {note['title']}{shared_indicator}: {note['preview']}\n"
+                        attachment_info = ""
+                        if note.get('attachments'):
+                            file_count = len(note['attachments'])
+                            file_names = [path.split('/')[-1] for path in note['attachments']]
+                            attachment_info = f" [{file_count} file{'s' if file_count > 1 else ''}: {', '.join(file_names)}]"
+                        context_prompt += f"  - [{note['type']}] {note['title']}{shared_indicator}{attachment_info}: {note['preview']}\n"
             
             # Add relationships with descriptions
             if context['relationships_count'] > 0:
@@ -1239,6 +1276,416 @@ You are currently discussing the following entry:
         except Exception as e:
             logger.error(f"Error in chat_about_entry: {str(e)}")
             return f"I apologize, but I encountered an error: {str(e)}"
+    
+    def compose_note(self, entry_id: int, user_message: str, note_context: dict = None, attachment_files: list = None, chat_history: list = None) -> Optional[Dict[str, Any]]:
+        """
+        Compose a note for an entry based on user's intent and context
+        
+        Args:
+            entry_id: The ID of the entry to create the note for
+            user_message: The user's message describing what they want in the note
+            note_context: Additional context including note type, current draft, etc.
+            attachment_files: List of files user wants to include (file info for AI to interpret)
+            chat_history: Previous conversation messages for context
+            
+        Returns:
+            Dictionary with proposed note structure or None if failed
+        """
+        if not self.is_available():
+            return None
+        
+        try:
+            # Check if user is asking about existing note attachments
+            asking_about_attachments = any(keyword in user_message.lower() for keyword in [
+                'previous note', 'existing note', 'attachment', 'photo', 'image', 'picture'
+            ])
+            
+            logger.info(f"User message: '{user_message}' - asking_about_attachments: {asking_about_attachments}")
+            
+            # Gather entry context (include all notes if asking about attachments)
+            context = self._gather_entry_context(entry_id, include_all_notes=asking_about_attachments)
+            
+            if 'error' in context:
+                return {'error': context['error']}
+            
+            # Get available note types for this entry
+            note_types = self._get_entry_note_types(entry_id)
+            logger.info(f"Note types for entry {entry_id}: {note_types}")
+            
+            # Build related entries summary from context (which already has this data)
+            related_entries = "No related entries."
+            if context.get('relationships_count', 0) > 0 and context.get('relationships'):
+                related_entries_list = []
+                for rel in context['relationships']:
+                    # Extract entry ID from the relationship data
+                    # We need to query to get the ID since context doesn't include it
+                    related_entries_list.append(
+                        f"  - {rel['title']} ({rel['type']}) - {rel['relationship_type']}"
+                    )
+                related_entries = '\n'.join(related_entries_list)
+                
+                # Now get the actual IDs for these entries
+                try:
+                    from flask import g
+                    if 'db' not in g:
+                        from ..db import get_connection
+                        g.db = get_connection()
+                    
+                    cursor = g.db.cursor()
+                    # Get all related entry IDs with their details
+                    cursor.execute('''
+                        SELECT 
+                            e2.id,
+                            e2.title,
+                            et2.singular_label as type,
+                            COALESCE(rd.name, 'Related to') as relationship_type
+                        FROM EntryRelationship er
+                        JOIN Entry e2 ON (
+                            CASE 
+                                WHEN er.source_entry_id = ? THEN er.target_entry_id
+                                ELSE er.source_entry_id
+                            END = e2.id
+                        )
+                        JOIN EntryType et2 ON e2.entry_type_id = et2.id
+                        LEFT JOIN RelationshipDefinition rd ON er.relationship_type = rd.id
+                        WHERE er.source_entry_id = ? OR er.target_entry_id = ?
+                        LIMIT 50
+                    ''', (entry_id, entry_id, entry_id))
+                    
+                    rows = cursor.fetchall()
+                    if rows:
+                        related_entries_list = []
+                        for row in rows:
+                            related_entries_list.append(
+                                f"  - ID {row['id']}: {row['title']} ({row['type']}) - {row['relationship_type']}"
+                            )
+                        related_entries = '\n'.join(related_entries_list)
+                except Exception as e:
+                    logger.error(f"Error getting related entry IDs: {e}")
+            
+            logger.info(f"Related entries for entry {entry_id}: {related_entries}")
+            
+            # Build prompt for note composition
+            base_prompt = self._get_base_prompt()
+            
+            from datetime import datetime
+            current_datetime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            prompt = f"""
+{base_prompt}
+
+You are helping compose a note for an entry in a project management application.
+
+**Current Date/Time:** {current_datetime}
+
+**Entry Context:**
+- Title: {context['title']}
+- Type: {context['entry_type']}
+- Status: {context['status']}
+- Description: {context['description']}
+- Existing Notes: {context.get('total_notes', 0)} notes already exist
+- Recent Notes: {', '.join([n['title'] for n in context.get('recent_notes', [])[:3]])} (most recent 3)
+
+**Available Note Types:** {', '.join(note_types)}
+
+**Related Entries Available for Association:**
+{related_entries}
+
+IMPORTANT: These entries are already related to the current entry. You can associate this note with any of them if relevant.
+When user mentions any of these entries by name or refers to them contextually, include their ID in associated_entry_ids.
+"""
+            
+            # Add conversation history if provided
+            if chat_history and len(chat_history) > 0:
+                prompt += "\n**Previous Conversation:**\n"
+                # Include last 5 exchanges to keep context manageable
+                for msg in chat_history[-10:]:
+                    role = "User" if msg['role'] == 'user' else "Assistant"
+                    prompt += f"{role}: {msg['content']}\n"
+                prompt += "\n"
+            
+            prompt += f"""
+**User's Current Request:**
+{user_message}
+"""
+            
+            # Add context about existing draft if provided
+            if note_context and 'current_draft' in note_context:
+                prompt += f"""
+**Current Draft:**
+{json.dumps(note_context['current_draft'], indent=2)}
+
+**User wants to refine this draft. Apply their requested changes.**
+- If they ask to change note type, update the note_type field to match their request
+- If they ask to modify content, update note_text accordingly
+- If they want to add/remove links or associations, update those fields
+- You can change ANY aspect of the note based on user feedback
+"""
+            else:
+                prompt += """
+**Task:** Based on the user's request, propose a complete note structure.
+
+**CRITICAL: When NOT to create a note:**
+- If user is asking a QUESTION about existing notes/data (e.g., "Can you see...", "What are...", "Show me...")
+- If user wants to VIEW information, not CREATE a note
+- If user is exploring/understanding the data
+
+**In these cases, respond with:**
+{
+  "reasoning": "User is asking a question, not requesting note creation. They should ask this in the general chat, not in note composer mode.",
+  "error": "This appears to be a question rather than a note creation request. Please exit note composer mode and ask your question in the general chat, or tell me what note you'd like to create."
+}
+
+**When TO create a note:**
+- User explicitly asks to "create", "write", "compose", "document", "add", "record" a note
+- User describes what should be in a new note
+- User provides content for documentation
+"""
+            
+            # Add attachment context if files are provided
+            image_count = 0
+            if attachment_files:
+                prompt += f"""
+**User has attached {len(attachment_files)} file(s) to this message:**
+"""
+                for i, file_info in enumerate(attachment_files, 1):
+                    prompt += f"  {i}. {file_info.get('filename', 'Unknown')} ({file_info.get('type', 'Unknown type')})\n"
+                    if file_info.get('preview'):
+                        prompt += f"     Preview: {file_info['preview']}\n"
+                    if file_info.get('type', '').startswith('image/'):
+                        image_count += 1
+                
+                if image_count > 0:
+                    prompt += f"\n**IMPORTANT:** {image_count} image(s) are included below for you to analyze. Read any text, measurements, or data visible in the images.\n"
+            
+            # Add context about existing note attachments if loaded
+            if asking_about_attachments and context.get('all_notes'):
+                existing_images = []
+                for note in context['all_notes']:
+                    if note.get('attachments'):
+                        for file_path in note['attachments']:
+                            if any(file_path.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']):
+                                existing_images.append((note['title'], file_path.split('/')[-1]))
+                
+                if existing_images:
+                    prompt += f"""
+**Images from existing notes (included below for analysis ONLY - will NOT be attached to new note):**
+"""
+                    for note_title, filename in existing_images:
+                        prompt += f"  - {filename} (from note: {note_title})\n"
+                    
+                    prompt += f"\n**IMPORTANT:** These {len(existing_images)} image(s) from previous notes are included below for you to analyze and extract data from. However, they will NOT be attached to the new note you're composing - they're just for reference. Extract any relevant data (readings, measurements, text, etc.) and include it in the note_text.\n"
+            
+            prompt += """
+Please respond with a JSON object containing the proposed note structure:
+
+{
+  "note_type": "one of the available note types",
+  "note_title": "a clear, descriptive title",
+  "note_text": "the main body of the note (can use markdown)",
+  "url_bookmarks": [
+    {"friendly_name": "Link name", "url": "https://example.com"}
+  ],
+  "associated_entry_ids": [list of entry IDs to associate with, if relevant],
+  "reasoning": "brief explanation of your choices"
+}
+
+CRITICAL RULES FOR URL BOOKMARKS:
+- ONLY include URLs if:
+  a) The user explicitly provided them in their message, OR
+  b) The user asks for Wikipedia/reference links and you can construct accurate Wikipedia URLs
+- For Wikipedia links: Use format https://en.wikipedia.org/wiki/Article_Name (replace spaces with underscores)
+- DO NOT generate fake URLs or use placeholder domains (example.com, etc.)
+- If user asks for a link but didn't provide URL and it's not Wikipedia, leave url_bookmarks EMPTY []
+- If user wants to link to another entry in this system, use associated_entry_ids instead of url_bookmarks
+- Only suggest Wikipedia URLs if you're confident the article exists (common topics, ingredients, etc.)
+- For product links, manufacturer sites, or specific resources: DO NOT invent URLs - ask user to provide them
+
+CRITICAL RULES FOR ENTRY ASSOCIATIONS:
+- ACTIVELY look for opportunities to associate this note with related entries
+- If user mentions any entry name from the "Related Entries" list, include that entry's ID
+- If note content is about/references any related entry, include its ID
+- If user says "link to X entry" or "associate with Y", find that entry and include its ID
+- Multiple associations are encouraged when relevant
+- This creates cross-references that help users navigate between related items
+
+CRITICAL RULES FOR NOTE TYPE:
+- When user asks to change note type (e.g., "make this a Recipe note", "change to Technical"), UPDATE the note_type field
+- Note type changes should be honored immediately - don't keep the old type
+- Available types are listed above - choose from that list ONLY
+- If user says "change type to X" or "make this a X note", set note_type to "X" (if it's in the available list)
+- In refinement conversations, note_type can change as easily as any other field
+
+Other Important Rules:
+- Make the note_text comprehensive but concise
+- Use markdown formatting where appropriate (bullet points, headers, etc.)
+- In reasoning, mention which entries you're associating and why
+- Mention in reasoning if you changed the note type based on user request
+- Mention in reasoning if user requested links but didn't provide URLs
+
+Respond ONLY with the JSON object, no additional text.
+"""
+            
+            # Log the key parts of the prompt for debugging
+            logger.info(f"Sending to AI - Available Note Types: {', '.join(note_types)}")
+            logger.info(f"Sending to AI - Related Entries Count: {related_entries.count('ID')}")
+            
+            # Build content list for multimodal request (text + images)
+            content_parts = [prompt]
+            
+            # Add image files if provided
+            if attachment_files:
+                import base64
+                import os
+                from PIL import Image
+                
+                for file_info in attachment_files:
+                    file_data = file_info.get('data')  # Base64 encoded data
+                    file_type = file_info.get('type', '')
+                    
+                    if file_data and file_type.startswith('image/'):
+                        try:
+                            # Extract base64 data (remove data:image/...;base64, prefix if present)
+                            if ',' in file_data:
+                                file_data = file_data.split(',', 1)[1]
+                            
+                            # Decode base64 to bytes
+                            image_bytes = base64.b64decode(file_data)
+                            
+                            # Load image with PIL
+                            from io import BytesIO
+                            image = Image.open(BytesIO(image_bytes))
+                            
+                            # Add image to content parts
+                            content_parts.append(image)
+                            logger.info(f"Added image to AI request: {file_info.get('filename', 'unknown')}")
+                        except Exception as e:
+                            logger.error(f"Failed to process image {file_info.get('filename')}: {e}")
+            
+            # Load images from existing notes if user is asking about them
+            logger.info(f"asking_about_attachments={asking_about_attachments}, has all_notes={bool(context.get('all_notes'))}")
+            if asking_about_attachments and context.get('all_notes'):
+                import os
+                from PIL import Image
+                
+                logger.info(f"Found {len(context['all_notes'])} notes to check for attachments")
+                for note in context['all_notes']:
+                    logger.info(f"Checking note: {note.get('title')} - attachments: {note.get('attachments')}")
+                    if note.get('attachments'):
+                        for file_path in note['attachments']:
+                            try:
+                                # Build full path to uploaded file
+                                full_path = os.path.join('/app/app/static', file_path.lstrip('/'))
+                                
+                                # Check if it's an image
+                                if any(file_path.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']):
+                                    # Load image with PIL
+                                    image = Image.open(full_path)
+                                    content_parts.append(image)
+                                    logger.info(f"Added existing note image to AI request: {file_path}")
+                            except Exception as e:
+                                logger.error(f"Failed to load existing note image {file_path}: {e}")
+            
+            # Send to Gemini with multimodal content
+            response = self.model.generate_content(content_parts)
+            
+            if response and response.text:
+                response_text = response.text.strip()
+                
+                # Remove markdown code blocks if present
+                if response_text.startswith('```json'):
+                    response_text = response_text.replace('```json', '').replace('```', '').strip()
+                elif response_text.startswith('```'):
+                    response_text = response_text.replace('```', '').strip()
+                
+                try:
+                    note_proposal = json.loads(response_text)
+                    return note_proposal
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse note composition JSON: {e}")
+                    logger.error(f"Raw response: {response_text}")
+                    return {'error': 'Failed to parse AI response'}
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error in compose_note: {str(e)}")
+            return {'error': str(e)}
+    
+    def _get_entry_note_types(self, entry_id: int) -> list:
+        """Get available note types for an entry"""
+        try:
+            from flask import g, current_app
+            import sqlite3
+            
+            if 'db' not in g:
+                db_path = current_app.config['DATABASE_PATH']
+                g.db = sqlite3.connect(db_path)
+                g.db.row_factory = sqlite3.Row
+            
+            cursor = g.db.cursor()
+            cursor.execute('''
+                SELECT et.note_types
+                FROM Entry e
+                JOIN EntryType et ON e.entry_type_id = et.id
+                WHERE e.id = ?
+            ''', (entry_id,))
+            
+            row = cursor.fetchone()
+            if row and row['note_types']:
+                # Split comma-separated note types
+                return [nt.strip() for nt in row['note_types'].split(',')]
+            
+            return ['General']  # Default fallback
+            
+        except Exception as e:
+            logger.error(f"Error getting note types: {e}")
+            return ['General']
+    
+    def _get_related_entries_summary(self, entry_id: int) -> str:
+        """Get a summary of related entries for context"""
+        try:
+            from flask import g, current_app
+            import sqlite3
+            
+            if 'db' not in g:
+                db_path = current_app.config['DATABASE_PATH']
+                g.db = sqlite3.connect(db_path)
+                g.db.row_factory = sqlite3.Row
+            
+            cursor = g.db.cursor()
+            cursor.execute('''
+                SELECT 
+                    e2.id,
+                    e2.title,
+                    et2.singular_label as type,
+                    r.relationship_type
+                FROM EntryRelationship r
+                JOIN Entry e2 ON (
+                    CASE 
+                        WHEN r.from_entry_id = ? THEN r.to_entry_id
+                        ELSE r.from_entry_id
+                    END = e2.id
+                )
+                JOIN EntryType et2 ON e2.entry_type_id = et2.id
+                WHERE r.from_entry_id = ? OR r.to_entry_id = ?
+                LIMIT 20
+            ''', (entry_id, entry_id, entry_id))
+            
+            rows = cursor.fetchall()
+            
+            if not rows:
+                return "No related entries."
+            
+            summary = []
+            for row in rows:
+                summary.append(f"  - ID {row['id']}: {row['title']} ({row['type']}) - {row['relationship_type']}")
+            
+            return '\n'.join(summary)
+            
+        except Exception as e:
+            logger.error(f"Error getting related entries: {e}")
+            return "Error fetching related entries."
 
 # Global AI service instance
 ai_service = AIService()

@@ -447,7 +447,7 @@ def ai_chat():
                     g.db.row_factory = sqlite3.Row
                 
                 cursor = g.db.cursor()
-                cursor.execute('SELECT et.singular_label FROM entries e JOIN entry_types et ON e.entry_type_id = et.id WHERE e.id = ?', (entry_id,))
+                cursor.execute('SELECT et.singular_label FROM Entry e JOIN EntryType et ON e.entry_type_id = et.id WHERE e.id = ?', (entry_id,))
                 row = cursor.fetchone()
                 if row:
                     entry_type = row['singular_label']
@@ -505,6 +505,23 @@ def ai_chat():
             generated = ai_service.generate_description(entry_title, entry_type, context)
             description_preview = clean_ai_response(generated) if generated else None
             ai_response = "I've created a Wikipedia-style description. You can refine it by asking me to make changes, or click 'Apply to Entry' to save it."
+        
+        elif action == 'compose_note':
+            # Compose a note with AI assistance
+            note_context = data.get('note_context', {})
+            attachment_files = data.get('attachment_files', [])
+            chat_history = data.get('chat_history', [])
+            
+            note_proposal = ai_service.compose_note(entry_id, message, note_context, attachment_files, chat_history)
+            
+            if note_proposal and 'error' not in note_proposal:
+                # Return the note proposal as a special response type
+                return jsonify({
+                    'message': note_proposal.get('reasoning', "I've composed a note for you. You can continue chatting to refine it, or click 'Apply Note' when you're ready."),
+                    'note_preview': note_proposal
+                })
+            else:
+                ai_response = f"I wasn't able to compose the note: {note_proposal.get('error', 'Unknown error')}"
             
         elif action == 'refine_draft':
             # Refine an existing draft based on user feedback

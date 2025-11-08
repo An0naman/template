@@ -261,6 +261,7 @@ def add_note_to_entry(entry_id):
                 # Don't fail note creation if notification creation fails
         
         return jsonify({
+            'success': True,
             'message': 'Note added successfully!', 
             'note_id': note_id,
             'file_paths': file_paths,

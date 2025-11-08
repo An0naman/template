@@ -234,6 +234,514 @@ function exitPlanningMode() {
     document.getElementById('chatInput').placeholder = "Ask AI or request description changes...";
 }
 
+// Note Composer Mode Functions
+var noteComposerMode = false;
+var currentNoteProposal = null;
+var noteAttachments = [];
+
+async function enterNoteComposerMode() {
+    noteComposerMode = true;
+    currentAction = null;
+    
+    // Update button
+    const buttonText = document.getElementById('selectedActionText');
+    const button = document.getElementById('aiActionButton');
+    buttonText.innerHTML = '<i class="fas fa-file-alt me-1"></i>Compose Note';
+    button.classList.remove('btn-outline-secondary');
+    button.classList.add('btn-info');
+    
+    // Clear chat and show welcome message
+    const messagesContainer = document.getElementById('chatMessages');
+    messagesContainer.innerHTML = '';
+    
+    addMessageToChat('assistant', `📝 Note Composer activated!
+
+I'll help you create a well-structured note for this entry. I can:
+- Choose the appropriate note type
+- Suggest a clear title
+- Draft comprehensive content
+- Add Wikipedia links for reference (when relevant)
+- Include any URLs you provide
+- **Link to related entries across your app** 🔗
+- Interpret any files you want to attach
+
+What kind of note would you like to create? You can:
+- Describe the purpose (e.g., "Document today's progress")
+- Specify a note type (e.g., "Create a Technical note about...")
+- Share context or observations
+- Request Wikipedia links (e.g., "Add a wiki link for this ingredient")
+- Provide specific URLs to include (e.g., "Add a link to https://example.com")
+- Mention related entries to link them (e.g., "Reference my flour and sugar entries")
+- Upload files for me to interpret
+
+💡 **Tips**: 
+- I can suggest Wikipedia links automatically, but for other websites, please provide the actual URLs!
+- I'll actively look for opportunities to link this note with related entries in your workspace!
+
+You can also upload files at any time using the attachment button below!`);
+    
+    document.getElementById('chatInput').placeholder = "Describe what you want in this note...";
+    document.getElementById('chatInput').focus();
+    
+    // Show attachment upload UI if not already visible
+    showAttachmentUploadUI();
+}
+
+function showAttachmentUploadUI() {
+    // Check if upload UI already exists
+    if (document.getElementById('noteAttachmentUploadUI')) return;
+    
+    const chatContainer = document.getElementById('aiChatContainer');
+    const chatInput = chatContainer.querySelector('.chat-input');
+    
+    const uploadUI = document.createElement('div');
+    uploadUI.id = 'noteAttachmentUploadUI';
+    uploadUI.className = 'attachment-upload-ui mb-2';
+    uploadUI.innerHTML = `
+        <div class="d-flex align-items-center gap-2">
+            <label class="btn btn-sm btn-outline-secondary mb-0" for="noteAttachmentInput">
+                <i class="fas fa-paperclip me-1"></i>Attach Files
+            </label>
+            <input type="file" id="noteAttachmentInput" multiple class="d-none" onchange="handleNoteAttachments(this)">
+            <div id="noteAttachmentsList" class="flex-grow-1 small text-muted">
+                No files attached
+            </div>
+        </div>
+    `;
+    
+    chatInput.parentNode.insertBefore(uploadUI, chatInput);
+}
+
+function hideAttachmentUploadUI() {
+    const uploadUI = document.getElementById('noteAttachmentUploadUI');
+    if (uploadUI) uploadUI.remove();
+    noteAttachments = [];
+}
+
+async function handleNoteAttachments(input) {
+    const files = Array.from(input.files);
+    
+    if (files.length === 0) return;
+    
+    // Add files to attachments array
+    for (const file of files) {
+        noteAttachments.push(file);
+        
+        // Try to read text preview for certain file types
+        if (file.type.startsWith('text/') || file.name.endsWith('.md') || file.name.endsWith('.txt')) {
+            try {
+                const preview = await readFilePreview(file);
+                addMessageToChat('assistant', `📎 I've received "${file.name}". I'll consider this when composing the note.`);
+            } catch (e) {
+                console.error('Error reading file preview:', e);
+            }
+        } else {
+            addMessageToChat('assistant', `📎 I've received "${file.name}" (${formatFileSize(file.size)}). This will be attached to the note.`);
+        }
+    }
+    
+    updateAttachmentsList();
+}
+
+function readFilePreview(file, maxLength = 500) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            let text = e.target.result;
+            if (text.length > maxLength) {
+                text = text.substring(0, maxLength) + '...';
+            }
+            resolve(text);
+        };
+        reader.onerror = reject;
+        reader.readAsText(file);
+    });
+}
+
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function updateAttachmentsList() {
+    const listElement = document.getElementById('noteAttachmentsList');
+    if (!listElement) return;
+    
+    if (noteAttachments.length === 0) {
+        listElement.innerHTML = 'No files attached';
+        listElement.className = 'flex-grow-1 small text-muted';
+    } else {
+        listElement.innerHTML = noteAttachments.map((file, index) => 
+            `<span class="badge bg-secondary me-1">
+                ${file.name}
+                <i class="fas fa-times ms-1" style="cursor: pointer;" onclick="removeNoteAttachment(${index})"></i>
+            </span>`
+        ).join('');
+        listElement.className = 'flex-grow-1 small';
+    }
+}
+
+function removeNoteAttachment(index) {
+    noteAttachments.splice(index, 1);
+    updateAttachmentsList();
+    addMessageToChat('assistant', 'Attachment removed.');
+}
+
+async function composeNote(userPrompt) {
+    const loadingId = addMessageToChat('assistant', 'Analyzing context and composing note...', true);
+    
+    try {
+        // Prepare attachment file info for AI
+        const attachmentFiles = [];
+        for (const file of noteAttachments) {
+            const fileInfo = {
+                filename: file.name,
+                type: file.type || 'unknown',
+                size: file.size
+            };
+            
+            // Add preview for text files
+            if (file.type.startsWith('text/') || file.name.endsWith('.md') || file.name.endsWith('.txt')) {
+                try {
+                    fileInfo.preview = await readFilePreview(file);
+                } catch (e) {
+                    console.error('Error reading file preview:', e);
+                }
+            }
+            
+            // Add base64 data for images so AI can analyze them
+            if (file.type.startsWith('image/')) {
+                try {
+                    const reader = new FileReader();
+                    const base64Promise = new Promise((resolve, reject) => {
+                        reader.onload = (e) => resolve(e.target.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
+                    fileInfo.data = await base64Promise;
+                } catch (e) {
+                    console.error('Error reading image data:', e);
+                }
+            }
+            
+            attachmentFiles.push(fileInfo);
+        }
+        
+        const response = await fetch('/api/ai/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: userPrompt,
+                entry_id: {{ entry.id }},
+                action: 'compose_note',
+                note_context: currentNoteProposal ? { current_draft: currentNoteProposal } : {},
+                attachment_files: attachmentFiles,
+                chat_history: chatHistory  // Include conversation history
+            })
+        });
+        
+        const data = await response.json();
+        document.getElementById(loadingId).remove();
+        
+        if (data.note_preview) {
+            currentNoteProposal = data.note_preview;
+            
+            const aiMessage = data.message || "I've composed a note for you. Review it below and you can continue chatting to refine it, or click Apply Note when ready.";
+            
+            // Add to chat history
+            chatHistory.push({
+                role: 'user',
+                content: userPrompt
+            });
+            chatHistory.push({
+                role: 'assistant',
+                content: aiMessage
+            });
+            
+            // Show reasoning message
+            addMessageToChat('assistant', aiMessage);
+            
+            // Render the note preview
+            renderNotePreview(data.note_preview);
+            
+        } else if (data.error) {
+            // Handle special case where AI detects this is a question, not a note request
+            const errorMessage = data.error;
+            chatHistory.push({
+                role: 'user',
+                content: userPrompt
+            });
+            chatHistory.push({
+                role: 'assistant',
+                content: errorMessage
+            });
+            addMessageToChat('assistant', errorMessage);
+        } else if (data.message) {
+            const aiMessage = data.message;
+            chatHistory.push({
+                role: 'user',
+                content: userPrompt
+            });
+            chatHistory.push({
+                role: 'assistant',
+                content: aiMessage
+            });
+            addMessageToChat('assistant', aiMessage);
+        } else {
+            addMessageToChat('assistant', `❌ Error: Failed to compose note. Please try again.`);
+        }
+    } catch (error) {
+        console.error('Note composition error:', error);
+        document.getElementById(loadingId).remove();
+        addMessageToChat('assistant', '❌ Failed to compose note. Please try again.');
+    }
+}
+
+async function fetchAssociatedEntryNames(entryIds) {
+    try {
+        // Fetch each entry's details
+        const entryPromises = entryIds.map(id => 
+            fetch(`/api/entries/${id}`).then(r => r.json())
+        );
+        
+        const entries = await Promise.all(entryPromises);
+        
+        // Build HTML for entry list
+        const entryListHTML = entries.map(entry => {
+            if (entry.error) {
+                return `<div class="text-muted small">• Entry ID ${entry.id || 'unknown'} (not found)</div>`;
+            }
+            return `
+                <div class="small">
+                    • <strong>${entry.title}</strong> 
+                    <span class="text-muted">(${entry.entry_type?.singular_label || 'Entry'})</span>
+                </div>
+            `;
+        }).join('');
+        
+        // Update the preview container
+        const previewContainer = document.getElementById('associatedEntriesPreview');
+        if (previewContainer) {
+            previewContainer.innerHTML = entryListHTML;
+        }
+    } catch (error) {
+        console.error('Error fetching entry names:', error);
+        const previewContainer = document.getElementById('associatedEntriesPreview');
+        if (previewContainer) {
+            previewContainer.innerHTML = '<small class="text-danger">Error loading entry names</small>';
+        }
+    }
+}
+
+function renderNotePreview(noteProposal) {
+    const previewContainer = document.getElementById('notePreview');
+    const previewContent = document.getElementById('notePreviewContent');
+    
+    let bookmarksHTML = '';
+    if (noteProposal.url_bookmarks && noteProposal.url_bookmarks.length > 0) {
+        bookmarksHTML = `
+            <div class="mt-3">
+                <strong>🔗 Links:</strong>
+                <ul class="list-unstyled ms-3 mt-1">
+                    ${noteProposal.url_bookmarks.map(bookmark => 
+                        `<li><a href="${bookmark.url}" target="_blank">${bookmark.friendly_name || bookmark.url}</a></li>`
+                    ).join('')}
+                </ul>
+            </div>
+        `;
+    }
+    
+    let associationsHTML = '';
+    if (noteProposal.associated_entry_ids && noteProposal.associated_entry_ids.length > 0) {
+        associationsHTML = `
+            <div class="mt-3">
+                <strong>🔗 Associated Entries:</strong>
+                <div class="ms-3 mt-1" id="associatedEntriesPreview">
+                    <small class="text-muted">Loading entry names...</small>
+                </div>
+            </div>
+        `;
+        
+        // Fetch entry details asynchronously
+        fetchAssociatedEntryNames(noteProposal.associated_entry_ids);
+    }
+    
+    let attachmentsHTML = '';
+    if (noteAttachments.length > 0) {
+        attachmentsHTML = `
+            <div class="mt-3">
+                <strong>📎 Attachments:</strong>
+                <ul class="list-unstyled ms-3 mt-1">
+                    ${noteAttachments.map(file => 
+                        `<li><i class="fas fa-file me-1"></i>${file.name} (${formatFileSize(file.size)})</li>`
+                    ).join('')}
+                </ul>
+            </div>
+        `;
+    }
+    
+    // Format note text: convert markdown to HTML and preserve line breaks
+    let formattedContent = noteProposal.note_text || 'No content';
+    
+    // Remove ** markdown bold formatting
+    formattedContent = formattedContent.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    
+    // Convert markdown headers
+    formattedContent = formattedContent.replace(/^### (.*?)$/gm, '<h6>$1</h6>');
+    formattedContent = formattedContent.replace(/^## (.*?)$/gm, '<h5>$1</h5>');
+    formattedContent = formattedContent.replace(/^# (.*?)$/gm, '<h4>$1</h4>');
+    
+    // Convert bullet points (- or *)
+    formattedContent = formattedContent.replace(/^[\-\*] (.*?)$/gm, '<li>$1</li>');
+    formattedContent = formattedContent.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+    
+    // Convert line breaks to <br> tags (but not inside HTML tags)
+    formattedContent = formattedContent.replace(/\n/g, '<br>');
+    
+    previewContent.innerHTML = `
+        <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <small class="text-muted d-block mb-1"><i class="fas fa-pencil-alt"></i> Click to edit</small>
+                    <h5 class="mb-1 editable-title" contenteditable="true" 
+                        data-field="note_title"
+                        style="border: 1px dashed transparent; padding: 4px; border-radius: 4px;"
+                        onfocus="this.style.borderColor='#0d6efd'; this.style.backgroundColor='#fff';"
+                        onblur="this.style.borderColor='transparent'; this.style.backgroundColor='transparent'; updateNoteField('note_title', this.textContent);"
+                    >${noteProposal.note_title || 'Untitled Note'}</h5>
+                    <span class="badge bg-info">${noteProposal.note_type || 'General'}</span>
+                </div>
+            </div>
+        </div>
+        <div class="note-content mb-3">
+            <strong>Content:</strong>
+            <div class="mt-2 p-2 border rounded bg-light editable-content" contenteditable="true"
+                data-field="note_text"
+                style="white-space: normal; min-height: 100px; border: 1px dashed transparent !important;"
+                onfocus="this.style.borderColor='#0d6efd'; this.style.backgroundColor='#fff';"
+                onblur="this.style.borderColor='transparent'; this.style.backgroundColor='#f8f9fa'; updateNoteField('note_text', this.innerHTML);"
+            >${formattedContent}</div>
+        </div>
+        ${bookmarksHTML}
+        ${associationsHTML}
+        ${attachmentsHTML}
+    `;
+    
+    previewContainer.classList.remove('d-none');
+}
+
+function updateNoteField(field, value) {
+    if (!currentNoteProposal) return;
+    
+    if (field === 'note_title') {
+        currentNoteProposal.note_title = value.trim();
+    } else if (field === 'note_text') {
+        // Convert HTML back to a more readable format for storage
+        // Keep the HTML formatting since it will be converted when saved
+        currentNoteProposal.note_text = value
+            .replace(/<br\s*\/?>/gi, '\n')  // Convert <br> back to newlines
+            .replace(/<\/p>/gi, '\n\n')      // Paragraph breaks
+            .replace(/<p>/gi, '')
+            .replace(/<strong>(.*?)<\/strong>/gi, '**$1**')  // Bold back to markdown
+            .replace(/<h6>(.*?)<\/h6>/gi, '### $1\n')        // Headers back to markdown
+            .replace(/<h5>(.*?)<\/h5>/gi, '## $1\n')
+            .replace(/<h4>(.*?)<\/h4>/gi, '# $1\n')
+            .replace(/<\/?ul>/gi, '')                        // Remove ul tags
+            .replace(/<li>(.*?)<\/li>/gi, '- $1\n')          // List items back to markdown
+            .replace(/<[^>]+>/g, '')                         // Remove any other HTML tags
+            .trim();
+    }
+}
+
+
+async function applyNotePreview() {
+    if (!currentNoteProposal) {
+        addMessageToChat('assistant', '❌ No note to apply');
+        return;
+    }
+    
+    const loadingId = addMessageToChat('assistant', 'Creating note...', true);
+    
+    try {
+        // Prepare form data for note creation
+        const formData = new FormData();
+        formData.append('note_title', currentNoteProposal.note_title || '');
+        formData.append('note_text', currentNoteProposal.note_text || '');
+        formData.append('note_type', currentNoteProposal.note_type || 'General');
+        
+        // Add URL bookmarks as JSON
+        if (currentNoteProposal.url_bookmarks && currentNoteProposal.url_bookmarks.length > 0) {
+            formData.append('url_bookmarks', JSON.stringify(currentNoteProposal.url_bookmarks));
+        }
+        
+        // Add associated entry IDs as JSON
+        if (currentNoteProposal.associated_entry_ids && currentNoteProposal.associated_entry_ids.length > 0) {
+            formData.append('associated_entry_ids', JSON.stringify(currentNoteProposal.associated_entry_ids));
+        }
+        
+        // Add file attachments
+        for (const file of noteAttachments) {
+            formData.append('files', file);
+        }
+        
+        const response = await fetch(`/api/entries/{{ entry.id }}/notes`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        document.getElementById(loadingId).remove();
+        
+        if (response.ok && data.success) {
+            addMessageToChat('assistant', `✅ Note created successfully!
+
+The note has been added to this entry. You can find it in the Notes section below. Would you like to create another note?`);
+            
+            // Close the preview
+            closeNotePreview();
+            
+            // Refresh notes section if it exists
+            if (typeof fetchNotes === 'function') {
+                fetchNotes();
+            }
+            
+            // Clear attachments and proposal
+            currentNoteProposal = null;
+            noteAttachments = [];
+            updateAttachmentsList();
+            
+        } else {
+            addMessageToChat('assistant', `❌ Error: ${data.error || 'Failed to create note'}`);
+        }
+    } catch (error) {
+        console.error('Apply note error:', error);
+        document.getElementById(loadingId).remove();
+        addMessageToChat('assistant', '❌ Failed to create note. Please try again.');
+    }
+}
+
+function closeNotePreview() {
+    const previewContainer = document.getElementById('notePreview');
+    previewContainer.classList.add('d-none');
+}
+
+function exitNoteComposerMode() {
+    noteComposerMode = false;
+    currentNoteProposal = null;
+    noteAttachments = [];
+    
+    // Remove note preview if present
+    closeNotePreview();
+    
+    // Hide attachment UI
+    hideAttachmentUploadUI();
+    
+    resetActionButton();
+    addMessageToChat('assistant', 'Note composer exited. How else can I help?');
+    document.getElementById('chatInput').placeholder = "Ask AI or request description changes...";
+}
+
 async function sendChatMessage() {
     const input = document.getElementById('chatInput');
     const message = input.value.trim();
@@ -254,6 +762,18 @@ async function sendChatMessage() {
         } else {
             // Refining existing plan - regenerate with refinement prompt
             await generatePlan(`Based on the previous plan, ${message}`);
+        }
+        return;
+    }
+    
+    // Check if in note composer mode
+    if (noteComposerMode && !actionToSend) {
+        // Check if user is asking for a new note or refining existing one
+        if (!currentNoteProposal || message.toLowerCase().includes('new note') || message.toLowerCase().includes('start over')) {
+            await composeNote(message);
+        } else {
+            // Refining existing note - compose with refinement prompt
+            await composeNote(`Based on the previous note proposal, ${message}`);
         }
         return;
     }
@@ -486,6 +1006,26 @@ async function saveDescriptionUpdate(description) {
         </div>
     </div>
     
+    <!-- Note Preview Area (Hidden by default) -->
+    <div class="note-preview d-none mb-3" id="notePreview">
+        <div class="card border-primary">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-file-alt me-2"></i>Proposed Note</span>
+                <div>
+                    <button class="btn btn-sm btn-success" onclick="applyNotePreview()">
+                        <i class="fas fa-check me-1"></i>Apply Note
+                    </button>
+                    <button class="btn btn-sm btn-outline-light" onclick="closeNotePreview()">
+                        <i class="fas fa-times me-1"></i>Cancel
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="notePreviewContent"></div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Chat Input -->
     <div class="chat-input">
         <div class="input-group">
@@ -498,6 +1038,10 @@ async function saveDescriptionUpdate(description) {
                 </a></li>
                 <li><a class="dropdown-item" href="#" onclick="selectAction('improve_description', 'Improve the description', 'Improve', 'lightbulb'); return false;">
                     <i class="fas fa-lightbulb me-2"></i>Improve Description
+                </a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#" onclick="enterNoteComposerMode(); return false;">
+                    <i class="fas fa-file-alt me-2"></i>Compose Note
                 </a></li>
                 <li><hr class="dropdown-divider"></li>
                 <!-- Planning Mode: show_end_dates={{ entry.show_end_dates }}, intended_end_date={{ entry.intended_end_date }} -->
