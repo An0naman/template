@@ -1292,7 +1292,8 @@ You are currently discussing the following entry:
             Dictionary with proposed note structure or None if failed
         """
         if not self.is_available():
-            return None
+            logger.warning("AI service not available - check GEMINI_API_KEY")
+            return {'error': 'AI service is not available. Please check configuration.'}
         
         try:
             # Check if user is asking about existing note attachments
@@ -1569,25 +1570,46 @@ Respond ONLY with the JSON object, no additional text.
                 from PIL import Image
                 
                 logger.info(f"Found {len(context['all_notes'])} notes to check for attachments")
+                images_loaded = 0
+                max_images = 10  # Limit to prevent API overload
+                
                 for note in context['all_notes']:
+                    if images_loaded >= max_images:
+                        logger.warning(f"Reached maximum image limit ({max_images}), skipping remaining images")
+                        break
+                        
                     logger.info(f"Checking note: {note.get('title')} - attachments: {note.get('attachments')}")
                     if note.get('attachments'):
                         for file_path in note['attachments']:
+                            if images_loaded >= max_images:
+                                break
+                                
                             try:
                                 # Build full path to uploaded file
                                 full_path = os.path.join('/app/app/static', file_path.lstrip('/'))
+                                
+                                # Check if file exists
+                                if not os.path.exists(full_path):
+                                    logger.warning(f"Image file not found: {full_path}")
+                                    continue
                                 
                                 # Check if it's an image
                                 if any(file_path.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']):
                                     # Load image with PIL
                                     image = Image.open(full_path)
                                     content_parts.append(image)
+                                    images_loaded += 1
                                     logger.info(f"Added existing note image to AI request: {file_path}")
                             except Exception as e:
                                 logger.error(f"Failed to load existing note image {file_path}: {e}")
             
             # Send to Gemini with multimodal content
-            response = self.model.generate_content(content_parts)
+            logger.info(f"Sending to Gemini with {len(content_parts)} content parts ({len(content_parts) - 1} images)")
+            try:
+                response = self.model.generate_content(content_parts)
+            except Exception as e:
+                logger.error(f"Gemini API error: {e}")
+                return {'error': f'AI service error: {str(e)}'}
             
             if response and response.text:
                 response_text = response.text.strip()
