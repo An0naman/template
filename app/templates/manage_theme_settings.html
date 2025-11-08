@@ -994,10 +994,22 @@
                             <div class="col-md-4">
                                 <label for="sectionBorderStyle" class="form-label">Border Style</label>
                                 <select class="form-select" id="sectionBorderStyle" onchange="themeManager.updateSetting('sectionStyles', 'borderStyle', this.value)">
-                                    <option value="none">None (no border)</option>
-                                    <option value="thin">Thin (1px solid)</option>
-                                    <option value="thick">Thick (4px solid)</option>
-                                    <option value="dashed">Dashed (3px dashed)</option>
+                                    <optgroup label="Basic Styles">
+                                        <option value="none">None (no border)</option>
+                                        <option value="thin">Thin (1px solid)</option>
+                                        <option value="thick">Thick (4px solid)</option>
+                                        <option value="dashed">Dashed (3px dashed)</option>
+                                    </optgroup>
+                                    <optgroup label="Themed Styles">
+                                        <option value="retro">Retro (classic arcade style)</option>
+                                        <option value="pixelated">Pixelated (8-bit gaming)</option>
+                                        <option value="pokemon">Pokemon (game-inspired)</option>
+                                        <option value="nature">Nature (organic and natural)</option>
+                                        <option value="autumn">Autumn (seasonal leaves)</option>
+                                        <option value="ocean">Ocean (water-themed)</option>
+                                        <option value="forest">Forest (woodland theme)</option>
+                                        <option value="sunset">Sunset (warm evening tones)</option>
+                                    </optgroup>
                                 </select>
                             </div>
                             
