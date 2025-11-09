@@ -334,14 +334,14 @@ class EntryLayoutService:
             sections_to_add = ['header', 'notes', 'relationships', 'attachments']
             
             if entry_type['show_labels_section']:
-                sections_to_add.append('labels')
+                sections_to_add.append('label_printing')
             
             if entry_type['has_sensors']:
                 sections_to_add.append('sensors')
             
             sections_to_add.extend([
                 'reminders', 'ai_assistant', 'form_fields',
-                'qr_code', 'label_printing', 'relationship_opportunities', 'timeline'
+                'qr_code', 'relationship_opportunities', 'timeline'
             ])
             
             # Create sections
@@ -350,7 +350,7 @@ class EntryLayoutService:
                     section_data = EntryLayoutService.DEFAULT_SECTIONS[section_key]
                     
                     is_visible = section_data['is_visible']
-                    if section_key == 'labels' and not entry_type['show_labels_section']:
+                    if section_key == 'label_printing' and not entry_type['show_labels_section']:
                         is_visible = 0
                     elif section_key == 'sensors' and not entry_type['has_sensors']:
                         is_visible = 0
