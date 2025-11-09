@@ -577,8 +577,7 @@
                                     <h5>QR Code Section</h5>
                                     <p class="text-muted">QR code will go here</p>
                                 {% elif section_type == 'label_printing' %}
-                                    <h5>Label Printing Section</h5>
-                                    <p class="text-muted">Label printing will go here</p>
+                                    {% include 'sections/_label_printing_section.html' %}
                                 {% elif section_type == 'relationship_opportunities' %}
                                     <h5>Relationship Opportunities Section</h5>
                                     <p class="text-muted">Relationship opportunities will go here</p>
