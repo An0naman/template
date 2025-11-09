@@ -1,0 +1,117 @@
+{# Label Printing Section Content - 100% Recreation of Existing Functionality #}
+
+<div class="section-header mb-3">
+    <h4 class="section-title">
+        <i class="fas fa-tags me-2"></i>Label Printing
+    </h4>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="mb-3">
+            <label for="labelTypeSelect" class="form-label">Label Sheet Type</label>
+            <select class="form-select" id="labelTypeSelect">
+                <optgroup label="Sheet Labels (A4)">
+                    <option value="8_labels">8 Labels (2x4) - Larger</option>
+                    <option value="14_labels">14 Labels (2x7) - Smaller</option>
+                </optgroup>
+                <optgroup label="Niimbot Printers (Bluetooth)">
+                    <option value="niimbot_b1">Niimbot B1 (384px width)</option>
+                    <option value="niimbot_d110">Niimbot D110 (240px width)</option>
+                </optgroup>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="labelRotationSelect" class="form-label">Label Orientation</label>
+            <select class="form-select" id="labelRotationSelect">
+                <option value="0">Normal (0°)</option>
+                <option value="90">Rotated (90°)</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <div id="labelPositionContainer">
+                <!-- Position grid will be populated dynamically -->
+            </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <button type="button" class="btn btn-sm btn-theme-secondary" id="printLabelBtn">
+                <i class="fas fa-print me-1"></i>Print
+            </button>
+            <button type="button" class="btn btn-sm btn-theme-secondary" id="downloadLabelPdfBtn">
+                <i class="fas fa-download me-1"></i>Download PDF
+            </button>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div id="labelPreviewContainer" class="text-center">
+            <div class="border rounded p-3" style="background-color: var(--theme-bg-surface, #f8f9fa);">
+                <p class="text-muted">Preview will load automatically</p>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="labelStatusMessage" class="mt-3 d-none"></div>
+
+<script src="{{ url_for('static', filename='label_printing.js') }}"></script>
+
+<style>
+/* Label Grid Styling */
+.label-grid-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.label-row {
+    display: flex;
+    gap: 8px;
+    justify-content: start;
+}
+
+.label-position {
+    width: 60px;
+    height: 60px;
+    border: 2px solid #dee2e6;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background-color: white;
+    font-weight: bold;
+    font-size: 18px;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.label-position:hover {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.label-position.selected {
+    background-color: var(--theme-primary, #0d6efd);
+    color: white;
+    border-color: var(--theme-primary, #0d6efd);
+}
+
+/* Niimbot Interface Styling */
+.niimbot-interface {
+    padding: 15px;
+    background-color: var(--theme-bg-surface, #f8f9fa);
+    border-radius: 8px;
+}
+
+.printer-item.active {
+    background-color: var(--theme-primary, #0d6efd);
+    color: white;
+}
+
+#labelPreviewContainer img {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+}
+</style>

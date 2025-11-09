@@ -60,6 +60,7 @@ def create_app():
     # --- Register Blueprints ---
     from .routes.main_routes import main_bp
     from .routes.maintenance_routes import maintenance_bp
+    from .routes.printer_routes import printer_bp
     
     # Import all API blueprints
     from .api.entry_api import entry_api_bp
@@ -97,6 +98,7 @@ def create_app():
     # Register all blueprints
     app.register_blueprint(main_bp)
     app.register_blueprint(maintenance_bp)
+    app.register_blueprint(printer_bp)  # Printer routes (already has /api/printer prefix)
     app.register_blueprint(entry_api_bp, url_prefix='/api')
     app.register_blueprint(entry_type_api_bp, url_prefix='/api')
     app.register_blueprint(entry_state_api_bp, url_prefix='/api')

@@ -34,6 +34,14 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        // Show rotation controls for sheet labels (they're hidden for Niimbot)
+        if (labelRotationSelect) {
+            const rotationDiv = labelRotationSelect.closest('.mb-3');
+            if (rotationDiv) {
+                rotationDiv.style.removeProperty('display');
+            }
+        }
+        
         // Regular sheet label logic
         const config = labelType === '8_labels' ? 
             { rows: 4, cols: 2, name: '8 Labels (2x4)' } : 

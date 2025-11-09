@@ -106,23 +106,6 @@ class EntryLayoutService:
             'display_order': 100,
             'config': {}
         },
-        'labels': {
-            'title': 'Labels & Printing',
-            'section_type': 'labels',
-            'position_x': 0,
-            'position_y': 101,
-            'width': 12,
-            'height': 3,
-            'is_visible': 0,
-            'is_collapsible': 1,
-            'default_collapsed': 0,
-            'display_order': 101,
-            'config': {
-                'show_label_printing': True,
-                'show_qr_code': True,
-                'default_printer': 'niimbot'
-            }
-        },
         'reminders': {
             'title': 'Reminders',
             'section_type': 'reminders',
@@ -174,6 +157,25 @@ class EntryLayoutService:
             'default_collapsed': 1,
             'display_order': 105,
             'config': {}
+        },
+        'label_printing': {
+            'title': 'Label Printing',
+            'section_type': 'label_printing',
+            'position_x': 0,
+            'position_y': 106,
+            'width': 12,
+            'height': 6,
+            'is_visible': 0,
+            'is_collapsible': 1,
+            'default_collapsed': 0,
+            'display_order': 106,
+            'config': {
+                'default_printer': 'niimbot_b1',
+                'default_font_size': 'medium',
+                'default_density': 3,
+                'include_qr_default': True,
+                'default_copies': 1
+            }
         },
         'relationship_opportunities': {
             'title': 'Shared Relationships',
