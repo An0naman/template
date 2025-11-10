@@ -30,32 +30,40 @@ def entries():
     view_type = request.args.get('view_type')
     entry_type_filter = request.args.get('entry_type')
     status_filter = request.args.get('status')
+    search_term = request.args.get('search')
     result_limit = request.args.get('result_limit')
     save_filters = request.args.get('save_filters') == 'true'
     
-    # If no filters provided, load from saved preferences
+    # If no filters provided in URL, load from saved preferences
+    # Note: Empty string '' is different from None - '' means user explicitly cleared it
     if view_type is None:
         view_type = get_user_preference('default_view_type', 'all')  # Changed default from 'primary' to 'all'
     if entry_type_filter is None:
         entry_type_filter = get_user_preference('default_entry_type_filter', '')
     if status_filter is None:
         status_filter = get_user_preference('default_status_filter', 'all')  # Changed from 'active' to 'all' for frontend filtering
+    # Only use saved search if not in URL at all (None), not if it's empty string
+    if search_term is None:
+        search_term = get_user_preference('default_search_term', '')
     if result_limit is None:
-        result_limit = get_user_preference('default_result_limit', '50')
+        result_limit = get_user_preference('default_result_limit', params.get('default_result_limit', '1000'))
     
     # Save filters if requested
     if save_filters:
         set_user_preference('default_view_type', view_type)
         set_user_preference('default_entry_type_filter', entry_type_filter)
         set_user_preference('default_status_filter', status_filter)
+        set_user_preference('default_search_term', search_term)
         set_user_preference('default_result_limit', result_limit)
     
     # Convert result_limit to integer, with fallback
+    # All filtering (search, entry type, status) now happens at SQL level before LIMIT,
+    # so the limit applies only to entries that match the filter criteria.
     try:
-        result_limit_int = int(result_limit) if result_limit else 50
-        result_limit_int = max(1, min(result_limit_int, 1000))  # Limit between 1 and 1000
+        result_limit_int = int(result_limit) if result_limit else 1000
+        result_limit_int = max(1, min(result_limit_int, 5000))  # Limit between 1 and 5000
     except (ValueError, TypeError):
-        result_limit_int = 50
+        result_limit_int = 1000
     
     # Build the query based on filters
     query_parts = []
@@ -75,18 +83,33 @@ def entries():
         LEFT JOIN EntryState es ON es.entry_type_id = e.entry_type_id AND es.name = e.status
     '''
     
-    # Add WHERE conditions
+    # Add WHERE conditions - ALL filtering now happens at SQL level
     conditions = []
     
-    # For the main index view, don't filter by status in backend - let frontend handle it
-    # Status filtering is now handled by JavaScript live filtering
+    # Search term filter (searches title and description)
+    if search_term:
+        conditions.append("(e.title LIKE ? OR e.description LIKE ?)")
+        search_pattern = f"%{search_term}%"
+        params_list.append(search_pattern)
+        params_list.append(search_pattern)
     
-    # View type filter
+    # View type filter (affects which entries are included)
     if view_type == 'primary':
         conditions.append("et.is_primary = 1")
     elif view_type == 'type' and entry_type_filter:
         conditions.append("et.id = ?")
         params_list.append(entry_type_filter)
+    
+    # Entry type filter (when specified)
+    if entry_type_filter and view_type != 'type':
+        conditions.append("et.id = ?")
+        params_list.append(entry_type_filter)
+    
+    # Status filter (by category: active, inactive, completed, all)
+    if status_filter and status_filter != 'all':
+        if status_filter in ['active', 'inactive', 'completed']:
+            conditions.append("COALESCE(es.category, 'active') = ?")
+            params_list.append(status_filter)
     
     # Combine conditions
     if conditions:

@@ -1391,6 +1391,15 @@
             // Load saved search parameters from database
             async function loadSavedSearchParams() {
                 try {
+                    // Check if URL has explicit filter parameters - if so, skip loading saved searches
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const hasUrlFilters = urlParams.has('search') || urlParams.has('entry_type') || urlParams.has('status');
+                    
+                    if (hasUrlFilters) {
+                        console.log('URL has explicit filter parameters, skipping saved search load');
+                        return;
+                    }
+                    
                     // First, try to load the default saved search
                     const searchesResponse = await fetch('/api/saved_searches');
                     if (searchesResponse.ok) {
@@ -1486,9 +1495,20 @@
                 const templateDefaults = {{ search_defaults|tojson }};
                 console.log('Loading template defaults:', templateDefaults);
                 
-                if (templateDefaults.search_term) quickSearch.value = templateDefaults.search_term;
-                if (templateDefaults.type_filter) quickTypeFilter.value = templateDefaults.type_filter;
-                if (templateDefaults.status_filter) quickStatusFilter.value = templateDefaults.status_filter;
+                // Check URL parameters first (takes precedence over saved defaults)
+                const urlParams = new URLSearchParams(window.location.search);
+                const urlSearch = urlParams.get('search');
+                const urlType = urlParams.get('entry_type');
+                const urlStatus = urlParams.get('status');
+                
+                if (urlSearch !== null) quickSearch.value = urlSearch;
+                else if (templateDefaults.search_term) quickSearch.value = templateDefaults.search_term;
+                
+                if (urlType !== null) quickTypeFilter.value = urlType;
+                else if (templateDefaults.type_filter) quickTypeFilter.value = templateDefaults.type_filter;
+                
+                if (urlStatus !== null) quickStatusFilter.value = urlStatus;
+                else if (templateDefaults.status_filter) quickStatusFilter.value = templateDefaults.status_filter;
                 if (templateDefaults.date_range) dateRange.value = templateDefaults.date_range;
                 if (templateDefaults.sort_by) sortBy.value = templateDefaults.sort_by;
                 if (templateDefaults.content_display) hasDescription.value = templateDefaults.content_display;
@@ -1620,6 +1640,37 @@
                     const searchTerm = quickSearch.value.toLowerCase().trim();
                     const selectedType = quickTypeFilter.value;
                     const selectedStatus = quickStatusFilter.value.toLowerCase().trim();
+                    
+                    // Check if basic filters changed - if so, reload page with query params
+                    const currentUrl = new URL(window.location.href);
+                    const currentSearch = (currentUrl.searchParams.get('search') || '').toLowerCase().trim();
+                    const currentType = currentUrl.searchParams.get('entry_type') || '';
+                    const currentStatus = currentUrl.searchParams.get('status') || '';
+                    
+                    const basicFiltersChanged = 
+                        searchTerm !== currentSearch ||
+                        selectedType !== currentType ||
+                        (selectedStatus && !selectedStatus.startsWith('status:') && selectedStatus !== currentStatus);
+                    
+                    if (basicFiltersChanged) {
+                        // Reload page with new filter parameters for server-side filtering
+                        const newUrl = new URL(window.location.href);
+                        // Always set search param (even empty) to override saved defaults
+                        newUrl.searchParams.set('search', searchTerm);
+                        
+                        if (selectedType) {
+                            newUrl.searchParams.set('entry_type', selectedType);
+                        } else {
+                            newUrl.searchParams.delete('entry_type');
+                        }
+                        if (selectedStatus && !selectedStatus.startsWith('status:')) {
+                            newUrl.searchParams.set('status', selectedStatus);
+                        } else {
+                            newUrl.searchParams.delete('status');
+                        }
+                        window.location.href = newUrl.toString();
+                        return;
+                    }
                     const selectedSpecificStates = Array.from(specificStateFilter.selectedOptions).map(opt => opt.value.toLowerCase());
                     const selectedDateRange = dateRange.value;
                     const selectedHasDescription = hasDescription.value;
@@ -1773,7 +1824,7 @@
                     
                     // Save current filter state to database
                     saveSearchParams();
-                }, 150);
+                }, 800);  // Increased from 150ms to 800ms to allow finishing typing before reload
             }
             
             // Add event listeners for save/clear buttons
