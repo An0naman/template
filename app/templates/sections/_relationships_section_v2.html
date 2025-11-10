@@ -504,8 +504,8 @@
                 return orderA - orderB;
             });
             
-            // Render the cards
-            renderRelationshipCards(sortedDefinitions, groupedRelationships);
+            // Render the cards (await to ensure filters are applied after states are loaded)
+            await renderRelationshipCards(sortedDefinitions, groupedRelationships);
             
             loadingEl.style.display = 'none';
             containerEl.style.display = 'block';
@@ -521,7 +521,7 @@
         }
     }
     
-    function renderRelationshipCards(definitions, groupedRelationships) {
+    async function renderRelationshipCards(definitions, groupedRelationships) {
         const container = document.getElementById('groupedViewContainer' + sectionUniqueId);
         
         if (!container) {
@@ -626,12 +626,12 @@
         attachEventListeners();
         
         // Load states for each relationship definition's filter dropdown
-        definitions.forEach(def => {
-            loadStatesForDefinition(def.id);
-        });
+        // Wait for all state loading to complete before applying filter preferences
+        const stateLoadPromises = definitions.map(def => loadStatesForDefinition(def.id));
+        await Promise.all(stateLoadPromises);
         
-        // Load and apply saved filter preferences
-        loadFilterPreferences();
+        // Load and apply saved filter preferences (after states are loaded)
+        await loadFilterPreferences();
     }
     
     function renderRelationshipRow(rel, def) {

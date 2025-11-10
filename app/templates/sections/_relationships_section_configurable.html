@@ -559,12 +559,12 @@
         attachEventListeners();
         
         // Load states for each relationship definition's filter dropdown
-        definitions.forEach(def => {
-            loadStatesForDefinition(def.id);
-        });
+        // Wait for all state loading to complete before applying filter preferences
+        const stateLoadPromises = definitions.map(def => loadStatesForDefinition(def.id));
+        await Promise.all(stateLoadPromises);
         
-        // Load and apply saved filter preferences
-        loadFilterPreferences();
+        // Load and apply saved filter preferences (after states are loaded)
+        await loadFilterPreferences();
         
         // Apply hidden cards from database
         await applyHiddenCardsOnLoad();
