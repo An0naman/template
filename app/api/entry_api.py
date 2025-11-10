@@ -650,15 +650,24 @@ def custom_sql_filter():
         if not where_clause and not sql_fragment:
             return jsonify({'entry_ids': [], 'count': 0}), 200
 
-        # Basic security checks for both fragment types
+        # Basic security checks for both fragment types (word boundaries to avoid false positives like "created_at")
+        import re
         dangerous_keywords = ['DROP', 'DELETE', 'INSERT', 'UPDATE', 'ALTER', 'CREATE',
-                              'TRUNCATE', 'EXEC', 'EXECUTE', '--', ';']
+                              'TRUNCATE', 'EXEC', 'EXECUTE']
 
         fragment_to_check = sql_fragment if sql_fragment else where_clause
         fragment_upper = fragment_to_check.upper()
 
+        # Check for SQL comments (-- or /* */)
+        if '--' in fragment_to_check or '/*' in fragment_to_check:
+            return jsonify({
+                'error': 'SQL comments (-- or /* */) are not allowed in fragments.'
+            }), 400
+
+        # Check for dangerous keywords as whole words (not substrings)
         for keyword in dangerous_keywords:
-            if keyword in fragment_upper:
+            # Use word boundary regex to match only complete words
+            if re.search(r'\b' + re.escape(keyword) + r'\b', fragment_upper):
                 return jsonify({
                     'error': f'Dangerous SQL keyword detected: {keyword}. Only read-only fragments are allowed.'
                 }), 400

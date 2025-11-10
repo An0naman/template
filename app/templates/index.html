@@ -958,21 +958,30 @@
                                     <div class="col-12 mt-4">
                                         <h6 class="mb-3">
                                             <i class="fas fa-code me-2"></i>Custom SQL Query
-                                            <small class="text-muted">For advanced filtering, write your own SQL WHERE clause</small>
+                                            <small class="text-muted">Write your own SQL fragment (FROM Entry e is provided)</small>
                                         </h6>
-                                        <div class="alert alert-warning py-2 small mb-3">
-                                            <i class="fas fa-exclamation-triangle me-1"></i>
-                                            <strong>Advanced Feature:</strong> Write a SQL WHERE clause to filter entries. 
-                                            Use <code>e</code> as the Entry table alias. Example: <code>e.title LIKE '%wine%' AND e.id IN (SELECT source_entry_id FROM entry_relationship WHERE target_entry_id = 5)</code>
+                                        <div class="alert alert-info py-2 small mb-3">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            <strong>Advanced Feature:</strong> The server provides the base query (see comments in textarea).<br>
+                                            You can add your own JOINs, WHERE, ORDER BY, LIMIT, etc. Available aliases: <code>e</code> (Entry), <code>et</code> (EntryType), <code>er_from</code>/<code>er_to</code> (EntryRelationship).
                                         </div>
                                         <div class="mb-2">
                                             <textarea 
                                                 class="form-control font-monospace" 
                                                 id="customSqlQuery" 
-                                                rows="4" 
-                                                placeholder="Enter SQL WHERE clause (without 'WHERE' keyword)&#10;Example: e.title LIKE '%Sample%' AND e.entry_type_id = 2"
-                                                style="font-size: 0.9rem;"
-                                            ></textarea>
+                                                rows="12" 
+                                                style="font-size: 0.85rem;"
+                                            >-- Server provides this base query (read-only):
+-- SELECT DISTINCT e.id
+-- FROM Entry e
+-- LEFT JOIN EntryType et ON e.entry_type_id = et.id
+-- LEFT JOIN EntryRelationship er_from ON e.id = er_from.source_entry_id
+-- LEFT JOIN EntryRelationship er_to ON e.id = er_to.target_entry_id
+
+-- Your custom fragment starts here:
+WHERE e.title LIKE '%Sample%'
+ORDER BY e.created_at DESC
+LIMIT 100</textarea>
                                         </div>
                                         <div class="d-flex gap-2 align-items-center">
                                             <button type="button" class="btn btn-sm btn-outline-theme-primary" id="applySqlQuery">
@@ -982,7 +991,7 @@
                                                 <i class="fas fa-times me-1"></i>Clear
                                             </button>
                                             <div class="form-check ms-3">
-                                                <input class="form-check-input" type="checkbox" id="sqlQueryEnabled" checked>
+                                                <input class="form-check-input" type="checkbox" id="sqlQueryEnabled">
                                                 <label class="form-check-label small" for="sqlQueryEnabled">
                                                     Use SQL Query
                                                 </label>
@@ -1710,7 +1719,15 @@
                         try {
                             // When SQL mode is enabled we send the full fragment. Backend will append it
                             // to the server-provided FROM/JOIN base (alias 'e' is Entry table).
-                            const payload = { sql_fragment: customSqlQuery };
+                            // Strip SQL comments (-- lines and /* */ blocks) before sending
+                            let cleanedQuery = customSqlQuery
+                                .split('\n')
+                                .filter(line => !line.trim().startsWith('--'))
+                                .join('\n')
+                                .replace(/\/\*[\s\S]*?\*\//g, '')
+                                .trim();
+                            
+                            const payload = { sql_fragment: cleanedQuery };
                             const response = await fetch('/api/custom_sql_filter', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
