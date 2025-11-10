@@ -1214,6 +1214,23 @@
             
             let searchTimeout;
             
+            // Toggle UI when SQL mode is enabled/disabled
+            function toggleSqlModeUI(enabled) {
+                const controls = [quickSearch, quickTypeFilter, quickStatusFilter, specificStateFilter, dateRange, sortBy, hasDescription, resultLimit];
+                controls.forEach(c => {
+                    if (!c) return;
+                    c.disabled = enabled;
+                    // visually indicate disabled state for selects/inputs
+                    if (enabled) {
+                        c.classList.add('opacity-50');
+                    } else {
+                        c.classList.remove('opacity-50');
+                    }
+                });
+
+                // (no-op) saved-search container handling removed - not present in template
+            }
+
             // Load available states for the specific state filter, optionally filtered by entry type and status category
             async function loadAllStates(entryTypeId = null, statusCategory = null) {
                 try {
@@ -1691,10 +1708,13 @@
                     
                     if (sqlQueryEnabled && customSqlQuery) {
                         try {
+                            // When SQL mode is enabled we send the full fragment. Backend will append it
+                            // to the server-provided FROM/JOIN base (alias 'e' is Entry table).
+                            const payload = { sql_fragment: customSqlQuery };
                             const response = await fetch('/api/custom_sql_filter', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ where_clause: customSqlQuery })
+                                body: JSON.stringify(payload)
                             });
                             
                             if (response.ok) {
@@ -1875,6 +1895,8 @@
             document.getElementById('applySqlQuery').addEventListener('click', function() {
                 const sqlQueryEnabled = document.getElementById('sqlQueryEnabled');
                 sqlQueryEnabled.checked = true;
+                // Update UI to reflect SQL mode and run the query
+                if (typeof toggleSqlModeUI === 'function') toggleSqlModeUI(true);
                 performLiveFilter();
             });
             
@@ -2223,6 +2245,18 @@
             
             // Load saved search parameters on page load
             loadSavedSearchParams();
+
+            // Initialize SQL mode UI state and add toggle handler
+            const sqlToggle = document.getElementById('sqlQueryEnabled');
+            if (sqlToggle) {
+                // Set initial UI according to toggle state
+                toggleSqlModeUI(sqlToggle.checked);
+                sqlToggle.addEventListener('change', function() {
+                    toggleSqlModeUI(sqlToggle.checked);
+                    // Re-run filtering when mode changes
+                    performLiveFilter();
+                });
+            }
             
             // Form submission handler
             document.getElementById('addEntryForm').addEventListener('submit', async function(e) {
