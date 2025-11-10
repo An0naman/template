@@ -78,10 +78,15 @@ services:
       # Optional: Security
       - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
     
-    # DNS servers
+    # DNS servers (Google Public DNS)
     dns:
       - 8.8.8.8
       - 8.8.4.4
+    
+    # Prefer IPv4 for DNS resolution (fixes Google API connectivity issues)
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1
+      - net.ipv6.conf.default.disable_ipv6=1
     
     # Health check
     healthcheck:
