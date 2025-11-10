@@ -592,13 +592,13 @@
                 </td>
                 <td class="text-end">
                     <div class="btn-group" role="group">
-                        <button class="btn btn-sm btn-outline-primary btn-bind-notes" 
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-bind-notes" 
                                 data-entry-id="${rel.related_entry_id}" 
                                 data-entry-title="${escapeHtml(rel.related_entry_title)}" 
                                 title="Bind notes from this entry">
                             <i class="fas fa-link"></i>
                         </button>
-                        <button class="btn btn-sm btn-outline-danger btn-delete-relationship" 
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-delete-relationship" 
                                 data-relationship-id="${rel.relationship_id}"
                                 data-entry-title="${escapeHtml(rel.related_entry_title)}"
                                 title="Delete relationship">
@@ -1862,9 +1862,25 @@
         }
     }
     
-    function deleteRelationship(relationshipId) {
-        if (confirm('Are you sure you want to delete this relationship?')) {
-            alert('Delete relationship feature to be implemented. Relationship ID: ' + relationshipId);
+    async function deleteRelationship(relationshipId) {
+        if (!confirm('Are you sure you want to delete this relationship?')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/relationships/${relationshipId}`, {
+                method: 'DELETE'
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to delete relationship');
+            }
+            
+            await loadRelationships();
+            showNotification('Relationship deleted successfully', 'success');
+        } catch (error) {
+            console.error('Error deleting relationship:', error);
+            showNotification('Error: ' + error.message, 'danger');
         }
     }
     

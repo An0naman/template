@@ -665,7 +665,7 @@
                 <td class="text-end" style="width: 150px;">
                     <div class="btn-group btn-group-sm">
                         ${def.allow_quantity_unit ? `
-                            <button class="btn btn-outline-secondary btn-edit-quantity" 
+                            <button type="button" class="btn btn-outline-secondary btn-edit-quantity" 
                                     data-relationship-id="${rel.relationship_id}"
                                     data-quantity="${rel.quantity || ''}"
                                     data-unit="${rel.unit || ''}"
@@ -673,13 +673,13 @@
                                 <i class="fas fa-edit"></i>
                             </button>
                         ` : ''}
-                        <button class="btn btn-outline-primary btn-bind-notes" 
+                        <button type="button" class="btn btn-outline-primary btn-bind-notes" 
                                 data-entry-id="${rel.related_entry_id}" 
                                 data-entry-title="${escapeHtml(rel.related_entry_title)}" 
                                 title="Bind notes from this entry">
                             <i class="fas fa-link"></i>
                         </button>
-                        <button class="btn btn-outline-danger btn-delete-relationship" 
+                        <button type="button" class="btn btn-outline-danger btn-delete-relationship" 
                                 data-relationship-id="${rel.relationship_id}"
                                 data-entry-title="${escapeHtml(rel.related_entry_title)}"
                                 title="Delete relationship">
@@ -932,8 +932,11 @@
         });
         
         // Delete relationship buttons - scoped to this section's container
-        container.querySelectorAll('.btn-delete-relationship').forEach(btn => {
-            btn.addEventListener('click', function() {
+        const deleteButtons = container.querySelectorAll('.btn-delete-relationship');
+        console.log(`Found ${deleteButtons.length} delete buttons in section ${sectionUniqueId}`);
+        deleteButtons.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                console.log('Delete button clicked:', this.dataset.relationshipId);
                 const relationshipId = this.dataset.relationshipId;
                 const entryTitle = this.dataset.entryTitle;
                 deleteRelationship(relationshipId, entryTitle);
@@ -1534,7 +1537,10 @@
     }
     
     async function deleteRelationship(relationshipId, entryTitle) {
+        console.log('deleteRelationship called:', { relationshipId, entryTitle });
+        
         if (!confirm(`Delete relationship with "${entryTitle}"?`)) {
+            console.log('User cancelled deletion');
             return;
         }
         
@@ -1542,6 +1548,8 @@
         const row = document.querySelector(`[data-relationship-id="${relationshipId}"]`)?.closest('tr');
         const bindNotesBtn = row?.querySelector('.btn-bind-notes');
         const relatedEntryId = bindNotesBtn ? bindNotesBtn.getAttribute('data-entry-id') : null;
+        
+        console.log('Sending DELETE request to:', `/api/relationships/${relationshipId}`);
         
         try {
             const response = await fetch(`/api/relationships/${relationshipId}`, {
