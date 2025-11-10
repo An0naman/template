@@ -29,7 +29,7 @@ def get_all_entries():
             SELECT e.id, e.title, e.description, e.intended_end_date, e.actual_end_date, 
                    e.status, e.created_at, e.entry_type_id, et.singular_label AS entry_type_label
             FROM Entry e
-            JOIN EntryType et ON e.entry_type_id = et.id
+            LEFT JOIN EntryType et ON e.entry_type_id = et.id
             ORDER BY e.created_at DESC
         ''')
         
@@ -147,7 +147,7 @@ def get_entry(entry_id):
                    et.has_sensors,
                    et.enabled_sensor_types
             FROM Entry e
-            JOIN EntryType et ON e.entry_type_id = et.id
+            LEFT JOIN EntryType et ON e.entry_type_id = et.id
             WHERE e.id = ?
         ''', (entry_id,))
         
@@ -283,7 +283,7 @@ def search_entries():
     sql = '''
         SELECT e.id, e.title, et.singular_label AS entry_type_label
         FROM Entry e
-        JOIN EntryType et ON e.entry_type_id = et.id
+        LEFT JOIN EntryType et ON e.entry_type_id = et.id
         WHERE (e.title LIKE ? OR e.description LIKE ?)
     '''
     params = [search_query_param, search_query_param]

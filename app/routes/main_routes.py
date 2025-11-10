@@ -71,7 +71,7 @@ def entries():
             COALESCE(es.category, 'active') AS status_category,
             COALESCE(es.color, '#28a745') AS status_color
         FROM Entry e
-        JOIN EntryType et ON e.entry_type_id = et.id
+        LEFT JOIN EntryType et ON e.entry_type_id = et.id
         LEFT JOIN EntryState es ON es.entry_type_id = e.entry_type_id AND es.name = e.status
     '''
     
@@ -152,7 +152,7 @@ def entry_detail_page(entry_id):
             COALESCE(es.category, 'active') AS status_category,
             COALESCE(es.color, '#28a745') AS status_color
         FROM Entry e
-        JOIN EntryType et ON e.entry_type_id = et.id
+        LEFT JOIN EntryType et ON e.entry_type_id = et.id
         LEFT JOIN EntryState es ON es.entry_type_id = e.entry_type_id AND es.name = e.status
         WHERE e.id = ?
     ''', (entry_id,))
@@ -275,7 +275,7 @@ def entry_detail_v2(entry_id):
             COALESCE(es.category, 'active') AS status_category,
             COALESCE(es.color, '#28a745') AS status_color
         FROM Entry e
-        JOIN EntryType et ON e.entry_type_id = et.id
+        LEFT JOIN EntryType et ON e.entry_type_id = et.id
         LEFT JOIN EntryState es ON es.entry_type_id = e.entry_type_id AND es.name = e.status
         WHERE e.id = ?
     ''', (entry_id,))

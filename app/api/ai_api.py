@@ -528,7 +528,7 @@ def ai_chat():
                     g.db.row_factory = sqlite3.Row
                 
                 cursor = g.db.cursor()
-                cursor.execute('SELECT et.singular_label FROM Entry e JOIN EntryType et ON e.entry_type_id = et.id WHERE e.id = ?', (entry_id,))
+                cursor.execute('SELECT et.singular_label FROM Entry e LEFT JOIN EntryType et ON e.entry_type_id = et.id WHERE e.id = ?', (entry_id,))
                 row = cursor.fetchone()
                 if row:
                     entry_type = row['singular_label']
