@@ -334,7 +334,11 @@ async function loadStatesForEntry() {
         const response = await fetch(`/api/entries/{{ entry.id }}/available_states`);
         const states = await response.json();
         
-        const currentStatus = statusSelect.value || '{{ entry.status }}';
+        // Store the current status before clearing the dropdown
+        // Only use statusSelect.value if it's a valid state name (not the hardcoded active/inactive placeholders)
+        // Check if current value exists in the states we're about to load
+        const hasValidStatus = statusSelect.value && states.some(s => s.name === statusSelect.value);
+        const currentStatus = hasValidStatus ? statusSelect.value : (originalValues.status || '{{ entry.status }}');
         statusSelect.innerHTML = '';
         
         // Group states by category
