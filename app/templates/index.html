@@ -828,179 +828,211 @@
                         <i class="fas fa-sliders-h me-1"></i>Advanced
                     </button>
                 </div>
-                
-                <div class="row g-3 mb-3">
-                    <!-- Quick Search -->
-                    <div class="col-12 col-md-6">
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="fas fa-search"></i></span>
-                            <input type="text" class="form-control" id="quickSearch" 
-                                   placeholder="Search {{ entry_plural_label.lower() }} by title or description...">
-                            <button class="btn btn-outline-theme-primary" type="button" id="clearSearch" title="Clear search">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Quick Type Filter -->
-                    <div class="col-6 col-md-3">
-                        <select class="form-select" id="quickTypeFilter" title="Filter by entry type">
-                            <option value="">All Types</option>
-                            {% for type in all_entry_types %}
-                                <option value="{{ type.id }}" {% if type.is_primary %}data-is-primary="true"{% endif %}>
-                                    {{ type.singular_label }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    <!-- Quick Status Filter -->
-                    <div class="col-6 col-md-3">
-                        <select class="form-select" id="quickStatusFilter" title="Filter by status">
-                            <option value="">All Status</option>
-                            <option value="active">✓ Active (Ongoing)</option>
-                            <option value="inactive">✕ Inactive (Completed)</option>
-                            <optgroup label="Specific Status">
-                                <!-- Will be populated dynamically based on selected entry type -->
-                            </optgroup>
-                        </select>
-                    </div>
-                    
-                    <!-- Save/Clear Filter Controls -->
-                    <div class="col-12">
-                        <div class="d-flex flex-column flex-sm-row gap-2">
-                            <div class="dropdown">
-                                <button class="btn btn-sm btn-theme-primary dropdown-toggle" type="button" id="savedSearchDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="fas fa-bookmark me-1"></i>Saved Searches
-                                </button>
-                                <ul class="dropdown-menu" id="savedSearchList" aria-labelledby="savedSearchDropdown">
-                                    <li><h6 class="dropdown-header">Load Search</h6></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" href="#" id="saveNewSearch"><i class="fas fa-plus me-2"></i>Save Current Search...</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <!-- Saved searches will be loaded here -->
-                                </ul>
-                            </div>
-                            <button type="button" class="btn btn-sm btn-theme-primary" id="saveFiltersBtn" title="Save current filters as your defaults">
-                                <i class="fas fa-save me-1"></i>Save as Default
-                            </button>
-                            <button type="button" class="btn btn-sm btn-theme-secondary" id="clearFiltersBtn" title="Clear all filters">
-                                <i class="fas fa-times me-1"></i>Clear All
-                            </button>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- Advanced Filters (Collapsible) -->
+                <!-- Advanced Filters -->
                 <div class="collapse" id="advancedFilters">
                     <div class="card border-0" style="background-color: var(--bs-secondary-bg);">
                         <div class="card-body">
-                            <form method="GET" id="filterForm">
-                                <div class="row g-3">
-                                    <div class="col-md-3">
-                                        <label for="date_range" class="form-label">Date Range</label>
-                                        <select name="date_range" id="date_range" class="form-select">
-                                            <option value="">All Time</option>
-                                            <option value="today">Today</option>
-                                            <option value="week">This Week</option>
-                                            <option value="month">This Month</option>
-                                            <option value="quarter">Last 3 Months</option>
-                                            <option value="year">This Year</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label for="specific_state" class="form-label">Specific State(s)</label>
-                                        <select name="specific_state" id="specific_state" class="form-select" multiple size="5">
-                                            <!-- States will be loaded dynamically -->
-                                        </select>
-                                        <small class="text-muted">Hold Ctrl/Cmd to select multiple</small>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label for="sort_by" class="form-label">Sort By</label>
-                                        <select name="sort_by" id="sort_by" class="form-select">
-                                            <option value="created_desc">Newest First</option>
-                                            <option value="created_asc">Oldest First</option>
-                                            <option value="title_asc">Title A-Z</option>
-                                            <option value="title_desc">Title Z-A</option>
-                                            <option value="type_asc">Type A-Z</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label for="has_description" class="form-label">Content</label>
-                                        <select name="has_description" id="has_description" class="form-select">
-                                            <option value="">Default View</option>
-                                            <option value="hide">Hide Descriptions</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label for="result_limit" class="form-label">Show</label>
-                                        <select name="result_limit" id="result_limit" class="form-select">
-                                            <option value="25">25 results</option>
-                                            <option value="50" selected>50 results</option>
-                                            <option value="100">100 results</option>
-                                            <option value="250">250 results</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="row mt-3">
-                                    <div class="col-12">
-                                        <div class="d-flex gap-2">
-                                            <button type="button" class="btn btn-theme-primary" id="applyAdvancedFilters">
-                                                <i class="fas fa-filter me-1"></i>Apply Filters
-                                            </button>
-                                            <button type="button" class="btn btn-outline-theme-primary" onclick="clearAllFilters()">
-                                                <i class="fas fa-undo me-1"></i>Reset All
+                        <!-- Nav tabs -->
+                        <ul class="nav nav-tabs" id="filterTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="filters-tab" data-bs-toggle="tab" data-bs-target="#filters" type="button" role="tab" aria-controls="filters" aria-selected="true">
+                                    <i class="fas fa-filter me-1"></i>Filters
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="sql-tab" data-bs-toggle="tab" data-bs-target="#sql" type="button" role="tab" aria-controls="sql" aria-selected="false">
+                                    <i class="fas fa-code me-1"></i>SQL Query
+                                </button>
+                            </li>
+                        </ul>
+                        
+                        <!-- Tab panes -->
+                        <div class="tab-content mt-3" id="filterTabContent">
+                            <!-- Filters Tab -->
+                            <div class="tab-pane fade show active" id="filters" role="tabpanel" aria-labelledby="filters-tab">
+                                <div class="row g-3 mb-3">
+                                    <!-- Quick Search -->
+                                    <div class="col-12 col-md-6">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                            <input type="text" class="form-control" id="quickSearch" 
+                                                   placeholder="Search {{ entry_plural_label.lower() }} by title or description...">
+                                            <button class="btn btn-outline-theme-primary" type="button" id="clearSearch" title="Clear search">
+                                                <i class="fas fa-times"></i>
                                             </button>
                                         </div>
                                     </div>
                                     
-                                    <!-- Custom SQL Query -->
-                                    <div class="col-12 mt-4">
-                                        <h6 class="mb-3">
-                                            <i class="fas fa-code me-2"></i>Custom SQL Query
-                                            <small class="text-muted">Write your own SQL fragment (FROM Entry e is provided)</small>
-                                        </h6>
-                                        <div class="alert alert-info py-2 small mb-3">
-                                            <i class="fas fa-info-circle me-1"></i>
-                                            <strong>Advanced Feature:</strong> The server provides the base query (see comments in textarea).<br>
-                                            You can add your own JOINs, WHERE, ORDER BY, LIMIT, etc. Available aliases: <code>e</code> (Entry), <code>et</code> (EntryType), <code>er_from</code>/<code>er_to</code> (EntryRelationship).
+                                    <!-- Quick Type Filter -->
+                                    <div class="col-6 col-md-3">
+                                        <select class="form-select" id="quickTypeFilter" title="Filter by entry type">
+                                            <option value="">All Types</option>
+                                            {% for type in all_entry_types %}
+                                                <option value="{{ type.id }}" {% if type.is_primary %}data-is-primary="true"{% endif %}>
+                                                    {{ type.singular_label }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    
+                                    <!-- Quick Status Filter -->
+                                    <div class="col-6 col-md-3">
+                                        <select class="form-select" id="quickStatusFilter" title="Filter by status">
+                                            <option value="">All Status</option>
+                                            <option value="active">✓ Active (Ongoing)</option>
+                                            <option value="inactive">✕ Inactive (Completed)</option>
+                                            <optgroup label="Specific Status">
+                                                <!-- Will be populated dynamically based on selected entry type -->
+                                            </optgroup>
+                                        </select>
+                                    </div>
+                                    
+                                    <!-- Save/Clear Filter Controls -->
+                                    <div class="col-12">
+                                        <div class="d-flex flex-column flex-sm-row gap-2 align-items-start">
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-theme-primary dropdown-toggle" type="button" id="savedSearchDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <i class="fas fa-bookmark me-1"></i>Saved Searches
+                                                </button>
+                                                <ul class="dropdown-menu" id="savedSearchList" aria-labelledby="savedSearchDropdown">
+                                                    <li><h6 class="dropdown-header">Load Search</h6></li>
+                                                    <li><hr class="dropdown-divider"></li>
+                                                    <!-- Saved searches will be loaded here -->
+                                                </ul>
+                                            </div>
+                                            
+                                            <!-- Search Name and Save Controls -->
+                                            <div class="flex-grow-1" style="max-width: 500px;">
+                                                <div class="input-group input-group-sm">
+                                                    <input type="text" class="form-control" id="currentSearchName" placeholder="Name this search to save it..." aria-label="Search name" readonly>
+                                                    <button type="button" class="btn btn-warning d-none" id="editSearchBtn" title="Enable editing of this saved search">
+                                                        <i class="fas fa-edit me-1"></i>Edit
+                                                    </button>
+                                                    <button type="button" class="btn btn-success" id="saveCurrentSearchBtn" title="Save search">
+                                                        <i class="fas fa-save me-1"></i><span id="saveButtonText">Save New</span>
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-secondary d-none" id="newSearchBtn" title="Create new search">
+                                                        <i class="fas fa-plus"></i>
+                                                    </button>
+                                                </div>
+                                                <div id="searchStatusIndicator" class="small text-muted mt-1 d-none">
+                                                    <i class="fas fa-info-circle"></i> <span id="searchStatusText"></span>
+                                                </div>
+                                            </div>
+                                            
+                                            <button type="button" class="btn btn-sm btn-theme-primary d-none" id="setDefaultBtn" title="Set this search as your default">
+                                                <i class="fas fa-star me-1"></i>Set Default
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-theme-secondary" id="clearFiltersBtn" title="Clear all filters">
+                                                <i class="fas fa-times me-1"></i>Clear All
+                                            </button>
                                         </div>
+                                    </div>
+                                </div>
+
+                                <hr class="my-3">
+
+                                <form method="GET" id="filterForm">
+                                            <div class="row g-3">
+                                                <div class="col-md-3">
+                                                    <label for="date_range" class="form-label">Date Range</label>
+                                                    <select name="date_range" id="date_range" class="form-select">
+                                                        <option value="">All Time</option>
+                                                        <option value="today">Today</option>
+                                                        <option value="week">This Week</option>
+                                                        <option value="month">This Month</option>
+                                                        <option value="quarter">Last 3 Months</option>
+                                                        <option value="year">This Year</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label for="specific_state" class="form-label">Specific State(s)</label>
+                                                    <select name="specific_state" id="specific_state" class="form-select" multiple size="5">
+                                                        <!-- States will be loaded dynamically -->
+                                                    </select>
+                                                    <small class="text-muted">Hold Ctrl/Cmd to select multiple</small>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label for="sort_by" class="form-label">Sort By</label>
+                                                    <select name="sort_by" id="sort_by" class="form-select">
+                                                        <option value="created_desc">Newest First</option>
+                                                        <option value="created_asc">Oldest First</option>
+                                                        <option value="title_asc">Title A-Z</option>
+                                                        <option value="title_desc">Title Z-A</option>
+                                                        <option value="type_asc">Type A-Z</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label for="has_description" class="form-label">Content</label>
+                                                    <select name="has_description" id="has_description" class="form-select">
+                                                        <option value="">Default View</option>
+                                                        <option value="hide">Hide Descriptions</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="row g-3 mt-2">
+                                                <div class="col-md-3">
+                                                    <label for="result_limit" class="form-label">Show</label>
+                                                    <select name="result_limit" id="result_limit" class="form-select">
+                                                        <option value="25">25 results</option>
+                                                        <option value="50" selected>50 results</option>
+                                                        <option value="100">100 results</option>
+                                                        <option value="250">250 results</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="row mt-3">
+                                                <div class="col-12">
+                                                    <div class="d-flex gap-2">
+                                                        <button type="button" class="btn btn-theme-primary" id="applyAdvancedFilters">
+                                                            <i class="fas fa-filter me-1"></i>Apply Filters
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-theme-primary" onclick="clearAllFilters()">
+                                                            <i class="fas fa-undo me-1"></i>Reset All
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </form>
+                                </div>
+                                
+                                <!-- SQL Query Tab -->
+                                <div class="tab-pane fade" id="sql" role="tabpanel" aria-labelledby="sql-tab">
+                                    <div class="alert alert-info py-2 small mb-3">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        <strong>Auto-Generated SQL Query:</strong> This query is automatically built from your filter selections above.<br>
+                                        You can edit it manually if needed. Available tables: <code>Entry e</code>, <code>EntryType et</code>, <code>EntryState es</code>, <code>EntryRelationship er_from/er_to</code>
+                                    </div>
                                         <div class="mb-2">
                                             <textarea 
                                                 class="form-control font-monospace" 
                                                 id="customSqlQuery" 
-                                                rows="12" 
-                                                style="font-size: 0.85rem;"
-                                            >-- Server provides this base query (read-only):
--- SELECT DISTINCT e.id
--- FROM Entry e
--- LEFT JOIN EntryType et ON e.entry_type_id = et.id
--- LEFT JOIN EntryRelationship er_from ON e.id = er_from.source_entry_id
--- LEFT JOIN EntryRelationship er_to ON e.id = er_to.target_entry_id
-
--- Your custom fragment starts here:
+                                                rows="20" 
+                                        style="font-size: 0.85rem; min-height: 400px;"
+                                    >SELECT DISTINCT e.id, e.title, e.description, e.created_at, e.status,
+       et.id AS entry_type_id, et.singular_label AS entry_type_label,
+       COALESCE(es.category, 'active') AS status_category,
+       COALESCE(es.color, '#28a745') AS status_color
+FROM Entry e
+LEFT JOIN EntryType et ON e.entry_type_id = et.id
+LEFT JOIN EntryState es ON es.entry_type_id = e.entry_type_id AND es.name = e.status
+LEFT JOIN EntryRelationship er_from ON e.id = er_from.source_entry_id
+LEFT JOIN EntryRelationship er_to ON e.id = er_to.target_entry_id
 WHERE e.title LIKE '%Sample%'
 ORDER BY e.created_at DESC
 LIMIT 100</textarea>
-                                        </div>
-                                        <div class="d-flex gap-2 align-items-center">
-                                            <button type="button" class="btn btn-sm btn-outline-theme-primary" id="applySqlQuery">
-                                                <i class="fas fa-play me-1"></i>Apply SQL Query
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="clearSqlQuery">
-                                                <i class="fas fa-times me-1"></i>Clear
-                                            </button>
-                                            <div class="form-check ms-3">
-                                                <input class="form-check-input" type="checkbox" id="sqlQueryEnabled">
-                                                <label class="form-check-label small" for="sqlQueryEnabled">
-                                                    Use SQL Query
-                                                </label>
-                                            </div>
-                                        </div>
-                                        <div id="sqlQueryResults" class="mt-2"></div>
+                                    <div class="d-flex gap-2 align-items-center flex-wrap mt-3">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="clearSqlQuery">
+                                            <i class="fas fa-times me-1"></i>Clear All Filters
+                                        </button>
+                                        <small class="text-muted ms-2">
+                                            <i class="fas fa-magic"></i> Query auto-generated from your filter selections
+                                        </small>
                                     </div>
+                                    <div id="sqlQueryResults" class="mt-2"></div>
                                 </div>
-                            </form>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1144,32 +1176,6 @@ LIMIT 100</textarea>
                     <button type="submit" form="addEntryForm" class="btn btn-theme-primary">
                         <i class="fas fa-plus me-1"></i>Add {{ entry_singular_label }}
                     </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Save Search Modal -->
-    <div class="modal fade" id="saveSearchModal" tabindex="-1" aria-labelledby="saveSearchModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="saveSearchModalLabel">Save Search</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="saveSearchForm">
-                        <div class="mb-3">
-                            <label for="searchName" class="form-label">Search Name</label>
-                            <input type="text" class="form-control" id="searchName" name="searchName" required placeholder="e.g., Active Beers, Completed Projects">
-                            <div class="form-text">Give this search configuration a memorable name</div>
-                        </div>
-                        <input type="hidden" id="editSearchId" value="">
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="confirmSaveSearch">Save Search</button>
                 </div>
             </div>
         </div>
@@ -1406,6 +1412,122 @@ LIMIT 100</textarea>
                 }
             }
             
+            // Function to generate SQL query from current filter selections
+            function generateSqlFromFilters() {
+                const searchTerm = quickSearch.value.trim();
+                const selectedType = quickTypeFilter.value;
+                const selectedStatus = quickStatusFilter.value;
+                const selectedStates = Array.from(specificStateFilter.selectedOptions).map(opt => opt.value);
+                const selectedDateRange = dateRange.value;
+                const selectedSortBy = sortBy.value;
+                const selectedLimit = resultLimit.value || '50';
+                
+                let whereClauses = [];
+                let orderByClause = 'e.created_at DESC';
+                
+                // Search term - search in title and description
+                if (searchTerm) {
+                    whereClauses.push(`(e.title LIKE '%${searchTerm}%' OR e.description LIKE '%${searchTerm}%')`);
+                }
+                
+                // Entry type filter - use label instead of ID
+                if (selectedType) {
+                    const selectedOption = quickTypeFilter.options[quickTypeFilter.selectedIndex];
+                    const typeName = selectedOption ? selectedOption.textContent.trim() : 'Unknown';
+                    whereClauses.push(`et.singular_label = '${typeName}'`);
+                }
+                
+                // Status filter - handle both category and specific states
+                if (selectedStatus) {
+                    if (selectedStatus.startsWith('status:')) {
+                        // Specific status
+                        const statusName = selectedStatus.substring(7);
+                        whereClauses.push(`LOWER(e.status) = '${statusName}'`);
+                    } else {
+                        // Category (active/inactive)
+                        whereClauses.push(`LOWER(COALESCE(es.category, 'active')) = '${selectedStatus}'`);
+                    }
+                }
+                
+                // Specific states filter
+                if (selectedStates.length > 0) {
+                    const stateConditions = selectedStates.map(state => {
+                        const stateValue = state.startsWith('status:') ? state.substring(7) : state;
+                        
+                        if (state.startsWith('status:')) {
+                            return `LOWER(e.status) = '${stateValue}'`;
+                        }
+                        return `LOWER(e.status) = '${stateValue}'`;
+                    });
+                    
+                    if (stateConditions.length === 1) {
+                        whereClauses.push(stateConditions[0]);
+                    } else {
+                        whereClauses.push(`(\n    ${stateConditions.join('\n    OR ')}\n  )`);
+                    }
+                }
+                
+                // Date range filter
+                if (selectedDateRange) {
+                    switch(selectedDateRange) {
+                        case 'today':
+                            whereClauses.push(`DATE(e.created_at) = DATE('now', 'localtime')`);
+                            break;
+                        case 'week':
+                            whereClauses.push(`DATE(e.created_at) >= DATE('now', '-7 days', 'localtime')`);
+                            break;
+                        case 'month':
+                            whereClauses.push(`DATE(e.created_at) >= DATE('now', '-1 month', 'localtime')`);
+                            break;
+                        case 'quarter':
+                            whereClauses.push(`DATE(e.created_at) >= DATE('now', '-3 months', 'localtime')`);
+                            break;
+                        case 'year':
+                            whereClauses.push(`DATE(e.created_at) >= DATE('now', '-1 year', 'localtime')`);
+                            break;
+                    }
+                }
+                
+                // Sort by
+                switch(selectedSortBy) {
+                    case 'created_asc':
+                        orderByClause = 'e.created_at ASC';
+                        break;
+                    case 'created_desc':
+                        orderByClause = 'e.created_at DESC';
+                        break;
+                    case 'title_asc':
+                        orderByClause = 'e.title ASC';
+                        break;
+                    case 'title_desc':
+                        orderByClause = 'e.title DESC';
+                        break;
+                    case 'type_asc':
+                        orderByClause = 'et.singular_label ASC';
+                        break;
+                }
+                
+                // Build the complete query with all JOINs
+                let sqlParts = ['SELECT DISTINCT e.id, e.title, e.description, e.created_at, e.status,',
+                               '       et.id AS entry_type_id, et.singular_label AS entry_type_label,',
+                               '       COALESCE(es.category, \'active\') AS status_category,',
+                               '       COALESCE(es.color, \'#28a745\') AS status_color',
+                               'FROM Entry e',
+                               'LEFT JOIN EntryType et ON e.entry_type_id = et.id',
+                               'LEFT JOIN EntryState es ON es.entry_type_id = e.entry_type_id AND es.name = e.status',
+                               'LEFT JOIN EntryRelationship er_from ON e.id = er_from.source_entry_id',
+                               'LEFT JOIN EntryRelationship er_to ON e.id = er_to.target_entry_id'];
+                
+                if (whereClauses.length > 0) {
+                    sqlParts.push(`WHERE ${whereClauses.join('\n  AND ')}`);
+                }
+                
+                sqlParts.push(`ORDER BY ${orderByClause}`);
+                sqlParts.push(`LIMIT ${selectedLimit}`);
+                
+                return sqlParts.join('\n');
+            }
+            
             // Function to initialize states based on current filters
             async function initializeStates() {
                 const selectedTypeId = quickTypeFilter.value;
@@ -1417,102 +1539,127 @@ LIMIT 100</textarea>
             // Load saved search parameters from database
             async function loadSavedSearchParams() {
                 try {
-                    // Check if URL has explicit filter parameters - if so, skip loading saved searches
+                    console.log('=== INITIALIZATION START ===');
+                    
+                    // STEP 1: Check if URL has filter parameters (user navigated with specific filters)
                     const urlParams = new URLSearchParams(window.location.search);
                     const hasUrlFilters = urlParams.has('search') || urlParams.has('entry_type') || urlParams.has('status');
                     
                     if (hasUrlFilters) {
-                        console.log('URL has explicit filter parameters, skipping saved search load');
+                        console.log('STEP 1: URL has filter parameters - using them');
+                        
+                        // Apply URL parameters to filter controls
+                        const urlSearch = urlParams.get('search') || '';
+                        const urlType = urlParams.get('entry_type') || '';
+                        const urlStatus = urlParams.get('status') || '';
+                        const urlStates = urlParams.get('states') || '';
+                        
+                        if (urlSearch) quickSearch.value = urlSearch;
+                        if (urlType) quickTypeFilter.value = urlType;
+                        if (urlStatus) quickStatusFilter.value = urlStatus;
+                        
+                        console.log('Applied URL filters:', { urlSearch, urlType, urlStatus, urlStates });
+                        
+                        // Initialize states based on URL filters
+                        await initializeStates();
+                        
+                        // Restore specific states from URL
+                        if (urlStates) {
+                            const stateValues = urlStates.split(',').filter(s => s.trim());
+                            Array.from(specificStateFilter.options).forEach(opt => {
+                                opt.selected = stateValues.includes(opt.value);
+                            });
+                            console.log('Restored specific states from URL:', stateValues);
+                        }
+                        
+                        // Try to match URL params to a saved search (for UI state only)
+                        const searchesResponse = await fetch('/api/saved_searches');
+                        if (searchesResponse.ok) {
+                            const searches = await searchesResponse.json();
+                            const matchingSearch = searches.find(s => 
+                                (s.search_term || '') === urlSearch &&
+                                (s.type_filter || '').toString() === urlType.toString() &&
+                                (s.status_filter || '') === urlStatus &&
+                                (s.specific_states || '') === urlStates
+                            );
+                            
+                            if (matchingSearch) {
+                                console.log('URL matches saved search:', matchingSearch.name);
+                                currentSearchId = matchingSearch.id;
+                                currentSearchIsModified = false;
+                                currentSearchIsDefault = matchingSearch.is_default || false;
+                                currentSearchNameInput.value = matchingSearch.name;
+                                updateSearchUI();
+                            } else {
+                                console.log('URL does not match any saved search');
+                            }
+                        }
+                        
+                        // Apply the filters client-side (but keep Advanced section collapsed on initial load)
+                        await performLiveFilter();
+                        
+                        console.log('=== INITIALIZATION COMPLETE (URL mode) ===');
                         return;
                     }
                     
-                    // First, try to load the default saved search
+                    // STEP 2: No URL filters - check for default saved search
+                    console.log('STEP 2: No URL filters - checking for default saved search');
+                    
                     const searchesResponse = await fetch('/api/saved_searches');
                     if (searchesResponse.ok) {
                         const searches = await searchesResponse.json();
                         const defaultSearch = searches.find(s => s.is_default);
                         
                         if (defaultSearch) {
-                            console.log('Loading default saved search:', defaultSearch.name);
+                            console.log('STEP 2: Found default saved search:', defaultSearch.name);
+                            console.log('Default search criteria:', {
+                                search_term: defaultSearch.search_term,
+                                type_filter: defaultSearch.type_filter,
+                                status_filter: defaultSearch.status_filter
+                            });
+                            
+                            // Set UI state for this saved search
+                            currentSearchId = defaultSearch.id;
+                            currentSearchIsModified = false;
+                            currentSearchIsDefault = true; // This is the default search
+                            currentSearchNameInput.value = defaultSearch.name;
+                            
+                            console.log('STEP 2: About to call loadSearchParams to apply filters...');
+                            
+                            // Apply the saved search by reloading with its parameters
                             await loadSearchParams(defaultSearch);
+                            
+                            console.log('STEP 2: After loadSearchParams (this should not appear if page reloaded)');
+                            updateSearchUI();
+                            
+                            console.log('=== INITIALIZATION COMPLETE (default search applied) ===');
                             return;
+                        } else {
+                            console.log('STEP 2: No default saved search found');
                         }
                     }
                     
-                    // Fallback to SystemParameters if no default saved search
-                    const response = await fetch('/api/search_defaults');
-                    if (response.ok) {
-                        const savedParams = await response.json();
-                        
-                        console.log('Loading saved params from SystemParameters:', savedParams);
-                        
-                        if (savedParams.search_term) {
-                            quickSearch.value = savedParams.search_term;
-                        }
-                        
-                        if (savedParams.type_filter) {
-                            // Check if the saved type still exists in the dropdown
-                            const typeExists = Array.from(quickTypeFilter.options).some(opt => opt.value === savedParams.type_filter);
-                            console.log('Saved type exists:', typeExists, 'for type:', savedParams.type_filter);
-                            
-                            if (typeExists) {
-                                quickTypeFilter.value = savedParams.type_filter;
-                            } else {
-                                console.log('Clearing invalid saved type filter');
-                            }
-                        }
-                        
-                        if (savedParams.status_filter) {
-                            quickStatusFilter.value = savedParams.status_filter;
-                        }
-                        
-                        if (savedParams.date_range) {
-                            dateRange.value = savedParams.date_range;
-                        }
-                        
-                        if (savedParams.sort_by) {
-                            sortBy.value = savedParams.sort_by;
-                        }
-                        
-                        if (savedParams.content_display) {
-                            hasDescription.value = savedParams.content_display;
-                        }
-                        
-                        if (savedParams.result_limit) {
-                            resultLimit.value = savedParams.result_limit;
-                        }
-                        
-                        // Initialize states with current filter values
-                        await initializeStates();
-                        
-                        // Restore specific state selections after states are loaded
-                        if (savedParams.specific_states) {
-                            const savedStates = savedParams.specific_states.split(',').filter(s => s.trim());
-                            savedStates.forEach(stateValue => {
-                                const option = Array.from(specificStateFilter.options).find(opt => opt.value === stateValue);
-                                if (option) {
-                                    option.selected = true;
-                                }
-                            });
-                        }
-                        
-                        // Only apply filters if there are actual filter criteria
-                        if (quickSearch.value || quickTypeFilter.value || quickStatusFilter.value || 
-                            dateRange.value || hasDescription.value || specificStateFilter.selectedOptions.length > 0) {
-                            console.log('Applying saved filters from database');
-                            performLiveFilter();
-                        } else {
-                            console.log('No filters to apply');
-                        }
-                    } else {
-                        console.log('Could not load search defaults from database, using template defaults');
-                        // Fallback to template defaults if API fails
-                        loadTemplateDefaults();
-                    }
+                    // STEP 3: No default saved search - show all entries (no filters)
+                    console.log('STEP 3: No default saved search - showing all entries');
+                    
+                    // Leave all filters empty/default
+                    quickSearch.value = '';
+                    quickTypeFilter.value = '';
+                    quickStatusFilter.value = '';
+                    dateRange.value = '';
+                    sortBy.value = 'created_desc';
+                    hasDescription.value = '';
+                    resultLimit.value = '50';
+                    
+                    // Initialize empty state
+                    await initializeStates();
+                    
+                    console.log('=== INITIALIZATION COMPLETE (showing all entries) ===');
+                    
                 } catch (error) {
-                    console.error('Error loading search defaults:', error);
-                    // Fallback to template defaults on error
-                    loadTemplateDefaults();
+                    console.error('Error during initialization:', error);
+                    // On error, default to showing all entries
+                    console.log('=== INITIALIZATION FAILED - defaulting to show all ===');
                 }
             }
             
@@ -1681,8 +1828,13 @@ LIMIT 100</textarea>
                     if (basicFiltersChanged) {
                         // Reload page with new filter parameters for server-side filtering
                         const newUrl = new URL(window.location.href);
-                        // Always set search param (even empty) to override saved defaults
-                        newUrl.searchParams.set('search', searchTerm);
+                        
+                        // Only set search param if there's an actual search term
+                        if (searchTerm) {
+                            newUrl.searchParams.set('search', searchTerm);
+                        } else {
+                            newUrl.searchParams.delete('search');
+                        }
                         
                         if (selectedType) {
                             newUrl.searchParams.set('entry_type', selectedType);
@@ -1711,14 +1863,12 @@ LIMIT 100</textarea>
                     
                     // Get entry IDs that match custom SQL query
                     let sqlMatchingEntryIds = null; // null means no filter, array means filtered
-                    const sqlQueryEnabled = document.getElementById('sqlQueryEnabled').checked;
                     const customSqlQuery = document.getElementById('customSqlQuery').value.trim();
                     const sqlQueryResults = document.getElementById('sqlQueryResults');
                     
-                    if (sqlQueryEnabled && customSqlQuery) {
+                    if (customSqlQuery) {
                         try {
-                            // When SQL mode is enabled we send the full fragment. Backend will append it
-                            // to the server-provided FROM/JOIN base (alias 'e' is Entry table).
+                            // Send the full SQL query to the backend
                             // Strip SQL comments (-- lines and /* */ blocks) before sending
                             let cleanedQuery = customSqlQuery
                                 .split('\n')
@@ -1727,7 +1877,7 @@ LIMIT 100</textarea>
                                 .replace(/\/\*[\s\S]*?\*\//g, '')
                                 .trim();
                             
-                            const payload = { sql_fragment: cleanedQuery };
+                            const payload = { full_query: cleanedQuery };
                             const response = await fetch('/api/custom_sql_filter', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
@@ -1861,69 +2011,79 @@ LIMIT 100</textarea>
                     
                     // Save current filter state to database
                     saveSearchParams();
-                }, 800);  // Increased from 150ms to 800ms to allow finishing typing before reload
+                }, 300);  // Debounce delay - waits 300ms after user stops typing before filtering
             }
             
             // Add event listeners for save/clear buttons
-            document.getElementById('saveFiltersBtn').addEventListener('click', function() {
-                // Show confirmation that filters were saved
-                const btn = this;
-                const originalText = btn.innerHTML;
-                
-                // Build description of what was saved
-                const activeFilters = [];
-                if (quickSearch.value.trim()) activeFilters.push(`Search: "${quickSearch.value.trim()}"`);
-                if (quickTypeFilter.value) {
-                    const selectedOption = quickTypeFilter.options[quickTypeFilter.selectedIndex];
-                    activeFilters.push(`Type: ${selectedOption.text}`);
+            // Set Default button - sets the loaded search as default
+            const setDefaultBtn = document.getElementById('setDefaultBtn');
+            if (setDefaultBtn) {
+                setDefaultBtn.addEventListener('click', async function() {
+                    if (!window.currentSearchId) return;
+                    
+                    const btn = this;
+                    const originalText = btn.innerHTML;
+                    
+                    try {
+                        const response = await fetch(`/api/saved_searches/${window.currentSearchId}/set_default`, {
+                            method: 'POST'
+                        });
+                        
+                        if (response.ok) {
+                            btn.innerHTML = '<i class="fas fa-check me-1"></i>Set as Default!';
+                            btn.classList.remove('btn-theme-primary');
+                            btn.classList.add('btn-success');
+                            currentSearchIsDefault = true; // Mark current search as default
+                            await loadSavedSearches(); // Reload to show star icon
+                            updateSearchUI(); // Update UI to hide the Set Default button
+                        } else {
+                            btn.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Failed';
+                            btn.classList.remove('btn-theme-primary');
+                            btn.classList.add('btn-warning');
+                        }
+                    } catch (error) {
+                        console.error('Error setting default:', error);
+                        btn.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Error';
+                        btn.classList.remove('btn-theme-primary');
+                        btn.classList.add('btn-warning');
+                    }
+                    
+                    // Reset button after 2 seconds
+                    setTimeout(() => {
+                        btn.innerHTML = originalText;
+                        btn.classList.remove('btn-success', 'btn-warning');
+                        btn.classList.add('btn-theme-primary');
+                    }, 2000);
+                });
+            }
+            
+            document.getElementById('clearFiltersBtn').addEventListener('click', async function() {
+                await clearAllFilters();
+                // Trigger the same logic as changing a filter
+                if (window.markSearchModifiedGlobal) {
+                    window.markSearchModifiedGlobal();
                 }
-                if (quickStatusFilter.value) {
-                    const selectedOption = quickStatusFilter.options[quickStatusFilter.selectedIndex];
-                    activeFilters.push(`Status: ${selectedOption.text}`);
-                }
-                
-                if (activeFilters.length === 0) {
-                    btn.innerHTML = '<i class="fas fa-info-circle me-1"></i>No Filters to Save';
-                    btn.classList.remove('btn-theme-primary');
-                    btn.classList.add('btn-warning');
-                } else {
-                    btn.innerHTML = '<i class="fas fa-check me-1"></i>Saved!';
-                    btn.classList.remove('btn-theme-primary');
-                    btn.classList.add('btn-success');
-                    console.log('Saved filter defaults:', activeFilters.join(', '));
-                }
-                
-                // Save current filters (already happens automatically, but this gives user feedback)
-                saveSearchParams();
-                
-                // Reset button after 2 seconds
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                    btn.classList.remove('btn-success', 'btn-warning');
-                    btn.classList.add('btn-theme-primary');
-                }, 2000);
             });
             
-            document.getElementById('clearFiltersBtn').addEventListener('click', function() {
-                clearAllFilters();
-            });
-            
-            // Custom SQL Query buttons
-            document.getElementById('applySqlQuery').addEventListener('click', function() {
-                const sqlQueryEnabled = document.getElementById('sqlQueryEnabled');
-                sqlQueryEnabled.checked = true;
-                // Update UI to reflect SQL mode and run the query
-                if (typeof toggleSqlModeUI === 'function') toggleSqlModeUI(true);
-                performLiveFilter();
-            });
+            // Function to auto-generate SQL from filters
+            function autoGenerateSql() {
+                const generatedSql = generateSqlFromFilters();
+                document.getElementById('customSqlQuery').value = generatedSql;
+                // Note: performLiveFilter() is called separately by event listeners
+            }
             
             document.getElementById('clearSqlQuery').addEventListener('click', function() {
-                document.getElementById('customSqlQuery').value = '';
+                quickSearch.value = '';
+                quickTypeFilter.value = '';
+                quickStatusFilter.value = '';
+                Array.from(specificStateFilter.options).forEach(opt => opt.selected = false);
+                dateRange.value = '';
+                sortBy.value = 'created_desc';
+                resultLimit.value = '50';
+                
+                // Regenerate SQL with cleared filters
+                autoGenerateSql();
                 document.getElementById('sqlQueryResults').innerHTML = '';
-                performLiveFilter();
-            });
-            
-            document.getElementById('sqlQueryEnabled').addEventListener('change', function() {
                 performLiveFilter();
             });
             
@@ -1945,8 +2105,11 @@ LIMIT 100</textarea>
                 }, 1500);
             });
             
-            // Add event listeners for live filtering
-            quickSearch.addEventListener('input', performLiveFilter);
+            // Add event listeners for live filtering with auto-SQL generation
+            quickSearch.addEventListener('input', function() {
+                autoGenerateSql();
+                performLiveFilter();
+            });
             quickTypeFilter.addEventListener('change', async function() {
                 // Reload states when type changes
                 const selectedTypeId = quickTypeFilter.value;
@@ -1954,6 +2117,7 @@ LIMIT 100</textarea>
                 await loadAllStates(selectedTypeId || null, selectedStatusCategory || null);
                 await populateQuickStatusFilter(selectedTypeId || null);
                 
+                autoGenerateSql();
                 performLiveFilter();
             });
             quickStatusFilter.addEventListener('change', function() {
@@ -1961,15 +2125,30 @@ LIMIT 100</textarea>
                 const selectedTypeId = quickTypeFilter.value;
                 const selectedStatusCategory = quickStatusFilter.value;
                 loadAllStates(selectedTypeId || null, selectedStatusCategory || null);
+                autoGenerateSql();
                 performLiveFilter();
             });
             
-            // Add event listeners for advanced filters
-            specificStateFilter.addEventListener('change', performLiveFilter);
-            dateRange.addEventListener('change', performLiveFilter);
-            sortBy.addEventListener('change', performLiveFilter);
-            hasDescription.addEventListener('change', performLiveFilter);
-            resultLimit.addEventListener('change', performLiveFilter);
+            // Add event listeners for advanced filters with auto-SQL generation
+            specificStateFilter.addEventListener('change', function() {
+                autoGenerateSql();
+                performLiveFilter();
+            });
+            dateRange.addEventListener('change', function() {
+                autoGenerateSql();
+                performLiveFilter();
+            });
+            sortBy.addEventListener('change', function() {
+                autoGenerateSql();
+                performLiveFilter();
+            });
+            hasDescription.addEventListener('change', function() {
+                performLiveFilter();
+            });
+            resultLimit.addEventListener('change', function() {
+                autoGenerateSql();
+                performLiveFilter();
+            });
             
             // Clear search functionality
             clearSearchBtn.addEventListener('click', async function() {
@@ -1998,7 +2177,6 @@ LIMIT 100</textarea>
                 // Clear custom SQL query
                 document.getElementById('customSqlQuery').value = '';
                 document.getElementById('sqlQueryResults').innerHTML = '';
-                document.getElementById('sqlQueryEnabled').checked = true;
                 
                 // Reload all states (no type filter)
                 await loadAllStates();
@@ -2028,7 +2206,6 @@ LIMIT 100</textarea>
             // Saved Searches Management
             // ========================================
             
-            const saveSearchModal = new bootstrap.Modal(document.getElementById('saveSearchModal'));
             const savedSearchList = document.getElementById('savedSearchList');
             
             // Load all saved searches
@@ -2064,7 +2241,7 @@ LIMIT 100</textarea>
                             
                             li.innerHTML = `
                                 <div class="dropdown-item d-flex justify-content-between align-items-center gap-2">
-                                    <a href="#" class="flex-grow-1 text-decoration-none load-search" data-search-id="${search.id}">
+                                    <a href="#" class="flex-grow-1 text-decoration-none load-search" data-search-id="${search.id}" data-search-name="${safeName}">
                                         <i class="fas fa-search me-2"></i>${safeName}${defaultBadge}
                                     </a>
                                     <div class="btn-group btn-group-sm">
@@ -2115,7 +2292,7 @@ LIMIT 100</textarea>
             }
             
             // Helper function to apply search parameters
-            async function loadSearchParams(search) {
+            async function loadSearchParams(search, skipReload = false) {
                 // Apply search parameters
                 quickSearch.value = search.search_term || '';
                 quickTypeFilter.value = search.type_filter || '';
@@ -2138,12 +2315,197 @@ LIMIT 100</textarea>
                     });
                 }
                 
-                // Apply filters if there are any
-                if (quickSearch.value || quickTypeFilter.value || quickStatusFilter.value || 
-                    dateRange.value || hasDescription.value || search.specific_states || search.custom_sql_query) {
+                // If we need to reload with new params (basic filters changed), do a full page reload
+                // Otherwise, just apply filters client-side
+                if (!skipReload && (quickSearch.value || quickTypeFilter.value || quickStatusFilter.value)) {
+                    // Reload page with query parameters for server-side filtering
+                    const newUrl = new URL(window.location.href);
+                    
+                    // Get selected specific states
+                    const selectedStates = Array.from(specificStateFilter.selectedOptions).map(opt => opt.value);
+                    
+                    console.log('Loading search params - rebuilding URL:', {
+                        searchTerm: quickSearch.value,
+                        type: quickTypeFilter.value,
+                        status: quickStatusFilter.value,
+                        specificStates: selectedStates
+                    });
+                    
+                    // Only set search param if there's an actual search term
+                    if (quickSearch.value) {
+                        newUrl.searchParams.set('search', quickSearch.value);
+                    } else {
+                        newUrl.searchParams.delete('search');
+                    }
+                    
+                    if (quickTypeFilter.value) {
+                        newUrl.searchParams.set('entry_type', quickTypeFilter.value);
+                    } else {
+                        newUrl.searchParams.delete('entry_type');
+                    }
+                    
+                    if (quickStatusFilter.value && !quickStatusFilter.value.startsWith('status:')) {
+                        newUrl.searchParams.set('status', quickStatusFilter.value);
+                    } else {
+                        newUrl.searchParams.delete('status');
+                    }
+                    
+                    // Add specific states to URL if any are selected
+                    if (selectedStates.length > 0) {
+                        newUrl.searchParams.set('states', selectedStates.join(','));
+                    } else {
+                        newUrl.searchParams.delete('states');
+                    }
+                    
+                    window.location.href = newUrl.toString();
+                } else if (skipReload) {
+                    // Apply client-side filtering only (for advanced filters)
                     await performLiveFilter();
                 }
             }
+            
+            // Track the currently loaded search
+            let currentSearchId = null;
+            let currentSearchIsModified = false;
+            let isEditMode = false; // Track if we're in edit mode
+            let currentSearchIsDefault = false; // Track if current search is the default
+            
+            // UI elements for search management (make global for clearAllFilters access)
+            window.currentSearchNameInput = document.getElementById('currentSearchName');
+            window.saveCurrentSearchBtn = document.getElementById('saveCurrentSearchBtn');
+            window.newSearchBtn = document.getElementById('newSearchBtn');
+            window.editSearchBtn = document.getElementById('editSearchBtn');
+            window.searchStatusIndicator = document.getElementById('searchStatusIndicator');
+            window.searchStatusText = document.getElementById('searchStatusText');
+            window.saveButtonText = document.getElementById('saveButtonText');
+            
+            const currentSearchNameInput = window.currentSearchNameInput;
+            const saveCurrentSearchBtn = window.saveCurrentSearchBtn;
+            const newSearchBtn = window.newSearchBtn;
+            const editSearchBtn = window.editSearchBtn;
+            const searchStatusIndicator = window.searchStatusIndicator;
+            const searchStatusText = window.searchStatusText;
+            const saveButtonText = window.saveButtonText;
+            
+            // Function to reset search state (accessible by clearAllFilters)
+            window.resetSearchState = function() {
+                currentSearchId = null;
+                window.currentSearchId = null;
+                currentSearchIsModified = false;
+                isEditMode = false;
+                currentSearchIsDefault = false;
+                currentSearchNameInput.value = '';
+                currentSearchNameInput.placeholder = 'Name this search to save it...';
+                currentSearchNameInput.readOnly = false;
+                searchStatusIndicator.classList.add('d-none');
+                newSearchBtn.classList.add('d-none');
+                editSearchBtn.classList.add('d-none');
+                saveCurrentSearchBtn.classList.remove('d-none');
+                setDefaultBtn.classList.add('d-none');
+                saveButtonText.textContent = 'Save New';
+                saveCurrentSearchBtn.classList.remove('btn-warning');
+                saveCurrentSearchBtn.classList.add('btn-success');
+            };
+            
+            // Update UI state based on current search
+            function updateSearchUI() {
+                const setDefaultBtn = document.getElementById('setDefaultBtn');
+                
+                if (currentSearchId && !isEditMode) {
+                    // Loaded search but not in edit mode - readonly state
+                    searchStatusIndicator.classList.remove('d-none');
+                    newSearchBtn.classList.add('d-none');
+                    editSearchBtn.classList.remove('d-none');
+                    saveCurrentSearchBtn.classList.add('d-none');
+                    currentSearchNameInput.readOnly = true;
+                    
+                    // Show "Set as Default" button only if this search is NOT the default
+                    if (setDefaultBtn) {
+                        if (currentSearchIsDefault) {
+                            setDefaultBtn.classList.add('d-none');
+                        } else {
+                            setDefaultBtn.classList.remove('d-none');
+                        }
+                    }
+                    
+                    searchStatusText.innerHTML = '<i class="fas fa-check-circle text-success"></i> Loaded: <strong>' + currentSearchNameInput.value + '</strong>';
+                    searchStatusIndicator.classList.remove('text-warning');
+                    searchStatusIndicator.classList.add('text-muted');
+                } else if (currentSearchId && isEditMode) {
+                    // In edit mode for an existing search
+                    searchStatusIndicator.classList.remove('d-none');
+                    newSearchBtn.classList.remove('d-none');
+                    editSearchBtn.classList.add('d-none');
+                    saveCurrentSearchBtn.classList.remove('d-none');
+                    currentSearchNameInput.readOnly = false;
+                    
+                    if (currentSearchIsModified) {
+                        searchStatusText.innerHTML = '<i class="fas fa-exclamation-triangle text-warning"></i> Editing: <strong>' + currentSearchNameInput.value + '</strong> (unsaved changes)';
+                        searchStatusIndicator.classList.remove('text-muted');
+                        searchStatusIndicator.classList.add('text-warning');
+                        saveButtonText.textContent = 'Update';
+                        saveCurrentSearchBtn.classList.remove('btn-success');
+                        saveCurrentSearchBtn.classList.add('btn-warning');
+                    } else {
+                        searchStatusText.innerHTML = '<i class="fas fa-edit text-info"></i> Editing: <strong>' + currentSearchNameInput.value + '</strong>';
+                        searchStatusIndicator.classList.remove('text-warning');
+                        searchStatusIndicator.classList.add('text-info');
+                        saveButtonText.textContent = 'Update';
+                        saveCurrentSearchBtn.classList.remove('btn-warning');
+                        saveCurrentSearchBtn.classList.add('btn-success');
+                    }
+                } else {
+                    // New search or no search loaded
+                    searchStatusIndicator.classList.add('d-none');
+                    newSearchBtn.classList.add('d-none');
+                    editSearchBtn.classList.add('d-none');
+                    saveCurrentSearchBtn.classList.remove('d-none');
+                    currentSearchNameInput.readOnly = false;
+                    saveButtonText.textContent = 'Save New';
+                    saveCurrentSearchBtn.classList.remove('btn-warning');
+                    saveCurrentSearchBtn.classList.add('btn-success');
+                    
+                    // Hide "Set as Default" button when no search is loaded
+                    if (setDefaultBtn) {
+                        setDefaultBtn.classList.add('d-none');
+                    }
+                }
+            }
+            
+            // Mark search as modified when filters change
+            function markSearchModified() {
+                if (currentSearchId && isEditMode) {
+                    // In edit mode - mark as modified
+                    currentSearchIsModified = true;
+                    updateSearchUI();
+                } else if (currentSearchId && !isEditMode) {
+                    // Not in edit mode but have a loaded search - switch to "Save New" mode
+                    currentSearchId = null;
+                    currentSearchIsModified = false;
+                    isEditMode = false;
+                    currentSearchIsDefault = false;
+                    currentSearchNameInput.value = '';
+                    currentSearchNameInput.placeholder = 'Name this new search...';
+                    updateSearchUI();
+                }
+            }
+            
+            // Make markSearchModified accessible globally for clearAllFilters
+            window.markSearchModifiedGlobal = markSearchModified;
+            
+            // Edit button handler
+            editSearchBtn.addEventListener('click', function() {
+                isEditMode = true;
+                currentSearchIsModified = false; // Reset modified flag when entering edit mode
+                updateSearchUI();
+            });
+            
+            // Add change listeners to mark search as modified (only if in edit mode)
+            [quickSearch, quickTypeFilter, quickStatusFilter, dateRange, sortBy, hasDescription, resultLimit].forEach(element => {
+                element.addEventListener('change', markSearchModified);
+                element.addEventListener('input', markSearchModified);
+            });
+            specificStateFilter.addEventListener('change', markSearchModified);
             
             // Load a specific search
             async function loadSearch(searchId) {
@@ -2157,7 +2519,26 @@ LIMIT 100</textarea>
                         return;
                     }
                     
+                    currentSearchId = searchId;
+                    currentSearchIsModified = false;
+                    isEditMode = false; // Exit edit mode when loading a search
+                    currentSearchIsDefault = search.is_default || false; // Track if this is the default search
+                    currentSearchNameInput.value = search.name;
+                    
                     await loadSearchParams(search);
+                    updateSearchUI();
+                    
+                    // Expand Advanced section when user explicitly loads a saved search
+                    setTimeout(() => {
+                        const advancedFiltersDiv = document.getElementById('advancedFilters');
+                        if (advancedFiltersDiv && !advancedFiltersDiv.classList.contains('show')) {
+                            advancedFiltersDiv.classList.add('show');
+                            const toggleBtn = document.querySelector('[data-bs-target="#advancedFilters"]');
+                            if (toggleBtn) {
+                                toggleBtn.setAttribute('aria-expanded', 'true');
+                            }
+                        }
+                    }, 200);
                     
                 } catch (error) {
                     console.error('Error loading search:', error);
@@ -2165,20 +2546,25 @@ LIMIT 100</textarea>
                 }
             }
             
-            // Save a new search
-            document.getElementById('saveNewSearch').addEventListener('click', function(e) {
-                e.preventDefault();
-                document.getElementById('searchName').value = '';
-                document.getElementById('editSearchId').value = '';
-                document.getElementById('saveSearchModalLabel').textContent = 'Save Search';
-                saveSearchModal.show();
+            // Create new search
+            newSearchBtn.addEventListener('click', function() {
+                currentSearchId = null;
+                currentSearchIsModified = false;
+                isEditMode = false;
+                currentSearchIsDefault = false;
+                currentSearchNameInput.value = '';
+                currentSearchNameInput.placeholder = 'Name this search to save it...';
+                updateSearchUI();
+                currentSearchNameInput.focus();
             });
             
-            document.getElementById('confirmSaveSearch').addEventListener('click', async function() {
-                const searchName = document.getElementById('searchName').value.trim();
+            // Save or update current search
+            saveCurrentSearchBtn.addEventListener('click', async function() {
+                const searchName = currentSearchNameInput.value.trim();
                 
                 if (!searchName) {
                     alert('Please enter a name for this search');
+                    currentSearchNameInput.focus();
                     return;
                 }
                 
@@ -2198,18 +2584,50 @@ LIMIT 100</textarea>
                 };
                 
                 try {
-                    const response = await fetch('/api/saved_searches', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(searchData)
-                    });
+                    let response;
+                    if (currentSearchId && isEditMode) {
+                        // Update existing search
+                        console.log('Updating search ID:', currentSearchId, 'with data:', searchData);
+                        response = await fetch(`/api/saved_searches/${currentSearchId}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(searchData)
+                        });
+                    } else {
+                        // Create new search
+                        console.log('Creating new search with data:', searchData);
+                        response = await fetch('/api/saved_searches', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(searchData)
+                        });
+                    }
+                    
+                    console.log('Save response status:', response.status);
                     
                     if (response.ok) {
-                        saveSearchModal.hide();
+                        const result = await response.json();
+                        if (!currentSearchId && result.id) {
+                            currentSearchId = result.id;
+                        }
+                        currentSearchIsModified = false;
+                        isEditMode = false; // Exit edit mode after successful save
                         await loadSavedSearches();
-                        alert('Search saved successfully!');
+                        updateSearchUI();
+                        
+                        // Show success feedback
+                        const originalBtnClass = saveCurrentSearchBtn.className;
+                        saveCurrentSearchBtn.innerHTML = '<i class="fas fa-check me-1"></i>Saved!';
+                        saveCurrentSearchBtn.disabled = true;
+                        setTimeout(() => {
+                            saveCurrentSearchBtn.innerHTML = '<i class="fas fa-save me-1"></i><span id="saveButtonText">' + saveButtonText.textContent + '</span>';
+                            saveCurrentSearchBtn.disabled = false;
+                            saveCurrentSearchBtn.className = originalBtnClass;
+                        }, 2000);
                     } else {
                         const error = await response.json();
                         alert(error.error || 'Failed to save search');
@@ -2220,9 +2638,32 @@ LIMIT 100</textarea>
                 }
             });
             
-            // Set a search as default
+            // Set or unset a search as default (toggle)
             async function setDefaultSearch(searchId) {
                 try {
+                    // Get current searches to check if this one is already default
+                    const searchesResponse = await fetch('/api/saved_searches');
+                    if (searchesResponse.ok) {
+                        const searches = await searchesResponse.json();
+                        const clickedSearch = searches.find(s => s.id == searchId);
+                        
+                        if (clickedSearch && clickedSearch.is_default) {
+                            // Already default - unset it
+                            const response = await fetch(`/api/saved_searches/${searchId}/unset_default`, {
+                                method: 'POST'
+                            });
+                            
+                            if (response.ok) {
+                                await loadSavedSearches();
+                                alert('Default search removed - will show all entries on load');
+                            } else {
+                                alert('Failed to remove default search');
+                            }
+                            return;
+                        }
+                    }
+                    
+                    // Not default or couldn't check - set as default
                     const response = await fetch(`/api/saved_searches/${searchId}/set_default`, {
                         method: 'POST'
                     });
@@ -2261,20 +2702,15 @@ LIMIT 100</textarea>
             loadSavedSearches();
             
             // Load saved search parameters on page load
-            loadSavedSearchParams();
+            loadSavedSearchParams().then(() => {
+                // Auto-generate SQL from current filters after loading
+                setTimeout(() => {
+                    autoGenerateSql();
+                    // Note: Keep Advanced section collapsed on initial load
+                    // User can expand it manually if needed
+                }, 100);
+            });
 
-            // Initialize SQL mode UI state and add toggle handler
-            const sqlToggle = document.getElementById('sqlQueryEnabled');
-            if (sqlToggle) {
-                // Set initial UI according to toggle state
-                toggleSqlModeUI(sqlToggle.checked);
-                sqlToggle.addEventListener('change', function() {
-                    toggleSqlModeUI(sqlToggle.checked);
-                    // Re-run filtering when mode changes
-                    performLiveFilter();
-                });
-            }
-            
             // Form submission handler
             document.getElementById('addEntryForm').addEventListener('submit', async function(e) {
                 e.preventDefault();
