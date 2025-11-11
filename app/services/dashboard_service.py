@@ -49,7 +49,7 @@ class DashboardService:
                 return {'error': 'Saved search not found', 'entries': []}
             
             # Build the query based on search parameters
-            query = "SELECT e.*, et.singular_label as entry_type_label FROM Entry e LEFT JOIN EntryType et ON e.entry_type_id = et.id WHERE 1=1"
+            query = "SELECT e.*, et.singular_label as entry_type_label FROM Entry e JOIN EntryType et ON e.entry_type_id = et.id WHERE 1=1"
             params = []
             
             # Apply filters

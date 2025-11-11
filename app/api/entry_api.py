@@ -29,7 +29,7 @@ def get_all_entries():
             SELECT e.id, e.title, e.description, e.intended_end_date, e.actual_end_date, 
                    e.status, e.created_at, e.entry_type_id, et.singular_label AS entry_type_label
             FROM Entry e
-            LEFT JOIN EntryType et ON e.entry_type_id = et.id
+            JOIN EntryType et ON e.entry_type_id = et.id
             ORDER BY e.created_at DESC
         ''')
         
@@ -147,7 +147,7 @@ def get_entry(entry_id):
                    et.has_sensors,
                    et.enabled_sensor_types
             FROM Entry e
-            LEFT JOIN EntryType et ON e.entry_type_id = et.id
+            JOIN EntryType et ON e.entry_type_id = et.id
             WHERE e.id = ?
         ''', (entry_id,))
         
@@ -283,7 +283,7 @@ def search_entries():
     sql = '''
         SELECT e.id, e.title, et.singular_label AS entry_type_label
         FROM Entry e
-        LEFT JOIN EntryType et ON e.entry_type_id = et.id
+        JOIN EntryType et ON e.entry_type_id = et.id
         WHERE (e.title LIKE ? OR e.description LIKE ?)
     '''
     params = [search_query_param, search_query_param]
@@ -627,9 +627,13 @@ def filter_by_relationships():
 @entry_api_bp.route('/custom_sql_filter', methods=['POST'])
 def custom_sql_filter():
     """
-    Filter entries using a custom SQL WHERE clause.
+    Filter entries using a custom SQL query (full query or WHERE clause fragment).
     
     Expected JSON payload:
+    {
+        "full_query": "SELECT DISTINCT e.id FROM Entry e WHERE e.title LIKE '%wine%'"
+    }
+    OR
     {
         "where_clause": "e.title LIKE '%wine%' AND e.entry_type_id = 2"
     }
@@ -643,70 +647,39 @@ def custom_sql_filter():
     """
     try:
         data = request.get_json()
+        full_query = data.get('full_query', '').strip()
         where_clause = data.get('where_clause', '').strip()
-        sql_fragment = data.get('sql_fragment', '').strip()
-
-        # Nothing provided -> return empty result
-        if not where_clause and not sql_fragment:
+        
+        if not full_query and not where_clause:
             return jsonify({'entry_ids': [], 'count': 0}), 200
-
-        # Basic security checks for both fragment types (word boundaries to avoid false positives like "created_at")
-        import re
-        dangerous_keywords = ['DROP', 'DELETE', 'INSERT', 'UPDATE', 'ALTER', 'CREATE',
-                              'TRUNCATE', 'EXEC', 'EXECUTE']
-
-        fragment_to_check = sql_fragment if sql_fragment else where_clause
-        fragment_upper = fragment_to_check.upper()
-
-        # Check for SQL comments (-- or /* */)
-        if '--' in fragment_to_check or '/*' in fragment_to_check:
-            return jsonify({
-                'error': 'SQL comments (-- or /* */) are not allowed in fragments.'
-            }), 400
-
-        # Check for dangerous keywords as whole words (not substrings)
-        for keyword in dangerous_keywords:
-            # Use word boundary regex to match only complete words
-            if re.search(r'\b' + re.escape(keyword) + r'\b', fragment_upper):
-                return jsonify({
-                    'error': f'Dangerous SQL keyword detected: {keyword}. Only read-only fragments are allowed.'
-                }), 400
-
-        # Build the base SELECT and FROM (server-controlled). Client fragment will be appended.
-        base_query = (
-            "SELECT DISTINCT e.id\n"
-            "FROM Entry e\n"
-            "LEFT JOIN EntryType et ON e.entry_type_id = et.id\n"
-            "LEFT JOIN EntryRelationship er_from ON e.id = er_from.source_entry_id\n"
-            "LEFT JOIN EntryRelationship er_to ON e.id = er_to.target_entry_id\n"
-        )
-
-        # If the client passed a full SQL fragment, append it directly. Otherwise wrap where_clause in WHERE.
-        if sql_fragment:
-            # Prevent accidental use of top-level SELECT/FROM in the fragment
-            forbidden_top = ['SELECT ', 'FROM ']
-            for tok in forbidden_top:
-                if tok in fragment_upper:
-                    return jsonify({'error': f'Fragment must not include top-level "{tok.strip()}" clause.'}), 400
-
-            full_query = f"{base_query} " + sql_fragment
-            # Ensure there's a LIMIT to avoid huge results if user didn't set one
-            if 'LIMIT' not in fragment_upper:
-                full_query = full_query + " LIMIT 5000"
+        
+        # No security restrictions - user knows what they're doing
+        query_upper = (full_query if full_query else where_clause).upper()
+        
+        # Use full query if provided, otherwise build from WHERE clause
+        if full_query:
+            final_query = full_query
+            logger.info(f"Executing full custom SQL query: {final_query}")
         else:
-            # Legacy: where_clause only
-            full_query = f"{base_query} WHERE ({where_clause}) LIMIT 5000"
-
-        logger.info(f"Executing custom SQL query: {full_query}")
-
+            # Build the query with the custom WHERE clause fragment
+            base_query = """
+                SELECT DISTINCT e.id 
+                FROM Entry e
+                LEFT JOIN EntryType et ON e.entry_type_id = et.id
+                LEFT JOIN EntryRelationship er_from ON e.id = er_from.source_entry_id
+                LEFT JOIN EntryRelationship er_to ON e.id = er_to.target_entry_id
+            """
+            final_query = f"{base_query} WHERE ({where_clause})"
+            logger.info(f"Executing custom SQL query from fragment: {final_query}")
+        
         # Execute the query
-        cursor = get_db().execute(full_query)
+        cursor = get_db().execute(final_query)
         results = cursor.fetchall()
-
+        
         entry_ids = [row[0] for row in results]
-
+        
         logger.info(f"Custom SQL query returned {len(entry_ids)} entries")
-
+        
         return jsonify({
             'entry_ids': entry_ids,
             'count': len(entry_ids)

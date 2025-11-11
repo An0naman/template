@@ -22,21 +22,8 @@ def execute_sql():
         
         query = data['query'].strip()
         
-        # Security check - only allow specific SQL operations
-        allowed_operations = ['SELECT', 'INSERT', 'UPDATE', 'DELETE']
+        # No security restrictions - user knows what they're doing
         query_upper = query.upper()
-        
-        if not any(query_upper.startswith(op) for op in allowed_operations):
-            return jsonify({'error': 'Only SELECT, INSERT, UPDATE, and DELETE queries are allowed'}), 403
-        
-        # Additional security: Block dangerous operations for certain commands
-        dangerous_keywords = ['DROP', 'ALTER', 'CREATE', 'TRUNCATE', 'EXEC', 'EXECUTE']
-        for keyword in dangerous_keywords:
-            if keyword in query_upper:
-                return jsonify({
-                    'error': f'Keyword "{keyword}" is not allowed for security reasons',
-                    'query_type': 'restricted'
-                }), 403
         
         conn = get_db()
         cursor = conn.cursor()

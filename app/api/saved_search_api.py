@@ -105,6 +105,8 @@ def update_saved_search(search_id):
     """Update an existing saved search"""
     try:
         data = request.json
+        logger.info(f"Updating saved search ID {search_id} with data: {data}")
+        
         if not data:
             return jsonify({'error': 'No data provided'}), 400
         
@@ -114,6 +116,7 @@ def update_saved_search(search_id):
         # Check if search exists
         cursor.execute("SELECT id FROM SavedSearch WHERE id = ?", (search_id,))
         if not cursor.fetchone():
+            logger.warning(f"Saved search ID {search_id} not found")
             return jsonify({'error': 'Saved search not found'}), 404
         
         # If name is being updated, check for duplicates
@@ -152,6 +155,7 @@ def update_saved_search(search_id):
         
         conn.commit()
         
+        logger.info(f"Successfully updated saved search ID {search_id}")
         return jsonify({'message': 'Saved search updated successfully'}), 200
         
     except Exception as e:
@@ -178,11 +182,34 @@ def set_default_search(search_id):
         
         conn.commit()
         
-        return jsonify({'message': 'Default search updated successfully'}), 200
+        return jsonify({'message': 'Default search set successfully'}), 200
         
     except Exception as e:
         logger.error(f"Error setting default search: {e}", exc_info=True)
         return jsonify({'error': 'Failed to set default search'}), 500
+
+@saved_search_api_bp.route('/saved_searches/<int:search_id>/unset_default', methods=['POST'])
+def unset_default_search(search_id):
+    """Remove a saved search as the default"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Check if search exists
+        cursor.execute("SELECT id FROM SavedSearch WHERE id = ?", (search_id,))
+        if not cursor.fetchone():
+            return jsonify({'error': 'Saved search not found'}), 404
+        
+        # Clear this search's default flag
+        cursor.execute("UPDATE SavedSearch SET is_default = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (search_id,))
+        
+        conn.commit()
+        
+        return jsonify({'message': 'Default search removed successfully'}), 200
+        
+    except Exception as e:
+        logger.error(f"Error unsetting default search: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to unset default search'}), 500
 
 @saved_search_api_bp.route('/saved_searches/<int:search_id>', methods=['DELETE'])
 def delete_saved_search(search_id):
