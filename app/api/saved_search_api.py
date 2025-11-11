@@ -27,7 +27,7 @@ def get_saved_searches():
         cursor.execute("""
             SELECT id, name, search_term, type_filter, status_filter, specific_states,
                    date_range, sort_by, content_display, result_limit, custom_sql_query,
-                   is_default, created_at, updated_at
+                   use_sql_mode, is_default, created_at, updated_at
             FROM SavedSearch
             ORDER BY is_default DESC, name ASC
         """)
@@ -46,6 +46,7 @@ def get_saved_searches():
                 'content_display': row['content_display'],
                 'result_limit': row['result_limit'],
                 'custom_sql_query': row['custom_sql_query'],
+                'use_sql_mode': bool(row['use_sql_mode']),
                 'is_default': bool(row['is_default']),
                 'created_at': row['created_at'],
                 'updated_at': row['updated_at']
@@ -76,8 +77,9 @@ def create_saved_search():
         cursor.execute("""
             INSERT INTO SavedSearch (
                 name, search_term, type_filter, status_filter, specific_states,
-                date_range, sort_by, content_display, result_limit, custom_sql_query
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                date_range, sort_by, content_display, result_limit, custom_sql_query,
+                use_sql_mode
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             data['name'],
             data.get('search_term', ''),
@@ -88,7 +90,8 @@ def create_saved_search():
             data.get('sort_by', 'created_desc'),
             data.get('content_display', ''),
             data.get('result_limit', '50'),
-            data.get('custom_sql_query', '')
+            data.get('custom_sql_query', ''),
+            1 if data.get('use_sql_mode', False) else 0
         ))
         
         conn.commit()
@@ -137,6 +140,7 @@ def update_saved_search(search_id):
                 content_display = ?,
                 result_limit = ?,
                 custom_sql_query = ?,
+                use_sql_mode = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
         """, (
@@ -150,6 +154,7 @@ def update_saved_search(search_id):
             data.get('content_display', ''),
             data.get('result_limit', '50'),
             data.get('custom_sql_query', ''),
+            1 if data.get('use_sql_mode', False) else 0,
             search_id
         ))
         

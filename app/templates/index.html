@@ -905,7 +905,7 @@
                                             <!-- Search Name and Save Controls -->
                                             <div class="flex-grow-1" style="max-width: 500px;">
                                                 <div class="input-group input-group-sm">
-                                                    <input type="text" class="form-control" id="currentSearchName" placeholder="Name this search to save it..." aria-label="Search name" readonly>
+                                                    <input type="text" class="form-control" id="currentSearchName" placeholder="Name this search to save it..." aria-label="Search name">
                                                     <button type="button" class="btn btn-warning d-none" id="editSearchBtn" title="Enable editing of this saved search">
                                                         <i class="fas fa-edit me-1"></i>Edit
                                                     </button>
@@ -999,6 +999,23 @@
                                 
                                 <!-- SQL Query Tab -->
                                 <div class="tab-pane fade" id="sql" role="tabpanel" aria-labelledby="sql-tab">
+                                    <!-- SQL Mode Toggle -->
+                                    <div class="alert alert-warning py-3 mb-3">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <div>
+                                                <i class="fas fa-code me-2"></i>
+                                                <strong>SQL Mode</strong>
+                                                <p class="mb-0 mt-1 small">When enabled, this custom SQL query will be used for filtering instead of the standard filter controls above. The standard filters will be disabled.</p>
+                                            </div>
+                                            <div class="form-check form-switch ms-3">
+                                                <input class="form-check-input" type="checkbox" role="switch" id="useSqlMode" style="width: 3em; height: 1.5em; cursor: pointer;">
+                                                <label class="form-check-label ms-2 fw-bold" for="useSqlMode" style="cursor: pointer;">
+                                                    <span id="sqlModeStatusText">Off</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
                                     <div class="alert alert-info py-2 small mb-3">
                                         <i class="fas fa-info-circle me-1"></i>
                                         <strong>Auto-Generated SQL Query:</strong> This query is automatically built from your filter selections above.<br>
@@ -1023,6 +1040,9 @@ WHERE e.title LIKE '%Sample%'
 ORDER BY e.created_at DESC
 LIMIT 100</textarea>
                                     <div class="d-flex gap-2 align-items-center flex-wrap mt-3">
+                                        <button type="button" class="btn btn-primary" id="executeSqlQuery">
+                                            <i class="fas fa-search me-1"></i>Search with SQL
+                                        </button>
                                         <button type="button" class="btn btn-sm btn-outline-secondary" id="clearSqlQuery">
                                             <i class="fas fa-times me-1"></i>Clear All Filters
                                         </button>
@@ -1227,10 +1247,26 @@ LIMIT 100</textarea>
             const hasDescription = document.getElementById('has_description');
             const resultLimit = document.getElementById('result_limit');
             
+            // SQL mode elements
+            const useSqlModeToggle = document.getElementById('useSqlMode');
+            const sqlModeStatusText = document.getElementById('sqlModeStatusText');
+            const customSqlQuery = document.getElementById('customSqlQuery');
+            
             let searchTimeout;
+            let isSqlModeEnabled = false;
             
             // Toggle UI when SQL mode is enabled/disabled
             function toggleSqlModeUI(enabled) {
+                console.log('toggleSqlModeUI called with:', enabled);
+                isSqlModeEnabled = enabled;
+                
+                // Update toggle state and status text
+                useSqlModeToggle.checked = enabled;
+                sqlModeStatusText.textContent = enabled ? 'On' : 'Off';
+                sqlModeStatusText.style.color = enabled ? '#0d6efd' : '';
+                console.log('SQL mode toggle updated - checked:', useSqlModeToggle.checked, 'status:', sqlModeStatusText.textContent);
+                
+                // Disable/enable standard filter controls
                 const controls = [quickSearch, quickTypeFilter, quickStatusFilter, specificStateFilter, dateRange, sortBy, hasDescription, resultLimit];
                 controls.forEach(c => {
                     if (!c) return;
@@ -1242,8 +1278,46 @@ LIMIT 100</textarea>
                         c.classList.remove('opacity-50');
                     }
                 });
-
-                // (no-op) saved-search container handling removed - not present in template
+                
+                // Update the SQL textarea appearance
+                if (enabled) {
+                    customSqlQuery.classList.add('border-primary');
+                    customSqlQuery.style.borderWidth = '2px';
+                } else {
+                    customSqlQuery.classList.remove('border-primary');
+                    customSqlQuery.style.borderWidth = '';
+                }
+                console.log('SQL mode UI update complete');
+            }
+            
+            // SQL Mode toggle event listener
+            useSqlModeToggle.addEventListener('change', function() {
+                const enabled = this.checked;
+                toggleSqlModeUI(enabled);
+                
+                // When enabling SQL mode, perform filtering immediately
+                if (enabled) {
+                    performLiveFilter();
+                } else {
+                    // When disabling, also refresh to use standard filters
+                    performLiveFilter();
+                }
+            });
+            
+            // Execute SQL Query button click handler
+            const executeSqlButton = document.getElementById('executeSqlQuery');
+            if (executeSqlButton) {
+                executeSqlButton.addEventListener('click', function() {
+                    console.log('Execute SQL button clicked');
+                    if (isSqlModeEnabled) {
+                        performLiveFilter();
+                    } else {
+                        console.log('SQL mode not enabled, enabling it first');
+                        useSqlModeToggle.checked = true;
+                        toggleSqlModeUI(true);
+                        performLiveFilter();
+                    }
+                });
             }
 
             // Load available states for the specific state filter, optionally filtered by entry type and status category
@@ -1586,6 +1660,7 @@ LIMIT 100</textarea>
                             if (matchingSearch) {
                                 console.log('URL matches saved search:', matchingSearch.name);
                                 currentSearchId = matchingSearch.id;
+                                window.currentSearchId = matchingSearch.id; // Also set on window for button access
                                 currentSearchIsModified = false;
                                 currentSearchIsDefault = matchingSearch.is_default || false;
                                 currentSearchNameInput.value = matchingSearch.name;
@@ -1620,6 +1695,7 @@ LIMIT 100</textarea>
                             
                             // Set UI state for this saved search
                             currentSearchId = defaultSearch.id;
+                            window.currentSearchId = defaultSearch.id; // Also set on window for button access
                             currentSearchIsModified = false;
                             currentSearchIsDefault = true; // This is the default search
                             currentSearchNameInput.value = defaultSearch.name;
@@ -1806,10 +1882,108 @@ LIMIT 100</textarea>
                     }
                 });
             }
+            
+            // Perform filtering using SQL mode
+            async function performSqlModeFilter() {
+                const customSqlQuery = document.getElementById('customSqlQuery').value.trim();
+                const sqlQueryResults = document.getElementById('sqlQueryResults');
+                
+                if (!customSqlQuery) {
+                    // No SQL query - show all entries
+                    entryItems.forEach(item => {
+                        item.style.display = '';
+                    });
+                    sqlQueryResults.innerHTML = '<div class="alert alert-warning py-2 small mt-2"><i class="fas fa-exclamation-triangle me-1"></i>SQL mode is enabled but no query is provided. Showing all entries.</div>';
+                    searchResultsInfo.style.display = 'none';
+                    return;
+                }
+                
+                let sqlMatchingEntryIds = null;
+                
+                try {
+                    // Send the full SQL query to the backend
+                    // Strip SQL comments (-- lines and /* */ blocks) before sending
+                    let cleanedQuery = customSqlQuery
+                        .split('\n')
+                        .filter(line => !line.trim().startsWith('--'))
+                        .join('\n')
+                        .replace(/\/\*[\s\S]*?\*\//g, '')
+                        .trim();
+                    
+                    const payload = { full_query: cleanedQuery };
+                    const response = await fetch('/api/custom_sql_filter', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        sqlMatchingEntryIds = result.entry_ids;
+                        sqlQueryResults.innerHTML = `<div class="alert alert-success py-2 small mt-2"><i class="fas fa-check me-1"></i>SQL query executed successfully. ${result.count} entries matched.</div>`;
+                        console.log(`SQL mode query matched ${result.count} entries:`, sqlMatchingEntryIds);
+                    } else {
+                        const error = await response.json();
+                        sqlQueryResults.innerHTML = `<div class="alert alert-danger py-2 small mt-2"><i class="fas fa-times me-1"></i>${error.error}${error.hint ? '<br><small>' + error.hint + '</small>' : ''}</div>`;
+                        console.error('SQL query error:', error);
+                        return; // Don't filter if query failed
+                    }
+                } catch (error) {
+                    sqlQueryResults.innerHTML = `<div class="alert alert-danger py-2 small mt-2"><i class="fas fa-times me-1"></i>Error executing SQL query: ${error.message}</div>`;
+                    console.error('Error applying SQL filter:', error);
+                    return; // Don't filter if query failed
+                }
+                
+                // Filter entries based on SQL results
+                let visibleCount = 0;
+                let totalCount = entryItems.length;
+                
+                entryItems.forEach(item => {
+                    const entryId = parseInt(item.dataset.id);
+                    const showEntry = sqlMatchingEntryIds === null || sqlMatchingEntryIds.includes(entryId);
+                    
+                    if (showEntry) {
+                        item.style.display = '';
+                        visibleCount++;
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+                
+                // Update search results info
+                searchResultsInfo.textContent = `SQL Mode: Showing ${visibleCount} of ${totalCount} entries`;
+                searchResultsInfo.style.display = '';
+                
+                // Show/hide no results message
+                const existingNoResults = document.querySelector('.search-no-results');
+                if (visibleCount === 0 && totalCount > 0) {
+                    if (!existingNoResults) {
+                        const noResultsDiv = document.createElement('div');
+                        noResultsDiv.className = 'no-entries search-no-results';
+                        noResultsDiv.innerHTML = `
+                            <i class="fas fa-database fa-3x mb-3"></i>
+                            <h5>No entries match your SQL query</h5>
+                            <p class="mb-3">Try adjusting your SQL query in the SQL tab.</p>
+                            <button type="button" class="btn btn-outline-theme-primary" onclick="document.getElementById('useSqlMode').checked = false; document.getElementById('useSqlMode').dispatchEvent(new Event('change'));">
+                                <i class="fas fa-times me-1"></i>Disable SQL Mode
+                            </button>
+                        `;
+                        document.getElementById('entries-list').appendChild(noResultsDiv);
+                    }
+                } else if (existingNoResults) {
+                    existingNoResults.remove();
+                }
+            }
 
             async function performLiveFilter() {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(async () => {
+                    // If SQL mode is enabled, only use SQL query for filtering
+                    if (isSqlModeEnabled) {
+                        await performSqlModeFilter();
+                        return;
+                    }
+                    
                     const searchTerm = quickSearch.value.toLowerCase().trim();
                     const selectedType = quickTypeFilter.value;
                     const selectedStatus = quickStatusFilter.value.toLowerCase().trim();
@@ -2018,8 +2192,13 @@ LIMIT 100</textarea>
             // Set Default button - sets the loaded search as default
             const setDefaultBtn = document.getElementById('setDefaultBtn');
             if (setDefaultBtn) {
+                console.log('Set Default button found, attaching click handler');
                 setDefaultBtn.addEventListener('click', async function() {
-                    if (!window.currentSearchId) return;
+                    console.log('Set Default button clicked, currentSearchId:', window.currentSearchId);
+                    if (!window.currentSearchId) {
+                        console.log('No current search ID, returning');
+                        return;
+                    }
                     
                     const btn = this;
                     const originalText = btn.innerHTML;
@@ -2067,6 +2246,12 @@ LIMIT 100</textarea>
             
             // Function to auto-generate SQL from filters
             function autoGenerateSql() {
+                // Don't auto-generate SQL if SQL mode is manually enabled
+                // (user is writing their own custom query)
+                if (isSqlModeEnabled) {
+                    return;
+                }
+                
                 const generatedSql = generateSqlFromFilters();
                 document.getElementById('customSqlQuery').value = generatedSql;
                 // Note: performLiveFilter() is called separately by event listeners
@@ -2174,9 +2359,10 @@ LIMIT 100</textarea>
                 hasDescription.value = '';
                 resultLimit.value = '50';
                 
-                // Clear custom SQL query
+                // Clear custom SQL query and disable SQL mode
                 document.getElementById('customSqlQuery').value = '';
                 document.getElementById('sqlQueryResults').innerHTML = '';
+                toggleSqlModeUI(false);
                 
                 // Reload all states (no type filter)
                 await loadAllStates();
@@ -2305,6 +2491,25 @@ LIMIT 100</textarea>
                 // Load custom SQL query
                 document.getElementById('customSqlQuery').value = search.custom_sql_query || '';
                 
+                // Load SQL mode state and apply it (convert to boolean properly)
+                const useSqlMode = Boolean(search.use_sql_mode);
+                console.log('Loading search - use_sql_mode:', search.use_sql_mode, 'converted to:', useSqlMode);
+                toggleSqlModeUI(useSqlMode);
+                
+                // If SQL mode is enabled, switch to SQL tab
+                if (useSqlMode) {
+                    console.log('SQL mode is enabled, switching to SQL tab');
+                    const sqlTab = document.getElementById('sql-tab');
+                    console.log('SQL tab element:', sqlTab);
+                    if (sqlTab) {
+                        const tab = new bootstrap.Tab(sqlTab);
+                        tab.show();
+                        console.log('SQL tab shown');
+                    } else {
+                        console.log('SQL tab element not found!');
+                    }
+                }
+                
                 // Load states and select the saved ones
                 await initializeStates();
                 
@@ -2358,9 +2563,14 @@ LIMIT 100</textarea>
                     }
                     
                     window.location.href = newUrl.toString();
-                } else if (skipReload) {
-                    // Apply client-side filtering only (for advanced filters)
-                    await performLiveFilter();
+                } else {
+                    // Apply client-side filtering (for advanced filters or SQL mode)
+                    if (useSqlMode) {
+                        console.log('SQL mode enabled in loaded search - executing SQL query');
+                        await performLiveFilter();
+                    } else if (skipReload) {
+                        await performLiveFilter();
+                    }
                 }
             }
             
@@ -2520,6 +2730,7 @@ LIMIT 100</textarea>
                     }
                     
                     currentSearchId = searchId;
+                    window.currentSearchId = searchId; // Also set on window for button access
                     currentSearchIsModified = false;
                     isEditMode = false; // Exit edit mode when loading a search
                     currentSearchIsDefault = search.is_default || false; // Track if this is the default search
@@ -2580,7 +2791,8 @@ LIMIT 100</textarea>
                     sort_by: sortBy.value,
                     content_display: hasDescription.value,
                     result_limit: resultLimit.value,
-                    custom_sql_query: document.getElementById('customSqlQuery').value
+                    custom_sql_query: document.getElementById('customSqlQuery').value,
+                    use_sql_mode: isSqlModeEnabled
                 };
                 
                 try {
@@ -2613,6 +2825,7 @@ LIMIT 100</textarea>
                         const result = await response.json();
                         if (!currentSearchId && result.id) {
                             currentSearchId = result.id;
+                            window.currentSearchId = result.id; // Also set on window for button access
                         }
                         currentSearchIsModified = false;
                         isEditMode = false; // Exit edit mode after successful save
