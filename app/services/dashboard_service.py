@@ -48,73 +48,142 @@ class DashboardService:
             if not search:
                 return {'error': 'Saved search not found', 'entries': []}
             
-            # Build the query based on search parameters
-            query = "SELECT e.*, et.singular_label as entry_type_label FROM Entry e JOIN EntryType et ON e.entry_type_id = et.id WHERE 1=1"
-            params = []
+            # Check if this is a SQL mode search with custom SQL query
+            use_sql_mode = 'use_sql_mode' in search.keys() and search['use_sql_mode']
+            custom_sql_query = search['custom_sql_query'].strip() if 'custom_sql_query' in search.keys() and search['custom_sql_query'] else ''
             
-            # Apply filters
-            if search['search_term']:
-                query += " AND (e.title LIKE ? OR e.description LIKE ?)"
-                search_term = f"%{search['search_term']}%"
-                params.extend([search_term, search_term])
-            
-            if search['type_filter']:
-                query += " AND e.entry_type_id = ?"
-                params.append(int(search['type_filter']))
-            
-            # Specific states filter (comma-separated list of states)
-            # sqlite3.Row objects don't have .get(), check for key existence
-            if 'specific_states' in search.keys() and search['specific_states']:
-                states = [s.strip() for s in search['specific_states'].split(',') if s.strip()]
-                if states:
-                    # Use case-insensitive comparison for state names
-                    state_conditions = ' OR '.join(['LOWER(e.status) = LOWER(?)' for _ in states])
-                    query += f" AND ({state_conditions})"
-                    params.extend(states)
-            elif search['status_filter']:
-                # Only apply status_filter if specific_states is not set
-                # status_filter is a category (active/inactive), not a state name
-                # Need to join with EntryState to filter by category
-                query += " AND EXISTS (SELECT 1 FROM EntryState es WHERE es.entry_type_id = e.entry_type_id AND LOWER(es.name) = LOWER(e.status) AND es.category = ?)"
-                params.append(search['status_filter'])
-            
-            # Date range filter
-            if search['date_range']:
-                now = datetime.now()
-                if search['date_range'] == 'today':
-                    start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
-                    query += " AND e.created_at >= ?"
-                    params.append(start_date.isoformat())
-                elif search['date_range'] == 'week':
-                    start_date = now - timedelta(days=7)
-                    query += " AND e.created_at >= ?"
-                    params.append(start_date.isoformat())
-                elif search['date_range'] == 'month':
-                    start_date = now - timedelta(days=30)
-                    query += " AND e.created_at >= ?"
-                    params.append(start_date.isoformat())
-            
-            # Sorting
-            sort_by = search['sort_by'] or 'created_desc'
-            if sort_by == 'created_desc':
-                query += " ORDER BY e.created_at DESC"
-            elif sort_by == 'created_asc':
-                query += " ORDER BY e.created_at ASC"
-            elif sort_by == 'title_asc':
-                query += " ORDER BY e.title ASC"
-            elif sort_by == 'title_desc':
-                query += " ORDER BY e.title DESC"
-            
-            # Result limit
-            limit = int(search['result_limit'] or 50)
-            query += f" LIMIT {limit}"
-            
-            # Debug logging
-            logger.info(f"Saved search {search_id} query: {query}")
-            logger.info(f"Saved search {search_id} params: {params}")
-            
-            cursor.execute(query, params)
-            rows = cursor.fetchall()
+            if use_sql_mode and custom_sql_query:
+                # Execute custom SQL query to get entry IDs
+                logger.info(f"Saved search {search_id} using custom SQL mode")
+                try:
+                    # Check if it's a full query or a WHERE clause fragment
+                    if 'SELECT' in custom_sql_query.upper():
+                        # Full query - execute as-is
+                        cursor.execute(custom_sql_query)
+                        id_rows = cursor.fetchall()
+                        entry_ids = [row[0] if isinstance(row, tuple) else row['id'] for row in id_rows]
+                    else:
+                        # WHERE clause fragment - build query
+                        id_query = f"""
+                            SELECT DISTINCT e.id 
+                            FROM Entry e
+                            LEFT JOIN EntryType et ON e.entry_type_id = et.id
+                            LEFT JOIN EntryRelationship er_from ON e.id = er_from.source_entry_id
+                            LEFT JOIN EntryRelationship er_to ON e.id = er_to.target_entry_id
+                            WHERE ({custom_sql_query})
+                        """
+                        cursor.execute(id_query)
+                        id_rows = cursor.fetchall()
+                        entry_ids = [row[0] for row in id_rows]
+                    
+                    logger.info(f"Custom SQL query returned {len(entry_ids)} entry IDs")
+                    
+                    if not entry_ids:
+                        return {
+                            'search_name': search['name'],
+                            'entries': [],
+                            'total_count': 0
+                        }
+                    
+                    # Now fetch full entry details for these IDs
+                    placeholders = ','.join(['?' for _ in entry_ids])
+                    detail_query = f"""
+                        SELECT e.*, et.singular_label as entry_type_label 
+                        FROM Entry e 
+                        JOIN EntryType et ON e.entry_type_id = et.id 
+                        WHERE e.id IN ({placeholders})
+                    """
+                    
+                    # Apply sorting
+                    sort_by = search['sort_by'] or 'created_desc'
+                    if sort_by == 'created_desc':
+                        detail_query += " ORDER BY e.created_at DESC"
+                    elif sort_by == 'created_asc':
+                        detail_query += " ORDER BY e.created_at ASC"
+                    elif sort_by == 'title_asc':
+                        detail_query += " ORDER BY e.title ASC"
+                    elif sort_by == 'title_desc':
+                        detail_query += " ORDER BY e.title DESC"
+                    
+                    # Apply result limit
+                    limit = int(search['result_limit'] or 50)
+                    detail_query += f" LIMIT {limit}"
+                    
+                    cursor.execute(detail_query, entry_ids)
+                    rows = cursor.fetchall()
+                    
+                except Exception as sql_error:
+                    logger.error(f"Error executing custom SQL query: {sql_error}", exc_info=True)
+                    return {'error': f'SQL query error: {str(sql_error)}', 'entries': []}
+            else:
+                # Standard filter-based search
+                # Build the query based on search parameters
+                query = "SELECT e.*, et.singular_label as entry_type_label FROM Entry e JOIN EntryType et ON e.entry_type_id = et.id WHERE 1=1"
+                params = []
+                
+                # Apply filters
+                if search['search_term']:
+                    query += " AND (e.title LIKE ? OR e.description LIKE ?)"
+                    search_term = f"%{search['search_term']}%"
+                    params.extend([search_term, search_term])
+                
+                if search['type_filter']:
+                    query += " AND e.entry_type_id = ?"
+                    params.append(int(search['type_filter']))
+                
+                # Specific states filter (comma-separated list of states)
+                # sqlite3.Row objects don't have .get(), check for key existence
+                if 'specific_states' in search.keys() and search['specific_states']:
+                    states = [s.strip() for s in search['specific_states'].split(',') if s.strip()]
+                    if states:
+                        # Use case-insensitive comparison for state names
+                        state_conditions = ' OR '.join(['LOWER(e.status) = LOWER(?)' for _ in states])
+                        query += f" AND ({state_conditions})"
+                        params.extend(states)
+                elif search['status_filter']:
+                    # Only apply status_filter if specific_states is not set
+                    # status_filter is a category (active/inactive), not a state name
+                    # Need to join with EntryState to filter by category
+                    query += " AND EXISTS (SELECT 1 FROM EntryState es WHERE es.entry_type_id = e.entry_type_id AND LOWER(es.name) = LOWER(e.status) AND es.category = ?)"
+                    params.append(search['status_filter'])
+                
+                # Date range filter
+                if search['date_range']:
+                    now = datetime.now()
+                    if search['date_range'] == 'today':
+                        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+                        query += " AND e.created_at >= ?"
+                        params.append(start_date.isoformat())
+                    elif search['date_range'] == 'week':
+                        start_date = now - timedelta(days=7)
+                        query += " AND e.created_at >= ?"
+                        params.append(start_date.isoformat())
+                    elif search['date_range'] == 'month':
+                        start_date = now - timedelta(days=30)
+                        query += " AND e.created_at >= ?"
+                        params.append(start_date.isoformat())
+                
+                # Sorting
+                sort_by = search['sort_by'] or 'created_desc'
+                if sort_by == 'created_desc':
+                    query += " ORDER BY e.created_at DESC"
+                elif sort_by == 'created_asc':
+                    query += " ORDER BY e.created_at ASC"
+                elif sort_by == 'title_asc':
+                    query += " ORDER BY e.title ASC"
+                elif sort_by == 'title_desc':
+                    query += " ORDER BY e.title DESC"
+                
+                # Result limit
+                limit = int(search['result_limit'] or 50)
+                query += f" LIMIT {limit}"
+                
+                # Debug logging
+                logger.info(f"Saved search {search_id} query: {query}")
+                logger.info(f"Saved search {search_id} params: {params}")
+                
+                cursor.execute(query, params)
+                rows = cursor.fetchall()
             
             entries = []
             for row in rows:
