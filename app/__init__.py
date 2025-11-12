@@ -4,6 +4,9 @@ from flask import Flask, g
 import os
 import logging
 
+# Get project root for version file access
+PROJECT_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+
 def create_app():
     # Corrected Flask app initialization to point to 'templates' and 'static'
     # within the 'app' package.
@@ -154,6 +157,21 @@ def create_app():
                     'theme_mode': 'light'
                 }
             }
+    
+    # Add version context processor
+    @app.context_processor
+    def inject_version():
+        try:
+            version_file = os.path.join(PROJECT_ROOT, 'VERSION')
+            if os.path.exists(version_file):
+                with open(version_file, 'r') as f:
+                    app_version = f.read().strip()
+            else:
+                app_version = '1.0.0'
+            return {'app_version': app_version}
+        except Exception as e:
+            app.logger.error(f"Error reading version file: {e}")
+            return {'app_version': '1.0.0'}
 
     # Initialize and start the task scheduler
     from .scheduler import scheduler

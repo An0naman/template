@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='notifications_modern.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='mobile.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='ribbon.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/sections/relationships.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
@@ -355,6 +356,9 @@
     </style>
 </head>
 <body>
+    <!-- Universal App Ribbon -->
+    {% include 'components/ribbon.html' %}
+
 <div class="container-fluid py-3">
     <!-- DEBUG: section_order = {{ section_order }} -->
     <!-- DEBUG: section_config keys = {{ section_config.keys()|list }} -->
@@ -869,6 +873,8 @@ style.textContent = `
 document.head.appendChild(style);
 </script>
 
+<!-- About Modal -->
+{% include 'components/about_modal.html' %}
 
 </body>
 </html>

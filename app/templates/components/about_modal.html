@@ -1,0 +1,132 @@
+<!-- About Modal Component -->
+<div class="modal fade" id="aboutModal" tabindex="-1" aria-labelledby="aboutModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="aboutModalLabel">
+                    <i class="fas fa-info-circle me-2"></i>About {{ project_name }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="about-content">
+                    <!-- App Info -->
+                    <div class="about-section mb-4">
+                        <h6 class="about-section-title">
+                            <i class="fas fa-cube me-2"></i>Application
+                        </h6>
+                        <div class="about-info">
+                            <div class="about-row">
+                                <span class="about-label">Name:</span>
+                                <span class="about-value">{{ project_name }}</span>
+                            </div>
+                            <div class="about-row">
+                                <span class="about-label">Version:</span>
+                                <span class="about-value">
+                                    <span class="badge bg-primary">v{{ app_version }}</span>
+                                </span>
+                            </div>
+                            {% if project_subtitle %}
+                            <div class="about-row">
+                                <span class="about-label">Description:</span>
+                                <span class="about-value">{{ project_subtitle }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Theme Info -->
+                    <div class="about-section mb-4">
+                        <h6 class="about-section-title">
+                            <i class="fas fa-palette me-2"></i>Current Theme
+                        </h6>
+                        <div class="about-info">
+                            <div class="about-row">
+                                <span class="about-label">Mode:</span>
+                                <span class="about-value">
+                                    {% if theme_settings.dark_mode_enabled %}
+                                        <i class="fas fa-moon me-1"></i>Dark Mode
+                                    {% else %}
+                                        <i class="fas fa-sun me-1"></i>Light Mode
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="about-row">
+                                <span class="about-label">Theme:</span>
+                                <span class="about-value">{{ theme_settings.current_theme|default('default')|title }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- System Info -->
+                    <div class="about-section">
+                        <h6 class="about-section-title">
+                            <i class="fas fa-cog me-2"></i>System
+                        </h6>
+                        <div class="about-info">
+                            <div class="about-row">
+                                <span class="about-label">Database:</span>
+                                <span class="about-value">SQLite</span>
+                            </div>
+                            <div class="about-row">
+                                <span class="about-label">Framework:</span>
+                                <span class="about-value">Flask</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .about-content {
+        padding: 0.5rem 0;
+    }
+    
+    .about-section {
+        border-radius: 0.5rem;
+        padding: 1rem;
+        background-color: var(--bs-secondary-bg);
+    }
+    
+    .about-section-title {
+        color: var(--theme-primary, var(--bs-primary));
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+    
+    .about-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .about-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.25rem 0;
+    }
+    
+    .about-label {
+        font-weight: 500;
+        color: var(--bs-body-color);
+        opacity: 0.8;
+    }
+    
+    .about-value {
+        font-weight: 400;
+        color: var(--bs-body-color);
+    }
+    
+    /* Dark mode adjustments */
+    [data-bs-theme="dark"] .about-section {
+        background-color: var(--theme-bg-surface, var(--bs-gray-800));
+    }
+</style>

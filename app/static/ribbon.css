@@ -1,0 +1,131 @@
+/* Universal App Ribbon Styles */
+/* Theme-aware ribbon component that adapts to light/dark modes */
+
+.app-ribbon {
+    background: linear-gradient(135deg, var(--theme-primary, var(--bs-primary)), var(--theme-primary-hover, var(--bs-primary)));
+    color: white;
+    padding: 0.5rem 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.ribbon-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.ribbon-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.ribbon-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: white;
+    letter-spacing: 0.025em;
+}
+
+.ribbon-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.ribbon-btn {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.ribbon-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+}
+
+.ribbon-btn:active {
+    transform: translateY(0);
+}
+
+.ribbon-btn i {
+    font-size: 1rem;
+}
+
+/* Dark mode specific adjustments */
+[data-bs-theme="dark"] .app-ribbon {
+    background: linear-gradient(135deg, var(--theme-primary, var(--bs-primary)), var(--theme-primary-hover, var(--bs-primary)));
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-bs-theme="dark"] .ribbon-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-bs-theme="dark"] .ribbon-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .ribbon-container {
+        padding: 0 1rem;
+    }
+    
+    .ribbon-title {
+        font-size: 1rem;
+    }
+    
+    .ribbon-btn-text {
+        display: none;
+    }
+    
+    .ribbon-btn {
+        padding: 0.375rem 0.5rem;
+    }
+    
+    .ribbon-btn i {
+        margin: 0;
+    }
+}
+
+@media (max-width: 576px) {
+    .app-ribbon {
+        padding: 0.375rem 0;
+    }
+    
+    .ribbon-container {
+        padding: 0 0.75rem;
+    }
+    
+    .ribbon-title {
+        font-size: 0.9rem;
+    }
+}
+
+/* Print styles - hide ribbon when printing */
+@media print {
+    .app-ribbon {
+        display: none;
+    }
+}
