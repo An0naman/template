@@ -29,12 +29,14 @@
 
 .ribbon-logo {
     height: 32px;
-    width: auto;
-    max-width: 150px;
-    object-fit: contain;
+    width: 32px; /* Make it square for proper circle */
+    object-fit: cover; /* Cover to fill the circle */
     margin-right: 0.75rem;
-    mix-blend-mode: multiply; /* Blend white backgrounds with ribbon */
-    opacity: 0.95;
+    /* Add subtle shadow and make image circular */
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+    border-radius: 50%; /* Clip image to circle */
+    background: rgba(255, 255, 255, 0.95); /* Solid white background */
+    padding: 2px;
 }
 
 .ribbon-title {
