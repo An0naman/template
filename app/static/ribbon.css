@@ -32,7 +32,9 @@
     width: auto;
     max-width: 150px;
     object-fit: contain;
-    filter: brightness(0) invert(1); /* Make logo white to match ribbon */
+    margin-right: 0.75rem;
+    mix-blend-mode: multiply; /* Blend white backgrounds with ribbon */
+    opacity: 0.95;
 }
 
 .ribbon-title {
