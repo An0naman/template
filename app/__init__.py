@@ -59,6 +59,33 @@ def create_app():
     # Make get_db and get_system_parameters available globally in templates
     app.jinja_env.globals.update(get_system_parameters=get_system_parameters)
 
+    # Add route for serving logo for CasaOS and other external use
+    @app.route('/api/logo')
+    def serve_logo():
+        """Serve the project logo from system parameters"""
+        from flask import send_file, jsonify
+        import os
+        
+        params = get_system_parameters()
+        logo_path = params.get('project_logo_path')
+        
+        if not logo_path:
+            # Return a 404 or default icon
+            return jsonify({'error': 'No logo configured'}), 404
+        
+        # Construct full path
+        # If logo_path starts with /, it's absolute; otherwise relative to static/uploads
+        if logo_path.startswith('/'):
+            full_path = logo_path.lstrip('/')
+        elif logo_path.startswith('static/'):
+            full_path = os.path.join(app.root_path, logo_path)
+        else:
+            full_path = os.path.join(app.root_path, 'static', 'uploads', logo_path)
+        
+        if not os.path.exists(full_path):
+            return jsonify({'error': 'Logo file not found'}), 404
+        
+        return send_file(full_path)
 
     # --- Register Blueprints ---
     from .routes.main_routes import main_bp
