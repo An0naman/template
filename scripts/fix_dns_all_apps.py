@@ -26,9 +26,13 @@ def fix_app_dns(app_dir):
     except Exception as e:
         return False, f"Failed to parse YAML: {e}"
     
-    # Check if sysctls already exists
-    if 'sysctls' in data.get('services', {}).get('app', {}):
-        return True, "Already has sysctls configured"
+    # Check if sysctls and dns_opt already exist
+    app_service = data.get('services', {}).get('app', {})
+    has_sysctls = 'sysctls' in app_service
+    has_dns_opt = 'dns_opt' in app_service
+    
+    if has_sysctls and has_dns_opt:
+        return True, "Already has sysctls and dns_opt configured"
     
     # Backup
     backup_file = compose_file.parent / f"docker-compose.yml.backup-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
@@ -44,6 +48,13 @@ def fix_app_dns(app_dir):
         'net.ipv6.conf.all.disable_ipv6': 1,
         'net.ipv6.conf.default.disable_ipv6': 1
     }
+    
+    # Add dns_opt to prevent IPv6 DNS timeout issues
+    data['services']['app']['dns_opt'] = [
+        'single-request',
+        'timeout:2',
+        'attempts:3'
+    ]
     
     # Write back
     with open(compose_file, 'w') as f:
