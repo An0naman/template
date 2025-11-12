@@ -23,6 +23,9 @@ RUN mkdir -p /app/app/static/uploads
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy VERSION file for version display
+COPY VERSION .
+
 # Copy the entire 'app' package (which contains __init__.py, config.py, db.py, routes/, api/, templates/, static/)
 # This ensures all your refactored code is in the correct place inside the container.
 COPY app/ app/
