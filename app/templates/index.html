@@ -829,6 +829,44 @@
                     </button>
                 </div>
 
+                <!-- Quick Search (Always Visible) -->
+                <div class="row g-3 mb-3">
+                    <div class="col-12 col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="quickSearch" 
+                                   placeholder="Search {{ entry_plural_label.lower() }} by title or description...">
+                            <button class="btn btn-outline-theme-primary" type="button" id="clearSearch" title="Clear search">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Type Filter -->
+                    <div class="col-6 col-md-3">
+                        <select class="form-select" id="quickTypeFilter" title="Filter by entry type">
+                            <option value="">All Types</option>
+                            {% for type in all_entry_types %}
+                                <option value="{{ type.id }}" {% if type.is_primary %}data-is-primary="true"{% endif %}>
+                                    {{ type.singular_label }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Quick Status Filter -->
+                    <div class="col-6 col-md-3">
+                        <select class="form-select" id="quickStatusFilter" title="Filter by status">
+                            <option value="">All Statuses</option>
+                            <option value="active">✓ Active (Ongoing)</option>
+                            <option value="inactive">✕ Inactive (Completed)</option>
+                            <optgroup label="Specific Status">
+                                <!-- Will be populated dynamically based on selected entry type -->
+                            </optgroup>
+                        </select>
+                    </div>
+                </div>
+
                 <!-- Advanced Filters -->
                 <div class="collapse" id="advancedFilters">
                     <div class="card border-0" style="background-color: var(--bs-secondary-bg);">
@@ -852,42 +890,6 @@
                             <!-- Filters Tab -->
                             <div class="tab-pane fade show active" id="filters" role="tabpanel" aria-labelledby="filters-tab">
                                 <div class="row g-3 mb-3">
-                                    <!-- Quick Search -->
-                                    <div class="col-12 col-md-6">
-                                        <div class="input-group">
-                                            <span class="input-group-text"><i class="fas fa-search"></i></span>
-                                            <input type="text" class="form-control" id="quickSearch" 
-                                                   placeholder="Search {{ entry_plural_label.lower() }} by title or description...">
-                                            <button class="btn btn-outline-theme-primary" type="button" id="clearSearch" title="Clear search">
-                                                <i class="fas fa-times"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Quick Type Filter -->
-                                    <div class="col-6 col-md-3">
-                                        <select class="form-select" id="quickTypeFilter" title="Filter by entry type">
-                                            <option value="">All Types</option>
-                                            {% for type in all_entry_types %}
-                                                <option value="{{ type.id }}" {% if type.is_primary %}data-is-primary="true"{% endif %}>
-                                                    {{ type.singular_label }}
-                                                </option>
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                    
-                                    <!-- Quick Status Filter -->
-                                    <div class="col-6 col-md-3">
-                                        <select class="form-select" id="quickStatusFilter" title="Filter by status">
-                                            <option value="">All Status</option>
-                                            <option value="active">✓ Active (Ongoing)</option>
-                                            <option value="inactive">✕ Inactive (Completed)</option>
-                                            <optgroup label="Specific Status">
-                                                <!-- Will be populated dynamically based on selected entry type -->
-                                            </optgroup>
-                                        </select>
-                                    </div>
-                                    
                                     <!-- Save/Clear Filter Controls -->
                                     <div class="col-12">
                                         <div class="d-flex flex-column flex-sm-row gap-2 align-items-start">
@@ -1978,9 +1980,17 @@ LIMIT 100</textarea>
             async function performLiveFilter() {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(async () => {
+                    // Preserve advanced filters state before any operations
+                    const advancedFilters = document.getElementById('advancedFilters');
+                    const wasExpanded = advancedFilters && advancedFilters.classList.contains('show');
+                    
                     // If SQL mode is enabled, only use SQL query for filtering
                     if (isSqlModeEnabled) {
                         await performSqlModeFilter();
+                        // Restore state after SQL filter
+                        if (wasExpanded && advancedFilters && !advancedFilters.classList.contains('show')) {
+                            advancedFilters.classList.add('show');
+                        }
                         return;
                     }
                     
@@ -2181,6 +2191,11 @@ LIMIT 100</textarea>
                         if (existingNoResults) {
                             existingNoResults.remove();
                         }
+                    }
+                    
+                    // Restore advanced filters state after all filtering is done
+                    if (wasExpanded && advancedFilters && !advancedFilters.classList.contains('show')) {
+                        advancedFilters.classList.add('show');
                     }
                     
                     // Save current filter state to database
