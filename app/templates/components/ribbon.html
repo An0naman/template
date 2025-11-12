@@ -4,6 +4,9 @@
     <div class="ribbon-container">
         <!-- App Title/Logo -->
         <div class="ribbon-brand">
+            {% if get_system_parameters().get('project_logo_path') %}
+                <img src="{{ get_system_parameters().get('project_logo_path') }}" alt="{{ project_name }} Logo" class="ribbon-logo">
+            {% endif %}
             <span class="ribbon-title">{{ project_name }}</span>
         </div>
         
