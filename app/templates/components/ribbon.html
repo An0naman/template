@@ -5,7 +5,7 @@
         <!-- App Title/Logo -->
         <div class="ribbon-brand">
             {% set logo_path = get_system_parameters().get('project_logo_path') %}
-            {% if logo_path and logo_path != '' %}
+            {% if logo_path and logo_path.strip() != '' %}
                 <img src="{{ logo_path }}" alt="{{ project_name }} Logo" class="ribbon-logo">
             {% endif %}
             <span class="ribbon-title">{{ project_name }}</span>
