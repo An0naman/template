@@ -840,12 +840,23 @@ def upload_project_logo():
             upload_dir = os.path.join(current_app.root_path, 'static', 'uploads')
             os.makedirs(upload_dir, exist_ok=True)
             
-            # Save file
-            filename = f"project_logo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{file.filename.rsplit('.', 1)[1].lower()}"
+            # Use static filename with extension from uploaded file
+            file_ext = file.filename.rsplit('.', 1)[1].lower()
+            filename = f"project_logo.{file_ext}"
             filepath = os.path.join(upload_dir, filename)
+            
+            # Delete old logo files (any project_logo.* files)
+            import glob
+            for old_logo in glob.glob(os.path.join(upload_dir, 'project_logo.*')):
+                try:
+                    os.remove(old_logo)
+                except Exception as e:
+                    logger.warning(f"Could not remove old logo {old_logo}: {e}")
+            
+            # Save new file
             file.save(filepath)
             
-            # Update system parameter
+            # Update system parameter with static path
             conn = get_db()
             cursor = conn.cursor()
             cursor.execute(
