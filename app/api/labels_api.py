@@ -837,7 +837,8 @@ def upload_project_logo():
             
         if file and allowed_file(file.filename):
             # Create uploads directory if it doesn't exist
-            upload_dir = os.path.join(current_app.root_path, 'static', 'uploads')
+            # Use /app/uploads which is mounted as a volume for persistence
+            upload_dir = '/app/uploads'
             os.makedirs(upload_dir, exist_ok=True)
             
             # Use static filename with extension from uploaded file

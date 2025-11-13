@@ -59,6 +59,16 @@ def create_app():
     # Make get_db and get_system_parameters available globally in templates
     app.jinja_env.globals.update(get_system_parameters=get_system_parameters)
 
+    # Add route to serve uploaded files from /app/uploads at /static/uploads URL
+    @app.route('/static/uploads/<path:filename>')
+    def serve_uploads(filename):
+        """Serve uploaded files from the persistent uploads volume"""
+        from flask import send_from_directory
+        import os
+        
+        uploads_dir = '/app/uploads'
+        return send_from_directory(uploads_dir, filename)
+    
     # Add route for serving logo for CasaOS and other external use
     @app.route('/api/logo')
     def serve_logo():
@@ -73,13 +83,12 @@ def create_app():
             # Return a 404 or default icon
             return jsonify({'error': 'No logo configured'}), 404
         
-        # Construct full path
-        # If logo_path starts with /, it's absolute; otherwise relative to static/uploads
-        if logo_path.startswith('/'):
-            full_path = logo_path.lstrip('/')
-        elif logo_path.startswith('static/'):
-            full_path = os.path.join(app.root_path, logo_path)
+        # Logo is stored in /app/uploads and accessed via /static/uploads
+        if logo_path.startswith('/static/uploads/'):
+            filename = logo_path.replace('/static/uploads/', '')
+            full_path = os.path.join('/app/uploads', filename)
         else:
+            # Fallback for old paths
             full_path = os.path.join(app.root_path, 'static', 'uploads', logo_path)
         
         if not os.path.exists(full_path):
