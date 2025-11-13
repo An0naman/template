@@ -742,6 +742,198 @@ function exitNoteComposerMode() {
     document.getElementById('chatInput').placeholder = "Ask AI or request description changes...";
 }
 
+// Diagram Editor Mode Functions
+var diagramMode = false;
+var currentDiagramXML = null;
+var diagramUpdateCallback = null;
+
+async function enterDiagramMode() {
+    diagramMode = true;
+    currentAction = null;
+    
+    // Update button
+    const buttonText = document.getElementById('selectedActionText');
+    const button = document.getElementById('aiActionButton');
+    buttonText.innerHTML = '<i class="fas fa-project-diagram me-1"></i>Edit Diagram';
+    button.classList.remove('btn-outline-secondary');
+    button.classList.add('btn-info');
+    
+    // Clear chat and show welcome message
+    const messagesContainer = document.getElementById('chatMessages');
+    messagesContainer.innerHTML = '';
+    
+    // Try to load current diagram
+    try {
+        const response = await fetch(`/api/entries/{{ entry.id }}/drawio`);
+        if (response.ok) {
+            const data = await response.json();
+            currentDiagramXML = data.diagram_data;
+        }
+    } catch (error) {
+        console.error('Error loading diagram:', error);
+    }
+    
+    addMessageToChat('assistant', `🎨 Diagram Editor Mode activated!
+
+I can help you create and modify Draw.io diagrams with natural language. Tell me what you want to add, change, or remove.
+
+**What I can do:**
+- Create shapes (rectangles, circles, diamonds, etc.)
+- Add text and labels
+- Draw connections between elements
+- Position elements
+- Style shapes (colors, sizes, borders)
+- Create flowcharts, diagrams, and more
+
+**Examples:**
+- "Add a blue rectangle labeled 'Database'"
+- "Create a flowchart for user login"
+- "Connect the API box to the Database"
+- "Add a decision diamond asking 'Is logged in?'"
+- "Change the Database box to green"
+
+${currentDiagramXML ? '📊 I can see your current diagram and will work with it.' : '📄 Starting with a blank canvas.'}
+
+What would you like to do with your diagram?`);
+    
+    document.getElementById('chatInput').placeholder = "Describe what to add/change in the diagram...";
+    document.getElementById('chatInput').focus();
+}
+
+async function updateDiagram(diagramXML, explanation) {
+    // Show the diagram update in chat
+    addMessageToChat('assistant', `✅ ${explanation}
+
+I've updated the diagram. Click "Apply Diagram" below to see the changes.`);
+    
+    // Show diagram preview with apply button
+    showDiagramPreview(diagramXML, explanation);
+}
+
+function showDiagramPreview(diagramXML, explanation) {
+    const previewContainer = document.getElementById('diagramPreview');
+    const previewContent = document.getElementById('diagramPreviewContent');
+    
+    previewContent.innerHTML = `
+        <div class="mb-3">
+            <h5 class="mb-1"><i class="fas fa-project-diagram me-2"></i>Diagram Update Ready</h5>
+            <small class="text-muted">${explanation}</small>
+        </div>
+        <div class="alert alert-info mb-3">
+            <i class="fas fa-info-circle me-2"></i>
+            The diagram has been generated. Click "Apply Diagram" to update the Draw.io editor.
+        </div>
+        <div class="d-grid gap-2">
+            <button class="btn btn-primary" onclick="applyDiagramPreview()">
+                <i class="fas fa-check me-1"></i>Apply Diagram
+            </button>
+            <button class="btn btn-outline-secondary" onclick="refineDiagramPreview()">
+                <i class="fas fa-edit me-1"></i>Make Changes
+            </button>
+            <button class="btn btn-outline-danger" onclick="closeDiagramPreview()">
+                <i class="fas fa-times me-1"></i>Cancel
+            </button>
+        </div>
+    `;
+    
+    // Store the XML for later
+    currentDiagramXML = diagramXML;
+    
+    // Show the preview container
+    previewContainer.classList.remove('d-none');
+}
+
+function applyDiagramPreview() {
+    if (!currentDiagramXML) {
+        addMessageToChat('assistant', '❌ No diagram to apply');
+        return;
+    }
+    
+    // Find all Draw.io frames on the page
+    const drawioFrames = document.querySelectorAll('iframe[id^="drawioFrame-"]');
+    
+    if (drawioFrames.length === 0) {
+        addMessageToChat('assistant', '❌ No Draw.io editor found. Please make sure the Draw.io section is visible on this entry page.');
+        return;
+    }
+    
+    // Send the diagram to the first Draw.io frame
+    const frame = drawioFrames[0];
+    
+    try {
+        frame.contentWindow.postMessage(JSON.stringify({
+            action: 'load',
+            xml: currentDiagramXML,
+            autosave: 1
+        }), '*');
+        
+        addMessageToChat('assistant', '✅ Diagram applied! The Draw.io editor has been updated. Scroll down to see the Diagram Editor section.');
+        closeDiagramPreview();
+    } catch (error) {
+        console.error('Error applying diagram:', error);
+        addMessageToChat('assistant', '❌ Error applying diagram. Please try again.');
+    }
+}
+
+function closeDiagramPreview() {
+    const previewContainer = document.getElementById('diagramPreview');
+    previewContainer.classList.add('d-none');
+}
+
+function refineDiagramPreview() {
+    addMessageToChat('assistant', `Sure! Tell me what you'd like to change:
+
+- Add new elements?
+- Move something?
+- Change colors or styles?
+- Remove something?
+
+Just describe what you want, and I'll update the diagram.`);
+    
+    document.getElementById('chatInput').placeholder = "E.g., 'Make the API box larger' or 'Add a cache layer'";
+    document.getElementById('chatInput').focus();
+}
+
+function exitDiagramMode() {
+    diagramMode = false;
+    currentDiagramXML = null;
+    closeDiagramPreview();
+    
+    resetActionButton();
+    addMessageToChat('assistant', 'Diagram editor mode exited. How else can I help?');
+    document.getElementById('chatInput').placeholder = "Ask AI or request description changes...";
+}
+
+async function processDiagramRequest(message) {
+    const loadingId = addMessageToChat('assistant', 'Generating diagram...', true);
+    
+    try {
+        const response = await fetch('/api/ai/diagram', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                entry_id: {{ entry.id }},
+                message: message,
+                current_diagram: currentDiagramXML
+            })
+        });
+        
+        const data = await response.json();
+        document.getElementById(loadingId).remove();
+        
+        if (response.ok && data.diagram_xml) {
+            updateDiagram(data.diagram_xml, data.explanation || 'Diagram updated');
+        } else {
+            addMessageToChat('assistant', '❌ Error: ' + (data.error || 'Failed to generate diagram'));
+        }
+    } catch (error) {
+        document.getElementById(loadingId).remove();
+        addMessageToChat('assistant', '❌ Error communicating with AI service: ' + error.message);
+    }
+}
+
 async function sendChatMessage() {
     const input = document.getElementById('chatInput');
     const message = input.value.trim();
@@ -763,6 +955,12 @@ async function sendChatMessage() {
             // Refining existing plan - regenerate with refinement prompt
             await generatePlan(`Based on the previous plan, ${message}`);
         }
+        return;
+    }
+    
+    // Check if in diagram mode
+    if (diagramMode && !actionToSend) {
+        await processDiagramRequest(message);
         return;
     }
     
@@ -1026,6 +1224,15 @@ async function saveDescriptionUpdate(description) {
         </div>
     </div>
     
+    <!-- Diagram Preview Area (Hidden by default) -->
+    <div class="diagram-preview d-none mb-3" id="diagramPreview">
+        <div class="card border-info">
+            <div class="card-body">
+                <div id="diagramPreviewContent"></div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Chat Input -->
     <div class="chat-input">
         <div class="input-group">
@@ -1042,6 +1249,10 @@ async function saveDescriptionUpdate(description) {
                 <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item" href="#" onclick="enterNoteComposerMode(); return false;">
                     <i class="fas fa-file-alt me-2"></i>Compose Note
+                </a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#" onclick="enterDiagramMode(); return false;">
+                    <i class="fas fa-project-diagram me-2"></i>Edit Diagram
                 </a></li>
                 <li><hr class="dropdown-divider"></li>
                 <!-- Planning Mode: show_end_dates={{ entry.show_end_dates }}, intended_end_date={{ entry.intended_end_date }} -->

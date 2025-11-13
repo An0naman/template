@@ -1727,6 +1727,210 @@ Respond ONLY with the JSON object, no additional text.
         except Exception as e:
             logger.error(f"Error getting related entries: {e}")
             return "Error fetching related entries."
+    
+    def generate_diagram(self, user_request: str, current_diagram: Optional[str] = None, entry_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+        """
+        Generate or modify Draw.io diagram based on natural language request
+        
+        Args:
+            user_request: Natural language description of what to create/modify
+            current_diagram: Existing diagram XML (if modifying)
+            entry_id: Optional entry ID for context
+            
+        Returns:
+            Dictionary with 'diagram_xml' and 'explanation' or None if failed
+        """
+        if not self.is_available():
+            return None
+        
+        try:
+            # Build the system prompt for diagram generation
+            system_prompt = self._build_diagram_system_prompt()
+            
+            # Build user prompt
+            user_prompt = f"""User Request: {user_request}
+
+"""
+            
+            if current_diagram and current_diagram.strip():
+                user_prompt += f"""Current Diagram XML:
+```xml
+{current_diagram}
+```
+
+Please modify this diagram according to the user's request. Preserve existing elements unless explicitly asked to remove them.
+"""
+            else:
+                user_prompt += "Please create a new diagram from scratch based on this request.\n"
+            
+            # Add entry context if available
+            if entry_id:
+                try:
+                    from ..db import get_db
+                    db = get_db()
+                    cursor = db.cursor()
+                    cursor.execute('''
+                        SELECT e.title, e.description, et.singular_label as type
+                        FROM Entry e
+                        JOIN EntryType et ON e.entry_type_id = et.id
+                        WHERE e.id = ?
+                    ''', (entry_id,))
+                    entry = cursor.fetchone()
+                    if entry:
+                        user_prompt += f"\n**Entry Context:**\n"
+                        user_prompt += f"Title: {entry['title']}\n"
+                        user_prompt += f"Type: {entry['type']}\n"
+                        if entry['description']:
+                            user_prompt += f"Description: {entry['description']}\n"
+                except Exception as e:
+                    logger.warning(f"Could not fetch entry context: {e}")
+            
+            user_prompt += """
+**Instructions:**
+1. Generate valid mxGraph XML for Draw.io
+2. Use appropriate shapes and connectors
+3. Position elements logically (use reasonable x,y coordinates)
+4. Include proper styling (colors, borders, text)
+5. Return ONLY the XML within <mxGraphModel> tags
+6. Provide a brief explanation of what you created/modified
+"""
+            
+            # Generate diagram using AI
+            response = self.model.generate_content(
+                [system_prompt, user_prompt],
+                generation_config={
+                    'temperature': 0.3,  # Lower temperature for more consistent XML output
+                    'top_p': 0.95,
+                    'max_output_tokens': 4096,
+                }
+            )
+            
+            if response and response.text:
+                response_text = response.text.strip()
+                
+                # Extract XML from response
+                diagram_xml = self._extract_diagram_xml(response_text)
+                explanation = self._extract_explanation(response_text)
+                
+                if diagram_xml:
+                    return {
+                        'diagram_xml': diagram_xml,
+                        'explanation': explanation or 'Diagram generated successfully'
+                    }
+                else:
+                    logger.error("No valid diagram XML found in AI response")
+                    return None
+            
+        except Exception as e:
+            logger.error(f"Failed to generate diagram: {str(e)}", exc_info=True)
+        
+        return None
+    
+    def _build_diagram_system_prompt(self) -> str:
+        """Build system prompt for diagram generation with mxGraph XML format guide"""
+        return """You are an expert at creating Draw.io diagrams using mxGraph XML format.
+
+**mxGraph XML Structure:**
+```xml
+<mxGraphModel>
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+    <!-- Shapes/nodes -->
+    <mxCell id="2" value="Label Text" style="shape=rectangle;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="100" y="100" width="120" height="60" as="geometry"/>
+    </mxCell>
+    <!-- Edges/connections -->
+    <mxCell id="3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;" edge="1" parent="1" source="2" target="4">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+  </root>
+</mxGraphModel>
+```
+
+**Common Shapes:**
+- rectangle: Standard box
+- ellipse: Circle/oval
+- rhombus: Diamond (for decisions)
+- cylinder: Database
+- hexagon: Process
+- parallelogram: Input/Output
+- cloud: Cloud storage
+- actor: Stick figure person
+- process: Rounded rectangle
+
+**Common Styles:**
+- fillColor=#dae8fc (light blue)
+- fillColor=#d5e8d4 (light green)
+- fillColor=#fff2cc (light yellow)
+- fillColor=#f8cecc (light red)
+- strokeColor=#6c8ebf (blue border)
+- strokeColor=#82b366 (green border)
+- rounded=1 (rounded corners)
+- dashed=1 (dashed line)
+- html=1 (enable HTML labels)
+
+**Edge Styles:**
+- edgeStyle=orthogonalEdgeStyle (right angles)
+- edgeStyle=elbowEdgeStyle (elbow connectors)
+- curved=1 (curved lines)
+- endArrow=classic (arrow at end)
+- endArrow=none (no arrow)
+
+**Positioning Tips:**
+- Use x,y coordinates for placement (origin is top-left)
+- Spread elements 150-200 pixels apart for clarity
+- Standard box size: 120x60
+- Standard spacing: 200 pixels horizontal, 150 pixels vertical
+
+**Your Task:**
+Generate valid mxGraph XML based on user requests. Be creative but ensure:
+1. All cell IDs are unique
+2. Proper parent-child relationships (parent="1" for shapes, source/target for edges)
+3. Reasonable positioning and sizing
+4. Appropriate colors and styles
+5. Clear, readable labels
+
+Return your response in this format:
+```xml
+<mxGraphModel>
+  ... your diagram XML ...
+</mxGraphModel>
+```
+
+Then provide a brief explanation of what you created."""
+
+    def _extract_diagram_xml(self, text: str) -> Optional[str]:
+        """Extract mxGraph XML from AI response"""
+        import re
+        
+        # Try to find XML within code blocks
+        xml_match = re.search(r'```(?:xml)?\s*(<mxGraphModel>.*?</mxGraphModel>)\s*```', text, re.DOTALL)
+        if xml_match:
+            return xml_match.group(1).strip()
+        
+        # Try to find XML directly
+        xml_match = re.search(r'(<mxGraphModel>.*?</mxGraphModel>)', text, re.DOTALL)
+        if xml_match:
+            return xml_match.group(1).strip()
+        
+        return None
+    
+    def _extract_explanation(self, text: str) -> Optional[str]:
+        """Extract explanation text from AI response (text after XML)"""
+        import re
+        
+        # Remove XML blocks
+        cleaned_text = re.sub(r'```(?:xml)?\s*<mxGraphModel>.*?</mxGraphModel>\s*```', '', text, flags=re.DOTALL)
+        cleaned_text = re.sub(r'<mxGraphModel>.*?</mxGraphModel>', '', cleaned_text, flags=re.DOTALL)
+        
+        # Clean up remaining text
+        explanation = cleaned_text.strip()
+        
+        # Remove common prefixes
+        explanation = re.sub(r'^(Here\'s|I\'ve created|I\'ve modified|Explanation:|Sure[,!]?\s*)', '', explanation, flags=re.IGNORECASE)
+        
+        return explanation.strip() if explanation else None
 
 # Global AI service instance
 ai_service = AIService()

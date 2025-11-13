@@ -636,3 +636,40 @@ def ai_chat():
     except Exception as e:
         logger.error(f"Error in AI chat: {str(e)}", exc_info=True)
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
+@ai_api_bp.route('/ai/diagram', methods=['POST'])
+def generate_diagram():
+    """Generate or modify Draw.io diagram based on natural language request"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        message = data.get('message', '').strip()
+        entry_id = data.get('entry_id')
+        current_diagram = data.get('current_diagram', '')
+        
+        if not message:
+            return jsonify({'error': 'Message is required'}), 400
+        
+        ai_service = get_ai_service()
+        
+        if not ai_service.is_available():
+            return jsonify({'error': 'AI service is not available'}), 503
+        
+        # Generate diagram XML using AI service
+        result = ai_service.generate_diagram(message, current_diagram, entry_id)
+        
+        if result and 'diagram_xml' in result:
+            return jsonify({
+                'success': True,
+                'diagram_xml': result['diagram_xml'],
+                'explanation': result.get('explanation', 'Diagram updated successfully')
+            })
+        else:
+            return jsonify({'error': 'Failed to generate diagram'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error generating diagram: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
