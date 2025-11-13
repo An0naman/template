@@ -141,4 +141,17 @@ print_success "CasaOS icon updated successfully!"
 print_info "You may need to refresh CasaOS web interface to see the changes."
 print_info "If the icon doesn't update, try: sudo systemctl restart casaos"
 
+# Optional: Update .env file if it exists in the current directory
+if [ -f ".env" ]; then
+    echo
+    print_info "Found .env file - updating APP_ICON_URL..."
+    if grep -q "^APP_ICON_URL=" .env; then
+        sed -i "s|^APP_ICON_URL=.*|APP_ICON_URL=${NEW_ICON_URL}|" .env
+        print_success "Updated APP_ICON_URL in .env"
+    else
+        echo "APP_ICON_URL=${NEW_ICON_URL}" >> .env
+        print_success "Added APP_ICON_URL to .env"
+    fi
+fi
+
 exit 0

@@ -91,7 +91,7 @@ x-casaos:
   description:
     en_us: "Project management and tracking application with entry management, sensor data monitoring, label printing, and push notifications. Built with Flask and SQLite."
   developer: an0naman
-  icon: /api/logo
+  icon: ${APP_ICON_URL:-https://cdn-icons-png.flaticon.com/512/3659/3659898.png}
   tagline:
     en_us: "Complete project management solution"
   title:
