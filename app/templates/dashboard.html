@@ -212,20 +212,10 @@
     
     <!-- Main Container -->
     <div class="container-fluid main-container">
-        <!-- Top Header with Navigation -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h1 class="h2 mb-1">{{ project_name }} - Dashboard</h1>
-                <p class="text-muted small mb-0">Analytics and insights for your entries</p>
-            </div>
-            <div class="d-flex gap-2">
-                <a href="{{ url_for('main.entries') }}" class="btn btn-outline-secondary btn-sm">
-                    <i class="fas fa-list me-1"></i>All Entries
-                </a>
-                <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary btn-sm" title="Settings">
-                    <i class="fas fa-cog me-1"></i>Settings
-                </a>
-            </div>
+        <!-- Top Header -->
+        <div class="mb-4">
+            <h1 class="h2 mb-1">{{ project_name }} - Dashboard</h1>
+            <p class="text-muted small mb-0">Analytics and insights for your entries</p>
         </div>
 
         <!-- Dashboard Controls -->

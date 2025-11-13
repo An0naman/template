@@ -800,24 +800,10 @@
     {% include 'components/ribbon.html' %}
     
     <div class="container main-container">
-        <!-- Top Header with Settings -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h1 class="h1 mb-1">{{ project_name }}</h1>
-                <p class="text-muted small mb-0">{{ project_subtitle if project_subtitle else (entry_plural_label + ' Management') }}</p>
-            </div>
-            <div class="d-flex gap-2">
-                <a href="{{ url_for('main.dashboard') }}" 
-                   class="btn btn-outline-theme-primary btn-sm" title="Dashboard">
-                    <i class="fas fa-chart-line"></i>
-                    <span class="ms-1">Dashboard</span>
-                </a>
-                <a href="{{ url_for('maintenance.maintenance_module_page') }}" 
-                   class="btn btn-outline-theme-primary btn-sm" title="Settings">
-                    <i class="fas fa-cog"></i>
-                    <span class="ms-1">Settings</span>
-                </a>
-            </div>
+        <!-- Top Header -->
+        <div class="mb-4">
+            <h1 class="h1 mb-1">{{ project_name }}</h1>
+            <p class="text-muted small mb-0">{{ project_subtitle if project_subtitle else (entry_plural_label + ' Management') }}</p>
         </div>
 
         <div class="content-card theme-section">

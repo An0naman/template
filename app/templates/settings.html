@@ -106,15 +106,8 @@
     {% include 'components/ribbon.html' %}
     
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h1 class="mb-0">{{ project_name }} System Parameters</h1>
-            </div>
-            <div>
-                                <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="btn btn-outline-secondary">
-                    <i class="fas fa-arrow-left me-2"></i>Back to Settings
-                </a>
-            </div>
+        <div class="mb-4">
+            <h1 class="mb-0">{{ project_name }} System Parameters</h1>
         </div>
 
         <!-- General Settings -->

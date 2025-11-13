@@ -46,6 +46,16 @@
     letter-spacing: 0.025em;
 }
 
+/* Navigation Section */
+.ribbon-navigation {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    justify-content: flex-end;
+    margin: 0 1rem;
+}
+
 .ribbon-actions {
     display: flex;
     align-items: center;
@@ -65,12 +75,15 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    text-decoration: none;
+    white-space: nowrap;
 }
 
 .ribbon-btn:hover {
     background: rgba(255, 255, 255, 0.25);
     border-color: rgba(255, 255, 255, 0.3);
     transform: translateY(-1px);
+    color: white;
 }
 
 .ribbon-btn:active {
@@ -79,6 +92,47 @@
 
 .ribbon-btn i {
     font-size: 1rem;
+}
+
+/* Navigation button styles */
+.ribbon-nav-btn {
+    position: relative;
+}
+
+.ribbon-nav-btn.active {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.4);
+    font-weight: 600;
+}
+
+.ribbon-nav-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -0.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    height: 3px;
+    background: white;
+    border-radius: 2px;
+}
+
+/* Back button styles */
+.ribbon-back-btn {
+    margin-right: 0.5rem;
+    border-right: 1px solid rgba(255, 255, 255, 0.3);
+    padding-right: 1rem;
+}
+
+.ribbon-back-btn.disabled,
+.ribbon-back-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.ribbon-back-btn:not(.disabled):hover {
+    background: rgba(255, 255, 255, 0.25);
 }
 
 /* Dark mode specific adjustments */
@@ -99,6 +153,17 @@
 }
 
 /* Responsive design */
+@media (max-width: 992px) {
+    .ribbon-navigation {
+        margin: 0 0.5rem;
+    }
+    
+    .ribbon-back-btn {
+        padding-right: 0.75rem;
+        margin-right: 0.25rem;
+    }
+}
+
 @media (max-width: 768px) {
     .ribbon-container {
         padding: 0 1rem;
@@ -124,6 +189,20 @@
     .ribbon-btn i {
         margin: 0;
     }
+    
+    .ribbon-navigation {
+        gap: 0.25rem;
+        margin: 0 0.25rem;
+    }
+    
+    .ribbon-back-btn {
+        margin-right: 0.25rem;
+        padding-right: 0.5rem;
+    }
+    
+    .ribbon-nav-btn.active::after {
+        width: 80%;
+    }
 }
 
 @media (max-width: 576px) {
@@ -133,6 +212,8 @@
     
     .ribbon-container {
         padding: 0 0.75rem;
+        flex-wrap: wrap;
+        gap: 0.5rem;
     }
     
     .ribbon-logo {
@@ -142,6 +223,23 @@
     
     .ribbon-title {
         font-size: 0.9rem;
+        display: none; /* Hide title on very small screens */
+    }
+    
+    .ribbon-brand {
+        gap: 0.25rem;
+    }
+    
+    .ribbon-navigation {
+        order: 2;
+        width: 100%;
+        justify-content: flex-end;
+        margin: 0;
+        padding-top: 0.25rem;
+    }
+    
+    .ribbon-actions {
+        order: 3;
     }
 }
 

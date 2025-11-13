@@ -11,6 +11,31 @@
             <span class="ribbon-title">{{ project_name }}</span>
         </div>
         
+        <!-- Navigation Section -->
+        <div class="ribbon-navigation">
+            <!-- Back Button -->
+            <button type="button" class="ribbon-btn ribbon-back-btn" id="ribbonBackBtn" title="Go back">
+                <i class="fas fa-arrow-left"></i>
+                <span class="ribbon-btn-text">Back</span>
+            </button>
+            
+            <!-- Navigation Buttons -->
+            <a href="{{ url_for('main.dashboard') }}" class="ribbon-btn ribbon-nav-btn" data-nav-page="dashboard" title="Dashboard">
+                <i class="fas fa-chart-line"></i>
+                <span class="ribbon-btn-text">Dashboard</span>
+            </a>
+            
+            <a href="{{ url_for('main.entries') }}" class="ribbon-btn ribbon-nav-btn" data-nav-page="entries" title="Entries">
+                <i class="fas fa-list"></i>
+                <span class="ribbon-btn-text">Entries</span>
+            </a>
+            
+            <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="ribbon-btn ribbon-nav-btn" data-nav-page="settings" title="Settings">
+                <i class="fas fa-cog"></i>
+                <span class="ribbon-btn-text">Settings</span>
+            </a>
+        </div>
+        
         <!-- Ribbon Actions -->
         <div class="ribbon-actions">
             <!-- About Button -->
@@ -21,3 +46,6 @@
         </div>
     </div>
 </div>
+
+<!-- Navigation JavaScript -->
+<script src="{{ url_for('static', filename='ribbon_navigation.js') }}"></script>

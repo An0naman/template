@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='notifications_modern.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='mobile.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='ribbon.css') }}">
     
     <!-- Gridstack for drag-and-drop layout -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10.1.2/dist/gridstack.min.css">
@@ -226,6 +227,9 @@
     </style>
 </head>
 <body>
+    <!-- Universal App Ribbon -->
+    {% include 'components/ribbon.html' %}
+    
     <div class="container-fluid main-container">
         <!-- Header -->
         <div class="row mb-4">
@@ -336,5 +340,8 @@
             initializeLayoutBuilder(ENTRY_TYPE_ID, ENTRY_TYPE_DATA);
         });
     </script>
+
+    <!-- About Modal -->
+    {% include 'components/about_modal.html' %}
 </body>
 </html>
