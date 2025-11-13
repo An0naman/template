@@ -24,7 +24,7 @@ services:
     
     volumes:
       - ./data:/app/data  # Bind mount to use the same data directory
-      - ./uploads:/app/app/static/uploads  # Persist uploaded files (attachments, images, etc.) - FIXED PATH
+      - ./uploads:/app/uploads  # Persist uploaded files (logos, attachments, etc.)
       - /var/run/dbus:/var/run/dbus
       - /run/dbus:/run/dbus
       - /sys/class/bluetooth:/sys/class/bluetooth
@@ -59,9 +59,9 @@ services:
         - container: /app/data
           description:
             en_us: Application data directory containing SQLite database and files
-        - container: /app/static/uploads
+        - container: /app/uploads
           description:
-            en_us: Uploaded files directory for note attachments and images
+            en_us: Uploaded files directory for logos, note attachments and images
 
   # Watchtower - Automatic container updates
   watchtower:
@@ -91,7 +91,7 @@ x-casaos:
   description:
     en_us: "Project management and tracking application with entry management, sensor data monitoring, label printing, and push notifications. Built with Flask and SQLite."
   developer: an0naman
-  icon: http://${APP_HOST:-localhost}:${PORT:-5001}/static/uploads/project_logo.png
+  icon: http://${APP_HOST:-localhost}:${PORT:-5001}/api/logo
   tagline:
     en_us: "Complete project management solution"
   title:
