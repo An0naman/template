@@ -31,7 +31,6 @@
     height: 32px;
     width: 32px; /* Make it square for proper circle */
     object-fit: cover; /* Cover to fill the circle */
-    margin-right: 0.75rem;
     /* Add subtle shadow and make image circular */
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
     border-radius: 50%; /* Clip image to circle */
@@ -135,6 +134,43 @@
     background: rgba(255, 255, 255, 0.25);
 }
 
+/* Notification button styles */
+.ribbon-notification-btn {
+    position: relative;
+}
+
+.ribbon-notification-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #dc3545;
+    color: white;
+    border-radius: 50%;
+    min-width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    animation: notificationPulse 2s infinite;
+}
+
+@keyframes notificationPulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+.ribbon-notification-badge:empty {
+    display: none;
+}
+
 /* Dark mode specific adjustments */
 [data-bs-theme="dark"] .app-ribbon {
     background: linear-gradient(135deg, var(--theme-primary, var(--bs-primary)), var(--theme-primary-hover, var(--bs-primary)));
@@ -203,6 +239,15 @@
     .ribbon-nav-btn.active::after {
         width: 80%;
     }
+    
+    /* Adjust notification badge for mobile */
+    .ribbon-notification-badge {
+        top: -6px;
+        right: -6px;
+        min-width: 16px;
+        height: 16px;
+        font-size: 0.65rem;
+    }
 }
 
 @media (max-width: 576px) {
@@ -218,12 +263,13 @@
     
     .ribbon-logo {
         height: 24px;
+        width: 24px;
         max-width: 80px;
     }
     
     .ribbon-title {
-        font-size: 0.9rem;
-        display: none; /* Hide title on very small screens */
+        font-size: 0.85rem;
+        /* Keep title visible when logo is present for branding */
     }
     
     .ribbon-brand {

@@ -4,9 +4,13 @@
     <div class="ribbon-container">
         <!-- App Title/Logo -->
         <div class="ribbon-brand">
-            {% set logo_path = get_system_parameters().get('project_logo_path') %}
-            {% if logo_path and logo_path.strip() != '' %}
-                <img src="{{ logo_path }}" alt="{{ project_name }} Logo" class="ribbon-logo">
+            {% set logo_path = get_system_parameters().get('project_logo_path', '') %}
+            {% if logo_path and logo_path != '' and not logo_path.isspace() %}
+                {% if logo_path.startswith('http://') or logo_path.startswith('https://') or logo_path.startswith('/') %}
+                    <img src="{{ logo_path }}" alt="{{ project_name }} Logo" class="ribbon-logo" onerror="this.style.display='none'">
+                {% else %}
+                    <img src="{{ url_for('static', filename=logo_path.replace('static/', '')) }}" alt="{{ project_name }} Logo" class="ribbon-logo" onerror="this.style.display='none'">
+                {% endif %}
             {% endif %}
             <span class="ribbon-title">{{ project_name }}</span>
         </div>
@@ -38,6 +42,13 @@
         
         <!-- Ribbon Actions -->
         <div class="ribbon-actions">
+            <!-- Notifications Button -->
+            <button type="button" class="ribbon-btn ribbon-notification-btn" id="ribbonNotificationBtn" title="Notifications" style="display: none;">
+                <i class="fas fa-bell"></i>
+                <span class="ribbon-btn-text">Notifications</span>
+                <span class="ribbon-notification-badge" id="ribbonNotificationBadge">0</span>
+            </button>
+            
             <!-- About Button -->
             <button type="button" class="ribbon-btn" data-bs-toggle="modal" data-bs-target="#aboutModal" title="About">
                 <i class="fas fa-info-circle"></i>
@@ -49,3 +60,101 @@
 
 <!-- Navigation JavaScript -->
 <script src="{{ url_for('static', filename='ribbon_navigation.js') }}"></script>
+
+<!-- Notification System - Only load if not already present -->
+<script>
+    // Load notifications.js only once
+    if (typeof notificationManager === 'undefined') {
+        const script = document.createElement('script');
+        script.src = "{{ url_for('static', filename='notifications.js') }}";
+        document.head.appendChild(script);
+    }
+</script>
+
+<!-- Notification Integration Script -->
+<script>
+(function() {
+    let retryCount = 0;
+    const maxRetries = 20; // Try for up to 10 seconds
+    
+    // Wait for notification manager to be initialized
+    function initRibbonNotifications() {
+        const ribbonNotificationBtn = document.getElementById('ribbonNotificationBtn');
+        const ribbonNotificationBadge = document.getElementById('ribbonNotificationBadge');
+        
+        if (!ribbonNotificationBtn) return;
+        
+        // Function to update ribbon notification button
+        function updateRibbonNotificationButton() {
+            if (typeof notificationManager !== 'undefined' && notificationManager.notifications) {
+                const unreadCount = notificationManager.notifications.filter(n => !n.is_read).length;
+                const totalCount = notificationManager.notifications.length;
+                
+                // Show button if there are notifications
+                if (totalCount > 0) {
+                    ribbonNotificationBtn.style.display = 'flex';
+                    ribbonNotificationBadge.textContent = unreadCount > 0 ? unreadCount : '';
+                    
+                    // Add pulse effect for unread notifications
+                    if (unreadCount > 0) {
+                        ribbonNotificationBadge.style.display = 'flex';
+                    } else {
+                        ribbonNotificationBadge.style.display = 'none';
+                    }
+                } else {
+                    ribbonNotificationBtn.style.display = 'none';
+                }
+            }
+        }
+        
+        // Check if notification manager is ready
+        if (typeof notificationManager !== 'undefined') {
+            console.log('Ribbon notifications: NotificationManager found, initializing...');
+            
+            // Click handler to toggle notifications
+            ribbonNotificationBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Ribbon notification button clicked');
+                if (typeof notificationManager !== 'undefined') {
+                    notificationManager.toggleNotifications();
+                }
+            });
+            
+            // Override the notification manager's updateBadgeCount to also update ribbon
+            const originalUpdateBadgeCount = notificationManager.updateBadgeCount.bind(notificationManager);
+            notificationManager.updateBadgeCount = function() {
+                originalUpdateBadgeCount();
+                updateRibbonNotificationButton();
+            };
+            
+            // Override renderNotifications to update ribbon after rendering
+            const originalRenderNotifications = notificationManager.renderNotifications.bind(notificationManager);
+            notificationManager.renderNotifications = function() {
+                originalRenderNotifications();
+                updateRibbonNotificationButton();
+            };
+            
+            // Initial update
+            updateRibbonNotificationButton();
+            
+            // Update periodically to catch any changes
+            setInterval(updateRibbonNotificationButton, 2000);
+        } else if (retryCount < maxRetries) {
+            // Retry after a short delay if notification manager isn't ready yet
+            retryCount++;
+            console.log('Ribbon notifications: Waiting for NotificationManager... (attempt ' + retryCount + ')');
+            setTimeout(initRibbonNotifications, 500);
+        } else {
+            console.warn('Ribbon notifications: NotificationManager not found after max retries');
+        }
+    }
+    
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initRibbonNotifications);
+    } else {
+        initRibbonNotifications();
+    }
+})();
+</script>
