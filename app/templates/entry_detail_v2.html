@@ -486,6 +486,8 @@
                                             {% with section_id=section.id %}{% include 'sections/_relationship_opportunities_section.html' %}{% endwith %}
                                         {% elif section_type == 'timeline' %}
                                             {% with section_id=section.id %}{% include 'sections/_timeline_section.html' %}{% endwith %}
+                                        {% elif section_type == 'drawio' %}
+                                            {% with section_id=section.id %}{% include 'sections/_drawio_section.html' %}{% endwith %}
                                         {% endif %}
                                 
                                 </div>
@@ -587,6 +589,8 @@
                                     <p class="text-muted">Relationship opportunities will go here</p>
                                 {% elif section_type == 'timeline' %}
                                     {% include 'sections/_timeline_section.html' %}
+                                {% elif section_type == 'drawio' %}
+                                    {% with section_id=section.id %}{% include 'sections/_drawio_section.html' %}{% endwith %}
                                 {% else %}
                                     <h5>{{ section_type|title }} Section</h5>
                                     <p class="text-muted">Content will go here</p>

@@ -692,3 +692,77 @@ def custom_sql_filter():
             'error': f'SQL query error: {error_msg}',
             'hint': 'Check your SQL syntax. Use "e" as the Entry table alias.'
         }), 400
+
+
+@entry_api_bp.route('/entries/<int:entry_id>/drawio', methods=['GET', 'POST'])
+def manage_drawio_diagram(entry_id):
+    """Get or save Draw.io diagram data for an entry"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Verify entry exists
+        cursor.execute("SELECT id FROM Entry WHERE id = ?", (entry_id,))
+        if not cursor.fetchone():
+            return jsonify({'error': 'Entry not found'}), 404
+        
+        if request.method == 'GET':
+            # Retrieve diagram data
+            cursor.execute("""
+                SELECT diagram_data, updated_at 
+                FROM EntryDrawioDiagram 
+                WHERE entry_id = ?
+            """, (entry_id,))
+            
+            row = cursor.fetchone()
+            if row:
+                return jsonify({
+                    'entry_id': entry_id,
+                    'diagram_data': row['diagram_data'],
+                    'updated_at': row['updated_at']
+                }), 200
+            else:
+                return jsonify({
+                    'entry_id': entry_id,
+                    'diagram_data': None,
+                    'updated_at': None
+                }), 200
+        
+        elif request.method == 'POST':
+            # Save diagram data
+            data = request.get_json()
+            diagram_data = data.get('diagram_data', '')
+            
+            # Check if record exists
+            cursor.execute("""
+                SELECT entry_id FROM EntryDrawioDiagram WHERE entry_id = ?
+            """, (entry_id,))
+            
+            existing = cursor.fetchone()
+            current_time = datetime.now(timezone.utc).isoformat()
+            
+            if existing:
+                # Update existing diagram
+                cursor.execute("""
+                    UPDATE EntryDrawioDiagram 
+                    SET diagram_data = ?, updated_at = ?
+                    WHERE entry_id = ?
+                """, (diagram_data, current_time, entry_id))
+            else:
+                # Insert new diagram
+                cursor.execute("""
+                    INSERT INTO EntryDrawioDiagram (entry_id, diagram_data, created_at, updated_at)
+                    VALUES (?, ?, ?, ?)
+                """, (entry_id, diagram_data, current_time, current_time))
+            
+            conn.commit()
+            
+            return jsonify({
+                'success': True,
+                'entry_id': entry_id,
+                'updated_at': current_time
+            }), 200
+    
+    except Exception as e:
+        logger.error(f"Error managing Draw.io diagram for entry {entry_id}: {str(e)}", exc_info=True)
+        return jsonify({'error': str(e)}), 500

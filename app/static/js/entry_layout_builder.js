@@ -24,7 +24,8 @@ const SECTION_ICONS = {
     'qr_code': 'fa-qrcode',
     'label_printing': 'fa-print',
     'relationship_opportunities': 'fa-share-alt',
-    'timeline': 'fa-stream'
+    'timeline': 'fa-stream',
+    'drawio': 'fa-project-diagram'
 };
 
 // Initialize layout builder

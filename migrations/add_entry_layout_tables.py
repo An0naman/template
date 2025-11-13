@@ -205,6 +205,23 @@ DEFAULT_SECTIONS = {
         'default_collapsed': 0,
         'display_order': 13,
         'config': {}
+    },
+    'drawio': {
+        'title': 'Draw.io Diagram',
+        'section_type': 'drawio',
+        'position_x': 0,
+        'position_y': 33,
+        'width': 12,
+        'height': 6,
+        'is_visible': 0,
+        'is_collapsible': 1,
+        'default_collapsed': 0,
+        'display_order': 14,
+        'config': {
+            'theme': 'auto',
+            'toolbar': True,
+            'save_automatically': True
+        }
     }
 }
 

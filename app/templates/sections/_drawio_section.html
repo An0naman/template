@@ -1,0 +1,279 @@
+<!-- Draw.io Diagram Section - Embedded diagram editor -->
+<div class="drawio-section">
+    <div class="section-header d-flex justify-content-between align-items-center mb-3">
+        <h5 class="section-title mb-0">
+            <i class="fas fa-project-diagram me-2"></i>Diagram Editor
+        </h5>
+        <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-primary" id="saveDrawioBtn-{{ section_id }}" type="button" title="Save Diagram">
+                <i class="fas fa-save me-1"></i>Save
+            </button>
+            <button class="btn btn-outline-secondary" id="resetDrawioBtn-{{ section_id }}" type="button" title="Reset to Empty">
+                <i class="fas fa-undo me-1"></i>Clear
+            </button>
+            <button class="btn btn-outline-secondary" id="exportDrawioBtn-{{ section_id }}" type="button" title="Export as PNG">
+                <i class="fas fa-download me-1"></i>Export
+            </button>
+        </div>
+    </div>
+
+    <div class="section-content">
+        <!-- Status message area -->
+        <div id="drawioStatus-{{ section_id }}" class="alert alert-info d-none" role="alert">
+            <i class="fas fa-info-circle me-2"></i><span id="drawioStatusText-{{ section_id }}"></span>
+        </div>
+
+        <!-- Draw.io iframe container -->
+        <div class="drawio-container" id="drawioContainer-{{ section_id }}" style="position: relative; width: 100%; height: 600px; border: 1px solid var(--bs-border-color); border-radius: 0.375rem; overflow: hidden;">
+            <iframe 
+                id="drawioFrame-{{ section_id }}"
+                src="https://embed.diagrams.net/?embed=1&ui=kennedy&spin=1&libraries=1&saveAndExit=0&noSaveBtn=1&noExitBtn=1&proto=json"
+                style="width: 100%; height: 100%; border: none;"
+                allowfullscreen>
+            </iframe>
+        </div>
+
+        <!-- Loading overlay -->
+        <div id="drawioLoading-{{ section_id }}" class="position-absolute top-50 start-50 translate-middle d-none">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.drawio-section {
+    height: 100%;
+}
+
+.drawio-container {
+    background: var(--bs-body-bg);
+}
+
+.drawio-section .section-content {
+    position: relative;
+}
+
+/* Dark mode adjustments */
+[data-bs-theme="dark"] .drawio-container {
+    background: #1a1a1a;
+}
+</style>
+
+<script>
+(function() {
+    const sectionId = '{{ section_id }}';
+    const entryId = {{ entry.id }};
+    const drawioFrame = document.getElementById(`drawioFrame-${sectionId}`);
+    const saveBtn = document.getElementById(`saveDrawioBtn-${sectionId}`);
+    const resetBtn = document.getElementById(`resetDrawioBtn-${sectionId}`);
+    const exportBtn = document.getElementById(`exportDrawioBtn-${sectionId}`);
+    const statusDiv = document.getElementById(`drawioStatus-${sectionId}`);
+    const statusText = document.getElementById(`drawioStatusText-${sectionId}`);
+    
+    let diagramData = null;
+    let isInitialized = false;
+    
+    console.log('[Draw.io] Initializing section for entry', entryId);
+    
+    // Show status message
+    function showStatus(message, type = 'info') {
+        statusDiv.className = `alert alert-${type}`;
+        statusText.textContent = message;
+        statusDiv.classList.remove('d-none');
+        setTimeout(() => {
+            statusDiv.classList.add('d-none');
+        }, 3000);
+    }
+    
+    // Load saved diagram from server
+    async function loadDiagram() {
+        try {
+            console.log('[Draw.io] Loading diagram for entry', entryId);
+            const response = await fetch(`/api/entries/${entryId}/drawio`);
+            console.log('[Draw.io] API response status:', response.status);
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('[Draw.io] Loaded diagram data:', data);
+                if (data.diagram_data) {
+                    diagramData = data.diagram_data;
+                    // Send diagram data to iframe once it's ready
+                    if (isInitialized) {
+                        console.log('[Draw.io] Loading diagram into frame immediately');
+                        loadDiagramIntoFrame(diagramData);
+                    } else {
+                        console.log('[Draw.io] Waiting for iframe to initialize');
+                    }
+                } else {
+                    console.log('[Draw.io] No saved diagram found, starting with blank canvas');
+                }
+            } else {
+                console.error('[Draw.io] API error:', response.status);
+            }
+        } catch (error) {
+            console.error('[Draw.io] Error loading diagram:', error);
+        }
+    }
+    
+    // Load diagram into Draw.io iframe
+    function loadDiagramIntoFrame(xmlData) {
+        if (!xmlData || !drawioFrame.contentWindow) return;
+        
+        try {
+            const msg = {
+                action: 'load',
+                xml: xmlData,
+                autosave: 1
+            };
+            drawioFrame.contentWindow.postMessage(JSON.stringify(msg), '*');
+        } catch (error) {
+            console.error('Error loading diagram into frame:', error);
+        }
+    }
+    
+    // Save diagram to server
+    async function saveDiagram(xmlData) {
+        try {
+            const response = await fetch(`/api/entries/${entryId}/drawio`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    diagram_data: xmlData
+                })
+            });
+            
+            if (response.ok) {
+                diagramData = xmlData;
+                showStatus('Diagram saved successfully!', 'success');
+                return true;
+            } else {
+                showStatus('Error saving diagram', 'danger');
+                return false;
+            }
+        } catch (error) {
+            console.error('Error saving diagram:', error);
+            showStatus('Network error while saving', 'danger');
+            return false;
+        }
+    }
+    
+    // Export diagram as PNG
+    function exportDiagram() {
+        if (!drawioFrame.contentWindow) return;
+        
+        try {
+            const msg = {
+                action: 'export',
+                format: 'png',
+                spin: 'Exporting diagram...'
+            };
+            drawioFrame.contentWindow.postMessage(JSON.stringify(msg), '*');
+        } catch (error) {
+            console.error('Error exporting diagram:', error);
+        }
+    }
+    
+    // Request current diagram XML for saving
+    function requestDiagramXML() {
+        if (!drawioFrame.contentWindow) return;
+        
+        try {
+            const msg = {
+                action: 'export',
+                format: 'xml'
+            };
+            drawioFrame.contentWindow.postMessage(JSON.stringify(msg), '*');
+        } catch (error) {
+            console.error('Error requesting diagram XML:', error);
+        }
+    }
+    
+    // Handle messages from Draw.io iframe
+    window.addEventListener('message', function(evt) {
+        // Only handle messages from diagrams.net domain
+        if (!evt.origin.includes('diagrams.net')) return;
+        if (!evt.data || typeof evt.data !== 'string') return;
+        
+        try {
+            const msg = JSON.parse(evt.data);
+            console.log('[Draw.io] Received message:', msg.event);
+            
+            if (msg.event === 'init') {
+                // Draw.io iframe is ready
+                console.log('[Draw.io] Iframe initialized!');
+                isInitialized = true;
+                
+                // Configure the editor
+                drawioFrame.contentWindow.postMessage(JSON.stringify({
+                    action: 'configure',
+                    config: {
+                        defaultLibraries: 'general',
+                        css: document.documentElement.getAttribute('data-bs-theme') === 'dark' 
+                            ? '.geEditor { background-color: #1a1a1a !important; }' 
+                            : ''
+                    }
+                }), '*');
+                
+                // Load saved diagram if exists
+                if (diagramData) {
+                    console.log('[Draw.io] Loading saved diagram');
+                    loadDiagramIntoFrame(diagramData);
+                } else {
+                    console.log('[Draw.io] No saved diagram, starting blank');
+                }
+            } else if (msg.event === 'export') {
+                // Handle export result
+                if (msg.format === 'xml') {
+                    // Save the XML data
+                    saveDiagram(msg.xml);
+                } else if (msg.format === 'png') {
+                    // Download PNG
+                    const link = document.createElement('a');
+                    link.download = `entry-${entryId}-diagram.png`;
+                    link.href = 'data:image/png;base64,' + msg.data;
+                    link.click();
+                    showStatus('Diagram exported!', 'success');
+                }
+            } else if (msg.event === 'save') {
+                // Auto-save triggered by Draw.io
+                requestDiagramXML();
+            } else if (msg.event === 'autosave') {
+                // Auto-save with XML data
+                if (msg.xml) {
+                    saveDiagram(msg.xml);
+                }
+            }
+        } catch (error) {
+            console.error('Error handling Draw.io message:', error);
+        }
+    });
+    
+    // Button event listeners
+    saveBtn.addEventListener('click', function() {
+        requestDiagramXML();
+    });
+    
+    resetBtn.addEventListener('click', function() {
+        if (confirm('Are you sure you want to clear the diagram? This cannot be undone.')) {
+            diagramData = null;
+            drawioFrame.contentWindow.postMessage(JSON.stringify({
+                action: 'load',
+                xml: '',
+                autosave: 1
+            }), '*');
+            saveDiagram('');
+        }
+    });
+    
+    exportBtn.addEventListener('click', function() {
+        exportDiagram();
+    });
+    
+    // Load diagram on page load
+    loadDiagram();
+})();
+</script>

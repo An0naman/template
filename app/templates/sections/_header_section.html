@@ -215,7 +215,7 @@
 // Use var instead of const to allow redeclaration if needed
 var entryId = window.currentPageEntryId || {{ entry.id }};
 const originalEntryTypeId = {{ entry.entry_type_id }};
-let isEditing = false;
+var isEditing = false;
 
 // DOM elements
 const entryTitleDisplay = document.getElementById('entryTitle');

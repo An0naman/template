@@ -202,6 +202,23 @@ class EntryLayoutService:
             'default_collapsed': 0,
             'display_order': 108,
             'config': {}
+        },
+        'drawio': {
+            'title': 'Draw.io Diagram',
+            'section_type': 'drawio',
+            'position_x': 0,
+            'position_y': 109,
+            'width': 12,
+            'height': 6,
+            'is_visible': 0,
+            'is_collapsible': 1,
+            'default_collapsed': 0,
+            'display_order': 109,
+            'config': {
+                'theme': 'auto',
+                'toolbar': True,
+                'save_automatically': True
+            }
         }
     }
     
@@ -341,7 +358,7 @@ class EntryLayoutService:
             
             sections_to_add.extend([
                 'reminders', 'ai_assistant', 'form_fields',
-                'qr_code', 'relationship_opportunities', 'timeline'
+                'qr_code', 'relationship_opportunities', 'timeline', 'drawio'
             ])
             
             # Create sections
