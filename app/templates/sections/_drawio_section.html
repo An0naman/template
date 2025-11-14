@@ -97,7 +97,7 @@
             if (response.ok) {
                 const data = await response.json();
                 console.log('[Draw.io] Loaded diagram data:', data);
-                if (data.diagram_data) {
+                if (data.diagram_data && data.diagram_data.trim() !== '') {
                     diagramData = data.diagram_data;
                     // Send diagram data to iframe once it's ready
                     if (isInitialized) {
@@ -107,7 +107,15 @@
                         console.log('[Draw.io] Waiting for iframe to initialize');
                     }
                 } else {
-                    console.log('[Draw.io] No saved diagram found, starting with blank canvas');
+                    console.log('[Draw.io] No saved diagram found, initializing blank diagram');
+                    // Initialize with blank diagram structure
+                    const blankDiagram = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel>`;
+                    // Save the blank diagram immediately
+                    await saveDiagram(blankDiagram);
+                    // Then load it into the frame
+                    if (isInitialized) {
+                        loadDiagramIntoFrame(blankDiagram);
+                    }
                 }
             } else {
                 console.error('[Draw.io] API error:', response.status);

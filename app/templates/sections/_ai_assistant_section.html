@@ -768,6 +768,32 @@ async function enterDiagramMode() {
         if (response.ok) {
             const data = await response.json();
             currentDiagramXML = data.diagram_data;
+            
+            // If no diagram exists yet, create and save a blank one
+            if (!currentDiagramXML || currentDiagramXML.trim() === '') {
+                const blankDiagram = `<mxGraphModel>
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+  </root>
+</mxGraphModel>`;
+                
+                // Save the blank diagram
+                const saveResponse = await fetch(`/api/entries/{{ entry.id }}/drawio`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        diagram_data: blankDiagram
+                    })
+                });
+                
+                if (saveResponse.ok) {
+                    currentDiagramXML = blankDiagram;
+                    console.log('Created blank diagram for new entry');
+                }
+            }
         }
     } catch (error) {
         console.error('Error loading diagram:', error);
