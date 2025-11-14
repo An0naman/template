@@ -36,14 +36,14 @@ def api_update_system_params():
             'project_name', 'entry_singular_label', 'entry_plural_label', 'project_subtitle', 'sensor_types', 
             'project_logo_path', 'label_font_size', 'label_include_qr_code', 'label_include_logo',
             'label_qr_code_prefix', 'allowed_file_types', 'max_file_size', 'custom_note_types',
-            'gemini_api_key', 'gemini_model_name', 'gemini_base_prompt',
+            'gemini_api_key', 'groq_api_key', 'gemini_model_name', 'gemini_base_prompt',
             'default_search_term', 'default_type_filter', 'default_status_filter', 
             'default_date_range', 'default_sort_by', 'default_content_display', 'default_result_limit'
         ]
         
         for param_name, param_value in data.items():
             # Track if AI-related parameters are being updated
-            if param_name in ['gemini_api_key', 'gemini_model_name', 'gemini_base_prompt']:
+            if param_name in ['gemini_api_key', 'groq_api_key', 'gemini_model_name', 'gemini_base_prompt']:
                 ai_params_updated = True
             
             # Allow any parameter in the whitelist OR any parameter starting with 'label_'

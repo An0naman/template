@@ -9,6 +9,7 @@ packaging>=21.0
 
 # AI Integration
 google-generativeai>=0.3.0
+groq>=0.4.0  # For diagram generation with better technical content support
 
 # Image processing and QR codes
 Pillow==10.4.0

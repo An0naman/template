@@ -227,5 +227,14 @@ def create_app():
     if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
         device_scheduler.start()
         app.logger.info("Device polling scheduler started.")
+        
+        # Reconfigure AI service now that app context is available
+        # This allows it to read API keys from the database
+        # Only run in the main process (not the reloader parent process)
+        with app.app_context():
+            from .services.ai_service import get_ai_service
+            ai_service = get_ai_service()
+            ai_service.reconfigure()
+            app.logger.info(f"AI service configured - Gemini: {ai_service.is_configured}, Groq: {ai_service.groq_configured}")
 
     return app

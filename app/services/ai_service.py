@@ -1,6 +1,6 @@
 """
-AI Service for Google Gemini API Integration
-Provides writing assistance for descriptions, notes, and SQL queries.
+AI Service for Google Gemini and Groq API Integration
+Provides writing assistance for descriptions, notes, SQL queries, and diagrams.
 """
 
 import os
@@ -14,14 +14,17 @@ import json
 logger = logging.getLogger(__name__)
 
 class AIService:
-    """Service for interacting with Google's Gemini AI API"""
+    """Service for interacting with Google's Gemini and Groq AI APIs"""
     
     def __init__(self):
         self.model = None
         self.is_configured = False
         self._last_api_key = None
         self._last_model_name = None
+        self.groq_client = None
+        self.groq_configured = False
         self._configure()
+        self._configure_groq()
     
     def _configure(self):
         """Configure the Gemini AI model"""
@@ -31,22 +34,28 @@ class AIService:
             model_name = 'gemini-1.5-flash'  # Default model name
             
             if not api_key:
-                # Try to get from system parameters
+                # Try to get from system parameters (only works within app context)
                 try:
-                    from ..db import get_system_parameters
-                    params = get_system_parameters()
-                    api_key = params.get('gemini_api_key', '')
-                    model_name = params.get('gemini_model_name', 'gemini-1.5-flash')
+                    from flask import has_app_context
+                    if has_app_context():
+                        from ..db import get_system_parameters
+                        params = get_system_parameters()
+                        api_key = params.get('gemini_api_key', '')
+                        model_name = params.get('gemini_model_name', 'gemini-1.5-flash')
+                    else:
+                        logger.debug("No app context available for Gemini configuration, will retry later")
                 except Exception as e:
-                    logger.warning(f"Could not access system parameters: {e}")
+                    logger.debug(f"Could not access system parameters for Gemini: {e}")
             else:
                 # If API key from environment, still try to get model name from system parameters
                 try:
-                    from ..db import get_system_parameters
-                    params = get_system_parameters()
-                    model_name = params.get('gemini_model_name', 'gemini-1.5-flash')
+                    from flask import has_app_context
+                    if has_app_context():
+                        from ..db import get_system_parameters
+                        params = get_system_parameters()
+                        model_name = params.get('gemini_model_name', 'gemini-1.5-flash')
                 except Exception as e:
-                    logger.warning(f"Could not access system parameters for model name: {e}")
+                    logger.debug(f"Could not access system parameters for Gemini model name: {e}")
             
             if not api_key:
                 logger.warning("GEMINI_API_KEY not found in environment or system parameters. AI features will be disabled.")
@@ -72,10 +81,49 @@ class AIService:
             self.is_configured = False
             self.model = None
     
+    def _configure_groq(self):
+        """Configure Groq AI for diagram generation"""
+        try:
+            # Check environment variable first, then system parameters
+            api_key = os.getenv('GROQ_API_KEY')
+            
+            if not api_key:
+                try:
+                    from flask import has_app_context
+                    if has_app_context():
+                        from ..db import get_system_parameters
+                        params = get_system_parameters()
+                        api_key = params.get('groq_api_key', '')
+                    else:
+                        logger.debug("No app context available for Groq configuration, will retry later")
+                except Exception as e:
+                    logger.debug(f"Could not access system parameters for Groq: {e}")
+            
+            if api_key:
+                try:
+                    from groq import Groq
+                    self.groq_client = Groq(api_key=api_key)
+                    self.groq_configured = True
+                    logger.info("Groq AI successfully configured for diagram generation")
+                except ImportError:
+                    logger.warning("Groq package not installed. Install with: pip install groq")
+                    self.groq_configured = False
+                except Exception as e:
+                    logger.error(f"Failed to configure Groq: {str(e)}")
+                    self.groq_configured = False
+            else:
+                logger.info("GROQ_API_KEY not found. Diagram generation will use Gemini (may have safety filter issues)")
+                self.groq_configured = False
+                
+        except Exception as e:
+            logger.error(f"Error in Groq configuration: {str(e)}")
+            self.groq_configured = False
+    
     def reconfigure(self):
         """Force reconfiguration of the AI service (useful when settings change)"""
         logger.info("Forcing AI service reconfiguration...")
         self._configure()
+        self._configure_groq()
         return self.is_configured
     
     def is_available(self) -> bool:
@@ -1740,9 +1788,19 @@ Respond ONLY with the JSON object, no additional text.
         Returns:
             Dictionary with 'diagram_xml' and 'explanation' or None if failed
         """
-        if not self.is_available():
+        # Prefer Groq for diagram generation (no safety filters), fallback to Gemini
+        if self.groq_configured:
+            logger.info("Using Groq for diagram generation")
+            return self._generate_diagram_with_groq(user_request, current_diagram, entry_id)
+        elif self.is_available():
+            logger.warning("Groq not configured, using Gemini (may encounter safety filters)")
+            return self._generate_diagram_with_gemini(user_request, current_diagram, entry_id)
+        else:
+            logger.error("No AI service available for diagram generation")
             return None
-        
+    
+    def _generate_diagram_with_gemini(self, user_request: str, current_diagram: Optional[str] = None, entry_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+        """Generate diagram using Google Gemini (may have safety filter issues)"""
         try:
             # Build the system prompt for diagram generation
             system_prompt = self._build_diagram_system_prompt()
@@ -1763,27 +1821,7 @@ Please modify this diagram according to the user's request. Preserve existing el
             else:
                 user_prompt += "Please create a new diagram from scratch based on this request.\n"
             
-            # Add entry context if available
-            if entry_id:
-                try:
-                    from ..db import get_db
-                    db = get_db()
-                    cursor = db.cursor()
-                    cursor.execute('''
-                        SELECT e.title, e.description, et.singular_label as type
-                        FROM Entry e
-                        JOIN EntryType et ON e.entry_type_id = et.id
-                        WHERE e.id = ?
-                    ''', (entry_id,))
-                    entry = cursor.fetchone()
-                    if entry:
-                        user_prompt += f"\n**Entry Context:**\n"
-                        user_prompt += f"Title: {entry['title']}\n"
-                        user_prompt += f"Type: {entry['type']}\n"
-                        if entry['description']:
-                            user_prompt += f"Description: {entry['description']}\n"
-                except Exception as e:
-                    logger.warning(f"Could not fetch entry context: {e}")
+            # Entry context not needed - conversation history contains sufficient context
             
             user_prompt += """
 **Instructions:**
@@ -1796,39 +1834,172 @@ Please modify this diagram according to the user's request. Preserve existing el
 """
             
             # Generate diagram using AI
+            logger.info(f"Generating diagram for request: {user_request[:100]}...")
+            
+            # Import safety settings
+            from google.generativeai.types import HarmCategory, HarmBlockThreshold
+            
             response = self.model.generate_content(
                 [system_prompt, user_prompt],
                 generation_config={
                     'temperature': 0.3,  # Lower temperature for more consistent XML output
                     'top_p': 0.95,
                     'max_output_tokens': 4096,
+                },
+                safety_settings={
+                    HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+                    HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+                    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+                    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
                 }
             )
             
-            if response and response.text:
-                response_text = response.text.strip()
+            # Check if response was blocked
+            if hasattr(response, 'prompt_feedback') and response.prompt_feedback:
+                logger.warning(f"Prompt feedback: {response.prompt_feedback}")
+                if hasattr(response.prompt_feedback, 'block_reason'):
+                    logger.error(f"Response blocked by prompt feedback: {response.prompt_feedback.block_reason}")
+                    return None
+            
+            # Check candidates for safety blocks
+            if hasattr(response, 'candidates') and response.candidates:
+                for candidate in response.candidates:
+                    if hasattr(candidate, 'finish_reason'):
+                        logger.info(f"Candidate finish_reason: {candidate.finish_reason}")
+                        if candidate.finish_reason == 2:  # SAFETY
+                            logger.error(f"Response blocked by safety filters. Safety ratings: {candidate.safety_ratings if hasattr(candidate, 'safety_ratings') else 'N/A'}")
+                            return {
+                                'error': 'AI safety filters blocked this request. Try rephrasing with more general terms (e.g., "component diagram" instead of specific hardware names).',
+                                'blocked': True
+                            }
+            
+            # Try to access text safely
+            if response:
+                try:
+                    response_text = response.text
+                    if response_text:
+                        response_text = response_text.strip()
+                        logger.info(f"AI response length: {len(response_text)} characters")
+                except ValueError as e:
+                    logger.error(f"Could not access response.text: {e}")
+                    logger.error(f"Response finish_reason likely indicates blocking or error")
+                    return None
                 
                 # Extract XML from response
                 diagram_xml = self._extract_diagram_xml(response_text)
                 explanation = self._extract_explanation(response_text)
                 
                 if diagram_xml:
+                    logger.info(f"Successfully extracted diagram XML ({len(diagram_xml)} chars)")
                     return {
                         'diagram_xml': diagram_xml,
                         'explanation': explanation or 'Diagram generated successfully'
                     }
                 else:
                     logger.error("No valid diagram XML found in AI response")
+                    logger.error(f"AI response was: {response_text[:500]}...")
                     return None
+            else:
+                logger.error(f"Empty or invalid AI response")
+                if hasattr(response, 'candidates'):
+                    logger.error(f"Response candidates: {response.candidates}")
+                return None
             
         except Exception as e:
             logger.error(f"Failed to generate diagram: {str(e)}", exc_info=True)
+            logger.error(f"User request was: {user_request}")
+            logger.error(f"Current diagram length: {len(current_diagram) if current_diagram else 0}")
         
         return None
     
+    def _generate_diagram_with_groq(self, user_request: str, current_diagram: Optional[str] = None, entry_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+        """Generate diagram using Groq AI (no safety filter issues)"""
+        try:
+            # Build the system prompt
+            system_prompt = self._build_diagram_system_prompt()
+            
+            # Build user prompt
+            user_prompt = f"""User Request: {user_request}
+
+"""
+            
+            if current_diagram and current_diagram.strip():
+                user_prompt += f"""
+**Current Diagram:**
+```xml
+{current_diagram}
+```
+
+Please modify this diagram according to the user's request. Preserve existing elements unless explicitly asked to remove them.
+"""
+            else:
+                user_prompt += "Please create a new diagram from scratch based on this request.\n"
+            
+            # Entry context not needed - conversation history contains sufficient context
+            
+            user_prompt += """
+**Instructions:**
+1. Generate valid mxGraph XML for Draw.io
+2. Start with <mxGraphModel> and end with </mxGraphModel>
+3. Use clear, descriptive labels
+4. Arrange elements in a logical layout
+5. Use appropriate colors and styles
+6. Make connections clear with arrows
+
+Provide:
+1. The complete mxGraph XML
+2. A brief explanation of what you created
+
+Format your response as:
+<mxGraphModel>
+[your diagram XML here]
+</mxGraphModel>
+
+**Explanation:**
+[your explanation here]
+"""
+            
+            logger.info(f"Generating diagram for request: {user_request[:100]}...")
+            
+            # Call Groq API
+            chat_completion = self.groq_client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                model="llama-3.3-70b-versatile",  # Updated: llama-3.1 decommissioned
+                temperature=0.7,
+                max_tokens=4096
+            )
+            
+            response_text = chat_completion.choices[0].message.content
+            logger.info(f"Groq response length: {len(response_text)} characters")
+            
+            # Extract XML and explanation
+            diagram_xml = self._extract_diagram_xml(response_text)
+            explanation = self._extract_explanation(response_text)
+            
+            if diagram_xml:
+                logger.info(f"Successfully extracted diagram XML ({len(diagram_xml)} chars)")
+                return {
+                    'diagram_xml': diagram_xml,
+                    'explanation': explanation or 'Diagram generated successfully'
+                }
+            else:
+                logger.error("No valid diagram XML found in Groq response")
+                logger.error(f"Response was: {response_text[:500]}...")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Failed to generate diagram with Groq: {str(e)}", exc_info=True)
+            logger.error(f"User request was: {user_request}")
+            return None
+    
     def _build_diagram_system_prompt(self) -> str:
         """Build system prompt for diagram generation with mxGraph XML format guide"""
-        return """You are an expert at creating Draw.io diagrams using mxGraph XML format.
+        return """You are an expert at creating Draw.io diagrams using mxGraph XML format for educational and documentation purposes.
+
+**Context:** You are helping users create technical diagrams for project documentation, learning materials, and system design. All diagrams are for informational and educational purposes only.
 
 **mxGraph XML Structure:**
 ```xml
@@ -1904,15 +2075,31 @@ Then provide a brief explanation of what you created."""
         """Extract mxGraph XML from AI response"""
         import re
         
-        # Try to find XML within code blocks
-        xml_match = re.search(r'```(?:xml)?\s*(<mxGraphModel>.*?</mxGraphModel>)\s*```', text, re.DOTALL)
-        if xml_match:
-            return xml_match.group(1).strip()
+        logger.debug(f"Attempting to extract XML from text length: {len(text)}")
+        logger.debug(f"Text starts with: {text[:200]}")
         
-        # Try to find XML directly
-        xml_match = re.search(r'(<mxGraphModel>.*?</mxGraphModel>)', text, re.DOTALL)
+        # Try to find XML within code blocks (with or without attributes in mxGraphModel tag)
+        xml_match = re.search(r'```(?:xml)?\s*(<mxGraphModel[^>]*>.*?</mxGraphModel>)\s*```', text, re.DOTALL)
         if xml_match:
+            logger.info("Extracted XML from code block")
             return xml_match.group(1).strip()
+        else:
+            logger.debug("No match found in code blocks")
+        
+        # Try to find XML directly (with or without attributes in mxGraphModel tag)
+        xml_match = re.search(r'(<mxGraphModel[^>]*>.*?</mxGraphModel>)', text, re.DOTALL)
+        if xml_match:
+            logger.info("Extracted XML directly (no code block)")
+            return xml_match.group(1).strip()
+        else:
+            logger.debug("No direct XML match found")
+        
+        # Try finding just the opening tag to see if it exists
+        opening_match = re.search(r'<mxGraphModel[^>]*>', text)
+        if opening_match:
+            logger.error(f"Found opening tag but not closing tag: {opening_match.group(0)}")
+        else:
+            logger.error("No opening mxGraphModel tag found at all")
         
         return None
     
@@ -1920,9 +2107,9 @@ Then provide a brief explanation of what you created."""
         """Extract explanation text from AI response (text after XML)"""
         import re
         
-        # Remove XML blocks
-        cleaned_text = re.sub(r'```(?:xml)?\s*<mxGraphModel>.*?</mxGraphModel>\s*```', '', text, flags=re.DOTALL)
-        cleaned_text = re.sub(r'<mxGraphModel>.*?</mxGraphModel>', '', cleaned_text, flags=re.DOTALL)
+        # Remove XML blocks (with or without attributes in mxGraphModel tag)
+        cleaned_text = re.sub(r'```(?:xml)?\s*<mxGraphModel[^>]*>.*?</mxGraphModel>\s*```', '', text, flags=re.DOTALL)
+        cleaned_text = re.sub(r'<mxGraphModel[^>]*>.*?</mxGraphModel>', '', cleaned_text, flags=re.DOTALL)
         
         # Clean up remaining text
         explanation = cleaned_text.strip()
