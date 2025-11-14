@@ -5,6 +5,26 @@ echo "=== Starting Application Initialization ==="
 echo "Date: $(date)"
 echo "Working Directory: $(pwd)"
 
+# Fix DNS resolution for Google APIs 
+# Workaround for Docker DNS issues - add direct IP mapping
+echo "🔧 Fixing DNS/hosts configuration for Google API connectivity..."
+
+# Add Google API endpoint to /etc/hosts as fallback
+# This ensures the app can reach Gemini API even if DNS fails
+if ! grep -q "generativelanguage.googleapis.com" /etc/hosts 2>/dev/null; then
+    echo "142.250.204.10 generativelanguage.googleapis.com" >> /etc/hosts
+    echo "142.251.221.74 generativelanguage.googleapis.com" >> /etc/hosts
+    echo "✅ Added Google API endpoint to /etc/hosts"
+fi
+
+# Also try to fix resolv.conf if possible (for host networking mode)
+if [ -w /etc/resolv.conf ]; then
+    echo "nameserver 8.8.8.8" > /etc/resolv.conf
+    echo "nameserver 8.8.4.4" >> /etc/resolv.conf
+    echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+    echo "✅ DNS configured to use Google/Cloudflare DNS"
+fi
+
 # Function to run migrations
 run_migrations() {
     local migrations_dir="$1"
