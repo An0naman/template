@@ -1044,6 +1044,31 @@ async function sendChatMessage() {
     
     if (!message) return;
     
+    // Check if diagram should be included
+    let diagramXML = null;
+    
+    if (diagramInclusionEnabled) {
+        console.log('[AI Assistant] Diagram inclusion enabled, capturing...');
+        
+        // Show spinner on button
+        const btn = document.getElementById('includeDiagramCheckboxBtn');
+        const icon = document.getElementById('diagramCheckboxIcon');
+        const originalIconClass = icon.className;
+        icon.className = 'fas fa-spinner fa-spin';
+        
+        diagramXML = await captureCurrentDiagram();
+        
+        // Restore icon
+        icon.className = originalIconClass;
+        
+        if (diagramXML) {
+            console.log('[AI Assistant] Diagram captured, will include with message');
+        } else {
+            console.warn('[AI Assistant] Could not capture diagram');
+            addMessageToChat('assistant', '⚠️ Note: Could not capture diagram. Continuing without it.');
+        }
+    }
+    
     addMessageToChat('user', message);
     const actionToSend = currentAction;
     currentAction = null;
@@ -1096,6 +1121,12 @@ async function sendChatMessage() {
                 chat_history: chatHistory
             };
             
+            // Add diagram XML if captured
+            if (diagramXML) {
+                payload.diagram_xml = diagramXML;
+                console.log('[AI Assistant] Including diagram with message');
+            }
+            
             if (actionToSend) {
                 payload.action = actionToSend;
             } else if (activeConversationMode && currentDraft) {
@@ -1114,17 +1145,25 @@ async function sendChatMessage() {
             data = await response.json();
         } else {
             // General conversation with full entry context
+            const entryPayload = {
+                entry_id: {{ entry.id }},
+                message: message,
+                is_first_message: chatHistory.length === 0,
+                include_all_notes: false // Can be toggled later
+            };
+            
+            // Add diagram XML if captured
+            if (diagramXML) {
+                entryPayload.diagram_xml = diagramXML;
+                console.log('[AI Assistant] Including diagram with entry chat');
+            }
+            
             response = await fetch('/api/ai/entry-chat', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    entry_id: {{ entry.id }},
-                    message: message,
-                    is_first_message: chatHistory.length === 0,
-                    include_all_notes: false // Can be toggled later
-                })
+                body: JSON.stringify(entryPayload)
             });
             
             const entryData = await response.json();
@@ -1254,6 +1293,109 @@ async function saveDescriptionUpdate(description) {
         console.error('Error saving description:', error);
     }
 }
+
+// State variable for diagram inclusion
+let diagramInclusionEnabled = false;
+
+// Function to toggle diagram inclusion
+function toggleDiagramCheckbox() {
+    diagramInclusionEnabled = !diagramInclusionEnabled;
+    
+    const btn = document.getElementById('includeDiagramCheckboxBtn');
+    const icon = document.getElementById('diagramCheckboxIcon');
+    
+    if (diagramInclusionEnabled) {
+        btn.classList.remove('btn-outline-secondary');
+        btn.classList.add('btn-info');
+        icon.classList.add('text-white');
+        btn.title = 'Diagram included with messages (click to disable)';
+        console.log('[AI Assistant] Diagram inclusion enabled');
+    } else {
+        btn.classList.remove('btn-info');
+        btn.classList.add('btn-outline-secondary');
+        icon.classList.remove('text-white');
+        btn.title = 'Include diagram with messages';
+        console.log('[AI Assistant] Diagram inclusion disabled');
+    }
+}
+
+// Check if Draw.io section exists and show the checkbox button
+function checkForDrawioSection() {
+    const drawioFrames = document.querySelectorAll('iframe[id^="drawioFrame-"]');
+    const checkboxBtn = document.getElementById('includeDiagramCheckboxBtn');
+    
+    if (drawioFrames.length > 0) {
+        checkboxBtn.style.display = 'block';
+        console.log('[AI Assistant] Draw.io section detected, showing diagram inclusion button');
+    } else {
+        checkboxBtn.style.display = 'none';
+        console.log('[AI Assistant] No Draw.io section found');
+    }
+}
+
+// Run check on page load
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(checkForDrawioSection, 1000); // Wait for sections to load
+});
+
+// Function to capture current diagram from Draw.io section
+async function captureCurrentDiagram() {
+    return new Promise((resolve, reject) => {
+        console.log('[AI Assistant] Attempting to capture diagram from Draw.io section');
+        
+        // Find all Draw.io frames on the page
+        const drawioFrames = document.querySelectorAll('iframe[id^="drawioFrame-"]');
+        
+        if (drawioFrames.length === 0) {
+            console.warn('[AI Assistant] No Draw.io editor found');
+            resolve(null);
+            return;
+        }
+        
+        const frame = drawioFrames[0];
+        
+        // Set up a temporary message listener for diagram export
+        const messageHandler = function(evt) {
+            if (!evt.origin.includes('diagrams.net')) return;
+            if (!evt.data || typeof evt.data !== 'string') return;
+            
+            try {
+                const msg = JSON.parse(evt.data);
+                
+                if (msg.event === 'export' && msg.format === 'xml') {
+                    // Clean up listener
+                    window.removeEventListener('message', messageHandler);
+                    console.log('[AI Assistant] Diagram captured successfully');
+                    resolve(msg.xml);
+                }
+            } catch (error) {
+                console.error('[AI Assistant] Error parsing diagram message:', error);
+            }
+        };
+        
+        // Add the message listener
+        window.addEventListener('message', messageHandler);
+        
+        // Set timeout to clean up if no response
+        setTimeout(() => {
+            window.removeEventListener('message', messageHandler);
+            console.warn('[AI Assistant] Diagram capture timeout');
+            resolve(null);
+        }, 3000);
+        
+        // Request XML export from Draw.io
+        try {
+            frame.contentWindow.postMessage(JSON.stringify({
+                action: 'export',
+                format: 'xml'
+            }), '*');
+        } catch (error) {
+            console.error('[AI Assistant] Error requesting diagram export:', error);
+            window.removeEventListener('message', messageHandler);
+            reject(error);
+        }
+    });
+}
 </script>
 
 <div class="chat-container" id="aiChatContainer">
@@ -1382,6 +1524,10 @@ async function saveDescriptionUpdate(description) {
                 </a></li>
             </ul>
             <input type="text" class="form-control" id="chatInput" placeholder="Ask AI or request description changes..." onkeypress="if(event.key==='Enter') sendChatMessage()">
+            <!-- Include Diagram Checkbox (only shown if Draw.io section exists) -->
+            <button class="btn btn-outline-secondary" type="button" id="includeDiagramCheckboxBtn" style="display: none;" onclick="toggleDiagramCheckbox()" title="Include diagram with messages">
+                <i class="fas fa-project-diagram" id="diagramCheckboxIcon"></i>
+            </button>
             <button class="btn btn-primary" onclick="sendChatMessage()">
                 <i class="fas fa-paper-plane"></i>
             </button>

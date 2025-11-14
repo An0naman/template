@@ -404,6 +404,7 @@ def entry_chat():
         user_message = data.get('message', '').strip()
         is_first_message = data.get('is_first_message', False)
         include_all_notes = data.get('include_all_notes', False)
+        diagram_xml = data.get('diagram_xml', '').strip()
         
         if not entry_id:
             return jsonify({'error': 'Entry ID is required'}), 400
@@ -416,8 +417,24 @@ def entry_chat():
         if not ai_service.is_available():
             return jsonify({'error': 'AI service is not available. Please configure Gemini API key in settings.'}), 503
         
-        # Chat about the entry with full context
-        response = ai_service.chat_about_entry(entry_id, user_message, is_first_message, include_all_notes)
+        # If diagram XML is provided, include it in the context
+        if diagram_xml:
+            logger.info(f"Including diagram context with entry chat for entry {entry_id}")
+            
+            # Parse diagram to extract basic info
+            diagram_context = _extract_diagram_context(diagram_xml)
+            
+            # Prepend diagram context to the user message
+            enhanced_message = f"""[Context: The user has included their current Draw.io diagram with this message]
+
+{diagram_context}
+
+User's question/message: {user_message}"""
+            
+            response = ai_service.chat_about_entry(entry_id, enhanced_message, is_first_message, include_all_notes)
+        else:
+            # Chat about the entry with full context (no diagram)
+            response = ai_service.chat_about_entry(entry_id, user_message, is_first_message, include_all_notes)
         
         if response:
             return jsonify({
@@ -430,6 +447,41 @@ def entry_chat():
     except Exception as e:
         logger.error(f"Error in entry chat: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+
+def _extract_diagram_context(diagram_xml: str) -> str:
+    """Extract basic context from diagram XML for AI understanding"""
+    import xml.etree.ElementTree as ET
+    
+    try:
+        root = ET.fromstring(diagram_xml)
+        
+        # Count elements
+        cells = root.findall('.//{http://www.jgraph.com/}mxCell') + root.findall('.//mxCell')
+        vertices = [cell for cell in cells if cell.get('vertex') == '1']
+        edges = [cell for cell in cells if cell.get('edge') == '1']
+        
+        # Extract labels
+        labels = []
+        for cell in cells:
+            value = cell.get('value', '')
+            if value and value.strip():
+                labels.append(value.strip())
+        
+        # Build context string
+        context_parts = []
+        context_parts.append(f"Diagram structure: {len(vertices)} shapes/nodes, {len(edges)} connections")
+        
+        if labels:
+            context_parts.append(f"Key elements/labels: {', '.join(labels[:15])}")  # Limit to first 15 labels
+            if len(labels) > 15:
+                context_parts.append(f"... and {len(labels) - 15} more elements")
+        
+        return "\n".join(context_parts)
+        
+    except Exception as e:
+        logger.warning(f"Could not parse diagram XML: {str(e)}")
+        return "Diagram included (structure could not be parsed)"
+
 
 def clean_ai_response(text: str) -> str:
     """Remove conversational wrapper text from AI responses"""
@@ -511,6 +563,7 @@ def ai_chat():
         entry_description = data.get('entry_description', '').strip()
         action = data.get('action', '').strip()
         current_draft = data.get('current_draft', '').strip()  # For draft refinement
+        diagram_xml = data.get('diagram_xml', '').strip()  # Optional diagram context
         
         if not message:
             return jsonify({'error': 'Message is required'}), 400
@@ -519,6 +572,17 @@ def ai_chat():
         
         if not ai_service.is_available():
             return jsonify({'error': 'AI service is not available. Please configure Gemini API key in settings.'}), 503
+        
+        # If diagram XML is provided, enhance the message with diagram context
+        original_message = message
+        if diagram_xml and not action:  # Only add diagram context for general chat, not for actions
+            logger.info(f"Including diagram context with chat message")
+            diagram_context = _extract_diagram_context(diagram_xml)
+            message = f"""[Context: The user has included their current Draw.io diagram]
+
+{diagram_context}
+
+User's message: {original_message}"""
         
         # Handle different actions
         description_preview = None
@@ -783,4 +847,112 @@ def generate_diagram():
             
     except Exception as e:
         logger.error(f"Error generating diagram: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
+
+@ai_api_bp.route('/ai/diagram/analyze', methods=['POST'])
+def analyze_diagram():
+    """Analyze a Draw.io diagram XML and provide insights"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        diagram_xml = data.get('diagram_xml', '').strip()
+        entry_id = data.get('entry_id')
+        entry_context = data.get('entry_context', '')
+        
+        if not diagram_xml:
+            return jsonify({'error': 'Diagram XML is required'}), 400
+        
+        ai_service = get_ai_service()
+        
+        if not ai_service.is_available():
+            return jsonify({'error': 'AI service is not available'}), 503
+        
+        # Parse the diagram XML to extract meaningful information
+        import xml.etree.ElementTree as ET
+        
+        try:
+            root = ET.fromstring(diagram_xml)
+            
+            # Count elements
+            cells = root.findall('.//{http://www.jgraph.com/}mxCell') + root.findall('.//mxCell')
+            vertices = [cell for cell in cells if cell.get('vertex') == '1']
+            edges = [cell for cell in cells if cell.get('edge') == '1']
+            
+            # Extract labels/text content
+            labels = []
+            for cell in cells:
+                value = cell.get('value', '')
+                if value:
+                    labels.append(value)
+            
+            # Build analysis prompt
+            analysis_prompt = f"""I'm sharing a Draw.io diagram from my project. Please analyze it and provide insights.
+
+**Diagram Structure:**
+- Total elements: {len(cells)}
+- Shapes/Nodes: {len(vertices)}
+- Connections/Edges: {len(edges)}
+- Labels found: {', '.join(labels[:20]) if labels else 'None'}
+
+**Entry Context:**
+{entry_context if entry_context else 'No additional context provided'}
+
+Please provide:
+1. **What the diagram represents**: Summarize the main purpose and structure
+2. **Key components**: List the main elements and their relationships
+3. **Observations**: Any patterns, potential issues, or suggestions for improvement
+4. **Questions**: Any clarifying questions about the diagram's purpose or design
+
+Be concise and helpful. Focus on understanding what I've created and offering constructive feedback."""
+
+            # Use the AI service to analyze
+            response = ai_service.generate_response(analysis_prompt)
+            
+            if response:
+                return jsonify({
+                    'success': True,
+                    'analysis': response,
+                    'stats': {
+                        'total_elements': len(cells),
+                        'vertices': len(vertices),
+                        'edges': len(edges),
+                        'has_labels': len(labels) > 0
+                    }
+                })
+            else:
+                return jsonify({'error': 'Failed to generate analysis'}), 500
+                
+        except ET.ParseError as e:
+            logger.error(f"XML Parse Error: {str(e)}")
+            # If XML parsing fails, still try to analyze as plain text
+            analysis_prompt = f"""I'm sharing a Draw.io diagram (as XML data). Please help me understand what I've created.
+
+Here's a snippet of the diagram data:
+{diagram_xml[:500]}...
+
+Please provide:
+1. What you can tell about this diagram from the XML structure
+2. Any observations or suggestions
+
+Keep your response concise and helpful."""
+            
+            response = ai_service.generate_response(analysis_prompt)
+            
+            if response:
+                return jsonify({
+                    'success': True,
+                    'analysis': response,
+                    'stats': {
+                        'parse_error': True
+                    }
+                })
+            else:
+                return jsonify({'error': 'Failed to analyze diagram'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error analyzing diagram: {str(e)}", exc_info=True)
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
