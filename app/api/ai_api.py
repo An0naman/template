@@ -606,9 +606,12 @@ User's message: {original_message}"""
             except Exception as e:
                 logger.warning(f"Could not fetch entry type: {e}")
         
+        # Get section config for custom prompts
+        section_config = data.get('section_config')
+        
         if action == 'generate_description':
             # Generate new description
-            generated = ai_service.generate_description(entry_title, entry_type, message)
+            generated = ai_service.generate_description(entry_title, entry_type, message, section_config)
             description_preview = clean_ai_response(generated) if generated else None
             ai_response = "I've generated a description for you. You can refine it by telling me what to change, or click 'Apply to Entry' when you're ready."
             
@@ -617,7 +620,7 @@ User's message: {original_message}"""
                 return jsonify({'error': 'No description to improve'}), 400
             
             # Improve existing description
-            improved = ai_service.improve_description(entry_description)
+            improved = ai_service.improve_description(entry_description, section_config)
             description_preview = clean_ai_response(improved) if improved else None
             
             if description_preview:
@@ -630,7 +633,7 @@ User's message: {original_message}"""
                 return jsonify({'error': 'No description to make concise'}), 400
             
             # Make description more concise
-            improved = ai_service.improve_description(entry_description)
+            improved = ai_service.improve_description(entry_description, section_config)
             description_preview = clean_ai_response(improved) if improved else None
             
             if description_preview:
@@ -643,7 +646,7 @@ User's message: {original_message}"""
                 return jsonify({'error': 'No description to expand'}), 400
             
             # Add more details
-            improved = ai_service.improve_description(entry_description)
+            improved = ai_service.improve_description(entry_description, section_config)
             description_preview = clean_ai_response(improved) if improved else None
             
             if description_preview:
@@ -654,7 +657,7 @@ User's message: {original_message}"""
         elif action == 'wikipedia':
             # Fetch Wikipedia summary
             context = f"Provide a Wikipedia-style summary for: {entry_title}"
-            generated = ai_service.generate_description(entry_title, entry_type, context)
+            generated = ai_service.generate_description(entry_title, entry_type, context, section_config)
             description_preview = clean_ai_response(generated) if generated else None
             ai_response = "I've created a Wikipedia-style description. You can refine it by asking me to make changes, or click 'Apply to Entry' to save it."
         
@@ -682,7 +685,7 @@ User's message: {original_message}"""
             
             # Use the improve_description with context from the user's message
             # The AI will take the current draft and apply the user's requested changes
-            refined = ai_service.improve_description(f"{current_draft}\n\nUser feedback: {message}")
+            refined = ai_service.improve_description(f"{current_draft}\n\nUser feedback: {message}", section_config)
             description_preview = clean_ai_response(refined) if refined else None
             
             if description_preview:
@@ -692,7 +695,14 @@ User's message: {original_message}"""
             
         else:
             # General chat - just respond to the message
-            ai_response = ai_service.chat_about_entry(entry_id, message, is_first_message=True, include_all_notes=False) if entry_id else message
+            ai_response = ai_service.chat_about_entry(
+                entry_id, 
+                message, 
+                is_first_message=True, 
+                include_all_notes=False,
+                section_config=section_config,
+                action=action
+            ) if entry_id else message
         
         # Build response
         response_data = {

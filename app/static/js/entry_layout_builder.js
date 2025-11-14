@@ -460,6 +460,76 @@ function selectSection(sectionId) {
     renderSectionProperties(section);
 }
 
+// Render AI Assistant custom prompts configuration
+function renderAiAssistantConfig(section) {
+    const config = typeof section.config === 'string' ? JSON.parse(section.config || '{}') : section.config;
+    
+    return `
+        <hr class="my-3">
+        <div class="mb-3">
+            <h6 class="text-warning">
+                <i class="fas fa-magic me-2"></i>AI Chat Customization
+            </h6>
+            <small class="text-muted">Customize AI behavior for different chat modes</small>
+        </div>
+        
+        <div class="mb-3">
+            <label class="form-label small fw-bold">
+                <i class="fas fa-comments me-1"></i>General Chat
+            </label>
+            <textarea class="form-control form-control-sm font-monospace" 
+                      id="promptGeneralChat" rows="3" 
+                      placeholder="e.g., 'You are a brewing expert. Focus on fermentation science and provide specific gravity calculations.'">${config.prompt_general_chat || ''}</textarea>
+            <small class="text-muted">Default conversational mode</small>
+        </div>
+        
+        <div class="mb-3">
+            <label class="form-label small fw-bold">
+                <i class="fas fa-file-text me-1"></i>Description Generation
+            </label>
+            <textarea class="form-control form-control-sm font-monospace" 
+                      id="promptDescription" rows="3" 
+                      placeholder="e.g., 'Focus on technical specifications, include relevant measurements and standards.'">${config.prompt_description || ''}</textarea>
+            <small class="text-muted">When generating/improving descriptions</small>
+        </div>
+        
+        <div class="mb-3">
+            <label class="form-label small fw-bold">
+                <i class="fas fa-sticky-note me-1"></i>Note Composer
+            </label>
+            <textarea class="form-control form-control-sm font-monospace" 
+                      id="promptNoteComposer" rows="3" 
+                      placeholder="e.g., 'Create detailed technical notes with step-by-step procedures.'">${config.prompt_note_composer || ''}</textarea>
+            <small class="text-muted">When composing notes</small>
+        </div>
+        
+        <div class="mb-3">
+            <label class="form-label small fw-bold">
+                <i class="fas fa-project-diagram me-1"></i>Diagram Editor
+            </label>
+            <textarea class="form-control form-control-sm font-monospace" 
+                      id="promptDiagram" rows="3" 
+                      placeholder="e.g., 'Create diagrams showing system architecture and data flow.'">${config.prompt_diagram || ''}</textarea>
+            <small class="text-muted">When creating/editing diagrams</small>
+        </div>
+        
+        <div class="mb-3">
+            <label class="form-label small fw-bold">
+                <i class="fas fa-calendar-check me-1"></i>Planning Mode
+            </label>
+            <textarea class="form-control form-control-sm font-monospace" 
+                      id="promptPlanning" rows="3" 
+                      placeholder="e.g., 'Plan milestones based on fermentation schedules and temperature curves.'">${config.prompt_planning || ''}</textarea>
+            <small class="text-muted">When planning milestones</small>
+        </div>
+        
+        <div class="alert alert-info alert-sm p-2 small">
+            <i class="fas fa-info-circle me-1"></i>
+            These prompts are combined with the base chat prompt to customize AI behavior for this specific section.
+        </div>
+    `;
+}
+
 // Render section properties panel
 function renderSectionProperties(section) {
     const panel = document.getElementById('propertiesContent');
@@ -541,6 +611,8 @@ function renderSectionProperties(section) {
         </div>
         ` : ''}
         
+        ${section.section_type === 'ai_assistant' ? renderAiAssistantConfig(section) : ''}
+        
         <div class="d-grid gap-2">
             <button class="btn btn-primary btn-sm" onclick="saveSectionProperties()">
                 <i class="fas fa-save me-1"></i>Save Properties
@@ -569,6 +641,20 @@ async function saveSectionProperties() {
     
     if (selectedSection.is_collapsible) {
         updates.default_collapsed = document.getElementById('sectionCollapsedSwitch').checked ? 1 : 0;
+    }
+    
+    // If AI Assistant section, save custom prompts in config
+    if (selectedSection.section_type === 'ai_assistant') {
+        const config = typeof selectedSection.config === 'string' ? 
+            JSON.parse(selectedSection.config || '{}') : (selectedSection.config || {});
+        
+        config.prompt_general_chat = document.getElementById('promptGeneralChat')?.value || '';
+        config.prompt_description = document.getElementById('promptDescription')?.value || '';
+        config.prompt_note_composer = document.getElementById('promptNoteComposer')?.value || '';
+        config.prompt_diagram = document.getElementById('promptDiagram')?.value || '';
+        config.prompt_planning = document.getElementById('promptPlanning')?.value || '';
+        
+        updates.config = JSON.stringify(config);
     }
     
     try {

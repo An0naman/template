@@ -333,6 +333,7 @@
                                                 data-show-end-dates="{{ type.show_end_dates | default(0, true) }}"
                                                 data-has-sensors="{{ type.has_sensors | default(0, true) }}"
                                                 data-enabled-sensor-types="{{ type.enabled_sensor_types | default('', true) }}"
+                                                data-custom-chat-prompt="{{ type.custom_chat_prompt | default('', true) }}"
                                                 title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </button>
@@ -495,6 +496,26 @@
                                 </div>
                             </div>
                             <input type="hidden" id="noteTypes">
+                        </div>
+
+                        <!-- AI Chat Customization Section -->
+                        <div class="mb-4">
+                            <h6 class="text-warning border-bottom pb-2 mb-3">
+                                <i class="fas fa-robot me-2"></i>AI Chat Assistant Customization
+                            </h6>
+                            <div class="mb-3">
+                                <label for="customChatPrompt" class="form-label">
+                                    Custom Chat Prompt Instructions
+                                    <small class="text-muted">(Optional)</small>
+                                </label>
+                                <textarea class="form-control font-monospace" id="customChatPrompt" rows="4" 
+                                          placeholder="Add custom instructions to focus the AI chat assistant for this entry type (e.g., 'You are a brewing expert. Focus on fermentation science, temperature control, and yeast behavior. Provide specific gravity calculations when relevant.')"></textarea>
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    This will be combined with the base chat prompt to customize the AI assistant's behavior for entries of this type.
+                                    Use this to add domain expertise, specific terminology, or focus areas relevant to this entry type.
+                                </small>
+                            </div>
                         </div>
 
                         <button type="submit" class="btn btn-blue w-100">
@@ -1062,6 +1083,10 @@
                         }, 100);
                     }
                     
+                    // Set custom chat prompt
+                    const customChatPrompt = this.dataset.customChatPrompt || '';
+                    document.getElementById('customChatPrompt').value = customChatPrompt;
+                    
                     entryTypeModal.show();
                 });
             });
@@ -1084,7 +1109,8 @@
                     show_labels_section: showLabelsSectionInput.checked ? 1 : 0,
                     show_end_dates: showEndDatesInput.checked ? 1 : 0,
                     has_sensors: hasSensorsInput.checked ? 1 : 0,
-                    enabled_sensor_types: enabledSensorTypesInput.value
+                    enabled_sensor_types: enabledSensorTypesInput.value,
+                    custom_chat_prompt: document.getElementById('customChatPrompt').value.trim()
                 };
 
                 fetch(url, {

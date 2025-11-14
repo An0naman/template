@@ -355,16 +355,23 @@ function handleWidgetTypeChange(event) {
     const dataSourceConfig = document.getElementById('dataSourceConfig');
     const savedSearchConfig = document.getElementById('savedSearchConfig');
     const sensorDataConfig = document.getElementById('sensorDataConfig');
+    const aiSummaryPromptConfig = document.getElementById('aiSummaryPromptConfig');
     
     // Hide all configs
     savedSearchConfig.style.display = 'none';
     sensorDataConfig.style.display = 'none';
     dataSourceConfig.style.display = 'none';
+    aiSummaryPromptConfig.style.display = 'none';
     
     // Show relevant config based on widget type
     if (widgetType === 'list' || widgetType === 'ai_summary' || widgetType === 'stat_card') {
         dataSourceConfig.style.display = 'block';
         savedSearchConfig.style.display = 'block';
+        
+        // Show AI prompt config only for AI summary widgets
+        if (widgetType === 'ai_summary') {
+            aiSummaryPromptConfig.style.display = 'block';
+        }
     } else if (widgetType === 'line_chart') {
         dataSourceConfig.style.display = 'block';
         savedSearchConfig.style.display = 'block';
@@ -412,6 +419,14 @@ async function addWidget() {
         if (savedSearchId) {
             widgetData.data_source_type = 'saved_search';
             widgetData.data_source_id = parseInt(savedSearchId);
+        }
+        
+        // Add custom prompt for AI summary widgets
+        if (widgetType === 'ai_summary') {
+            const customPrompt = document.getElementById('widgetCustomPrompt').value.trim();
+            if (customPrompt) {
+                widgetData.config.custom_prompt = customPrompt;
+            }
         }
     }
     
@@ -533,6 +548,19 @@ async function editWidget(widgetId) {
             }
         } catch (e) {
             console.error('Error parsing widget config:', e);
+        }
+    }
+    
+    // For AI summary widgets, load custom prompt
+    if (widget.widget_type === 'ai_summary' && widget.config) {
+        try {
+            const config = typeof widget.config === 'string' ? JSON.parse(widget.config) : widget.config;
+            if (config.custom_prompt) {
+                const customPromptTextarea = document.getElementById('widgetCustomPrompt');
+                if (customPromptTextarea) customPromptTextarea.value = config.custom_prompt;
+            }
+        } catch (e) {
+            console.error('Error parsing widget config for custom prompt:', e);
         }
     }
     

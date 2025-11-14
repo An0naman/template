@@ -473,7 +473,7 @@
                                         {% elif section_type == 'reminders' %}
                                             {% with section_id=section.id %}{% include 'sections/_reminders_section.html' %}{% endwith %}
                                         {% elif section_type == 'ai_assistant' %}
-                                            {% with section_id=section.id %}{% include 'sections/_ai_assistant_section.html' %}{% endwith %}
+                                            {% with section_id=section.id, section_config=section.config %}{% include 'sections/_ai_assistant_section.html' %}{% endwith %}
                                         {% elif section_type == 'attachments' %}
                                             {% with section_id=section.id %}{% include 'sections/_attachments_section.html' %}{% endwith %}
                                         {% elif section_type == 'form_fields' %}

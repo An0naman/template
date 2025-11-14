@@ -39,6 +39,7 @@ def add_entry_type():
     has_sensors = int(data.get('has_sensors', 0))
     show_labels_section = int(data.get('show_labels_section', 1))
     show_end_dates = int(data.get('show_end_dates', 0))
+    custom_chat_prompt = data.get('custom_chat_prompt', '')
 
     if not all([name, singular_label, plural_label]):
         return jsonify({'error': 'Name, singular label, and plural label are required.'}), 400
@@ -51,8 +52,8 @@ def add_entry_type():
             cursor.execute("UPDATE EntryType SET is_primary = 0 WHERE is_primary = 1")
 
         cursor.execute(
-            "INSERT INTO EntryType (name, singular_label, plural_label, description, note_types, is_primary, has_sensors, show_labels_section, show_end_dates) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (name, singular_label, plural_label, description, note_types, is_primary, has_sensors, show_labels_section, show_end_dates)
+            "INSERT INTO EntryType (name, singular_label, plural_label, description, note_types, is_primary, has_sensors, show_labels_section, show_end_dates, custom_chat_prompt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (name, singular_label, plural_label, description, note_types, is_primary, has_sensors, show_labels_section, show_end_dates, custom_chat_prompt)
         )
         conn.commit()
         return jsonify({'message': 'Entry type added successfully!', 'id': cursor.lastrowid}), 201
@@ -117,6 +118,10 @@ def update_entry_type(entry_type_id):
     if 'show_end_dates' in data:
         set_clauses.append("show_end_dates = ?")
         params.append(int(data['show_end_dates']))
+    
+    if 'custom_chat_prompt' in data:
+        set_clauses.append("custom_chat_prompt = ?")
+        params.append(data['custom_chat_prompt'])
 
     if not set_clauses:
         return jsonify({'message': 'No fields provided for update.'}), 200

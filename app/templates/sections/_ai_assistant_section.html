@@ -7,6 +7,13 @@ var currentDraft = null;
 var activeConversationMode = false;
 var currentAction = null;
 
+// Section configuration (includes custom AI prompts)
+{% if section_config is defined %}
+var aiSectionConfig = {{ section_config|tojson|safe }};
+{% else %}
+var aiSectionConfig = {};
+{% endif %}
+
 function quickPrompt(prompt) {
     document.getElementById('chatInput').value = prompt;
     sendChatMessage();
@@ -1118,7 +1125,8 @@ async function sendChatMessage() {
                 entry_id: {{ entry.id }},
                 entry_title: {{ entry.title|tojson }},
                 entry_description: {{ (entry.description or '')|tojson }},
-                chat_history: chatHistory
+                chat_history: chatHistory,
+                section_config: aiSectionConfig  // Include section-specific AI prompts
             };
             
             // Add diagram XML if captured
@@ -1497,9 +1505,6 @@ async function captureCurrentDiagram() {
             <ul class="dropdown-menu">
                 <li><a class="dropdown-item" href="#" onclick="selectAction('generate_description', 'Generate a description for this entry', 'Generate', 'robot'); return false;">
                     <i class="fas fa-robot me-2"></i>Generate Description
-                </a></li>
-                <li><a class="dropdown-item" href="#" onclick="selectAction('improve_description', 'Improve the description', 'Improve', 'lightbulb'); return false;">
-                    <i class="fas fa-lightbulb me-2"></i>Improve Description
                 </a></li>
                 <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item" href="#" onclick="enterNoteComposerMode(); return false;">

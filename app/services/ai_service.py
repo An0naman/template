@@ -214,7 +214,7 @@ class AIService:
             logger.warning(f"Could not access note type base prompt for '{note_type}': {e}")
             return self._get_base_prompt()
     
-    def generate_description(self, title: str, entry_type: str, context: str = "") -> Optional[str]:
+    def generate_description(self, title: str, entry_type: str, context: str = "", section_config: dict = None) -> Optional[str]:
         """
         Generate a description for an entry based on title and type
         
@@ -222,6 +222,7 @@ class AIService:
             title: The title/name of the entry
             entry_type: The type of entry (e.g., Recipe, Ingredient, Equipment)
             context: Additional context information
+            section_config: Section-specific configuration including custom prompts
             
         Returns:
             Generated description or None if failed
@@ -230,7 +231,7 @@ class AIService:
             return None
         
         try:
-            prompt = self._build_description_prompt(title, entry_type, context)
+            prompt = self._build_description_prompt(title, entry_type, context, section_config)
             
             # Add timeout to prevent hanging (30 seconds)
             import google.generativeai.types as genai_types
@@ -387,12 +388,13 @@ class AIService:
         
         return None
     
-    def improve_description(self, description: str) -> Optional[str]:
+    def improve_description(self, description: str, section_config: dict = None) -> Optional[str]:
         """
         Improve or enhance a description's content
         
         Args:
             description: The existing description content
+            section_config: Section-specific configuration including custom prompts
             
         Returns:
             Improved description or None if failed
@@ -401,7 +403,7 @@ class AIService:
             return None
         
         try:
-            prompt = self._build_description_improvement_prompt(description)
+            prompt = self._build_description_improvement_prompt(description, section_config)
             response = self.model.generate_content(prompt)
             
             if response and response.text:
@@ -492,7 +494,7 @@ class AIService:
         """
         return prompt
     
-    def _build_description_prompt(self, title: str, entry_type: str, context: str) -> str:
+    def _build_description_prompt(self, title: str, entry_type: str, context: str, section_config: dict = None) -> str:
         """Build prompt for description generation"""
         base_prompt = self._get_base_prompt()
         
@@ -518,9 +520,22 @@ class AIService:
         {base_prompt}
         
         {custom_prompt}
-        
-        {f"Additional context: {context}" if context else ""}
         """
+        
+        # Add section-specific customization if available
+        if section_config and section_config.get('prompt_description'):
+            prompt += f"""
+        
+**Section-Specific Instructions:**
+{section_config['prompt_description']}
+"""
+        
+        if context:
+            prompt += f"""
+        
+Additional context: {context}
+"""
+        
         return prompt
     
     def _build_note_improvement_prompt(self, note_content: str, note_type: str) -> str:
@@ -548,7 +563,7 @@ class AIService:
         """
         return prompt
     
-    def _build_description_improvement_prompt(self, description: str) -> str:
+    def _build_description_improvement_prompt(self, description: str, section_config: dict = None) -> str:
         """Build prompt for description improvement"""
         base_prompt = self._get_base_prompt()
         
@@ -584,6 +599,17 @@ class AIService:
         - Use Markdown formatting (headings, bold, lists with hyphens)
         - Keep tone professional and informative
         - ALWAYS use hyphens (-) for bullet lists, NEVER asterisks (*)
+        """
+        
+        # Add section-specific customization if available
+        if section_config and section_config.get('prompt_description'):
+            prompt += f"""
+        
+**Section-Specific Instructions:**
+{section_config['prompt_description']}
+"""
+        
+        prompt += """
         
         Return ONLY the improved description content with NO conversational wrapper.
         """
@@ -857,7 +883,7 @@ class AIService:
                     e.id, e.title, e.description, e.created_at,
                     e.intended_end_date, e.actual_end_date, e.status,
                     et.name AS entry_type_name, et.singular_label, et.plural_label,
-                    et.has_sensors, et.show_end_dates
+                    et.has_sensors, et.show_end_dates, et.custom_chat_prompt
                 FROM Entry e
                 JOIN EntryType et ON e.entry_type_id = et.id
                 WHERE e.id = ?
@@ -876,6 +902,7 @@ class AIService:
             context['entry_type_name'] = entry_dict['entry_type_name']
             context['status'] = entry_dict.get('status', 'active')
             context['created_at'] = entry_dict['created_at']
+            context['custom_chat_prompt'] = entry_dict.get('custom_chat_prompt', '')
             
             # Get entry type description for additional context
             cursor.execute('''
@@ -1231,7 +1258,7 @@ class AIService:
         message_lower = message.lower()
         return any(keyword in message_lower for keyword in sensor_keywords)
 
-    def chat_about_entry(self, entry_id: int, user_message: str, is_first_message: bool = False, include_all_notes: bool = False) -> Optional[str]:
+    def chat_about_entry(self, entry_id: int, user_message: str, is_first_message: bool = False, include_all_notes: bool = False, section_config: dict = None, action: str = None) -> Optional[str]:
         """Chat with AI about a specific entry with full context"""
         if not self.is_available():
             return None
@@ -1274,10 +1301,45 @@ class AIService:
                 status=context.get('status', '')
             )
             
+            # Determine which custom prompt to use based on action and section config
+            custom_prompt = ''
+            
+            # Section-level prompts take precedence (from AI Assistant section config)
+            if section_config:
+                # Map action to section config keys
+                action_to_config_key = {
+                    'generate_description': 'prompt_description',
+                    'improve_description': 'prompt_description',
+                    'make_concise': 'prompt_description',
+                    'add_details': 'prompt_description',
+                    'compose_note': 'prompt_note_composer',
+                    'diagram': 'prompt_diagram',
+                    'planning': 'prompt_planning',
+                    None: 'prompt_general_chat'  # Default general chat
+                }
+                
+                config_key = action_to_config_key.get(action, 'prompt_general_chat')
+                custom_prompt = section_config.get(config_key, '').strip()
+            
+            # Fallback to entry type custom prompt if no section-specific prompt
+            if not custom_prompt:
+                custom_prompt = context.get('custom_chat_prompt', '').strip()
+            
             context_prompt = f"""
 {base_prompt}
 
-{formatted_chat_intro}
+{formatted_chat_intro}"""
+
+            # Add customization if available
+            if custom_prompt:
+                source = "Section-Specific" if section_config else "Entry Type-Specific"
+                context_prompt += f"""
+
+**{source} Instructions:**
+{custom_prompt}
+"""
+
+            context_prompt += f"""
 
 **Current Date/Time:** {current_full_str} (Use this for any date/time calculations)
 

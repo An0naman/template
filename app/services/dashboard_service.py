@@ -430,12 +430,13 @@ class DashboardService:
             return {'error': str(e), 'data_points': [], 'sensor_type': sensor_type}
 
     @staticmethod
-    def generate_ai_summary(search_id: int) -> Dict[str, Any]:
+    def generate_ai_summary(search_id: int, widget_config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Generate AI summary for a saved search
         
         Args:
             search_id: ID of the saved search
+            widget_config: Optional widget configuration containing custom_prompt
             
         Returns:
             Dict with AI-generated summary
@@ -572,46 +573,47 @@ class DashboardService:
             note_samples = [{'type': n['type'], 'preview': n['text'][:100]} 
                           for n in context['recent_notes'][:5]] if context['recent_notes'] else []
             
-            # Generate summary using AI with enhanced prompt
-            prompt = f"""You are analyzing a fermentation/brewing project management dashboard. Provide an insightful, actionable summary.
+            # Get configurable prompt from database
+            from app.db import get_system_parameters
+            params = get_system_parameters()
+            prompt_template = params.get('prompt_summary', 
+                'You are analyzing a project management dashboard. Provide an insightful, actionable summary.\n\n'
+                '**Dataset Overview:**\n- Collection: "{search_name}"\n- Total Items: {total_entries}\n'
+                '- Entry Type: {entry_type}\n\n**Current State Breakdown:**\n{state_distribution}\n\n'
+                '**Age Analysis (Top 10 Oldest):**\n{age_data}\n\n**Recent Entries (Sample):**\n{entry_samples}\n\n'
+                '**Sensor Monitoring:**\n{sensor_insights}\n\n**Recent Activity Notes:**\n{note_samples}\n\n'
+                '**Please provide a well-structured summary with:**\n\n1. **📊 Overview & Status**\n'
+                '2. **⏱️ Timeline Insights**\n3. **🔬 Sensor Analysis**\n4. **⚠️ Action Items**\n'
+                '5. **✅ Progress Highlights**\n\nFormat using markdown with emojis for readability.')
+            
+            # Format the prompt with actual data
+            prompt = prompt_template.format(
+                search_name=context['search_name'],
+                total_entries=context['total_entries'],
+                entry_type=entries[0]['entry_type_label'] if entries else 'Unknown',
+                state_distribution=json.dumps(context['state_distribution'], indent=2),
+                age_data=json.dumps(age_data, indent=2) if age_data else 'No age data',
+                entry_samples=json.dumps(entry_samples, indent=2),
+                sensor_insights=json.dumps(context['sensor_insights'], indent=2) if context['sensor_insights'] else 'No sensor data available',
+                note_samples=json.dumps(note_samples, indent=2) if note_samples else 'No recent notes'
+            )
+            
+            # Amalgamate widget-specific custom prompt if provided
+            if widget_config and widget_config.get('custom_prompt'):
+                custom_prompt = widget_config['custom_prompt'].strip()
+                # Get base prompt for additional context
+                base_prompt = params.get('gemini_base_prompt', 
+                    'You are a helpful assistant for a project management application.')
+                
+                # Combine: base context + main prompt + custom instructions
+                prompt = f"""{base_prompt}
 
-**Dataset Overview:**
-- Collection: "{context['search_name']}"
-- Total Items: {context['total_entries']}
-- Entry Type: {entries[0]['entry_type_label'] if entries else 'Unknown'}
+{prompt}
 
-**Current State Breakdown:**
-{json.dumps(context['state_distribution'], indent=2)}
+**Additional Widget-Specific Instructions:**
+{custom_prompt}
 
-**Age Analysis (Top 10 Oldest):**
-{json.dumps(age_data, indent=2) if age_data else 'No age data'}
-
-**Recent Entries (Sample):**
-{json.dumps(entry_samples, indent=2)}
-
-**Sensor Monitoring:**
-{json.dumps(context['sensor_insights'], indent=2) if context['sensor_insights'] else 'No sensor data available'}
-
-**Recent Activity Notes:**
-{json.dumps(note_samples, indent=2) if note_samples else 'No recent notes'}
-
-**Please provide a well-structured summary with:**
-
-1. **📊 Overview & Status** - Current state of the collection, what's active vs inactive
-
-2. **⏱️ Timeline Insights** - Items that may need attention based on age, state duration, or upcoming milestones
-
-3. **🔬 Sensor Analysis** (if available) - Temperature, gravity, or other sensor trends and anomalies
-
-4. **⚠️ Action Items** - Specific recommendations for:
-   - Items needing immediate attention
-   - Scheduled checks or measurements
-   - State transitions that should occur soon
-   - Any concerning patterns
-
-5. **✅ Progress Highlights** - Positive developments or recently completed milestones
-
-Format using markdown with emojis for readability. Keep it concise (4-6 short paragraphs). Be specific with item names when relevant."""
+Please incorporate these specific instructions into your analysis and summary."""
 
             # Use the model's generate_content method
             response = ai_service.model.generate_content(prompt)
@@ -699,7 +701,7 @@ Format using markdown with emojis for readability. Keep it concise (4-6 short pa
                 return result
             
             elif widget_type == 'ai_summary' and data_source_type == 'saved_search':
-                return DashboardService.generate_ai_summary(data_source_id)
+                return DashboardService.generate_ai_summary(data_source_id, config)
             
             elif widget_type == 'stat_card':
                 if data_source_type == 'saved_search':

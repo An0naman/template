@@ -354,6 +354,7 @@
                                     <option value="theme">Theme Generation</option>
                                     <option value="chat">Entry Chat Assistant</option>
                                     <option value="diagram">Diagram Generation</option>
+                                    <option value="summary">Dashboard Summary</option>
                                 </select>
                                 <small class="text-muted">Choose which prompt you want to customize</small>
                             </div>
@@ -468,6 +469,23 @@
                                     <strong>Used in:</strong> Diagram generation in Draw.io sections<br>
                                     <strong>Variables:</strong> None (user request is passed directly)<br>
                                     <strong>Note:</strong> This prompt includes extensive XML structure guidance
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Summary Prompt Editor -->
+                        <div id="promptEditor_summary" class="prompt-editor-section" style="display: none;">
+                            <div class="mb-3">
+                                <label for="promptSummary" class="form-label">
+                                    <i class="fas fa-chart-line me-1"></i>Dashboard Summary Prompt:
+                                </label>
+                                <textarea class="form-control font-monospace" id="promptSummary" rows="15" 
+                                          placeholder="Prompt used when generating dashboard AI summaries">{{ params.prompt_summary if params.prompt_summary else 'You are analyzing a project management dashboard. Provide an insightful, actionable summary.\n\n**Dataset Overview:**\n- Collection: "{search_name}"\n- Total Items: {total_entries}\n- Entry Type: {entry_type}\n\n**Current State Breakdown:**\n{state_distribution}\n\n**Age Analysis (Top 10 Oldest):**\n{age_data}\n\n**Recent Entries (Sample):**\n{entry_samples}\n\n**Sensor Monitoring:**\n{sensor_insights}\n\n**Recent Activity Notes:**\n{note_samples}\n\n**Please provide a well-structured summary with:**\n\n1. **📊 Overview & Status** - Current state of the collection\n2. **⏱️ Timeline Insights** - Items that may need attention\n3. **🔬 Sensor Analysis** - Trends and anomalies if available\n4. **⚠️ Action Items** - Specific recommendations\n5. **✅ Progress Highlights** - Recent milestones\n\nFormat using markdown with emojis for readability. Keep it concise (4-6 short paragraphs).' }}</textarea>
+                                <small class="text-muted">
+                                    <strong>Purpose:</strong> Controls how AI summarizes dashboard widget data<br>
+                                    <strong>Used in:</strong> Dashboard AI Summary widgets<br>
+                                    <strong>Variables:</strong> <code>{search_name}</code>, <code>{total_entries}</code>, <code>{entry_type}</code>, <code>{state_distribution}</code>, <code>{age_data}</code>, <code>{entry_samples}</code>, <code>{sensor_insights}</code>, <code>{note_samples}</code><br>
+                                    <strong>Note:</strong> This prompt analyzes collections and provides actionable insights
                                 </small>
                             </div>
                         </div>
@@ -1528,7 +1546,8 @@
                 prompt_sql: document.getElementById('promptSql').value,
                 prompt_theme: document.getElementById('promptTheme').value,
                 prompt_chat: document.getElementById('promptChat').value,
-                prompt_diagram: document.getElementById('promptDiagram').value
+                prompt_diagram: document.getElementById('promptDiagram').value,
+                prompt_summary: document.getElementById('promptSummary').value
             };
             
             try {

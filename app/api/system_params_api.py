@@ -22,6 +22,22 @@ def get_db():
 def api_get_system_params():
     return jsonify(get_system_parameters())
 
+@system_params_api_bp.route('/system_params/<param_name>', methods=['GET'])
+def api_get_single_param(param_name):
+    """Get a single system parameter by name"""
+    try:
+        params = get_system_parameters()
+        if param_name in params:
+            return jsonify({'value': params[param_name]}), 200
+        else:
+            # Return empty structure for custom_note_types if it doesn't exist yet
+            if param_name == 'custom_note_types':
+                return jsonify({'value': '{"custom_types":[],"default_prompts":{}}'}), 200
+            return jsonify({'error': 'Parameter not found'}), 404
+    except Exception as e:
+        logger.error(f"Error fetching parameter {param_name}: {e}", exc_info=True)
+        return jsonify({'error': 'An internal error occurred.'}), 500
+
 @system_params_api_bp.route('/system_params', methods=['POST', 'PATCH'])
 def api_update_system_params():
     data = request.json
@@ -37,7 +53,7 @@ def api_update_system_params():
             'project_logo_path', 'label_font_size', 'label_include_qr_code', 'label_include_logo',
             'label_qr_code_prefix', 'allowed_file_types', 'max_file_size', 'custom_note_types',
             'gemini_api_key', 'groq_api_key', 'gemini_model_name', 'groq_model_name', 'gemini_base_prompt',
-            'prompt_description', 'prompt_note', 'prompt_sql', 'prompt_theme', 'prompt_chat', 'prompt_diagram',
+            'prompt_description', 'prompt_note', 'prompt_sql', 'prompt_theme', 'prompt_chat', 'prompt_diagram', 'prompt_summary',
             'default_search_term', 'default_type_filter', 'default_status_filter', 
             'default_date_range', 'default_sort_by', 'default_content_display', 'default_result_limit'
         ]
@@ -45,7 +61,7 @@ def api_update_system_params():
         for param_name, param_value in data.items():
             # Track if AI-related parameters are being updated
             if param_name in ['gemini_api_key', 'groq_api_key', 'gemini_model_name', 'groq_model_name', 'gemini_base_prompt', 
-                             'prompt_description', 'prompt_note', 'prompt_sql', 'prompt_theme', 'prompt_chat', 'prompt_diagram']:
+                             'prompt_description', 'prompt_note', 'prompt_sql', 'prompt_theme', 'prompt_chat', 'prompt_diagram', 'prompt_summary']:
                 ai_params_updated = True
             
             # Allow any parameter in the whitelist OR any parameter starting with 'label_'

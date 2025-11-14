@@ -357,6 +357,25 @@
                             </div>
                         </div>
 
+                        <!-- AI Summary Widget-Specific Prompt -->
+                        <div id="aiSummaryPromptConfig" style="display: none;">
+                            <hr>
+                            <h6><i class="fas fa-magic me-2"></i>AI Customization</h6>
+                            <div class="mb-3">
+                                <label for="widgetCustomPrompt" class="form-label">
+                                    Widget-Specific Prompt Instructions
+                                    <small class="text-muted">(Optional)</small>
+                                </label>
+                                <textarea class="form-control font-monospace" id="widgetCustomPrompt" rows="4" 
+                                          placeholder="Add custom instructions to focus this summary (e.g., 'Focus on fermentation temperature trends and flag any batches outside 18-22°C range')"></textarea>
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    This will be combined with the base dashboard summary prompt to customize the AI output for this specific widget.
+                                    Use this to focus on specific aspects, add domain knowledge, or request particular formats.
+                                </small>
+                            </div>
+                        </div>
+
                         <hr>
                         <h6>Layout</h6>
                         <div class="row">

@@ -58,6 +58,8 @@ def init_db():
                 cursor.execute("ALTER TABLE EntryType ADD COLUMN show_labels_section BOOLEAN NOT NULL DEFAULT 1")
             if 'show_end_dates' not in columns:
                 cursor.execute("ALTER TABLE EntryType ADD COLUMN show_end_dates BOOLEAN NOT NULL DEFAULT 0")
+            if 'custom_chat_prompt' not in columns:
+                cursor.execute("ALTER TABLE EntryType ADD COLUMN custom_chat_prompt TEXT DEFAULT ''")
         except Exception as e:
             # Columns might already exist, ignore error
             pass
@@ -789,7 +791,7 @@ def get_system_parameters():
                 'sensor_types': '',  # Start with empty sensor types - let devices register them dynamically
                 'allowed_file_types': 'txt,pdf,png,jpg,jpeg,gif,webp,svg,doc,docx,xls,xlsx,ppt,pptx,mp4,avi,mov,wmv,flv,webm,mkv,mp3,wav,flac,aac,ogg,zip,rar,7z,tar,gz',
                 'max_file_size': '50',
-                'custom_note_types': '[]',
+                'custom_note_types': '{"custom_types":[],"default_prompts":{}}',
                 'gemini_api_key': '',  # Google Gemini API key for AI features
                 'gemini_model_name': 'gemini-1.5-flash',  # Google Gemini model name
                 'groq_model_name': 'llama-3.3-70b-versatile',  # Groq model name for diagram generation
@@ -799,7 +801,8 @@ def get_system_parameters():
                 'prompt_sql': 'Task: Generate a SQL query based on this description: "{description}"\n\nRequirements:\n- Generate valid SQL syntax\n- Use appropriate SELECT, WHERE, JOIN, GROUP BY, ORDER BY clauses as needed\n- Include comments for complex parts\n- Optimize for readability\n- Return only the SQL query, properly formatted',
                 'prompt_theme': 'You are a theme generation system. Your ONLY job is to generate theme color JSON based on user requests.\n\nYou must ALWAYS respond with ONLY valid JSON in the exact format specified.\n\nUser request: "{user_message}"\n\nGenerate a complete theme with colors for both light and dark modes.',
                 'prompt_chat': 'You are an AI assistant helping with {project_desc}.\n\nCurrent Date/Time: {current_datetime}\n\nYou are discussing Entry: {title} (Type: {entry_type}, Status: {status})\n\nProvide helpful, contextual responses based on the entry details and notes available.',
-                'prompt_diagram': 'You are an expert at creating Draw.io diagrams using mxGraph XML format for educational and documentation purposes.\n\nContext: You are helping users create technical diagrams for project documentation, learning materials, and system design.\n\nYour Task: Generate valid mxGraph XML based on user requests. Be creative but ensure:\n1. All cell IDs are unique\n2. Proper parent-child relationships\n3. Reasonable positioning and sizing\n4. Appropriate colors and styles\n5. Clear, readable labels'
+                'prompt_diagram': 'You are an expert at creating Draw.io diagrams using mxGraph XML format for educational and documentation purposes.\n\nContext: You are helping users create technical diagrams for project documentation, learning materials, and system design.\n\nYour Task: Generate valid mxGraph XML based on user requests. Be creative but ensure:\n1. All cell IDs are unique\n2. Proper parent-child relationships\n3. Reasonable positioning and sizing\n4. Appropriate colors and styles\n5. Clear, readable labels',
+                'prompt_summary': 'You are analyzing a project management dashboard. Provide an insightful, actionable summary.\n\n**Dataset Overview:**\n- Collection: "{search_name}"\n- Total Items: {total_entries}\n- Entry Type: {entry_type}\n\n**Current State Breakdown:**\n{state_distribution}\n\n**Age Analysis (Top 10 Oldest):**\n{age_data}\n\n**Recent Entries (Sample):**\n{entry_samples}\n\n**Sensor Monitoring:**\n{sensor_insights}\n\n**Recent Activity Notes:**\n{note_samples}\n\n**Please provide a well-structured summary with:**\n\n1. **📊 Overview & Status** - Current state of the collection, what\'s active vs inactive\n\n2. **⏱️ Timeline Insights** - Items that may need attention based on age, state duration, or upcoming milestones\n\n3. **🔬 Sensor Analysis** (if available) - Temperature, gravity, or other sensor trends and anomalies\n\n4. **⚠️ Action Items** - Specific recommendations for:\n   - Items needing immediate attention\n   - Scheduled checks or measurements\n   - State transitions that should occur soon\n   - Any concerning patterns\n\n5. **✅ Progress Highlights** - Positive developments or recently completed milestones\n\nFormat using markdown with emojis for readability. Keep it concise (4-6 short paragraphs). Be specific with item names when relevant.'
             }
             for name, value in default_params.items():
                 try:
