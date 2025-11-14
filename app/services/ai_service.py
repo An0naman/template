@@ -70,7 +70,19 @@ class AIService:
             
             if config_changed or not self.is_configured:
                 genai.configure(api_key=api_key)
-                self.model = genai.GenerativeModel(model_name)
+                
+                # Configure with timeout to prevent hanging
+                generation_config = {
+                    "temperature": 0.7,
+                    "top_p": 0.95,
+                    "top_k": 40,
+                    "max_output_tokens": 8192,
+                }
+                
+                self.model = genai.GenerativeModel(
+                    model_name=model_name,
+                    generation_config=generation_config
+                )
                 self.is_configured = True
                 self._last_api_key = api_key
                 self._last_model_name = model_name
@@ -205,11 +217,19 @@ class AIService:
         
         try:
             prompt = self._build_description_prompt(title, entry_type, context)
-            response = self.model.generate_content(prompt)
+            
+            # Add timeout to prevent hanging (30 seconds)
+            import google.generativeai.types as genai_types
+            request_options = genai_types.RequestOptions(timeout=30)
+            
+            response = self.model.generate_content(
+                prompt,
+                request_options=request_options
+            )
             
             if response and response.text:
                 return response.text.strip()
-            
+                
         except Exception as e:
             logger.error(f"Failed to generate description: {str(e)}")
         
