@@ -792,7 +792,14 @@ def get_system_parameters():
                 'custom_note_types': '[]',
                 'gemini_api_key': '',  # Google Gemini API key for AI features
                 'gemini_model_name': 'gemini-1.5-flash',  # Google Gemini model name
-                'gemini_base_prompt': 'You are a helpful assistant for a project management application. Please provide clear, concise, and well-structured responses.'  # Base prompt for AI context
+                'groq_model_name': 'llama-3.3-70b-versatile',  # Groq model name for diagram generation
+                'gemini_base_prompt': 'You are a helpful assistant for a project management application. Please provide clear, concise, and well-structured responses.',  # Base prompt for AI context
+                'prompt_description': 'Task: Generate a concise, informative description for a {entry_type} named "{title}".\n\nRequirements:\n- Be factual and informative\n- Include relevant details for a database/inventory system\n- Use professional, neutral tone\n- Use Markdown formatting when helpful\n- Use hyphens (-) for bullet lists\n\nReturn ONLY the description content.',
+                'prompt_note': 'Task: Generate content for a {note_type} note.\n\nEntry Title: {title}\nEntry Type: {entry_type}\nNote Type: {note_type}\n\nGuidelines:\n- Create relevant and useful content appropriate for a {note_type} note\n- Make it specific to the entry\n- Keep the tone and format appropriate for the note type\n- Be concise but informative',
+                'prompt_sql': 'Task: Generate a SQL query based on this description: "{description}"\n\nRequirements:\n- Generate valid SQL syntax\n- Use appropriate SELECT, WHERE, JOIN, GROUP BY, ORDER BY clauses as needed\n- Include comments for complex parts\n- Optimize for readability\n- Return only the SQL query, properly formatted',
+                'prompt_theme': 'You are a theme generation system. Your ONLY job is to generate theme color JSON based on user requests.\n\nYou must ALWAYS respond with ONLY valid JSON in the exact format specified.\n\nUser request: "{user_message}"\n\nGenerate a complete theme with colors for both light and dark modes.',
+                'prompt_chat': 'You are an AI assistant helping with {project_desc}.\n\nCurrent Date/Time: {current_datetime}\n\nYou are discussing Entry: {title} (Type: {entry_type}, Status: {status})\n\nProvide helpful, contextual responses based on the entry details and notes available.',
+                'prompt_diagram': 'You are an expert at creating Draw.io diagrams using mxGraph XML format for educational and documentation purposes.\n\nContext: You are helping users create technical diagrams for project documentation, learning materials, and system design.\n\nYour Task: Generate valid mxGraph XML based on user requests. Be creative but ensure:\n1. All cell IDs are unique\n2. Proper parent-child relationships\n3. Reasonable positioning and sizing\n4. Appropriate colors and styles\n5. Clear, readable labels'
             }
             for name, value in default_params.items():
                 try:

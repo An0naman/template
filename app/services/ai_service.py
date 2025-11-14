@@ -22,6 +22,7 @@ class AIService:
         self._last_api_key = None
         self._last_model_name = None
         self.groq_client = None
+        self.groq_model_name = 'llama-3.3-70b-versatile'  # Default Groq model
         self.groq_configured = False
         self._configure()
         self._configure_groq()
@@ -98,6 +99,7 @@ class AIService:
         try:
             # Check environment variable first, then system parameters
             api_key = os.getenv('GROQ_API_KEY')
+            model_name = 'llama-3.3-70b-versatile'  # Default model
             
             if not api_key:
                 try:
@@ -106,17 +108,29 @@ class AIService:
                         from ..db import get_system_parameters
                         params = get_system_parameters()
                         api_key = params.get('groq_api_key', '')
+                        model_name = params.get('groq_model_name', 'llama-3.3-70b-versatile')
                     else:
                         logger.debug("No app context available for Groq configuration, will retry later")
                 except Exception as e:
                     logger.debug(f"Could not access system parameters for Groq: {e}")
+            else:
+                # If API key from environment, still try to get model name from system parameters
+                try:
+                    from flask import has_app_context
+                    if has_app_context():
+                        from ..db import get_system_parameters
+                        params = get_system_parameters()
+                        model_name = params.get('groq_model_name', 'llama-3.3-70b-versatile')
+                except Exception as e:
+                    logger.debug(f"Could not access system parameters for Groq model name: {e}")
             
             if api_key:
                 try:
                     from groq import Groq
                     self.groq_client = Groq(api_key=api_key)
+                    self.groq_model_name = model_name
                     self.groq_configured = True
-                    logger.info("Groq AI successfully configured for diagram generation")
+                    logger.info(f"Groq AI successfully configured for diagram generation with model: {model_name}")
                 except ImportError:
                     logger.warning("Groq package not installed. Install with: pip install groq")
                     self.groq_configured = False
@@ -482,37 +496,30 @@ class AIService:
         """Build prompt for description generation"""
         base_prompt = self._get_base_prompt()
         
+        # Get custom prompt from system parameters or use default
+        try:
+            from ..db import get_system_parameters
+            params = get_system_parameters()
+            prompt_template = params.get('prompt_description', '')
+            if not prompt_template:
+                prompt_template = 'Task: Generate a concise, informative description for a {entry_type} named "{title}".\n\nRequirements:\n- Be factual and informative\n- Include relevant details for a database/inventory system\n- Use professional, neutral tone\n- Use Markdown formatting when helpful\n- Use hyphens (-) for bullet lists\n\nReturn ONLY the description content.'
+        except Exception as e:
+            logger.warning(f"Could not load custom description prompt: {e}")
+            prompt_template = 'Task: Generate a concise, informative description for a {entry_type} named "{title}".\n\nRequirements:\n- Be factual and informative\n- Include relevant details for a database/inventory system\n- Use professional, neutral tone\n- Use Markdown formatting when helpful\n- Use hyphens (-) for bullet lists\n\nReturn ONLY the description content.'
+        
+        # Replace template variables
+        custom_prompt = prompt_template.format(
+            title=title,
+            entry_type=entry_type,
+            context=context if context else ""
+        )
+        
         prompt = f"""
         {base_prompt}
         
-        Task: Generate a concise, informative description for a {entry_type} named "{title}".
+        {custom_prompt}
         
         {f"Additional context: {context}" if context else ""}
-        
-        CRITICAL FORMATTING RULES (MUST FOLLOW):
-        1. Use HYPHENS (-) for ALL bullet points - NEVER use asterisks (*)
-        2. NO conversational text - return ONLY the description content
-        3. NO introductory phrases like "Here's a description" or "This is"
-        4. Start directly with the content
-        
-        Example of CORRECT bullet formatting:
-        - First point
-        - Second point
-          - Sub-point (indented with hyphen)
-        
-        Example of INCORRECT (DO NOT DO THIS):
-        * First point (WRONG - uses asterisk)
-        • First point (WRONG - uses bullet character)
-        Here's a description: ... (WRONG - conversational intro)
-        
-        Requirements:
-        - Be factual and informative
-        - Include relevant details for a database/inventory system
-        - Use professional, neutral tone
-        - Use Markdown formatting when helpful (headings, bold, lists)
-        - ALWAYS use hyphens (-) for bullet lists
-        
-        Return ONLY the description content with NO conversational wrapper text.
         """
         return prompt
     
@@ -586,31 +593,33 @@ class AIService:
         """Build prompt for note generation with note type-specific guidance"""
         base_prompt = self._get_note_type_base_prompt(note_type)
         
+        # Get custom prompt from system parameters or use default
+        try:
+            from ..db import get_system_parameters
+            params = get_system_parameters()
+            prompt_template = params.get('prompt_note', '')
+            if not prompt_template:
+                prompt_template = 'Task: Generate content for a {note_type} note.\n\nEntry Title: {title}\nEntry Type: {entry_type}\nNote Type: {note_type}\n\nGuidelines:\n- Create relevant and useful content appropriate for a {note_type} note\n- Make it specific to the entry\n- Keep the tone and format appropriate for the note type\n- Be concise but informative'
+        except Exception as e:
+            logger.warning(f"Could not load custom note prompt: {e}")
+            prompt_template = 'Task: Generate content for a {note_type} note.\n\nEntry Title: {title}\nEntry Type: {entry_type}\nNote Type: {note_type}\n\nGuidelines:\n- Create relevant and useful content appropriate for a {note_type} note\n- Make it specific to the entry\n- Keep the tone and format appropriate for the note type\n- Be concise but informative'
+        
+        # Replace template variables
+        custom_prompt = prompt_template.format(
+            title=title,
+            entry_type=entry_type,
+            note_type=note_type,
+            context=context if context else ""
+        )
+        
         context_section = ""
         if context:
-            context_section = f"""
-        
-        Additional context:
-        {context}
-        """
+            context_section = f"\n\nAdditional context:\n{context}"
         
         prompt = f"""
         {base_prompt}
         
-        Task: Generate content for a {note_type} note based on the following information:
-        
-        Entry Title: {title}
-        Entry Type: {entry_type}
-        Note Type: {note_type}{context_section}
-        
-        Guidelines:
-        - Create relevant and useful content appropriate for a {note_type} note
-        - Make it specific to the entry "{title}" of type "{entry_type}"
-        - Keep the tone and format appropriate for the note type
-        - Be concise but informative
-        - If context is provided, build upon it rather than repeating it
-        
-        Generate the note content:
+        {custom_prompt}{context_section}
         """
         return prompt
     
@@ -695,10 +704,21 @@ class AIService:
                 content = msg.get('content', '')
                 conversation_context += f"{role.title()}: {content}\n"
         
+        # Get custom prompt from system parameters or use default
+        try:
+            from ..db import get_system_parameters
+            params = get_system_parameters()
+            custom_theme_intro = params.get('prompt_theme', '')
+            if not custom_theme_intro:
+                custom_theme_intro = 'You are a theme generation system. Your ONLY job is to generate theme color JSON based on user requests.'
+        except Exception as e:
+            logger.warning(f"Could not load custom theme prompt: {e}")
+            custom_theme_intro = 'You are a theme generation system. Your ONLY job is to generate theme color JSON based on user requests.'
+        
         prompt = f"""
         {base_prompt}
         
-        You are a theme generation system. Your ONLY job is to generate theme color JSON based on user requests.
+        {custom_theme_intro}
         
         {conversation_context}
         {current_theme_info}
@@ -788,21 +808,29 @@ class AIService:
         """Build prompt for SQL generation"""
         base_prompt = self._get_base_prompt()
         
+        # Get custom prompt from system parameters or use default
+        try:
+            from ..db import get_system_parameters
+            params = get_system_parameters()
+            prompt_template = params.get('prompt_sql', '')
+            if not prompt_template:
+                prompt_template = 'Task: Generate a SQL query based on this description: "{description}"\n\nRequirements:\n- Generate valid SQL syntax\n- Use appropriate SELECT, WHERE, JOIN, GROUP BY, ORDER BY clauses as needed\n- Include comments for complex parts\n- Optimize for readability\n- Return only the SQL query, properly formatted'
+        except Exception as e:
+            logger.warning(f"Could not load custom SQL prompt: {e}")
+            prompt_template = 'Task: Generate a SQL query based on this description: "{description}"\n\nRequirements:\n- Generate valid SQL syntax\n- Use appropriate SELECT, WHERE, JOIN, GROUP BY, ORDER BY clauses as needed\n- Include comments for complex parts\n- Optimize for readability\n- Return only the SQL query, properly formatted'
+        
+        # Replace template variables
+        custom_prompt = prompt_template.format(
+            description=description,
+            table_info=table_info if table_info else ""
+        )
+        
         prompt = f"""
         {base_prompt}
         
-        Task: Generate a SQL query based on this description: "{description}"
+        {custom_prompt}
         
         {f"Available tables and columns: {table_info}" if table_info else ""}
-        
-        Requirements:
-        - Generate valid SQL syntax
-        - Use appropriate SELECT, WHERE, JOIN, GROUP BY, ORDER BY clauses as needed
-        - Include comments for complex parts
-        - Optimize for readability
-        - Return only the SQL query, properly formatted
-        
-        If the request is unclear or lacks sufficient information, generate the best possible query based on common database patterns.
         """
         return prompt
 
@@ -1226,10 +1254,30 @@ class AIService:
             current_time_str = current_datetime.strftime('%H:%M:%S')
             current_full_str = current_datetime.strftime('%Y-%m-%d %H:%M:%S')
             
+            # Get custom prompt from system parameters or use default
+            try:
+                from ..db import get_system_parameters
+                params = get_system_parameters()
+                chat_template = params.get('prompt_chat', '')
+                if not chat_template:
+                    chat_template = 'You are an AI assistant helping with {project_desc}.'
+            except Exception as e:
+                logger.warning(f"Could not load custom chat prompt: {e}")
+                chat_template = 'You are an AI assistant helping with {project_desc}.'
+            
+            # Format the chat template with available variables
+            formatted_chat_intro = chat_template.format(
+                project_desc=project_desc,
+                current_datetime=current_full_str,
+                title=context.get('title', ''),
+                entry_type=context.get('entry_type', ''),
+                status=context.get('status', '')
+            )
+            
             context_prompt = f"""
 {base_prompt}
 
-You are an AI assistant helping with {project_desc}.
+{formatted_chat_intro}
 
 **Current Date/Time:** {current_full_str} (Use this for any date/time calculations)
 
@@ -1981,13 +2029,13 @@ Format your response as:
             
             logger.info(f"Generating diagram for request: {user_request[:100]}...")
             
-            # Call Groq API
+            # Call Groq API with configured model
             chat_completion = self.groq_client.chat.completions.create(
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                model="llama-3.3-70b-versatile",  # Updated: llama-3.1 decommissioned
+                model=self.groq_model_name,  # Use configured model
                 temperature=0.7,
                 max_tokens=4096
             )
@@ -2017,7 +2065,18 @@ Format your response as:
     
     def _build_diagram_system_prompt(self) -> str:
         """Build system prompt for diagram generation with mxGraph XML format guide"""
-        return """You are an expert at creating Draw.io diagrams using mxGraph XML format for educational and documentation purposes.
+        # Get custom prompt from system parameters or use default
+        try:
+            from ..db import get_system_parameters
+            params = get_system_parameters()
+            custom_intro = params.get('prompt_diagram', '')
+            if not custom_intro:
+                custom_intro = 'You are an expert at creating Draw.io diagrams using mxGraph XML format for educational and documentation purposes.'
+        except Exception as e:
+            logger.warning(f"Could not load custom diagram prompt: {e}")
+            custom_intro = 'You are an expert at creating Draw.io diagrams using mxGraph XML format for educational and documentation purposes.'
+        
+        return f"""{custom_intro}
 
 **Context:** You are helping users create technical diagrams for project documentation, learning materials, and system design. All diagrams are for informational and educational purposes only.
 

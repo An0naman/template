@@ -160,45 +160,49 @@
                     <i class="fas fa-brain me-2"></i>AI Integration Settings
                 </div>
                 <div class="mb-3">
-                    <p class="text-muted">Configure Google Gemini AI for writing assistance with descriptions, notes, and SQL queries.</p>
+                    <p class="text-muted">Configure AI services for writing assistance with descriptions, notes, SQL queries, and diagrams.</p>
                 </div>
+                
+                <!-- AI Configuration Tabs -->
+                <ul class="nav nav-tabs mb-3" id="aiConfigTabs" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active" 
+                                id="services-tab" 
+                                data-bs-toggle="tab" 
+                                data-bs-target="#services-panel" 
+                                type="button" 
+                                role="tab"
+                                aria-controls="services-panel"
+                                aria-selected="true">
+                            <i class="fas fa-cogs"></i> AI Services
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" 
+                                id="prompts-tab" 
+                                data-bs-toggle="tab" 
+                                data-bs-target="#prompts-panel" 
+                                type="button" 
+                                role="tab"
+                                aria-controls="prompts-panel"
+                                aria-selected="false">
+                            <i class="fas fa-comment-dots"></i> System Prompts
+                        </button>
+                    </li>
+                </ul>
+
                 <form id="aiSettingsForm">
-                    <div class="row">
-                        <div class="col-md-8">
-                            <div class="mb-3">
-                                <label for="geminiApiKey" class="form-label">
-                                    <i class="fas fa-key me-1"></i>Google Gemini API Key:
-                                </label>
-                                <input type="password" class="form-control" id="geminiApiKey" 
-                                       value="{{ params.gemini_api_key if params.gemini_api_key else '' }}" 
-                                       placeholder="Enter your Google Gemini API key">
-                                <small class="text-muted">
-                                    Get your API key from 
-                                    <a href="https://makersuite.google.com/app/apikey" target="_blank" class="text-decoration-none">
-                                        Google AI Studio <i class="fas fa-external-link-alt"></i>
-                                    </a>
-                                </small>
-                            </div>
-                            <div class="mb-3">
-                                <label for="groqApiKey" class="form-label">
-                                    <i class="fas fa-key me-1"></i>Groq API Key (Optional):
-                                </label>
-                                <input type="password" class="form-control" id="groqApiKey" 
-                                       value="{{ params.groq_api_key if params.groq_api_key else '' }}" 
-                                       placeholder="Enter your Groq API key">
-                                <small class="text-muted">
-                                    Get your free API key from 
-                                    <a href="https://console.groq.com" target="_blank" class="text-decoration-none">
-                                        Groq Console <i class="fas fa-external-link-alt"></i>
-                                    </a>
-                                    <br>
-                                    <strong>Recommended for diagram generation:</strong> Groq has no rate limits and no safety filters for technical content.
-                                </small>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label class="form-label">AI Service Status:</label>
+                <div class="tab-content" id="aiConfigTabContent">
+                    <!-- AI Services Tab -->
+                    <div class="tab-pane fade show active" 
+                         id="services-panel" 
+                         role="tabpanel"
+                         aria-labelledby="services-tab">
+                        
+                        <!-- AI Services Status -->
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <label class="form-label">AI Services Status:</label>
                                 <div id="aiServiceStatus" class="mt-2">
                                     <span class="badge bg-secondary">
                                         <i class="fas fa-spinner fa-spin me-1"></i>Checking...
@@ -206,48 +210,278 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="geminiModelName" class="form-label">
-                                    <i class="fas fa-brain me-1"></i>Gemini Model:
+
+                        <!-- AI Service Selector -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="aiServiceSelector" class="form-label">
+                                    <i class="fas fa-robot me-1"></i>Select AI Service to Configure:
                                 </label>
-                                <select class="form-select" id="geminiModelName">
-                                    <option value="">Loading models...</option>
+                                <select class="form-select" id="aiServiceSelector" onchange="switchAiServiceSettings()">
+                                    <option value="gemini">Google Gemini (Primary AI Service)</option>
+                                    <option value="groq">Groq (Diagram Generation - Optional)</option>
                                 </select>
-                                <small class="text-muted" id="modelDescription">
-                                    Select a Gemini AI model for content generation
-                                </small>
-                                <div class="mt-1">
+                                <small class="text-muted">Choose which AI service you want to configure</small>
+                            </div>
+                        </div>
+
+                    <!-- Gemini Settings -->
+                    <div id="geminiSettings" class="ai-service-settings">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Google Gemini</strong> is the primary AI service for content generation, writing assistance, and natural language processing.
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <label for="geminiApiKey" class="form-label">
+                                        <i class="fas fa-key me-1"></i>Google Gemini API Key:
+                                    </label>
+                                    <input type="password" class="form-control" id="geminiApiKey" 
+                                           value="{{ params.gemini_api_key if params.gemini_api_key else '' }}" 
+                                           placeholder="Enter your Google Gemini API key">
                                     <small class="text-muted">
-                                        <a href="https://ai.google.dev/gemini-api/docs/models/gemini" target="_blank" class="text-decoration-none">
-                                            View all models documentation <i class="fas fa-external-link-alt"></i>
+                                        Get your API key from 
+                                        <a href="https://makersuite.google.com/app/apikey" target="_blank" class="text-decoration-none">
+                                            Google AI Studio <i class="fas fa-external-link-alt"></i>
                                         </a>
                                     </small>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <!-- Reserved for future AI settings -->
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="geminiModelName" class="form-label">
+                                        <i class="fas fa-brain me-1"></i>Gemini Model:
+                                    </label>
+                                    <select class="form-select" id="geminiModelName">
+                                        <option value="">Loading models...</option>
+                                    </select>
+                                    <small class="text-muted" id="modelDescription">
+                                        Select a Gemini AI model for content generation
+                                    </small>
+                                    <div class="mt-1">
+                                        <small class="text-muted">
+                                            <a href="https://ai.google.dev/gemini-api/docs/models/gemini" target="_blank" class="text-decoration-none">
+                                                View all models documentation <i class="fas fa-external-link-alt"></i>
+                                            </a>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                    </div>
+
+                    <!-- Groq Settings -->
+                    <div id="groqSettings" class="ai-service-settings" style="display: none;">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Groq</strong> is recommended for diagram generation. It has no rate limits and no safety filters for technical content, making it ideal for generating Draw.io diagrams.
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <label for="groqApiKey" class="form-label">
+                                        <i class="fas fa-key me-1"></i>Groq API Key:
+                                    </label>
+                                    <input type="password" class="form-control" id="groqApiKey" 
+                                           value="{{ params.groq_api_key if params.groq_api_key else '' }}" 
+                                           placeholder="Enter your Groq API key">
+                                    <small class="text-muted">
+                                        Get your free API key from 
+                                        <a href="https://console.groq.com" target="_blank" class="text-decoration-none">
+                                            Groq Console <i class="fas fa-external-link-alt"></i>
+                                        </a>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="groqModelName" class="form-label">
+                                        <i class="fas fa-brain me-1"></i>Groq Model:
+                                    </label>
+                                    <select class="form-select" id="groqModelName">
+                                        <option value="llama-3.3-70b-versatile" {{ 'selected' if params.groq_model_name == 'llama-3.3-70b-versatile' or not params.groq_model_name else '' }}>Llama 3.3 70B Versatile (Recommended)</option>
+                                        <option value="llama-3.1-70b-versatile" {{ 'selected' if params.groq_model_name == 'llama-3.1-70b-versatile' else '' }}>Llama 3.1 70B Versatile</option>
+                                        <option value="llama-3.1-8b-instant" {{ 'selected' if params.groq_model_name == 'llama-3.1-8b-instant' else '' }}>Llama 3.1 8B Instant (Fastest)</option>
+                                        <option value="mixtral-8x7b-32768" {{ 'selected' if params.groq_model_name == 'mixtral-8x7b-32768' else '' }}>Mixtral 8x7B (Long Context)</option>
+                                        <option value="gemma2-9b-it" {{ 'selected' if params.groq_model_name == 'gemma2-9b-it' else '' }}>Gemma 2 9B</option>
+                                    </select>
+                                    <small class="text-muted" id="groqModelDescription">
+                                        Most capable model for complex diagram generation
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Note:</strong> If Groq is not configured, diagram generation will fall back to using Gemini, which may have safety filter issues with technical diagrams.
                         </div>
                     </div>
-                    <div class="row">
-                        <div class="col-md-12">
+
+                    </div> <!-- End AI Services panel -->
+
+                    <!-- System Prompts Tab -->
+                    <div class="tab-pane fade" 
+                         id="prompts-panel" 
+                         role="tabpanel"
+                         aria-labelledby="prompts-tab">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>System Prompts</strong> control how the AI behaves in different contexts. Customize these to fine-tune AI responses for your specific use case.
+                        </div>
+                        
+                        <!-- Prompt Selector -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="promptSelector" class="form-label">
+                                    <i class="fas fa-list me-1"></i>Select Prompt to Edit:
+                                </label>
+                                <select class="form-select" id="promptSelector" onchange="switchPromptEditor()">
+                                    <option value="base">Base Prompt (General Context)</option>
+                                    <option value="description">Description Generation</option>
+                                    <option value="note">Note Generation</option>
+                                    <option value="sql">SQL Query Generation</option>
+                                    <option value="theme">Theme Generation</option>
+                                    <option value="chat">Entry Chat Assistant</option>
+                                    <option value="diagram">Diagram Generation</option>
+                                </select>
+                                <small class="text-muted">Choose which prompt you want to customize</small>
+                            </div>
+                        </div>
+
+                        <!-- Base Prompt Editor -->
+                        <div id="promptEditor_base" class="prompt-editor-section">
                             <div class="mb-3">
                                 <label for="geminiBasePrompt" class="form-label">
-                                    <i class="fas fa-comment-alt me-1"></i>Base Prompt (Context):
+                                    <i class="fas fa-comment-alt me-1"></i>Base Prompt (General Context):
                                 </label>
-                                <textarea class="form-control" id="geminiBasePrompt" rows="3" 
+                                <textarea class="form-control font-monospace" id="geminiBasePrompt" rows="6" 
                                           placeholder="Provide context or instructions that will be included with every AI request">{{ params.gemini_base_prompt if params.gemini_base_prompt else 'You are a helpful assistant for a project management application. Please provide clear, concise, and well-structured responses.' }}</textarea>
                                 <small class="text-muted">
-                                    This text will be prepended to all AI requests to provide consistent context and instructions.
-                                    <br>Example: "You are an expert in [your domain]. Always respond with practical, actionable advice."
+                                    <strong>Purpose:</strong> This is prepended to all AI requests to provide consistent context.<br>
+                                    <strong>Used in:</strong> All AI functions<br>
+                                    <strong>Variables:</strong> None (this is the foundation for all other prompts)
                                 </small>
                             </div>
                         </div>
+
+                        <!-- Description Prompt Editor -->
+                        <div id="promptEditor_description" class="prompt-editor-section" style="display: none;">
+                            <div class="mb-3">
+                                <label for="promptDescription" class="form-label">
+                                    <i class="fas fa-align-left me-1"></i>Description Generation Prompt:
+                                </label>
+                                <textarea class="form-control font-monospace" id="promptDescription" rows="8" 
+                                          placeholder="Prompt used when generating entry descriptions">{{ params.prompt_description if params.prompt_description else 'Task: Generate a concise, informative description for a {entry_type} named "{title}".\n\nRequirements:\n- Be factual and informative\n- Include relevant details for a database/inventory system\n- Use professional, neutral tone\n- Use Markdown formatting when helpful\n- Use hyphens (-) for bullet lists\n\nReturn ONLY the description content.' }}</textarea>
+                                <small class="text-muted">
+                                    <strong>Purpose:</strong> Controls how AI generates descriptions for entries<br>
+                                    <strong>Used in:</strong> "Generate with AI" button on entry descriptions<br>
+                                    <strong>Variables:</strong> <code>{title}</code>, <code>{entry_type}</code>, <code>{context}</code>
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <!-- Note Prompt Editor -->
+                        <div id="promptEditor_note" class="prompt-editor-section" style="display: none;">
+                            <div class="mb-3">
+                                <label for="promptNote" class="form-label">
+                                    <i class="fas fa-sticky-note me-1"></i>Note Generation Prompt:
+                                </label>
+                                <textarea class="form-control font-monospace" id="promptNote" rows="8" 
+                                          placeholder="Prompt used when generating notes">{{ params.prompt_note if params.prompt_note else 'Task: Generate content for a {note_type} note.\n\nEntry Title: {title}\nEntry Type: {entry_type}\nNote Type: {note_type}\n\nGuidelines:\n- Create relevant and useful content appropriate for a {note_type} note\n- Make it specific to the entry\n- Keep the tone and format appropriate for the note type\n- Be concise but informative' }}</textarea>
+                                <small class="text-muted">
+                                    <strong>Purpose:</strong> Controls how AI generates note content<br>
+                                    <strong>Used in:</strong> "Generate with AI" button in note composer<br>
+                                    <strong>Variables:</strong> <code>{title}</code>, <code>{entry_type}</code>, <code>{note_type}</code>, <code>{context}</code>
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <!-- SQL Prompt Editor -->
+                        <div id="promptEditor_sql" class="prompt-editor-section" style="display: none;">
+                            <div class="mb-3">
+                                <label for="promptSql" class="form-label">
+                                    <i class="fas fa-database me-1"></i>SQL Query Generation Prompt:
+                                </label>
+                                <textarea class="form-control font-monospace" id="promptSql" rows="8" 
+                                          placeholder="Prompt used when generating SQL queries">{{ params.prompt_sql if params.prompt_sql else 'Task: Generate a SQL query based on this description: "{description}"\n\nRequirements:\n- Generate valid SQL syntax\n- Use appropriate SELECT, WHERE, JOIN, GROUP BY, ORDER BY clauses as needed\n- Include comments for complex parts\n- Optimize for readability\n- Return only the SQL query, properly formatted' }}</textarea>
+                                <small class="text-muted">
+                                    <strong>Purpose:</strong> Controls how AI generates SQL queries from natural language<br>
+                                    <strong>Used in:</strong> SQL query generation in dashboard search<br>
+                                    <strong>Variables:</strong> <code>{description}</code>, <code>{table_info}</code>
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <!-- Theme Prompt Editor -->
+                        <div id="promptEditor_theme" class="prompt-editor-section" style="display: none;">
+                            <div class="mb-3">
+                                <label for="promptTheme" class="form-label">
+                                    <i class="fas fa-palette me-1"></i>Theme Generation Prompt:
+                                </label>
+                                <textarea class="form-control font-monospace" id="promptTheme" rows="8" 
+                                          placeholder="Prompt used when generating themes">{{ params.prompt_theme if params.prompt_theme else 'You are a theme generation system. Your ONLY job is to generate theme color JSON based on user requests.\n\nYou must ALWAYS respond with ONLY valid JSON in the exact format specified.\n\nUser request: "{user_message}"\n\nGenerate a complete theme with colors for both light and dark modes.' }}</textarea>
+                                <small class="text-muted">
+                                    <strong>Purpose:</strong> Controls how AI generates color themes<br>
+                                    <strong>Used in:</strong> Theme generation in appearance settings<br>
+                                    <strong>Variables:</strong> <code>{user_message}</code>, <code>{conversation_context}</code>, <code>{current_theme_info}</code>
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <!-- Chat Prompt Editor -->
+                        <div id="promptEditor_chat" class="prompt-editor-section" style="display: none;">
+                            <div class="mb-3">
+                                <label for="promptChat" class="form-label">
+                                    <i class="fas fa-comments me-1"></i>Entry Chat Assistant Prompt:
+                                </label>
+                                <textarea class="form-control font-monospace" id="promptChat" rows="8" 
+                                          placeholder="Prompt used when chatting about entries">{{ params.prompt_chat if params.prompt_chat else 'You are an AI assistant helping with {project_desc}.\n\nCurrent Date/Time: {current_datetime}\n\nYou are discussing Entry: {title} (Type: {entry_type}, Status: {status})\n\nProvide helpful, contextual responses based on the entry details and notes available.' }}</textarea>
+                                <small class="text-muted">
+                                    <strong>Purpose:</strong> Controls how AI responds in entry-specific conversations<br>
+                                    <strong>Used in:</strong> Chat interface within entry details<br>
+                                    <strong>Variables:</strong> <code>{project_desc}</code>, <code>{current_datetime}</code>, <code>{title}</code>, <code>{entry_type}</code>, <code>{status}</code>, and many more entry-specific variables
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <!-- Diagram Prompt Editor -->
+                        <div id="promptEditor_diagram" class="prompt-editor-section" style="display: none;">
+                            <div class="mb-3">
+                                <label for="promptDiagram" class="form-label">
+                                    <i class="fas fa-project-diagram me-1"></i>Diagram Generation Prompt:
+                                </label>
+                                <textarea class="form-control font-monospace" id="promptDiagram" rows="10" 
+                                          placeholder="Prompt used when generating Draw.io diagrams">{{ params.prompt_diagram if params.prompt_diagram else 'You are an expert at creating Draw.io diagrams using mxGraph XML format for educational and documentation purposes.\n\nContext: You are helping users create technical diagrams for project documentation, learning materials, and system design.\n\nYour Task: Generate valid mxGraph XML based on user requests. Be creative but ensure:\n1. All cell IDs are unique\n2. Proper parent-child relationships\n3. Reasonable positioning and sizing\n4. Appropriate colors and styles\n5. Clear, readable labels' }}</textarea>
+                                <small class="text-muted">
+                                    <strong>Purpose:</strong> Controls how AI generates Draw.io diagram XML<br>
+                                    <strong>Used in:</strong> Diagram generation in Draw.io sections<br>
+                                    <strong>Variables:</strong> None (user request is passed directly)<br>
+                                    <strong>Note:</strong> This prompt includes extensive XML structure guidance
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-warning mt-3">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Important:</strong> System prompts use template variables like <code>{title}</code>, <code>{entry_type}</code>, etc. These are automatically replaced with actual values when used. Modify carefully to maintain functionality.
+                        </div>
                     </div>
-                    <div class="row">
+                    </div>
+
+                </div> <!-- End tab-content -->
+
+                    <div class="row mt-3">
                         <div class="col-md-12">
                             <button type="submit" class="btn btn-purple me-2">
                                 <i class="fas fa-save me-1"></i>Save AI Settings
@@ -1287,7 +1521,14 @@
                 gemini_api_key: document.getElementById('geminiApiKey').value,
                 groq_api_key: document.getElementById('groqApiKey').value,
                 gemini_model_name: document.getElementById('geminiModelName').value,
-                gemini_base_prompt: document.getElementById('geminiBasePrompt').value
+                groq_model_name: document.getElementById('groqModelName').value,
+                gemini_base_prompt: document.getElementById('geminiBasePrompt').value,
+                prompt_description: document.getElementById('promptDescription').value,
+                prompt_note: document.getElementById('promptNote').value,
+                prompt_sql: document.getElementById('promptSql').value,
+                prompt_theme: document.getElementById('promptTheme').value,
+                prompt_chat: document.getElementById('promptChat').value,
+                prompt_diagram: document.getElementById('promptDiagram').value
             };
             
             try {
@@ -1681,15 +1922,64 @@
                 const data = await response.json();
                 
                 const statusElement = document.getElementById('aiServiceStatus');
+                
+                // Build status badges for each service
+                let statusHTML = '';
+                
+                // Gemini status
                 if (data.available) {
-                    statusElement.innerHTML = '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Available</span>';
+                    statusHTML += '<span class="badge bg-success me-2"><i class="fas fa-check-circle me-1"></i>Gemini: Active</span>';
                 } else {
-                    statusElement.innerHTML = '<span class="badge bg-warning"><i class="fas fa-exclamation-triangle me-1"></i>Not Configured</span>';
+                    statusHTML += '<span class="badge bg-warning me-2"><i class="fas fa-exclamation-triangle me-1"></i>Gemini: Not Configured</span>';
                 }
+                
+                // Check if Groq key exists (basic check)
+                const groqKey = document.getElementById('groqApiKey').value;
+                if (groqKey && groqKey.trim() !== '') {
+                    statusHTML += '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Groq: Configured</span>';
+                } else {
+                    statusHTML += '<span class="badge bg-secondary"><i class="fas fa-info-circle me-1"></i>Groq: Optional</span>';
+                }
+                
+                statusElement.innerHTML = statusHTML;
             } catch (error) {
                 const statusElement = document.getElementById('aiServiceStatus');
                 statusElement.innerHTML = '<span class="badge bg-danger"><i class="fas fa-times-circle me-1"></i>Error</span>';
                 console.error('Error checking AI service status:', error);
+            }
+        }
+
+        function switchAiServiceSettings() {
+            const selector = document.getElementById('aiServiceSelector');
+            const selectedService = selector.value;
+            
+            // Hide all AI service settings
+            const allSettings = document.querySelectorAll('.ai-service-settings');
+            allSettings.forEach(setting => {
+                setting.style.display = 'none';
+            });
+            
+            // Show the selected service settings
+            const selectedSettings = document.getElementById(selectedService + 'Settings');
+            if (selectedSettings) {
+                selectedSettings.style.display = 'block';
+            }
+        }
+
+        function switchPromptEditor() {
+            const selector = document.getElementById('promptSelector');
+            const selectedPrompt = selector.value;
+            
+            // Hide all prompt editors
+            const allEditors = document.querySelectorAll('.prompt-editor-section');
+            allEditors.forEach(editor => {
+                editor.style.display = 'none';
+            });
+            
+            // Show the selected prompt editor
+            const selectedEditor = document.getElementById('promptEditor_' + selectedPrompt);
+            if (selectedEditor) {
+                selectedEditor.style.display = 'block';
             }
         }
 
@@ -1729,11 +2019,26 @@
             checkAiServiceStatus();
             loadAvailableModels();
             
-            // Update description when model selection changes
+            // Update description when Gemini model selection changes
             document.getElementById('geminiModelName').addEventListener('change', function(e) {
                 const selectedOption = e.target.options[e.target.selectedIndex];
                 if (selectedOption && selectedOption.dataset.description) {
                     updateModelDescription(selectedOption.dataset.description);
+                }
+            });
+            
+            // Update description when Groq model selection changes
+            document.getElementById('groqModelName').addEventListener('change', function(e) {
+                const descriptions = {
+                    'llama-3.3-70b-versatile': 'Most capable model for complex diagram generation',
+                    'llama-3.1-70b-versatile': 'Balanced performance and capability',
+                    'llama-3.1-8b-instant': 'Fastest response time, good for simpler diagrams',
+                    'mixtral-8x7b-32768': 'Excellent for long context and detailed diagrams',
+                    'gemma2-9b-it': 'Efficient mid-size model'
+                };
+                const descElement = document.getElementById('groqModelDescription');
+                if (descElement && descriptions[e.target.value]) {
+                    descElement.innerHTML = `<i class="fas fa-info-circle me-1"></i>${descriptions[e.target.value]}`;
                 }
             });
         });
