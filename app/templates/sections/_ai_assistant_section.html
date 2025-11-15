@@ -1480,11 +1480,13 @@ async function captureCurrentDiagram() {
             resolve(null);
         }, 5000);
         
-        // Request XML export from Draw.io
+        // Request XML export from Draw.io (uncompressed with all attributes)
         try {
             const exportMessage = JSON.stringify({
                 action: 'export',
-                format: 'xml'
+                format: 'xmlpng',  // Use xmlpng to get full uncompressed XML
+                xml: true,          // Explicitly request XML
+                spin: false         // Don't show spinner
             });
             console.log('[AI Assistant] Sending export request to Draw.io');
             frame.contentWindow.postMessage(exportMessage, '*');

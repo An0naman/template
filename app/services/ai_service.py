@@ -1939,11 +1939,12 @@ Respond ONLY with the JSON object, no additional text.
                     if not example_entry_id:
                         continue
                     
-                    # Fetch the diagram from the example entry
+                    # Fetch the diagram from the example entry (from EntryDrawioDiagram table)
                     cursor.execute('''
-                        SELECT e.title, e.diagram_xml
+                        SELECT e.title, edd.diagram_data
                         FROM Entry e
-                        WHERE e.id = ? AND e.diagram_xml IS NOT NULL AND e.diagram_xml != ''
+                        LEFT JOIN EntryDrawioDiagram edd ON e.id = edd.entry_id
+                        WHERE e.id = ? AND edd.diagram_data IS NOT NULL AND edd.diagram_data != ''
                     ''', (example_entry_id,))
                     
                     diagram_row = cursor.fetchone()
@@ -1951,8 +1952,10 @@ Respond ONLY with the JSON object, no additional text.
                         examples.append({
                             'title': diagram_row['title'],
                             'description': config.get('description', 'Example diagram'),
-                            'xml': diagram_row['diagram_xml']
+                            'xml': diagram_row['diagram_data']
                         })
+                    else:
+                        logger.warning(f"No diagram found for example entry {example_entry_id}")
                 
                 if len(examples) > 0:
                     logger.info(f"Loaded {len(examples)} diagram example(s) for entry {entry_id}")

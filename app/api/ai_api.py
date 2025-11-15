@@ -904,16 +904,21 @@ Do not generate diagram XML in this chat - just discuss the concept."""
         if entry_id:
             try:
                 examples = ai_service._get_diagram_examples_for_entry(entry_id)
+                logger.info(f"[Diagram Discuss] Fetched {len(examples)} example(s) for entry {entry_id}")
                 if examples:
                     full_message += f"\n**DIAGRAM EXAMPLES:**\nHere are {len(examples)} example diagrams for this entry type:\n\n"
                     for i, example in enumerate(examples, 1):
+                        logger.info(f"[Diagram Discuss] Example {i}: {example.get('title', 'Unknown')} - XML length: {len(example.get('xml', ''))}")
                         full_message += f"Example {i}: {example['description']}\n"
+                        full_message += f"(from entry: {example.get('title', 'Unknown')})\n"
                         full_message += "```xml\n"
-                        full_message += example['diagram_data']
+                        full_message += example['xml']  # Fixed: use 'xml' not 'diagram_data'
                         full_message += "\n```\n\n"
                     full_message += "Use these examples as reference for style and structure.\n\n"
+                else:
+                    logger.info(f"[Diagram Discuss] No examples returned for entry {entry_id}")
             except Exception as e:
-                logger.warning(f"Could not fetch diagram examples: {e}")
+                logger.error(f"Could not fetch diagram examples: {e}", exc_info=True)
         
         full_message += f"User: {message}"
         
@@ -984,7 +989,20 @@ Do not generate diagram XML in this chat - just discuss the concept."""
                 full_prompt_parts.append(f"\n=== CURRENT DIAGRAM ===\n{diagram_preview}\n")
             
             if debug_info.get('has_diagram_examples'):
-                full_prompt_parts.append(f"\n=== DIAGRAM EXAMPLES ===\n{debug_info['diagram_examples_count']} example diagram(s) included in prompt\n")
+                # Fetch examples again to show preview in debug
+                try:
+                    examples = ai_service._get_diagram_examples_for_entry(entry_id)
+                    if examples:
+                        full_prompt_parts.append(f"\n=== DIAGRAM EXAMPLES ({len(examples)} total) ===\n")
+                        for i, example in enumerate(examples, 1):
+                            example_xml = example.get('xml', '')
+                            example_preview = example_xml[:300] + "..." if len(example_xml) > 300 else example_xml
+                            full_prompt_parts.append(f"\nExample {i}: {example['description']}\n")
+                            full_prompt_parts.append(f"From: {example.get('title', 'Unknown')}\n")
+                            full_prompt_parts.append(f"{example_preview}\n")
+                except Exception as e:
+                    logger.warning(f"Could not fetch examples for debug display: {e}")
+                    full_prompt_parts.append(f"\n=== DIAGRAM EXAMPLES ===\n{debug_info['diagram_examples_count']} example diagram(s) included\n")
             
             full_prompt_parts.append(f"\n=== USER MESSAGE ===\n{message}")
             
