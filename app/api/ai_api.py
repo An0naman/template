@@ -1017,11 +1017,21 @@ Do not generate diagram XML in this chat - just discuss the concept."""
         return jsonify({'error': str(e)}), 500
 
 
-def _build_diagram_specification(chat_history, final_message):
+def _build_diagram_specification(chat_history, final_message, entry_title='', entry_description=''):
     """Build diagram specification from conversation history"""
     # Include the actual conversation so the AI understands what to create
     spec_parts = []
-    spec_parts.append("Based on our discussion, create a technical diagram with these requirements:")
+    
+    # Add entry context at the beginning if available
+    if entry_title or entry_description:
+        spec_parts.append("**Entry Context:**")
+        if entry_title:
+            spec_parts.append(f"Title: {entry_title}")
+        if entry_description:
+            spec_parts.append(f"Description: {entry_description}")
+        spec_parts.append("")
+    
+    spec_parts.append("Based on this context, create a technical diagram with these requirements:")
     spec_parts.append("")
     
     # Include recent conversation messages for context
@@ -1056,6 +1066,8 @@ def generate_diagram():
         
         message = data.get('message', '').strip()
         entry_id = data.get('entry_id')
+        entry_title = data.get('entry_title', '')
+        entry_description = data.get('entry_description', '')
         chat_history = data.get('chat_history', [])
         current_diagram = data.get('current_diagram', '')
         
@@ -1069,7 +1081,7 @@ def generate_diagram():
         
         # Build a sanitized technical specification from chat history
         # This helps avoid safety filters by using generic technical terms
-        diagram_spec = _build_diagram_specification(chat_history, message)
+        diagram_spec = _build_diagram_specification(chat_history, message, entry_title, entry_description)
         
         logger.info(f"Generated diagram specification: {diagram_spec[:200]}...")
         

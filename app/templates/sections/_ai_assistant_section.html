@@ -959,6 +959,8 @@ async function processDiagramRequest(message) {
             },
             body: JSON.stringify({
                 entry_id: {{ entry.id }},
+                entry_title: {{ entry.title|tojson }},
+                entry_description: {{ (entry.description or '')|tojson }},
                 message: message,
                 chat_history: chatHistory,
                 current_diagram: currentDiagramXML
