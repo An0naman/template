@@ -60,6 +60,8 @@ def init_db():
                 cursor.execute("ALTER TABLE EntryType ADD COLUMN show_end_dates BOOLEAN NOT NULL DEFAULT 0")
             if 'custom_chat_prompt' not in columns:
                 cursor.execute("ALTER TABLE EntryType ADD COLUMN custom_chat_prompt TEXT DEFAULT ''")
+            if 'diagram_examples' not in columns:
+                cursor.execute("ALTER TABLE EntryType ADD COLUMN diagram_examples TEXT DEFAULT ''")  # JSON array of example diagrams
         except Exception as e:
             # Columns might already exist, ignore error
             pass

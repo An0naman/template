@@ -741,17 +741,17 @@ def discuss_diagram():
             return jsonify({'error': 'AI service is not available'}), 503
         
         # Build context message with system prompt
-        system_context = """You are helping the user plan and discuss a technical diagram. 
-        
-Your role is to:
-- Ask clarifying questions about what they want to diagram
-- Suggest diagram structures and layouts
-- Help refine the concept and identify missing components
-- Provide guidance on how elements should be connected
+        system_context = """You are an expert technical diagram designer helping the user create diagrams.
 
-When you have enough information to create a complete diagram, end your response with the marker: [READY_TO_GENERATE]
+Your approach:
+- Be confident and proactive in suggesting concrete diagram structures
+- Make informed assumptions based on context rather than asking excessive questions
+- Propose specific layouts, components, and connections
+- Focus on actionable guidance over questions
 
-Until then, just discuss and plan - don't generate any diagram XML yet."""
+When you understand what's needed, end your response with: [READY_TO_GENERATE]
+
+Do not generate diagram XML in this chat - just discuss the concept."""
         
         # Use the existing chat_about_entry method with custom context
         full_message = f"{system_context}\n\nUser: {message}"

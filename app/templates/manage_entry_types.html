@@ -334,6 +334,7 @@
                                                 data-has-sensors="{{ type.has_sensors | default(0, true) }}"
                                                 data-enabled-sensor-types="{{ type.enabled_sensor_types | default('', true) }}"
                                                 data-custom-chat-prompt="{{ type.custom_chat_prompt | default('', true) }}"
+                                                data-diagram-examples="{{ type.diagram_examples | default('[]', true) }}"
                                                 title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </button>
@@ -514,6 +515,27 @@
                                     <i class="fas fa-info-circle me-1"></i>
                                     This will be combined with the base chat prompt to customize the AI assistant's behavior for entries of this type.
                                     Use this to add domain expertise, specific terminology, or focus areas relevant to this entry type.
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Diagram Examples Section -->
+                        <div class="mb-4">
+                            <h6 class="text-warning border-bottom pb-2 mb-3">
+                                <i class="fas fa-project-diagram me-2"></i>Diagram Examples for AI
+                            </h6>
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    Example Entries with Diagrams
+                                    <small class="text-muted">(Optional - teach the AI what good diagrams look like)</small>
+                                </label>
+                                <div id="diagramExamplesList"></div>
+                                <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addDiagramExample()">
+                                    <i class="fas fa-plus me-1"></i>Add Example Entry
+                                </button>
+                                <small class="text-muted d-block mt-2">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Reference existing entries that have good example diagrams. The AI will use these as reference patterns.
                                 </small>
                             </div>
                         </div>
@@ -1087,11 +1109,88 @@
                     const customChatPrompt = this.dataset.customChatPrompt || '';
                     document.getElementById('customChatPrompt').value = customChatPrompt;
                     
+                    // Load diagram examples
+                    try {
+                        const examplesData = this.dataset.diagramExamples || '[]';
+                        diagramExamples = JSON.parse(examplesData);
+                        renderDiagramExamples();
+                    } catch (e) {
+                        console.error('Error parsing diagram examples:', e);
+                        diagramExamples = [];
+                        renderDiagramExamples();
+                    }
+                    
                     entryTypeModal.show();
                 });
             });
 
             // Handle Form Submission (Add/Edit)
+            // Diagram Examples Management
+            let diagramExamples = [];
+            let availableEntries = [];
+
+            async function loadEntriesWithDiagrams() {
+                try {
+                    const response = await fetch('/api/entries?has_diagram=1');
+                    const entries = await response.json();
+                    availableEntries = entries;
+                } catch (error) {
+                    console.error('Error loading entries with diagrams:', error);
+                    availableEntries = [];
+                }
+            }
+
+            function renderDiagramExamples() {
+                const container = document.getElementById('diagramExamplesList');
+                if (diagramExamples.length === 0) {
+                    container.innerHTML = '<div class="text-muted small"><i class="fas fa-info-circle me-1"></i>No examples added yet</div>';
+                    return;
+                }
+                
+                container.innerHTML = diagramExamples.map((example, index) => `
+                    <div class="card mb-2">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="mb-0">Example ${index + 1}</h6>
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeDiagramExample(${index})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label small mb-1">Entry ID:</label>
+                                <input type="number" class="form-control form-control-sm" value="${example.entry_id || ''}" 
+                                       onchange="updateDiagramExample(${index}, 'entry_id', this.value)" 
+                                       placeholder="Enter entry ID with diagram">
+                                <small class="text-muted">The ID of an entry that has a good example diagram</small>
+                            </div>
+                            <div>
+                                <label class="form-label small mb-1">When to use this pattern:</label>
+                                <textarea class="form-control form-control-sm" rows="2" 
+                                          onchange="updateDiagramExample(${index}, 'description', this.value)"
+                                          placeholder="Describe when this diagram pattern should be used (e.g., 'Use for showing component connections')">${example.description || ''}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            window.addDiagramExample = function() {
+                diagramExamples.push({ entry_id: '', description: '' });
+                renderDiagramExamples();
+            };
+
+            window.removeDiagramExample = function(index) {
+                diagramExamples.splice(index, 1);
+                renderDiagramExamples();
+            };
+
+            window.updateDiagramExample = function(index, field, value) {
+                diagramExamples[index][field] = value;
+            };
+
+            // Load entries on page load
+            loadEntriesWithDiagrams();
+
             entryTypeForm.addEventListener('submit', function(event) {
                 event.preventDefault();
 
@@ -1110,7 +1209,8 @@
                     show_end_dates: showEndDatesInput.checked ? 1 : 0,
                     has_sensors: hasSensorsInput.checked ? 1 : 0,
                     enabled_sensor_types: enabledSensorTypesInput.value,
-                    custom_chat_prompt: document.getElementById('customChatPrompt').value.trim()
+                    custom_chat_prompt: document.getElementById('customChatPrompt').value.trim(),
+                    diagram_examples: JSON.stringify(diagramExamples.filter(ex => ex.entry_id && ex.entry_id.toString().trim() !== ''))
                 };
 
                 fetch(url, {

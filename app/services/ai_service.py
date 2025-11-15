@@ -1906,6 +1906,67 @@ Respond ONLY with the JSON object, no additional text.
             logger.error(f"Error getting related entries: {e}")
             return "Error fetching related entries."
     
+    def _get_diagram_examples_for_entry(self, entry_id: int) -> list:
+        """Fetch diagram examples for the entry's type by loading diagrams from referenced entries"""
+        try:
+            from ..db import get_connection
+            import json
+            
+            conn = get_connection()
+            cursor = conn.cursor()
+            
+            # Get entry type and its diagram examples configuration
+            cursor.execute('''
+                SELECT et.diagram_examples
+                FROM Entry e
+                JOIN EntryType et ON e.entry_type_id = et.id
+                WHERE e.id = ?
+            ''', (entry_id,))
+            
+            row = cursor.fetchone()
+            if not row or not row['diagram_examples']:
+                return []
+            
+            try:
+                example_configs = json.loads(row['diagram_examples'])
+                if not isinstance(example_configs, list) or len(example_configs) == 0:
+                    return []
+                
+                # Fetch actual diagrams from the referenced entries
+                examples = []
+                for config in example_configs:
+                    example_entry_id = config.get('entry_id')
+                    if not example_entry_id:
+                        continue
+                    
+                    # Fetch the diagram from the example entry
+                    cursor.execute('''
+                        SELECT e.title, e.diagram_xml
+                        FROM Entry e
+                        WHERE e.id = ? AND e.diagram_xml IS NOT NULL AND e.diagram_xml != ''
+                    ''', (example_entry_id,))
+                    
+                    diagram_row = cursor.fetchone()
+                    if diagram_row:
+                        examples.append({
+                            'title': diagram_row['title'],
+                            'description': config.get('description', 'Example diagram'),
+                            'xml': diagram_row['diagram_xml']
+                        })
+                
+                if len(examples) > 0:
+                    logger.info(f"Loaded {len(examples)} diagram example(s) for entry {entry_id}")
+                
+                return examples
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"Error parsing diagram examples: {e}")
+                return []
+            
+        except Exception as e:
+            logger.error(f"Error fetching diagram examples: {e}")
+            return []
+    
     def generate_diagram(self, user_request: str, current_diagram: Optional[str] = None, entry_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
         """
         Generate or modify Draw.io diagram based on natural language request
@@ -1939,6 +2000,17 @@ Respond ONLY with the JSON object, no additional text.
             user_prompt = f"""User Request: {user_request}
 
 """
+            
+            # Add entry type-specific diagram examples if available
+            if entry_id:
+                examples = self._get_diagram_examples_for_entry(entry_id)
+                if examples:
+                    user_prompt += "\n**Example Diagrams for this Entry Type:**\n"
+                    for i, example in enumerate(examples, 1):
+                        user_prompt += f"\n*Example {i}: {example.get('title', 'Untitled')}*\n"
+                        user_prompt += f"{example.get('description', 'No description')}\n"
+                        user_prompt += f"```xml\n{example.get('xml', '')}\n```\n"
+                    user_prompt += "\nUse these examples as guidance for structure and style when appropriate.\n\n"
             
             if current_diagram and current_diagram.strip():
                 user_prompt += f"""Current Diagram XML:
@@ -2052,6 +2124,17 @@ Please modify this diagram according to the user's request. Preserve existing el
             user_prompt = f"""User Request: {user_request}
 
 """
+            
+            # Add entry type-specific diagram examples if available
+            if entry_id:
+                examples = self._get_diagram_examples_for_entry(entry_id)
+                if examples:
+                    user_prompt += "\n**Example Diagrams for this Entry Type:**\n"
+                    for i, example in enumerate(examples, 1):
+                        user_prompt += f"\n*Example {i}: {example.get('title', 'Untitled')}*\n"
+                        user_prompt += f"{example.get('description', 'No description')}\n"
+                        user_prompt += f"```xml\n{example.get('xml', '')}\n```\n"
+                    user_prompt += "\nUse these examples as guidance for structure and style when appropriate.\n\n"
             
             if current_diagram and current_diagram.strip():
                 user_prompt += f"""
