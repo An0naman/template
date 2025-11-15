@@ -817,29 +817,21 @@ async function enterDiagramMode() {
         console.error('Error loading diagram:', error);
     }
     
-    addMessageToChat('assistant', `🎨 Diagram Planning Mode activated!
+    addMessageToChat('assistant', `🎨 Diagram Generation Mode activated!
 
-Let's discuss what kind of diagram you want to create. I'll help you plan and refine the concept before we generate it.
+Describe the diagram you want to create, and I'll generate it immediately with the diagram XML.
 
-**How this works:**
-1. **Discuss**: Tell me what you want to diagram (system architecture, flowchart, wiring, etc.)
-2. **Refine**: I'll ask clarifying questions and help you think through the design
-3. **Generate**: When you're ready, say "create the diagram" or "generate it"
-
-**Examples of what to discuss:**
-- "I need a diagram showing how my ESP32 connects to sensors"
-- "Create a flowchart for user authentication"
+**Examples:**
+- "Create a diagram showing how my ESP32 connects to sensors"
+- "Make a flowchart for user authentication"
 - "Show the architecture of a web application"
-- "Diagram a home automation setup"
+- "Diagram a home automation setup with smart lights and sensors"
 
-${currentDiagramXML ? '📊 I can see your current diagram and will work with it.' : '📄 Starting with a blank canvas.'}
+${currentDiagramXML ? '📊 I can see your current diagram and will modify it based on your request.' : '📄 Starting with a blank canvas.'}
 
-What kind of diagram would you like to create?`);
+What diagram would you like to create?`);
     
-    // Show the create diagram button
-    showCreateDiagramButton();
-    
-    document.getElementById('chatInput').placeholder = "Describe your diagram idea...";
+    document.getElementById('chatInput').placeholder = "Describe your diagram...";
     document.getElementById('chatInput').focus();
 }
 
@@ -937,35 +929,12 @@ Just describe what you want, and I'll update the diagram.`);
     document.getElementById('chatInput').focus();
 }
 
-function showCreateDiagramButton() {
-    const buttonContainer = document.getElementById('createDiagramButton');
-    buttonContainer.classList.remove('d-none');
-    
-    // Scroll to show the button
-    buttonContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
 
-function hideCreateDiagramButton() {
-    const buttonContainer = document.getElementById('createDiagramButton');
-    buttonContainer.classList.add('d-none');
-}
-
-async function triggerDiagramGeneration() {
-    // Keep the button visible for continued iterations
-    // (user can continue to iterate on the diagram after generation)
-    
-    // Add a message to indicate we're generating
-    addMessageToChat('user', 'Create the diagram');
-    
-    // Trigger the generation
-    await processDiagramRequest('Generate the diagram based on our discussion');
-}
 
 function exitDiagramMode() {
     diagramMode = false;
     currentDiagramXML = null;
     closeDiagramPreview();
-    hideCreateDiagramButton();
     
     resetActionButton();
     addMessageToChat('assistant', 'Diagram editor mode exited. How else can I help?');
@@ -973,60 +942,14 @@ function exitDiagramMode() {
 }
 
 async function processDiagramRequest(message) {
-    // Check if user is asking to generate/create/commit the diagram
-    const generateKeywords = ['create', 'generate', 'make', 'build', 'commit', 'apply', 'produce', 'draw'];
-    const shouldGenerate = generateKeywords.some(keyword => 
-        message.toLowerCase().includes(keyword + ' diagram') || 
-        message.toLowerCase().includes(keyword + ' it') ||
-        message.toLowerCase().includes(keyword + ' the diagram')
-    );
-    
-    if (!shouldGenerate) {
-        // Discussion mode - just chat about the diagram concept
-        const loadingId = addMessageToChat('assistant', 'Thinking...', true);
-        
-        // Add user message to history
-        chatHistory.push({
-            role: 'user',
-            content: message
-        });
-        
-        try {
-            const response = await fetch('/api/ai/diagram/discuss', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    entry_id: {{ entry.id }},
-                    message: message,
-                    chat_history: chatHistory,
-                    current_diagram: currentDiagramXML
-                })
-            });
-            
-            const data = await response.json();
-            document.getElementById(loadingId).remove();
-            
-            if (response.ok && data.response) {
-                addMessageToChat('assistant', data.response, false, data.debug_info);
-                // Add assistant response to history
-                chatHistory.push({
-                    role: 'assistant',
-                    content: data.response
-                });
-            } else {
-                addMessageToChat('assistant', '❌ Error: ' + (data.error || 'Failed to process message'));
-            }
-        } catch (error) {
-            document.getElementById(loadingId).remove();
-            addMessageToChat('assistant', '❌ Error communicating with AI service: ' + error.message);
-        }
-        return;
-    }
-    
-    // Generation mode - actually create the diagram
+    // Always generate the diagram directly - no discussion mode
     const loadingId = addMessageToChat('assistant', 'Generating diagram...', true);
+    
+    // Add user message to history
+    chatHistory.push({
+        role: 'user',
+        content: message
+    });
     
     try {
         const response = await fetch('/api/ai/diagram', {
@@ -1047,6 +970,12 @@ async function processDiagramRequest(message) {
         
         if (response.ok && data.diagram_xml) {
             updateDiagram(data.diagram_xml, data.explanation || 'Diagram updated');
+            
+            // Add assistant response to history
+            chatHistory.push({
+                role: 'assistant',
+                content: data.explanation || 'Diagram generated successfully'
+            });
             
             // Show debug info if available and debug mode is on
             if (debugMode && data.debug_info) {
@@ -1592,15 +1521,6 @@ async function captureCurrentDiagram() {
             <div class="card-body">
                 <div id="diagramPreviewContent"></div>
             </div>
-        </div>
-    </div>
-    
-    <!-- Create Diagram Button (Always shown in diagram mode) -->
-    <div class="d-none mb-3" id="createDiagramButton">
-        <div class="d-grid">
-            <button class="btn btn-primary btn-lg" onclick="triggerDiagramGeneration()">
-                <i class="fas fa-magic me-2"></i>Create Diagram Now
-            </button>
         </div>
     </div>
     
