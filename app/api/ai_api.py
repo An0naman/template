@@ -935,13 +935,29 @@ Do not generate diagram XML in this chat - just discuss the concept."""
                         full_message += example['xml']
                         full_message += "\n```\n\n"
                     
-                    full_message += """When creating diagrams, pay special attention to:
-1. Use exitX/exitY on edges to control where wires exit components (e.g., exitX=1,exitY=0 means exit from top-right)
-2. Use explicit target points for wire endpoints
-3. Use appropriate colors: red for VCC/power, black for GND, other colors for I/O
-4. Add labels to all wires/edges describing what they are
-5. Use orthogonalEdgeStyle for clean 90-degree wire routing
-6. Position components logically (source on left, connections extending to the right)\n\n"""
+                    full_message += """CRITICAL RULES for creating diagrams (follow the example structure exactly):
+
+1. **Keep it simple** - Only create the main component rectangle, NO pin circles or connection point nodes
+2. **Wire source** - Set source="2" (the component ID) on ALL edges, not child pins
+3. **Wire exit points** - Use exitX/exitY to control where wires leave the component:
+   - exitX=1,exitY=0 = exit from top-right corner
+   - exitX=1,exitY=1 = exit from bottom-right corner  
+   - exitX=1,exitY=0.5 = exit from middle-right
+4. **Wire endpoints** - Use <mxPoint> as targetPoint, NO target node/rectangle
+5. **Wire colors** - strokeColor: #ff0000 (red) for VCC, #000000 (black) for GND, #008000 (green) for I/O
+6. **Wire routing** - Always use edgeStyle=orthogonalEdgeStyle for 90-degree routing
+7. **Wire labels** - Set value="VCC Wire", value="GND Wire", etc. on the edge itself
+
+Example edge structure (copy this pattern):
+```xml
+<mxCell id="6" value="VCC Wire" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;strokeColor=#ff0000;exitX=1;exitY=0;exitDx=0;exitDy=0;" parent="1" source="2" edge="1">
+  <mxGeometry relative="1" as="geometry">
+    <mxPoint x="460" y="110" as="targetPoint" />
+  </mxGeometry>
+</mxCell>
+```
+
+DO NOT create separate pin nodes or connection rectangles - wires connect directly from the component!\n\n"""
                 else:
                     logger.info(f"[Diagram Discuss] No examples returned for entry {entry_id}")
             except Exception as e:
