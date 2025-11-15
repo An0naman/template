@@ -1466,6 +1466,8 @@ You are currently discussing the following entry:
             response = self.model.generate_content(context_prompt)
             
             if response and response.text:
+                # Store the actual prompt for debugging
+                self._last_prompt = context_prompt
                 return response.text.strip()
             
             return None

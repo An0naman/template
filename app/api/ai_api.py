@@ -955,6 +955,9 @@ Do not generate diagram XML in this chat - just discuss the concept."""
             include_all_notes=False
         )
         
+        # Capture the actual prompt that was sent to the AI
+        actual_prompt_sent = getattr(ai_service, '_last_prompt', None)
+        
         if response:
             # Check if AI thinks we're ready to generate
             ready_to_generate = '[READY_TO_GENERATE]' in response
@@ -993,46 +996,12 @@ Do not generate diagram XML in this chat - just discuss the concept."""
             except Exception as e:
                 logger.warning(f"Could not fetch entry type for debug info: {e}")
             
-            # Build full prompt preview (showing what was actually sent)
-            from ..db import get_system_parameters
-            params = get_system_parameters()
-            base_prompt = params.get('prompt_base', 'You are a helpful AI assistant.')
-            diagram_template = params.get('prompt_diagram', '')
-            chat_template = params.get('prompt_chat', '')
-            
-            full_prompt_parts = [f"=== BASE SYSTEM PROMPT ===\n{base_prompt}\n"]
-            
-            if chat_template:
-                full_prompt_parts.append(f"=== CHAT TEMPLATE ===\n{chat_template}\n")
-            
-            if diagram_template:
-                full_prompt_parts.append(f"=== DIAGRAM SYSTEM PROMPT ===\n{diagram_template}\n")
-            
-            full_prompt_parts.append(f"=== DIAGRAM DISCUSSION TEMPLATE ===\n{system_context}\n")
-            
-            if current_diagram:
-                diagram_preview = current_diagram[:500] + "..." if len(current_diagram) > 500 else current_diagram
-                full_prompt_parts.append(f"\n=== CURRENT DIAGRAM ===\n{diagram_preview}\n")
-            
-            if debug_info.get('has_diagram_examples'):
-                # Fetch examples again to show preview in debug
-                try:
-                    examples = ai_service._get_diagram_examples_for_entry(entry_id)
-                    if examples:
-                        full_prompt_parts.append(f"\n=== DIAGRAM EXAMPLES ({len(examples)} total) ===\n")
-                        for i, example in enumerate(examples, 1):
-                            example_xml = example.get('xml', '')
-                            example_preview = example_xml[:300] + "..." if len(example_xml) > 300 else example_xml
-                            full_prompt_parts.append(f"\nExample {i}: {example['description']}\n")
-                            full_prompt_parts.append(f"From: {example.get('title', 'Unknown')}\n")
-                            full_prompt_parts.append(f"{example_preview}\n")
-                except Exception as e:
-                    logger.warning(f"Could not fetch examples for debug display: {e}")
-                    full_prompt_parts.append(f"\n=== DIAGRAM EXAMPLES ===\n{debug_info['diagram_examples_count']} example diagram(s) included\n")
-            
-            full_prompt_parts.append(f"\n=== USER MESSAGE ===\n{message}")
-            
-            debug_info['full_prompt'] = '\n'.join(full_prompt_parts)
+            # Use the ACTUAL prompt that was sent to the AI (captured from ai_service)
+            if actual_prompt_sent:
+                debug_info['full_prompt'] = actual_prompt_sent
+            else:
+                # Fallback: if we couldn't capture it, note that
+                debug_info['full_prompt'] = "Unable to capture actual prompt sent to AI"
             
             return jsonify({
                 'success': True,
