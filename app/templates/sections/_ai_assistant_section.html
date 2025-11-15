@@ -1047,6 +1047,11 @@ async function processDiagramRequest(message) {
         
         if (response.ok && data.diagram_xml) {
             updateDiagram(data.diagram_xml, data.explanation || 'Diagram updated');
+            
+            // Show debug info if available and debug mode is on
+            if (debugMode && data.debug_info) {
+                addMessageToChat('assistant', '✅ Diagram generated', false, data.debug_info);
+            }
         } else {
             addMessageToChat('assistant', '❌ Error: ' + (data.error || 'Failed to generate diagram'));
         }

@@ -1076,6 +1076,9 @@ def generate_diagram():
         # Generate diagram XML using sanitized specification
         result = ai_service.generate_diagram(diagram_spec, current_diagram, entry_id)
         
+        # Capture the actual prompt that was sent for debug
+        actual_prompt_sent = getattr(ai_service, '_last_prompt', None)
+        
         if result:
             # Check if result contains an error (e.g., safety block)
             if 'error' in result:
@@ -1083,11 +1086,21 @@ def generate_diagram():
             
             # Success case
             if 'diagram_xml' in result:
-                return jsonify({
+                response_data = {
                     'success': True,
                     'diagram_xml': result['diagram_xml'],
                     'explanation': result.get('explanation', 'Diagram updated successfully')
-                })
+                }
+                
+                # Add debug info if we captured the prompt
+                if actual_prompt_sent:
+                    response_data['debug_info'] = {
+                        'full_prompt': actual_prompt_sent,
+                        'entry_id': entry_id,
+                        'action': 'diagram_generation'
+                    }
+                
+                return jsonify(response_data)
         
         return jsonify({'error': 'Failed to generate diagram'}), 500
             

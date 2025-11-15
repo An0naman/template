@@ -2043,6 +2043,10 @@ Please modify this diagram according to the user's request. Preserve existing el
             # Generate diagram using AI
             logger.info(f"Generating diagram for request: {user_request[:100]}...")
             
+            # Store the actual prompt for debugging
+            full_prompt = f"{system_prompt}\n\n{user_prompt}"
+            self._last_prompt = full_prompt
+            
             # Import safety settings
             from google.generativeai.types import HarmCategory, HarmBlockThreshold
             
@@ -2178,6 +2182,10 @@ Format your response as:
 """
             
             logger.info(f"Generating diagram for request: {user_request[:100]}...")
+            
+            # Store the actual prompt for debugging
+            full_prompt = f"{system_prompt}\n\n{user_prompt}"
+            self._last_prompt = full_prompt
             
             # Call Groq API with configured model
             chat_completion = self.groq_client.chat.completions.create(
