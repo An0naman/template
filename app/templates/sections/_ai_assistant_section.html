@@ -1354,6 +1354,8 @@ async function captureCurrentDiagram() {
         // Find all Draw.io frames on the page
         const drawioFrames = document.querySelectorAll('iframe[id^="drawioFrame-"]');
         
+        console.log('[AI Assistant] Found', drawioFrames.length, 'Draw.io frame(s)');
+        
         if (drawioFrames.length === 0) {
             console.warn('[AI Assistant] No Draw.io editor found');
             resolve(null);
@@ -1361,20 +1363,41 @@ async function captureCurrentDiagram() {
         }
         
         const frame = drawioFrames[0];
+        console.log('[AI Assistant] Using frame:', frame.id);
         
         // Set up a temporary message listener for diagram export
         const messageHandler = function(evt) {
-            if (!evt.origin.includes('diagrams.net')) return;
-            if (!evt.data || typeof evt.data !== 'string') return;
+            console.log('[AI Assistant] Received message from origin:', evt.origin);
+            
+            // Check for both diagrams.net and embed.diagrams.net
+            if (!evt.origin.includes('diagrams.net')) {
+                console.log('[AI Assistant] Ignoring message from non-diagrams.net origin');
+                return;
+            }
+            
+            if (!evt.data || typeof evt.data !== 'string') {
+                console.log('[AI Assistant] Message data is not a string');
+                return;
+            }
             
             try {
                 const msg = JSON.parse(evt.data);
+                console.log('[AI Assistant] Parsed message event:', msg.event, 'format:', msg.format);
                 
-                if (msg.event === 'export' && msg.format === 'xml') {
-                    // Clean up listener
-                    window.removeEventListener('message', messageHandler);
-                    console.log('[AI Assistant] Diagram captured successfully');
-                    resolve(msg.xml);
+                if (msg.event === 'export') {
+                    console.log('[AI Assistant] Export event - checking fields: xml?', !!msg.xml, 'data?', !!msg.data);
+                    
+                    // Draw.io sends XML in msg.xml field (even if msg.format says 'svg')
+                    // We requested XML format, so check for xml field specifically
+                    if (msg.xml) {
+                        window.removeEventListener('message', messageHandler);
+                        console.log('[AI Assistant] Diagram XML captured successfully, length:', msg.xml.length);
+                        console.log('[AI Assistant] First 100 chars:', msg.xml.substring(0, 100));
+                        resolve(msg.xml);
+                    } else {
+                        console.warn('[AI Assistant] Export event but no XML data in message');
+                        console.log('[AI Assistant] Message structure:', Object.keys(msg));
+                    }
                 }
             } catch (error) {
                 console.error('[AI Assistant] Error parsing diagram message:', error);
@@ -1387,20 +1410,22 @@ async function captureCurrentDiagram() {
         // Set timeout to clean up if no response
         setTimeout(() => {
             window.removeEventListener('message', messageHandler);
-            console.warn('[AI Assistant] Diagram capture timeout');
+            console.warn('[AI Assistant] Diagram capture timeout after 5 seconds');
             resolve(null);
-        }, 3000);
+        }, 5000);
         
         // Request XML export from Draw.io
         try {
-            frame.contentWindow.postMessage(JSON.stringify({
+            const exportMessage = JSON.stringify({
                 action: 'export',
                 format: 'xml'
-            }), '*');
+            });
+            console.log('[AI Assistant] Sending export request to Draw.io');
+            frame.contentWindow.postMessage(exportMessage, '*');
         } catch (error) {
             console.error('[AI Assistant] Error requesting diagram export:', error);
             window.removeEventListener('message', messageHandler);
-            reject(error);
+            resolve(null);
         }
     });
 }
