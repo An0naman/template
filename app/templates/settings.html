@@ -471,6 +471,20 @@
                                     <strong>Note:</strong> This prompt includes extensive XML structure guidance
                                 </small>
                             </div>
+                            
+                            <div class="mb-3">
+                                <label for="promptDiagramRules" class="form-label">
+                                    <i class="fas fa-ruler me-1"></i>Diagram Structure Rules:
+                                </label>
+                                <textarea class="form-control font-monospace" id="promptDiagramRules" rows="12" 
+                                          placeholder="Additional rules for diagram structure (applied when examples are available)">{{ params.prompt_diagram_rules if params.prompt_diagram_rules else '' }}</textarea>
+                                <small class="text-muted">
+                                    <strong>Purpose:</strong> Provides specific structural rules for diagram generation<br>
+                                    <strong>Used in:</strong> Diagram discussion and generation when examples are provided<br>
+                                    <strong>Variables:</strong> None<br>
+                                    <strong>Note:</strong> These rules are appended after example diagrams to guide structural patterns (e.g., wire routing, connection points, color conventions). Edit this to customize how AI interprets and replicates diagram structures.
+                                </small>
+                            </div>
                         </div>
 
                         <!-- Summary Prompt Editor -->
@@ -1547,6 +1561,7 @@
                 prompt_theme: document.getElementById('promptTheme').value,
                 prompt_chat: document.getElementById('promptChat').value,
                 prompt_diagram: document.getElementById('promptDiagram').value,
+                prompt_diagram_rules: document.getElementById('promptDiagramRules').value,
                 prompt_summary: document.getElementById('promptSummary').value
             };
             
