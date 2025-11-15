@@ -446,6 +446,31 @@ def entry_chat():
         except Exception as e:
             logger.warning(f"Could not fetch entry type for debug info: {e}")
         
+        # Build full prompt for debug
+        from ..db import get_system_parameters
+        params = get_system_parameters()
+        
+        # Get base prompt
+        base_prompt = params.get('prompt_base', 'You are a helpful AI assistant.')
+        
+        # Get chat template  
+        chat_template = params.get('prompt_chat', 'You are an AI assistant helping with {project_desc}.')
+        
+        # Build full prompt preview
+        full_prompt_parts = [f"=== BASE SYSTEM PROMPT ===\n{base_prompt}\n"]
+        full_prompt_parts.append(f"=== CHAT TEMPLATE ===\n{chat_template}\n")
+        
+        if debug_info.get('section_prompt'):
+            full_prompt_parts.append(f"=== CUSTOM PROMPT ===\n{debug_info['section_prompt']}\n")
+        
+        full_prompt_parts.append(f"=== USER MESSAGE ===\n{user_message}")
+        
+        if diagram_xml:
+            diagram_context = _extract_diagram_context(diagram_xml)
+            full_prompt_parts.append(f"\n=== DIAGRAM CONTEXT ===\n{diagram_context}")
+        
+        debug_info['full_prompt'] = '\n'.join(full_prompt_parts)
+        
         # If diagram XML is provided, include it in the context
         if diagram_xml:
             logger.info(f"Including diagram context with entry chat for entry {entry_id}")
@@ -742,8 +767,14 @@ User's message: {original_message}"""
             'has_diagram': bool(diagram_xml),
             'has_diagram_examples': False,
             'section_prompt': None,
-            'prompt_layers': ['Base System Prompt']
+            'prompt_layers': ['Base System Prompt'],
+            'full_prompt': None
         }
+        
+        # Get system prompts for full prompt preview
+        from ..db import get_system_parameters
+        params = get_system_parameters()
+        base_prompt = params.get('prompt_base', 'You are a helpful AI assistant.')
         
         # Check if section config has custom prompts
         if section_config:
@@ -776,6 +807,37 @@ User's message: {original_message}"""
                 debug_info['prompt_layers'].insert(1, 'Planning Template')
             else:
                 debug_info['prompt_layers'].insert(1, 'Chat Template')
+        
+        # Build full prompt preview for debug
+        full_prompt_parts = [f"=== BASE SYSTEM PROMPT ===\n{base_prompt}\n"]
+        
+        # Add template layer based on action
+        if action in ['generate_description', 'improve_description', 'make_concise', 'add_details']:
+            desc_template = params.get('prompt_description', '')
+            if desc_template:
+                full_prompt_parts.append(f"=== DESCRIPTION TEMPLATE ===\n{desc_template}\n")
+        elif action == 'compose_note':
+            note_template = params.get('prompt_note_composer', '')
+            if note_template:
+                full_prompt_parts.append(f"=== NOTE COMPOSER TEMPLATE ===\n{note_template}\n")
+        elif action == 'diagram':
+            diagram_template = params.get('prompt_diagram', '')
+            if diagram_template:
+                full_prompt_parts.append(f"=== DIAGRAM TEMPLATE ===\n{diagram_template}\n")
+        else:
+            chat_template = params.get('prompt_chat', '')
+            if chat_template:
+                full_prompt_parts.append(f"=== CHAT TEMPLATE ===\n{chat_template}\n")
+        
+        if debug_info.get('section_prompt'):
+            full_prompt_parts.append(f"=== SECTION CUSTOM PROMPT ===\n{debug_info['section_prompt']}\n")
+        
+        full_prompt_parts.append(f"=== USER MESSAGE ===\n{message}")
+        
+        if diagram_xml:
+            full_prompt_parts.append(f"\n=== DIAGRAM CONTEXT ===\n(Diagram XML included)")
+        
+        debug_info['full_prompt'] = '\n'.join(full_prompt_parts)
         
         # Build response
         response_data = {
@@ -827,8 +889,33 @@ When you understand what's needed, end your response with: [READY_TO_GENERATE]
 
 Do not generate diagram XML in this chat - just discuss the concept."""
         
-        # Use the existing chat_about_entry method with custom context
-        full_message = f"{system_context}\n\nUser: {message}"
+        # Build full message with diagram context
+        full_message = f"{system_context}\n\n"
+        
+        # Add current diagram if available
+        if current_diagram and current_diagram.strip():
+            full_message += "\n**CURRENT DIAGRAM:**\nThe user already has this diagram (XML format):\n"
+            full_message += "```xml\n"
+            full_message += current_diagram
+            full_message += "\n```\n\n"
+            full_message += "Use this as context when discussing modifications or improvements.\n\n"
+        
+        # Add diagram examples if available
+        if entry_id:
+            try:
+                examples = ai_service._get_diagram_examples_for_entry(entry_id)
+                if examples:
+                    full_message += f"\n**DIAGRAM EXAMPLES:**\nHere are {len(examples)} example diagrams for this entry type:\n\n"
+                    for i, example in enumerate(examples, 1):
+                        full_message += f"Example {i}: {example['description']}\n"
+                        full_message += "```xml\n"
+                        full_message += example['diagram_data']
+                        full_message += "\n```\n\n"
+                    full_message += "Use these examples as reference for style and structure.\n\n"
+            except Exception as e:
+                logger.warning(f"Could not fetch diagram examples: {e}")
+        
+        full_message += f"User: {message}"
         
         response = ai_service.chat_about_entry(
             entry_id=entry_id,
@@ -874,6 +961,34 @@ Do not generate diagram XML in this chat - just discuss the concept."""
                             debug_info['diagram_examples_count'] = len(examples)
             except Exception as e:
                 logger.warning(f"Could not fetch entry type for debug info: {e}")
+            
+            # Build full prompt preview (showing what was actually sent)
+            from ..db import get_system_parameters
+            params = get_system_parameters()
+            base_prompt = params.get('prompt_base', 'You are a helpful AI assistant.')
+            diagram_template = params.get('prompt_diagram', '')
+            chat_template = params.get('prompt_chat', '')
+            
+            full_prompt_parts = [f"=== BASE SYSTEM PROMPT ===\n{base_prompt}\n"]
+            
+            if chat_template:
+                full_prompt_parts.append(f"=== CHAT TEMPLATE ===\n{chat_template}\n")
+            
+            if diagram_template:
+                full_prompt_parts.append(f"=== DIAGRAM SYSTEM PROMPT ===\n{diagram_template}\n")
+            
+            full_prompt_parts.append(f"=== DIAGRAM DISCUSSION TEMPLATE ===\n{system_context}\n")
+            
+            if current_diagram:
+                diagram_preview = current_diagram[:500] + "..." if len(current_diagram) > 500 else current_diagram
+                full_prompt_parts.append(f"\n=== CURRENT DIAGRAM ===\n{diagram_preview}\n")
+            
+            if debug_info.get('has_diagram_examples'):
+                full_prompt_parts.append(f"\n=== DIAGRAM EXAMPLES ===\n{debug_info['diagram_examples_count']} example diagram(s) included in prompt\n")
+            
+            full_prompt_parts.append(f"\n=== USER MESSAGE ===\n{message}")
+            
+            debug_info['full_prompt'] = '\n'.join(full_prompt_parts)
             
             return jsonify({
                 'success': True,

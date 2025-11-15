@@ -1239,6 +1239,10 @@ function addMessageToChat(role, content, isLoading = false, debugInfo = null) {
     
     let debugSection = '';
     if (debugInfo && role === 'assistant') {
+        console.log('[AI Assistant] Building debug section with debugInfo:', debugInfo);
+        const debugId = `debug-${messageId}`;
+        const fullPromptId = `fullprompt-${messageId}`;
+        
         debugSection = `
             <div class="debug-reasoning mt-2 p-2 bg-light border rounded small" style="display: ${debugMode ? 'block' : 'none'};">
                 <div class="d-flex justify-content-between align-items-start mb-2">
@@ -1253,6 +1257,19 @@ function addMessageToChat(role, content, isLoading = false, debugInfo = null) {
                 ${debugInfo.has_diagram ? `<div class="mb-2"><strong>Diagram Context:</strong> ✓ Included</div>` : ''}
                 ${debugInfo.has_diagram_examples ? `<div class="mb-2"><strong>Diagram Examples:</strong> ${debugInfo.diagram_examples_count} example(s) provided</div>` : ''}
                 ${debugInfo.prompt_layers ? `<div class="mb-2"><strong>Prompt Layers:</strong> ${debugInfo.prompt_layers.join(' → ')}</div>` : ''}
+                
+                ${debugInfo.full_prompt ? `
+                    <div class="mt-2">
+                        <button class="btn btn-sm btn-outline-info w-100" type="button" data-bs-toggle="collapse" data-bs-target="#${fullPromptId}" aria-expanded="false">
+                            <i class="fas fa-code me-1"></i>Show Full Prompt Sent to AI
+                        </button>
+                        <div class="collapse mt-2" id="${fullPromptId}">
+                            <div class="card card-body bg-white" style="max-height: 400px; overflow-y: auto;">
+                                <pre class="mb-0 small" style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(debugInfo.full_prompt)}</pre>
+                            </div>
+                        </div>
+                    </div>
+                ` : `<div class="mt-2 text-muted small"><i class="fas fa-info-circle me-1"></i>Full prompt not available for this response type</div>`}
             </div>
         `;
     }
