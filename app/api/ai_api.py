@@ -894,8 +894,18 @@ Do not generate diagram XML in this chat - just discuss the concept."""
         
         # Add current diagram if available
         if current_diagram and current_diagram.strip():
-            full_message += "\n**CURRENT DIAGRAM:**\nThe user already has this diagram (XML format):\n"
-            full_message += "```xml\n"
+            from ..utils.diagram_utils import extract_diagram_structure, format_diagram_summary
+            
+            full_message += "\n**CURRENT DIAGRAM:**\nThe user already has this diagram:\n\n"
+            
+            # Add structured summary
+            structure = extract_diagram_structure(current_diagram)
+            summary = format_diagram_summary(structure)
+            full_message += "Current Structure:\n"
+            full_message += summary + "\n\n"
+            
+            # Add full XML
+            full_message += "Full XML:\n```xml\n"
             full_message += current_diagram
             full_message += "\n```\n\n"
             full_message += "Use this as context when discussing modifications or improvements.\n\n"
@@ -903,6 +913,8 @@ Do not generate diagram XML in this chat - just discuss the concept."""
         # Add diagram examples if available
         if entry_id:
             try:
+                from ..utils.diagram_utils import extract_diagram_structure, format_diagram_summary
+                
                 examples = ai_service._get_diagram_examples_for_entry(entry_id)
                 logger.info(f"[Diagram Discuss] Fetched {len(examples)} example(s) for entry {entry_id}")
                 if examples:
@@ -910,11 +922,26 @@ Do not generate diagram XML in this chat - just discuss the concept."""
                     for i, example in enumerate(examples, 1):
                         logger.info(f"[Diagram Discuss] Example {i}: {example.get('title', 'Unknown')} - XML length: {len(example.get('xml', ''))}")
                         full_message += f"Example {i}: {example['description']}\n"
-                        full_message += f"(from entry: {example.get('title', 'Unknown')})\n"
-                        full_message += "```xml\n"
-                        full_message += example['xml']  # Fixed: use 'xml' not 'diagram_data'
+                        full_message += f"(from entry: {example.get('title', 'Unknown')})\n\n"
+                        
+                        # Add structured summary first
+                        structure = extract_diagram_structure(example['xml'])
+                        summary = format_diagram_summary(structure)
+                        full_message += "Structure Analysis:\n"
+                        full_message += summary + "\n\n"
+                        
+                        # Then add full XML
+                        full_message += "Full XML:\n```xml\n"
+                        full_message += example['xml']
                         full_message += "\n```\n\n"
-                    full_message += "Use these examples as reference for style and structure.\n\n"
+                    
+                    full_message += """When creating diagrams, pay special attention to:
+1. Use exitX/exitY on edges to control where wires exit components (e.g., exitX=1,exitY=0 means exit from top-right)
+2. Use explicit target points for wire endpoints
+3. Use appropriate colors: red for VCC/power, black for GND, other colors for I/O
+4. Add labels to all wires/edges describing what they are
+5. Use orthogonalEdgeStyle for clean 90-degree wire routing
+6. Position components logically (source on left, connections extending to the right)\n\n"""
                 else:
                     logger.info(f"[Diagram Discuss] No examples returned for entry {entry_id}")
             except Exception as e:
