@@ -334,7 +334,7 @@
                                                 data-has-sensors="{{ type.has_sensors | default(0, true) }}"
                                                 data-enabled-sensor-types="{{ type.enabled_sensor_types | default('', true) }}"
                                                 data-custom-chat-prompt="{{ type.custom_chat_prompt | default('', true) }}"
-                                                data-diagram-examples="{{ type.diagram_examples | default('[]', true) }}"
+                                                data-diagram-examples='{{ type.diagram_examples | default("[]", true) }}'
                                                 title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </button>
@@ -1022,6 +1022,14 @@
                 // Hide sensor section by default
                 sensorTypesSection.style.display = 'none';
                 
+                // Reset diagram examples
+                diagramExamples = [];
+                renderDiagramExamples();
+                console.log('[Entry Type Add] Reset diagram examples to empty');
+                
+                // Reset custom chat prompt
+                document.getElementById('customChatPrompt').value = '';
+                
                 // Set default note type selection (General)
                 setTimeout(() => {
                     setSelectedNoteTypes('General');
@@ -1108,14 +1116,17 @@
                     // Set custom chat prompt
                     const customChatPrompt = this.dataset.customChatPrompt || '';
                     document.getElementById('customChatPrompt').value = customChatPrompt;
+                    console.log('[Entry Type Edit] Loaded custom_chat_prompt:', customChatPrompt);
                     
                     // Load diagram examples
                     try {
                         const examplesData = this.dataset.diagramExamples || '[]';
+                        console.log('[Entry Type Edit] Raw diagram_examples from dataset:', examplesData);
                         diagramExamples = JSON.parse(examplesData);
+                        console.log('[Entry Type Edit] Parsed diagram examples:', diagramExamples);
                         renderDiagramExamples();
                     } catch (e) {
-                        console.error('Error parsing diagram examples:', e);
+                        console.error('[Entry Type Edit] Error parsing diagram examples:', e);
                         diagramExamples = [];
                         renderDiagramExamples();
                     }
@@ -1212,6 +1223,15 @@
                     custom_chat_prompt: document.getElementById('customChatPrompt').value.trim(),
                     diagram_examples: JSON.stringify(diagramExamples.filter(ex => ex.entry_id && ex.entry_id.toString().trim() !== ''))
                 };
+
+                console.log('[Entry Type Save] Saving data:', {
+                    method: method,
+                    url: url,
+                    custom_chat_prompt_length: data.custom_chat_prompt.length,
+                    diagram_examples_raw: diagramExamples,
+                    diagram_examples_filtered: diagramExamples.filter(ex => ex.entry_id && ex.entry_id.toString().trim() !== ''),
+                    diagram_examples_json: data.diagram_examples
+                });
 
                 fetch(url, {
                     method: method,

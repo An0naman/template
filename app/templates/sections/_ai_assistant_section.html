@@ -6,6 +6,7 @@ var chatHistory = [];
 var currentDraft = null;
 var activeConversationMode = false;
 var currentAction = null;
+var debugMode = false;
 
 // Section configuration (includes custom AI prompts)
 {% if section_config is defined %}
@@ -13,6 +14,16 @@ var aiSectionConfig = {{ section_config|tojson|safe }};
 {% else %}
 var aiSectionConfig = {};
 {% endif %}
+
+function toggleDebugMode() {
+    debugMode = document.getElementById('debugModeToggle').checked;
+    console.log('[AI Assistant] Debug mode:', debugMode ? 'enabled' : 'disabled');
+    
+    // Toggle visibility of all existing debug sections
+    document.querySelectorAll('.debug-reasoning').forEach(el => {
+        el.style.display = debugMode ? 'block' : 'none';
+    });
+}
 
 function quickPrompt(prompt) {
     document.getElementById('chatInput').value = prompt;
@@ -998,7 +1009,7 @@ async function processDiagramRequest(message) {
             document.getElementById(loadingId).remove();
             
             if (response.ok && data.response) {
-                addMessageToChat('assistant', data.response);
+                addMessageToChat('assistant', data.response, false, data.debug_info);
                 // Add assistant response to history
                 chatHistory.push({
                     role: 'assistant',
@@ -1176,7 +1187,8 @@ async function sendChatMessage() {
             
             const entryData = await response.json();
             data = {
-                message: entryData.success ? entryData.response : (entryData.error || 'Failed to get response')
+                message: entryData.success ? entryData.response : (entryData.error || 'Failed to get response'),
+                debug_info: entryData.debug_info
             };
         }
         
@@ -1184,7 +1196,7 @@ async function sendChatMessage() {
         
         if (response.ok) {
             const aiMessage = data.message || data.response || 'No response';
-            addMessageToChat('assistant', aiMessage);
+            addMessageToChat('assistant', aiMessage, false, data.debug_info);
             
             // Reset action button to default
             resetActionButton();
@@ -1214,7 +1226,7 @@ async function sendChatMessage() {
     }
 }
 
-function addMessageToChat(role, content, isLoading = false) {
+function addMessageToChat(role, content, isLoading = false, debugInfo = null) {
     const messagesContainer = document.getElementById('chatMessages');
     const messageId = 'msg-' + Date.now();
     
@@ -1225,18 +1237,55 @@ function addMessageToChat(role, content, isLoading = false) {
     const icon = role === 'user' ? 'fa-user' : 'fa-robot';
     const label = role === 'user' ? 'You' : 'AI Assistant';
     
+    let debugSection = '';
+    if (debugInfo && role === 'assistant') {
+        debugSection = `
+            <div class="debug-reasoning mt-2 p-2 bg-light border rounded small" style="display: ${debugMode ? 'block' : 'none'};">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <strong class="text-primary"><i class="fas fa-bug me-1"></i>AI Reasoning Context</strong>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="copyDebugInfo(this)" data-debug-info='${JSON.stringify(debugInfo).replace(/'/g, "&#39;")}'>
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                ${debugInfo.section_prompt ? `<div class="mb-2"><strong>Section Custom Prompt:</strong><br><code class="small">${escapeHtml(debugInfo.section_prompt)}</code></div>` : ''}
+                ${debugInfo.entry_type ? `<div class="mb-2"><strong>Entry Type:</strong> ${debugInfo.entry_type}</div>` : ''}
+                ${debugInfo.action ? `<div class="mb-2"><strong>Action:</strong> ${debugInfo.action}</div>` : ''}
+                ${debugInfo.has_diagram ? `<div class="mb-2"><strong>Diagram Context:</strong> ✓ Included</div>` : ''}
+                ${debugInfo.has_diagram_examples ? `<div class="mb-2"><strong>Diagram Examples:</strong> ${debugInfo.diagram_examples_count} example(s) provided</div>` : ''}
+                ${debugInfo.prompt_layers ? `<div class="mb-2"><strong>Prompt Layers:</strong> ${debugInfo.prompt_layers.join(' → ')}</div>` : ''}
+            </div>
+        `;
+    }
+    
     messageDiv.innerHTML = `
         <div class="message-header">
             <span><i class="fas ${icon} me-2"></i>${label}</span>
             <small class="text-muted">${new Date().toLocaleTimeString()}</small>
         </div>
         <div class="message-content">${content}</div>
+        ${debugSection}
     `;
     
     messagesContainer.appendChild(messageDiv);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
     
     return messageId;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function copyDebugInfo(button) {
+    const debugInfo = JSON.parse(button.getAttribute('data-debug-info'));
+    navigator.clipboard.writeText(JSON.stringify(debugInfo, null, 2));
+    const icon = button.querySelector('i');
+    icon.className = 'fas fa-check';
+    setTimeout(() => {
+        icon.className = 'fas fa-copy';
+    }, 2000);
 }
 
 function showDescriptionPreview(description) {
@@ -1432,6 +1481,16 @@ async function captureCurrentDiagram() {
 </script>
 
 <div class="chat-container" id="aiChatContainer">
+    <!-- Debug Toggle -->
+    <div class="mb-2 d-flex justify-content-end">
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="debugModeToggle" onchange="toggleDebugMode()">
+            <label class="form-check-label small text-muted" for="debugModeToggle">
+                <i class="fas fa-bug me-1"></i>Show AI Reasoning
+            </label>
+        </div>
+    </div>
+    
     <!-- Chat Messages -->
     <div class="chat-messages mb-3" id="chatMessages" style="max-height: 400px; overflow-y: auto; border: 1px solid var(--theme-border, var(--bs-border-color)); border-radius: 8px; padding: 1rem; background: var(--theme-bg-surface, var(--bs-body-bg));">
         <div class="text-center text-muted py-4">

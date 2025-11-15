@@ -417,6 +417,35 @@ def entry_chat():
         if not ai_service.is_available():
             return jsonify({'error': 'AI service is not available. Please configure Gemini API key in settings.'}), 503
         
+        # Build debug info
+        debug_info = {
+            'entry_id': entry_id,
+            'has_diagram': bool(diagram_xml),
+            'entry_type': None,
+            'action': None,
+            'section_prompt': None,
+            'prompt_layers': ['Base System Prompt', 'Chat Template']
+        }
+        
+        # Get entry type for debug info
+        try:
+            from flask import g
+            if 'db' not in g:
+                db_path = current_app.config['DATABASE_PATH']
+                g.db = sqlite3.connect(db_path)
+                g.db.row_factory = sqlite3.Row
+            
+            cursor = g.db.cursor()
+            cursor.execute('SELECT et.singular_label, et.custom_chat_prompt FROM Entry e JOIN EntryType et ON e.entry_type_id = et.id WHERE e.id = ?', (entry_id,))
+            row = cursor.fetchone()
+            if row:
+                debug_info['entry_type'] = row['singular_label']
+                if row['custom_chat_prompt']:
+                    debug_info['section_prompt'] = row['custom_chat_prompt']
+                    debug_info['prompt_layers'].append('Entry Type Custom Prompt')
+        except Exception as e:
+            logger.warning(f"Could not fetch entry type for debug info: {e}")
+        
         # If diagram XML is provided, include it in the context
         if diagram_xml:
             logger.info(f"Including diagram context with entry chat for entry {entry_id}")
@@ -439,7 +468,8 @@ User's question/message: {user_message}"""
         if response:
             return jsonify({
                 'success': True,
-                'response': response
+                'response': response,
+                'debug_info': debug_info
             })
         else:
             return jsonify({'error': 'Failed to generate response'}), 500
@@ -704,9 +734,53 @@ User's message: {original_message}"""
                 action=action
             ) if entry_id else message
         
+        # Build debug info
+        debug_info = {
+            'entry_id': entry_id,
+            'entry_type': entry_type,
+            'action': action or 'general_chat',
+            'has_diagram': bool(diagram_xml),
+            'has_diagram_examples': False,
+            'section_prompt': None,
+            'prompt_layers': ['Base System Prompt']
+        }
+        
+        # Check if section config has custom prompts
+        if section_config:
+            # Map action to config keys to show which prompt was used
+            action_to_config_key = {
+                'generate_description': 'prompt_description',
+                'improve_description': 'prompt_description',
+                'make_concise': 'prompt_description',
+                'add_details': 'prompt_description',
+                'compose_note': 'prompt_note_composer',
+                'diagram': 'prompt_diagram',
+                'planning': 'prompt_planning',
+                None: 'prompt_general_chat'
+            }
+            config_key = action_to_config_key.get(action, 'prompt_general_chat')
+            custom_prompt = section_config.get(config_key, '').strip()
+            
+            if custom_prompt:
+                debug_info['section_prompt'] = custom_prompt
+                debug_info['prompt_layers'].append('Section Custom Prompt')
+            
+            # Add template layer
+            if action in ['generate_description', 'improve_description', 'make_concise', 'add_details']:
+                debug_info['prompt_layers'].insert(1, 'Description Template')
+            elif action == 'compose_note':
+                debug_info['prompt_layers'].insert(1, 'Note Composer Template')
+            elif action == 'diagram':
+                debug_info['prompt_layers'].insert(1, 'Diagram Template')
+            elif action == 'planning':
+                debug_info['prompt_layers'].insert(1, 'Planning Template')
+            else:
+                debug_info['prompt_layers'].insert(1, 'Chat Template')
+        
         # Build response
         response_data = {
-            'message': ai_response or "I'm here to help! How can I assist you with this entry?"
+            'message': ai_response or "I'm here to help! How can I assist you with this entry?",
+            'debug_info': debug_info
         }
         
         if description_preview:
@@ -768,10 +842,44 @@ Do not generate diagram XML in this chat - just discuss the concept."""
             ready_to_generate = '[READY_TO_GENERATE]' in response
             clean_response = response.replace('[READY_TO_GENERATE]', '').strip()
             
+            # Build debug info
+            debug_info = {
+                'entry_id': entry_id,
+                'entry_type': None,
+                'action': 'diagram_discussion',
+                'has_diagram': bool(current_diagram),
+                'has_diagram_examples': False,
+                'section_prompt': None,
+                'prompt_layers': ['Base System Prompt', 'Diagram Discussion Template']
+            }
+            
+            # Get entry type
+            try:
+                from flask import g
+                if 'db' not in g:
+                    db_path = current_app.config['DATABASE_PATH']
+                    g.db = sqlite3.connect(db_path)
+                    g.db.row_factory = sqlite3.Row
+                
+                cursor = g.db.cursor()
+                cursor.execute('SELECT et.singular_label, et.diagram_examples FROM Entry e JOIN EntryType et ON e.entry_type_id = et.id WHERE e.id = ?', (entry_id,))
+                row = cursor.fetchone()
+                if row:
+                    debug_info['entry_type'] = row['singular_label']
+                    if row['diagram_examples']:
+                        import json
+                        examples = json.loads(row['diagram_examples'])
+                        if examples:
+                            debug_info['has_diagram_examples'] = True
+                            debug_info['diagram_examples_count'] = len(examples)
+            except Exception as e:
+                logger.warning(f"Could not fetch entry type for debug info: {e}")
+            
             return jsonify({
                 'success': True,
                 'response': clean_response,
-                'ready_to_generate': ready_to_generate
+                'ready_to_generate': ready_to_generate,
+                'debug_info': debug_info
             })
         
         return jsonify({'error': 'Failed to process message'}), 500
