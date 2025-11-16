@@ -876,6 +876,7 @@ def get_system_parameters():
                 'project_name': 'My Awesome Project',
                 'entry_singular_label': 'Entry',
                 'entry_plural_label': 'Entries',
+                'enable_sensors': '1',  # Global toggle for sensor functionality (1 = enabled, 0 = disabled)
                 'sensor_types': '',  # Start with empty sensor types - let devices register them dynamically
                 'allowed_file_types': 'txt,pdf,png,jpg,jpeg,gif,webp,svg,doc,docx,xls,xlsx,ppt,pptx,mp4,avi,mov,wmv,flv,webm,mkv,mp3,wav,flac,aac,ogg,zip,rar,7z,tar,gz',
                 'max_file_size': '50',

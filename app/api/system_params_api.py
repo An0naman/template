@@ -49,7 +49,7 @@ def api_update_system_params():
     try:
         # Allowed parameter prefixes/names
         allowed_params = [
-            'project_name', 'entry_singular_label', 'entry_plural_label', 'project_subtitle', 'sensor_types', 
+            'project_name', 'entry_singular_label', 'entry_plural_label', 'project_subtitle', 'enable_sensors', 'sensor_types', 
             'project_logo_path', 'label_font_size', 'label_include_qr_code', 'label_include_logo',
             'label_qr_code_prefix', 'allowed_file_types', 'max_file_size', 'custom_note_types',
             'gemini_api_key', 'groq_api_key', 'gemini_model_name', 'groq_model_name', 'gemini_base_prompt',

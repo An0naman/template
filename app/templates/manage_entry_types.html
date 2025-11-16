@@ -268,7 +268,9 @@
                             <th class="text-center">Primary</th>
                             <th class="text-center">Labels</th>
                             <th class="text-center">End Dates</th>
+                            {% if get_system_parameters().get('enable_sensors', '1') == '1' %}
                             <th class="text-center">Sensors</th>
+                            {% endif %}
                             <th class="text-center">Actions</th>
                         </tr>
                     </thead>
@@ -302,6 +304,7 @@
                                             <i class="fas fa-times-circle status-icon text-muted" title="No End Date Fields"></i>
                                         {% endif %}
                                     </td>
+                                    {% if get_system_parameters().get('enable_sensors', '1') == '1' %}
                                     <td class="text-center">
                                         {% if type.has_sensors %}
                                             <i class="fas fa-thermometer-half status-icon text-success" title="Sensors Enabled"></i>
@@ -309,6 +312,7 @@
                                             <i class="fas fa-times-circle status-icon text-muted" title="No Sensors"></i>
                                         {% endif %}
                                     </td>
+                                    {% endif %}
                                     <td class="action-buttons text-center">
                                         <button class="btn btn-sm btn-outline-info manage-states-btn"
                                                 data-id="{{ type.id }}"
@@ -433,6 +437,7 @@
                                         </label>
                                         <div class="form-text">Show intended & actual end date fields</div>
                                     </div>
+                                    {% if get_system_parameters().get('enable_sensors', '1') == '1' %}
                                     <div class="form-check mb-3">
                                         <input class="form-check-input" type="checkbox" id="hasSensors">
                                         <label class="form-check-label" for="hasSensors">
@@ -440,11 +445,13 @@
                                         </label>
                                         <div class="form-text">Allow sensor data collection for entries</div>
                                     </div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
 
                         <!-- Sensor Types Section -->
+                        {% if get_system_parameters().get('enable_sensors', '1') == '1' %}
                         <div class="mb-4" id="sensorTypesSection" style="display: none;">
                             <h6 class="text-success border-bottom pb-2 mb-3">
                                 <i class="fas fa-thermometer-half me-2"></i>Sensor Configuration
@@ -477,6 +484,7 @@
                                 <input type="hidden" id="enabledSensorTypes">
                             </div>
                         </div>
+                        {% endif %}
 
                         <!-- Note Types Section -->
                         <div class="mb-4">
@@ -842,6 +850,9 @@
 
             // Toggle sensor types section visibility
             function toggleSensorTypesSection() {
+                // Check if sensor elements exist (they won't if sensors are globally disabled)
+                if (!hasSensorsInput || !sensorTypesSection) return;
+                
                 if (hasSensorsInput.checked) {
                     sensorTypesSection.style.display = 'block';
                     if (availableSensorTypes.length === 0) {
@@ -856,7 +867,9 @@
                     document.querySelectorAll('.sensor-type-input').forEach(checkbox => {
                         checkbox.checked = false;
                     });
-                    enabledSensorTypesInput.value = '';
+                    if (enabledSensorTypesInput) {
+                        enabledSensorTypesInput.value = '';
+                    }
                 }
             }
 
@@ -918,11 +931,15 @@
             // Refresh note types button
             refreshNoteTypesBtn.addEventListener('click', loadNoteTypes);
 
-            // Sensor checkbox event listener
-            hasSensorsInput.addEventListener('change', toggleSensorTypesSection);
+            // Sensor checkbox event listener (only if sensor elements exist)
+            if (hasSensorsInput) {
+                hasSensorsInput.addEventListener('change', toggleSensorTypesSection);
+            }
 
-            // Add sensor type functionality
-            document.getElementById('addSensorTypeBtn').addEventListener('click', async function() {
+            // Add sensor type functionality (only if elements exist)
+            const addSensorTypeBtn = document.getElementById('addSensorTypeBtn');
+            if (addSensorTypeBtn) {
+                addSensorTypeBtn.addEventListener('click', async function() {
                 const newSensorTypeInput = document.getElementById('newSensorTypeInput');
                 const newSensorType = newSensorTypeInput.value.trim();
                 
@@ -985,28 +1002,37 @@
                     console.error('Error adding sensor type:', error);
                     alert('Error adding sensor type');
                 }
-            });
+                });
+            }
 
-            // Allow Enter key to add sensor type
-            document.getElementById('newSensorTypeInput').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    document.getElementById('addSensorTypeBtn').click();
-                }
-            });
+            // Allow Enter key to add sensor type (only if elements exist)
+            const newSensorTypeInput = document.getElementById('newSensorTypeInput');
+            if (newSensorTypeInput && addSensorTypeBtn) {
+                newSensorTypeInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addSensorTypeBtn.click();
+                    }
+                });
+            }
 
-            // Refresh sensor types button
-            document.getElementById('refreshSensorTypesBtn').addEventListener('click', function() {
-                loadSensorTypes();
-            });
+            // Refresh sensor types button (only if it exists)
+            const refreshSensorTypesBtn = document.getElementById('refreshSensorTypesBtn');
+            if (refreshSensorTypesBtn) {
+                refreshSensorTypesBtn.addEventListener('click', function() {
+                    loadSensorTypes();
+                });
+            }
 
             // Load note types on page load
             loadNoteTypes();
 
-            // Load sensor types on page load (so they're available for editing)
-            loadSensorTypes().catch(error => {
-                console.warn('Failed to preload sensor types:', error);
-            });
+            // Load sensor types on page load (only if sensors are enabled globally)
+            if (sensorTypesContainer) {
+                loadSensorTypes().catch(error => {
+                    console.warn('Failed to preload sensor types:', error);
+                });
+            }
 
             // Show Add Modal
             document.getElementById('showAddEntryTypeModalBtn').addEventListener('click', function() {
@@ -1019,8 +1045,10 @@
                 pluralLabelInput.value = '';
                 document.getElementById('entryTypeModalLabel').textContent = 'Add New Entry Type';
                 
-                // Hide sensor section by default
-                sensorTypesSection.style.display = 'none';
+                // Hide sensor section by default (if it exists)
+                if (sensorTypesSection) {
+                    sensorTypesSection.style.display = 'none';
+                }
                 
                 // Reset diagram examples
                 diagramExamples = [];
@@ -1063,39 +1091,43 @@
                     isPrimaryInput.checked = (this.dataset.isPrimary === '1');
                     showLabelsSectionInput.checked = (this.dataset.showLabelsSection === '1');
                     showEndDatesInput.checked = (this.dataset.showEndDates === '1');
-                    hasSensorsInput.checked = (this.dataset.hasSensors === '1');
-                    nameInput.readOnly = true; // Name is not editable for existing entries
-                    pluralLabelInput.readOnly = false; // Allow editing plural for existing entries
                     
-                    console.log('Sensors enabled:', hasSensorsInput.checked);
-                    console.log('Available sensor types count:', availableSensorTypes.length);
-                    
-                    // Handle sensor section visibility and data
-                    if (hasSensorsInput.checked) {
-                        sensorTypesSection.style.display = 'block';
-                        const sensorTypesToSet = this.dataset.enabledSensorTypes || '';
-                        console.log('Edit mode - Sensor types to set:', sensorTypesToSet); // Debug
+                    // Handle sensor inputs only if they exist (sensors may be globally disabled)
+                    if (hasSensorsInput) {
+                        hasSensorsInput.checked = (this.dataset.hasSensors === '1');
+                        nameInput.readOnly = true; // Name is not editable for existing entries
+                        pluralLabelInput.readOnly = false; // Allow editing plural for existing entries
                         
-                        // Since sensor types are now preloaded, we just need to ensure checkboxes are rendered
-                        if (availableSensorTypes.length > 0) {
-                            // Sensor types already loaded, render checkboxes and set selections
-                            renderSensorTypesCheckboxes();
-                            setTimeout(() => {
-                                console.log('Checkboxes rendered, setting selections...'); // Debug
-                                setSelectedSensorTypes(sensorTypesToSet);
-                            }, 100);
-                        } else {
-                            console.warn('No sensor types available - they may not have loaded yet');
-                            // Fallback: try to load sensor types again
-                            loadSensorTypes().then(() => {
-                                console.log('Sensor types loaded as fallback, setting selections...'); // Debug
-                                setSelectedSensorTypes(sensorTypesToSet);
-                            }).catch(error => {
-                                console.error('Failed to load sensor types as fallback:', error);
-                            });
+                        console.log('Sensors enabled:', hasSensorsInput.checked);
+                        console.log('Available sensor types count:', availableSensorTypes.length);
+                        
+                        // Handle sensor section visibility and data
+                        if (hasSensorsInput.checked && sensorTypesSection) {
+                            sensorTypesSection.style.display = 'block';
+                            const sensorTypesToSet = this.dataset.enabledSensorTypes || '';
+                            console.log('Edit mode - Sensor types to set:', sensorTypesToSet); // Debug
+                            
+                            // Since sensor types are now preloaded, we just need to ensure checkboxes are rendered
+                            if (availableSensorTypes.length > 0) {
+                                // Sensor types already loaded, render checkboxes and set selections
+                                renderSensorTypesCheckboxes();
+                                setTimeout(() => {
+                                    console.log('Checkboxes rendered, setting selections...'); // Debug
+                                    setSelectedSensorTypes(sensorTypesToSet);
+                                }, 100);
+                            } else {
+                                console.warn('No sensor types available - they may not have loaded yet');
+                                // Fallback: try to load sensor types again
+                                loadSensorTypes().then(() => {
+                                    console.log('Sensor types loaded as fallback, setting selections...'); // Debug
+                                    setSelectedSensorTypes(sensorTypesToSet);
+                                }).catch(error => {
+                                    console.error('Failed to load sensor types as fallback:', error);
+                                });
+                            }
+                        } else if (sensorTypesSection) {
+                            sensorTypesSection.style.display = 'none';
                         }
-                    } else {
-                        sensorTypesSection.style.display = 'none';
                     }
                     
                     // Set note types selection - ensure note types are loaded first
@@ -1218,8 +1250,8 @@
                     is_primary: isPrimaryInput.checked ? 1 : 0,
                     show_labels_section: showLabelsSectionInput.checked ? 1 : 0,
                     show_end_dates: showEndDatesInput.checked ? 1 : 0,
-                    has_sensors: hasSensorsInput.checked ? 1 : 0,
-                    enabled_sensor_types: enabledSensorTypesInput.value,
+                    has_sensors: hasSensorsInput ? (hasSensorsInput.checked ? 1 : 0) : 0,
+                    enabled_sensor_types: enabledSensorTypesInput ? enabledSensorTypesInput.value : '',
                     custom_chat_prompt: document.getElementById('customChatPrompt').value.trim(),
                     diagram_examples: JSON.stringify(diagramExamples.filter(ex => ex.entry_id && ex.entry_id.toString().trim() !== ''))
                 };

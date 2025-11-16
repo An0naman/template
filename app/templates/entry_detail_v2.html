@@ -469,7 +469,9 @@
                                         {% elif section_type == 'labels' %}
                                             {% with section_id=section.id %}{% include 'sections/_labels_section.html' %}{% endwith %}
                                         {% elif section_type == 'sensors' %}
-                                            {% with section_id=section.id %}{% include 'sections/_sensors_section.html' %}{% endwith %}
+                                            {% if get_system_parameters().get('enable_sensors', '1') == '1' %}
+                                                {% with section_id=section.id %}{% include 'sections/_sensors_section.html' %}{% endwith %}
+                                            {% endif %}
                                         {% elif section_type == 'reminders' %}
                                             {% with section_id=section.id %}{% include 'sections/_reminders_section.html' %}{% endwith %}
                                         {% elif section_type == 'ai_assistant' %}
@@ -566,7 +568,9 @@
                                     <h5>Labels Section</h5>
                                     <p class="text-muted">Labels content will go here</p>
                                 {% elif section_type == 'sensors' %}
-                                    {% include 'sections/_sensors_section.html' %}
+                                    {% if get_system_parameters().get('enable_sensors', '1') == '1' %}
+                                        {% include 'sections/_sensors_section.html' %}
+                                    {% endif %}
                                 {% elif section_type == 'reminders' %}
                                     <h5>Reminders Section</h5>
                                     <p class="text-muted">Reminders content will go here</p>
