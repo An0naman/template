@@ -43,8 +43,11 @@ services:
     
     # Volume mounts
     volumes:
-      # App data (database and uploads)
+      # App data (database)
       - ./data:/app/data
+      
+      # Uploaded files (logos, attachments, etc.)
+      - ./uploads:/app/uploads
       
       # D-Bus for Bluetooth (remove if not needed)
       - /var/run/dbus:/var/run/dbus
@@ -78,10 +81,11 @@ services:
       # Optional: Security
       - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
     
-    # DNS servers (Google Public DNS)
+    # DNS servers (Google Public DNS + Cloudflare)
     dns:
       - 8.8.8.8
       - 8.8.4.4
+      - 1.1.1.1
     
     # DNS options to prevent IPv6 timeout issues
     dns_opt:
@@ -91,8 +95,8 @@ services:
     
     # Prefer IPv4 for DNS resolution (fixes Google API connectivity issues)
     sysctls:
-      - net.ipv6.conf.all.disable_ipv6=1
-      - net.ipv6.conf.default.disable_ipv6=1
+      net.ipv6.conf.all.disable_ipv6: "1"
+      net.ipv6.conf.default.disable_ipv6: "1"
     
     # Health check
     healthcheck:

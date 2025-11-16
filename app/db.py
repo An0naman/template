@@ -594,6 +594,92 @@ def init_db():
             )
         ''')
 
+        # Create ThemeSettings table for storing custom theme configurations
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS ThemeSettings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                theme_name TEXT,
+                primary_color TEXT DEFAULT '#007bff',
+                secondary_color TEXT DEFAULT '#6c757d',
+                success_color TEXT DEFAULT '#28a745',
+                danger_color TEXT DEFAULT '#dc3545',
+                warning_color TEXT DEFAULT '#ffc107',
+                info_color TEXT DEFAULT '#17a2b8',
+                light_color TEXT DEFAULT '#f8f9fa',
+                dark_color TEXT DEFAULT '#343a40',
+                background_color TEXT DEFAULT '#ffffff',
+                text_color TEXT DEFAULT '#212529',
+                link_color TEXT DEFAULT '#007bff',
+                border_color TEXT DEFAULT '#dee2e6',
+                font_family TEXT DEFAULT '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                font_size TEXT DEFAULT '16px',
+                border_radius TEXT DEFAULT '0.25rem',
+                card_shadow TEXT DEFAULT '0 0.125rem 0.25rem rgba(0,0,0,0.075)',
+                button_style TEXT DEFAULT 'rounded',
+                border_style TEXT DEFAULT 'thin',
+                entry_card_icon TEXT DEFAULT 'none',
+                use_gradients INTEGER DEFAULT 0,
+                enable_animations INTEGER DEFAULT 1,
+                high_contrast INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # Create EntryTypeFormField table for custom form fields per entry type
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS EntryTypeFormField (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                entry_type_id INTEGER NOT NULL,
+                field_name TEXT NOT NULL,
+                field_type TEXT NOT NULL CHECK(field_type IN ('text', 'textarea', 'select', 'date', 'checkbox', 'number', 'email', 'url', 'custom')),
+                field_label TEXT NOT NULL,
+                display_order INTEGER DEFAULT 0,
+                row_position INTEGER DEFAULT 0,
+                column_width INTEGER DEFAULT 12 CHECK(column_width BETWEEN 1 AND 12),
+                is_visible INTEGER DEFAULT 1,
+                is_required INTEGER DEFAULT 0,
+                is_editable INTEGER DEFAULT 1,
+                placeholder TEXT,
+                help_text TEXT,
+                default_value TEXT,
+                field_options TEXT,
+                validation_rules TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(entry_type_id, field_name),
+                FOREIGN KEY (entry_type_id) REFERENCES EntryType(id) ON DELETE CASCADE
+            )
+        ''')
+
+        # Create NoteEntry table for note-to-entry relationships
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS NoteEntry (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                note_id INTEGER NOT NULL,
+                entry_id INTEGER NOT NULL,
+                relationship_type TEXT DEFAULT 'primary',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(note_id, entry_id),
+                FOREIGN KEY (note_id) REFERENCES Note(id) ON DELETE CASCADE,
+                FOREIGN KEY (entry_id) REFERENCES Entry(id) ON DELETE CASCADE
+            )
+        ''')
+
+        # Create NoteEntryRelationship table for additional note-entry tracking
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS NoteEntryRelationship (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                note_id INTEGER NOT NULL,
+                entry_id INTEGER NOT NULL,
+                is_primary INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(note_id, entry_id),
+                FOREIGN KEY (note_id) REFERENCES Note(id) ON DELETE CASCADE,
+                FOREIGN KEY (entry_id) REFERENCES Entry(id) ON DELETE CASCADE
+            )
+        ''')
+
         # Insert default system parameters if they don't exist
         default_params = {
             # General settings

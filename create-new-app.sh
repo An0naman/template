@@ -77,8 +77,9 @@ echo -e "${GREEN}→ Configuring environment...${NC}"
 sed -i "s/^APP_NAME=.*/APP_NAME=${APP_NAME}/" "$APP_DIR/.env"
 sed -i "s/^PORT=.*/PORT=${PORT}/" "$APP_DIR/.env"
 
-# Create data directory
+# Create data and uploads directories
 mkdir -p "$APP_DIR/data"
+mkdir -p "$APP_DIR/uploads"
 
 echo ""
 echo -e "${GREEN}✓ App created successfully!${NC}"
