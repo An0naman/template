@@ -1960,9 +1960,27 @@ Respond ONLY with the JSON object, no additional text.
                         logger.warning(f"No diagram found for example entry {example_entry_id}")
                 
                 if len(examples) > 0:
-                    logger.info(f"Loaded {len(examples)} diagram example(s) for entry {entry_id}")
-                
-                return examples
+                    # Deduplicate examples by their XML content (some entries may reference the same diagram)
+                    unique = []
+                    seen_hashes = set()
+                    import hashlib
+                    for ex in examples:
+                        xml = ex.get('xml', '') or ''
+                        h = hashlib.sha256(xml.encode('utf-8')).hexdigest()
+                        if h in seen_hashes:
+                            continue
+                        seen_hashes.add(h)
+                        unique.append(ex)
+
+                    # Limit number of examples to avoid very large prompts when many examples are attached
+                    MAX_EXAMPLES = 3
+                    limited = unique[:MAX_EXAMPLES]
+
+                    logger.info(f"Loaded {len(limited)} diagram example(s) for entry {entry_id} (deduped from {len(examples)})")
+
+                    return limited
+
+                return []
                 
             except json.JSONDecodeError as e:
                 logger.error(f"Error parsing diagram examples: {e}")
