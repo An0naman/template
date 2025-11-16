@@ -2000,18 +2000,29 @@ Respond ONLY with the JSON object, no additional text.
             entry_id: Optional entry ID for context
             
         Returns:
-            Dictionary with 'diagram_xml' and 'explanation' or None if failed
+            Dictionary with 'diagram_xml' and 'explanation' or error dict with 'error' key
         """
         # Prefer Groq for diagram generation (no safety filters), fallback to Gemini
         if self.groq_configured:
             logger.info("Using Groq for diagram generation")
-            return self._generate_diagram_with_groq(user_request, current_diagram, entry_id)
+            result = self._generate_diagram_with_groq(user_request, current_diagram, entry_id)
+            
+            # If Groq failed with a rate limit or other error, try Gemini fallback
+            if result is None or (isinstance(result, dict) and 'rate_limit' in result):
+                if self.is_available():
+                    logger.warning("Groq failed, falling back to Gemini")
+                    gemini_result = self._generate_diagram_with_gemini(user_request, current_diagram, entry_id)
+                    if gemini_result:
+                        return gemini_result
+                # If Gemini also fails or not available, return the Groq error
+                return result
+            return result
         elif self.is_available():
             logger.warning("Groq not configured, using Gemini (may encounter safety filters)")
             return self._generate_diagram_with_gemini(user_request, current_diagram, entry_id)
         else:
             logger.error("No AI service available for diagram generation")
-            return None
+            return {'error': 'No AI service configured. Please configure Groq or Gemini API keys.'}
     
     def _generate_diagram_with_gemini(self, user_request: str, current_diagram: Optional[str] = None, entry_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
         """Generate diagram using Google Gemini (may have safety filter issues)"""
@@ -2235,8 +2246,24 @@ Format your response as:
                 return None
                 
         except Exception as e:
-            logger.error(f"Failed to generate diagram with Groq: {str(e)}", exc_info=True)
+            error_str = str(e)
+            logger.error(f"Failed to generate diagram with Groq: {error_str}", exc_info=True)
             logger.error(f"User request was: {user_request}")
+            
+            # Check if it's a rate limit error
+            if 'rate_limit' in error_str.lower() or '429' in error_str:
+                # Extract wait time if available
+                import re
+                wait_match = re.search(r'try again in ([0-9]+m)?([0-9.]+s)?', error_str)
+                wait_time = wait_match.group(0) if wait_match else 'a few minutes'
+                
+                logger.warning(f"Groq rate limit hit, will attempt Gemini fallback")
+                return {
+                    'error': f'Groq API rate limit exceeded. Please {wait_time}. Attempting fallback to Gemini...',
+                    'rate_limit': True
+                }
+            
+            # Other errors
             return None
     
     def _build_diagram_system_prompt(self) -> str:

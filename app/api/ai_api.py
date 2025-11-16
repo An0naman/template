@@ -1092,9 +1092,14 @@ def generate_diagram():
         actual_prompt_sent = getattr(ai_service, '_last_prompt', None)
         
         if result:
-            # Check if result contains an error (e.g., safety block)
+            # Check if result contains an error (e.g., safety block, rate limit)
             if 'error' in result:
-                return jsonify({'error': result['error']}), 400
+                error_message = result['error']
+                # If it's a rate limit error with fallback attempted, use 503 (service temporarily unavailable)
+                if 'rate_limit' in result:
+                    return jsonify({'error': error_message}), 503
+                # Other errors use 400
+                return jsonify({'error': error_message}), 400
             
             # Success case
             if 'diagram_xml' in result:
@@ -1114,7 +1119,7 @@ def generate_diagram():
                 
                 return jsonify(response_data)
         
-        return jsonify({'error': 'Failed to generate diagram'}), 500
+        return jsonify({'error': 'Failed to generate diagram. Please try again.'}), 500
             
     except Exception as e:
         logger.error(f"Error generating diagram: {str(e)}", exc_info=True)
