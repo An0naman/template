@@ -82,3 +82,4 @@ debug_entry_85_relationships.py
 test_entry_85_debug.py
 test_entry_85_parents.py
 test_hierarchy_function.py
+*.backup.*
