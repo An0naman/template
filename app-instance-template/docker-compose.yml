@@ -155,7 +155,7 @@ x-casaos:
   author: self
   category: self
   hostname: ''
-  icon: http://100.84.208.29:${PORT:-5001}/api/logo
+  icon: http://homeserver.taile4ced3.ts.net:${PORT:-5001}/api/logo
   index: /
   is_uncontrolled: false
   port_map: '${PORT:-5001}'

@@ -5,7 +5,7 @@
   "author": "an0naman",
   "name": "Template",
   "description": "CasaOS app template for development.",
-  "icon": "http://100.84.208.29:5001/api/logo",
+  "icon": "http://homeserver.taile4ced3.ts.net:5001/api/logo",
   "thumbnail": "",
   "index": "http://192.168.1.108:5050",
   "port_map": "5050",
