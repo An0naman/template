@@ -142,7 +142,7 @@ def init_db():
                 date_range TEXT DEFAULT '',
                 sort_by TEXT DEFAULT 'created_desc',
                 content_display TEXT DEFAULT '',
-                result_limit TEXT DEFAULT '50',
+                result_limit TEXT DEFAULT '10000',
                 is_default INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -827,7 +827,7 @@ def init_db():
             'default_date_range': '',
             'default_sort_by': 'created_desc',
             'default_content_display': '',
-            'default_result_limit': '50'
+            'default_result_limit': '10000'
         }
         for name, value in default_params.items():
             cursor.execute("INSERT OR IGNORE INTO SystemParameters (parameter_name, parameter_value) VALUES (?, ?)", (name, value))

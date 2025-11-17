@@ -41,7 +41,7 @@ def entries():
     if status_filter is None:
         status_filter = get_user_preference('default_status_filter', 'all')  # Changed from 'active' to 'all' for frontend filtering
     if result_limit is None:
-        result_limit = get_user_preference('default_result_limit', '50')
+        result_limit = get_user_preference('default_result_limit', '10000')
     
     # Save filters if requested
     if save_filters:
@@ -114,7 +114,7 @@ def entries():
         'date_range': params.get('default_date_range', ''),
         'sort_by': params.get('default_sort_by', 'created_desc'),
         'content_display': params.get('default_content_display', ''),
-        'result_limit': params.get('default_result_limit', '50')
+        'result_limit': params.get('default_result_limit', '10000')
     }
 
     return render_template('index.html',
