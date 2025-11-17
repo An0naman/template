@@ -443,7 +443,7 @@
                 })
             });
             
-            showNotification('Template saved successfully!', 'success');
+            showBanner('Template saved successfully!', 'success');
             
             // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('templateConfigModal'));
@@ -487,7 +487,7 @@
             }
             
             const action = isCurrentlyDistributed ? 'unmarked from' : 'marked for';
-            showNotification(`Template ${action} distribution`, 'success');
+            showBanner(`Template ${action} distribution`, 'success');
             
             // Reload template status
             await loadTemplateStatus();
@@ -697,7 +697,7 @@
             }
             
             const result = await response.json();
-            showNotification(`Successfully imported ${result.imported_count} milestone(s)!`, 'success');
+            showBanner(`Successfully imported ${result.imported_count} milestone(s)!`, 'success');
             
             // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('templateBrowserModal'));

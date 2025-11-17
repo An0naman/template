@@ -262,7 +262,7 @@ function deleteRelationship(relationshipId, entryId) {
             }
             
             // Show success message
-            showNotification('Relationship deleted successfully', 'success');
+            showBanner('Relationship deleted successfully', 'success');
             
             // Reload page after a short delay to update counts
             setTimeout(() => window.location.reload(), 1000);
@@ -500,7 +500,7 @@ function submitExistingEntryRelationship(entryId, data) {
     .then(response => response.json())
     .then(result => {
         if (result.success || result.message) {
-            showNotification('Relationship added successfully', 'success');
+            showBanner('Relationship added successfully', 'success');
             
             // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById(`addRelationshipModal${entryId}`));
@@ -530,7 +530,7 @@ function submitNewEntryRelationship(entryId, data) {
     .then(response => response.json())
     .then(result => {
         if (result.success || result.message) {
-            showNotification('New entry and relationship created successfully', 'success');
+            showBanner('New entry and relationship created successfully', 'success');
             
             // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById(`addRelationshipModal${entryId}`));

@@ -451,3 +451,89 @@ function showNotification(message, type = 'info') {
         console.log(`[${type.toUpperCase()}] ${message}`);
     }
 }
+
+// Banner function for temporary non-persistent messages (saves, updates, etc.)
+function showBanner(message, type = 'success', duration = 3000) {
+    // Create banner element
+    const banner = document.createElement('div');
+    banner.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed`;
+    banner.style.cssText = `
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        min-width: 300px;
+        max-width: 600px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        animation: slideDown 0.3s ease-out;
+    `;
+    
+    // Add icon based on type
+    const icons = {
+        'success': 'fa-check-circle',
+        'error': 'fa-exclamation-circle',
+        'warning': 'fa-exclamation-triangle',
+        'info': 'fa-info-circle'
+    };
+    const icon = icons[type] || icons.info;
+    
+    banner.innerHTML = `
+        <i class="fas ${icon} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    // Add animation keyframes if not already added
+    if (!document.getElementById('banner-animations')) {
+        const style = document.createElement('style');
+        style.id = 'banner-animations';
+        style.textContent = `
+            @keyframes slideDown {
+                from {
+                    opacity: 0;
+                    transform: translateX(-50%) translateY(-20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(-50%) translateY(0);
+                }
+            }
+            @keyframes slideUp {
+                from {
+                    opacity: 1;
+                    transform: translateX(-50%) translateY(0);
+                }
+                to {
+                    opacity: 0;
+                    transform: translateX(-50%) translateY(-20px);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    document.body.appendChild(banner);
+    
+    // Auto-dismiss after duration
+    setTimeout(() => {
+        banner.style.animation = 'slideUp 0.3s ease-out';
+        setTimeout(() => {
+            if (banner.parentNode) {
+                banner.parentNode.removeChild(banner);
+            }
+        }, 300);
+    }, duration);
+    
+    // Allow manual dismiss
+    const closeBtn = banner.querySelector('.btn-close');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            banner.style.animation = 'slideUp 0.3s ease-out';
+            setTimeout(() => {
+                if (banner.parentNode) {
+                    banner.parentNode.removeChild(banner);
+                }
+            }, 300);
+        });
+    }
+}

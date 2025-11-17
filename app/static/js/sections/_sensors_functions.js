@@ -1215,7 +1215,7 @@ function onCustomDateChange() {
 
 function refreshSensorData() {
 	loadSensorData();
-	showNotification('Sensor data refreshed', 'success');
+	showBanner('Sensor data refreshed', 'success');
 }
 
 function toggleDataTable() {
@@ -1447,11 +1447,11 @@ async function addSensorReading() {
 		if (addForm) addForm.reset();
         
 		await loadSensorData();
-		showNotification('Sensor reading added successfully', 'success');
+		showBanner('Sensor reading added successfully', 'success');
         
 	} catch (error) {
 		console.error('Error adding sensor reading:', error);
-		showNotification(error.message, 'error');
+		showBanner(error.message, 'error');
 	}
 }
 
@@ -1519,11 +1519,11 @@ async function updateSensorReading() {
 			if (editModal) editModal.hide();
 		}
 		await loadSensorData();
-		showNotification('Sensor reading updated successfully', 'success');
+		showBanner('Sensor reading updated successfully', 'success');
         
 	} catch (error) {
 		console.error('Error updating sensor reading:', error);
-		showNotification(error.message, 'error');
+		showBanner(error.message, 'error');
 	}
 }
 
@@ -1558,11 +1558,11 @@ async function deleteSensorReading(id = null) {
 		if (editModal) editModal.hide();
         
 		await loadSensorDataV2();
-		showNotification('Sensor reading deleted successfully', 'success');
+		showBanner('Sensor reading deleted successfully', 'success');
         
 	} catch (error) {
 		console.error('Error deleting sensor reading:', error);
-		showNotification(error.message, 'error');
+		showBanner(error.message, 'error');
 	}
 }
 
@@ -1888,7 +1888,7 @@ async function saveEnabledSensorTypes() {
 			throw new Error(errorData.error || 'Failed to update sensor types');
 		}
 		
-		showNotification('Enabled sensor types updated successfully', 'success');
+		showBanner('Enabled sensor types updated successfully', 'success');
 		
 		// Reload sensor types for this entry to reflect changes
 		await loadSensorTypes();
@@ -2054,7 +2054,7 @@ async function toggleAlarmStatus(ruleId, activate) {
 			throw new Error('Failed to update alarm status');
 		}
 		
-		showNotification(`Alarm ${activate ? 'activated' : 'deactivated'} successfully`, 'success');
+		showBanner(`Alarm ${activate ? 'activated' : 'deactivated'} successfully`, 'success');
 		
 		// Reload alerts
 		await populateSensorAlerts();
@@ -2082,7 +2082,7 @@ async function deleteAlarm(ruleId) {
 			throw new Error('Failed to delete alarm');
 		}
 		
-		showNotification('Alarm deleted successfully', 'success');
+		showBanner('Alarm deleted successfully', 'success');
 		
 		// Reload alerts
 		await populateSensorAlerts();
@@ -2316,10 +2316,10 @@ async function saveSensorConfiguration() {
 		const modal = bootstrap.Modal.getInstance(document.getElementById('configureSensorsModal'));
 		if (modal) modal.hide();
 		
-		showNotification('Configuration saved successfully to database', 'success');
+		showBanner('Configuration saved successfully to database', 'success');
 	} catch (error) {
 		console.error('Error saving sensor configuration:', error);
-		showNotification('Failed to save configuration', 'error');
+		showBanner('Failed to save configuration', 'error');
 	}
 }
 

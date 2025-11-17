@@ -297,7 +297,7 @@ async function saveLayout() {
         const result = await response.json();
         console.log('Save response:', result);
         
-        showNotification('Layout saved successfully', 'success');
+        showBanner('Layout saved successfully', 'success');
         
         // Exit edit mode
         toggleEditMode();
@@ -307,7 +307,7 @@ async function saveLayout() {
         
     } catch (error) {
         console.error('Error saving layout:', error);
-        showNotification('Failed to save layout', 'error');
+        showBanner('Failed to save layout', 'error');
     }
 }
 
@@ -326,14 +326,14 @@ async function resetLayout() {
             throw new Error('Failed to reset layout');
         }
         
-        showNotification('Layout reset to default', 'success');
+        showBanner('Layout reset to default', 'success');
         
         // Reload layout
         await loadLayout(currentLayout.entry_type_id);
         
     } catch (error) {
         console.error('Error resetting layout:', error);
-        showNotification('Failed to reset layout', 'error');
+        showBanner('Failed to reset layout', 'error');
     }
 }
 
@@ -379,14 +379,14 @@ async function addSectionFromPalette(sectionType) {
         const currentTabObj = currentTabs.find(t => t.tab_id === activeTab);
         const tabLabel = currentTabObj ? currentTabObj.tab_label : activeTab;
         
-        showNotification(`Section "${sectionTemplate.default_title}" added to ${tabLabel} tab`, 'success');
+        showBanner(`Section "${sectionTemplate.default_title}" added to ${tabLabel} tab`, 'success');
         
         // Reload layout (which will stay on current tab)
         await loadLayout(currentLayout.entry_type_id);
         
     } catch (error) {
         console.error('Error adding section:', error);
-        showNotification('Failed to add section', 'error');
+        showBanner('Failed to add section', 'error');
     }
 }
 
@@ -411,14 +411,14 @@ async function toggleSectionVisibility(sectionId) {
             throw new Error('Failed to update section visibility');
         }
         
-        showNotification(`Section ${newVisibility ? 'shown' : 'hidden'}`, 'success');
+        showBanner(`Section ${newVisibility ? 'shown' : 'hidden'}`, 'success');
         
         // Reload layout
         await loadLayout(currentLayout.entry_type_id);
         
     } catch (error) {
         console.error('Error toggling visibility:', error);
-        showNotification('Failed to update section visibility', 'error');
+        showBanner('Failed to update section visibility', 'error');
     }
 }
 
@@ -437,14 +437,14 @@ async function deleteSection(sectionId) {
             throw new Error('Failed to delete section');
         }
         
-        showNotification('Section deleted', 'success');
+        showBanner('Section deleted', 'success');
         
         // Reload layout
         await loadLayout(currentLayout.entry_type_id);
         
     } catch (error) {
         console.error('Error deleting section:', error);
-        showNotification('Failed to delete section', 'error');
+        showBanner('Failed to delete section', 'error');
     }
 }
 
@@ -679,7 +679,7 @@ async function saveSectionProperties() {
             }
         }
         
-        showNotification('Section properties saved', 'success');
+        showBanner('Section properties saved', 'success');
         
         // Reload layout
         await loadLayout(currentLayout.entry_type_id);
@@ -687,7 +687,7 @@ async function saveSectionProperties() {
         
     } catch (error) {
         console.error('Error saving section properties:', error);
-        showNotification('Failed to save section properties', 'error');
+        showBanner('Failed to save section properties', 'error');
     }
 }
 
@@ -760,14 +760,14 @@ async function createTab(tabData) {
             throw new Error('Failed to create tab');
         }
         
-        showNotification('Tab created successfully', 'success');
+        showBanner('Tab created successfully', 'success');
         
         // Reload layout
         await loadLayout(currentLayout.entry_type_id);
         
     } catch (error) {
         console.error('Error creating tab:', error);
-        showNotification('Failed to create tab', 'error');
+        showBanner('Failed to create tab', 'error');
     }
 }
 
@@ -788,7 +788,7 @@ async function deleteTab(event, tabId) {
             throw new Error('Failed to delete tab');
         }
         
-        showNotification('Tab deleted successfully', 'success');
+        showBanner('Tab deleted successfully', 'success');
         
         // Switch to main tab if deleted tab was active
         const deletedTab = currentTabs.find(t => t.id === tabId);
@@ -801,7 +801,7 @@ async function deleteTab(event, tabId) {
         
     } catch (error) {
         console.error('Error deleting tab:', error);
-        showNotification('Failed to delete tab', 'error');
+        showBanner('Failed to delete tab', 'error');
     }
 }
 

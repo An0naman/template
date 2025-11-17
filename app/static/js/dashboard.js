@@ -211,11 +211,11 @@ async function createDashboard() {
         document.getElementById('dashboardSelect').value = result.id;
         await loadDashboard(result.id);
         
-        showNotification('Dashboard created successfully', 'success');
+        showBanner('Dashboard created successfully', 'success');
         
     } catch (error) {
         console.error('Error creating dashboard:', error);
-        showNotification(error.message, 'error');
+        showBanner(error.message, 'error');
     }
 }
 
@@ -237,14 +237,14 @@ async function setDashboardAsDefault() {
         // Re-select current dashboard
         document.getElementById('dashboardSelect').value = currentDashboard.id;
         
-        showNotification('Dashboard set as default successfully', 'success');
+        showBanner('Dashboard set as default successfully', 'success');
         
         // Update button visibility
         updateDashboardButtons();
         
     } catch (error) {
         console.error('Error setting default dashboard:', error);
-        showNotification('Failed to set default dashboard', 'error');
+        showBanner('Failed to set default dashboard', 'error');
     }
 }
 
@@ -266,11 +266,11 @@ async function deleteDashboard() {
         await loadDashboards();
         showEmptyState();
         
-        showNotification('Dashboard deleted successfully', 'success');
+        showBanner('Dashboard deleted successfully', 'success');
         
     } catch (error) {
         console.error('Error deleting dashboard:', error);
-        showNotification('Failed to delete dashboard', 'error');
+        showBanner('Failed to delete dashboard', 'error');
     }
 }
 
@@ -528,11 +528,11 @@ async function addWidget() {
         // Reload dashboard
         await loadDashboard(currentDashboard.id);
         
-        showNotification(`Widget ${isEditing ? 'updated' : 'added'} successfully`, 'success');
+        showBanner(`Widget ${isEditing ? 'updated' : 'added'} successfully`, 'success');
         
     } catch (error) {
         console.error(`Error ${isEditing ? 'updating' : 'adding'} widget:`, error);
-        showNotification(`Failed to ${isEditing ? 'update' : 'add'} widget`, 'error');
+        showBanner(`Failed to ${isEditing ? 'update' : 'add'} widget`, 'error');
     }
 }
 
@@ -540,7 +540,7 @@ async function editWidget(widgetId) {
     // Find the widget in current dashboard
     const widget = currentDashboard.widgets.find(w => w.id === widgetId);
     if (!widget) {
-        showNotification('Widget not found', 'error');
+        showBanner('Widget not found', 'error');
         return;
     }
     
@@ -671,11 +671,11 @@ async function deleteWidget(widgetId) {
         // Reload dashboard
         await loadDashboard(currentDashboard.id);
         
-        showNotification('Widget deleted successfully', 'success');
+        showBanner('Widget deleted successfully', 'success');
         
     } catch (error) {
         console.error('Error deleting widget:', error);
-        showNotification('Failed to delete widget', 'error');
+        showBanner('Failed to delete widget', 'error');
     }
 }
 
@@ -1215,10 +1215,10 @@ async function saveWidgetPositions() {
     try {
         await Promise.all(updates);
         console.log('All widget layouts saved successfully');
-        showNotification('Layout saved successfully', 'success');
+        showBanner('Layout saved successfully', 'success');
     } catch (error) {
         console.error('Error saving layout:', error);
-        showNotification('Failed to save layout', 'error');
+        showBanner('Failed to save layout', 'error');
     }
 }
 
@@ -1248,7 +1248,7 @@ async function refreshWidget(widgetId, forceRefresh = false) {
             const data = await response.json();
             renderWidget(widget, data);
             
-            showNotification('AI summary regenerated', 'success');
+            showBanner('AI summary regenerated', 'success');
         } catch (error) {
             console.error(`Error loading widget ${widget.id} data:`, error);
             if (bodyEl) {
@@ -1270,7 +1270,7 @@ async function refreshAllWidgets() {
     await loadAllWidgetData();
     
     icon.classList.remove('fa-spin');
-    showNotification('All widgets refreshed', 'success');
+    showBanner('All widgets refreshed', 'success');
 }
 
 // ============================================================================
