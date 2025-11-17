@@ -376,7 +376,8 @@
                             'id': section.id,
                             'type': section.section_type,
                             'title': section.title,
-                            'tab_id': tab.tab_id
+                            'tab_id': tab.tab_id,
+                            'default_collapsed': section.default_collapsed
                         }) %}
                     {% endif %}
                 {% endfor %}
@@ -426,7 +427,8 @@
                             'id': sect.id,
                             'type': sect.section_type,
                             'title': sect.title,
-                            'tab_id': tab.tab_id
+                            'tab_id': tab.tab_id,
+                            'default_collapsed': sect.default_collapsed
                         }) %}
                     {% endif %}
                 {% endfor %}
@@ -518,7 +520,8 @@
                     'id': section.id,
                     'type': section.section_type,
                     'title': section.title,
-                    'tab_id': 'main'
+                    'tab_id': 'main',
+                    'default_collapsed': section.default_collapsed
                 }) %}
             {% endif %}
         {% endfor %}
