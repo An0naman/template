@@ -191,6 +191,21 @@ def init_db():
             );
         ''')
 
+        # Create AI Summary Cache Table for storing cached AI summaries
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS AISummaryCache (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                widget_id INTEGER NOT NULL,
+                search_id INTEGER NOT NULL,
+                summary_text TEXT NOT NULL,
+                generated_date TEXT NOT NULL, -- Date (YYYY-MM-DD) when summary was generated
+                config_hash TEXT, -- Hash of widget config to detect when config changes
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (widget_id) REFERENCES DashboardWidget(id) ON DELETE CASCADE,
+                UNIQUE(widget_id, generated_date)
+            );
+        ''')
+
         # Create RelationshipDefinition Table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS RelationshipDefinition (

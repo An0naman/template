@@ -63,6 +63,13 @@ function setupEventListeners() {
             refreshWidget(widgetId);
         }
         
+        // Handle force refresh widget button (AI summary only)
+        if (e.target.closest('.force-refresh-widget-btn')) {
+            const btn = e.target.closest('.force-refresh-widget-btn');
+            const widgetId = parseInt(btn.dataset.widgetId);
+            refreshWidget(widgetId, true); // true = force refresh
+        }
+        
         // Handle edit widget button
         if (e.target.closest('.edit-widget-btn')) {
             console.log('Edit button clicked');
@@ -396,8 +403,8 @@ function handleChartAttributeChange(event) {
     const timelineOptions = document.getElementById('timelineOptions');
     
     if (timelineOptions) {
-        // Show timeline options for date-based attributes
-        if (attribute === 'created_date' || attribute === 'end_date') {
+        // Show timeline options for date/timeline attribute
+        if (attribute === 'date_timeline') {
             timelineOptions.style.display = 'block';
         } else {
             timelineOptions.style.display = 'none';
@@ -464,9 +471,11 @@ async function addWidget() {
             widgetData.config.chart_type = chartType;
             widgetData.config.chart_attribute = chartAttribute;
             
-            // Add timeline grouping for date-based attributes
-            if (chartAttribute === 'created_date' || chartAttribute === 'end_date') {
+            // Add timeline options for date/timeline attribute
+            if (chartAttribute === 'date_timeline') {
+                const dateField = document.getElementById('dateField').value;
                 const timelineGrouping = document.getElementById('timelineGrouping').value;
+                widgetData.config.date_field = dateField;
                 widgetData.config.timeline_grouping = timelineGrouping;
             }
         } else {
@@ -625,6 +634,10 @@ async function editWidget(widgetId) {
                     handleChartAttributeChange({ target: { value: config.chart_attribute } });
                 }
             }
+            if (config.date_field) {
+                const dateFieldSelect = document.getElementById('dateField');
+                if (dateFieldSelect) dateFieldSelect.value = config.date_field;
+            }
             if (config.timeline_grouping) {
                 const timelineGroupingSelect = document.getElementById('timelineGrouping');
                 if (timelineGroupingSelect) timelineGroupingSelect.value = config.timeline_grouping;
@@ -671,14 +684,20 @@ async function deleteWidget(widgetId) {
 // ============================================================================
 
 function addWidgetToGrid(widget) {
+    const isAISummary = widget.widget_type === 'ai_summary';
     const widgetHtml = `
         <div class="dashboard-widget">
             <div class="widget-header">
                 <h6 class="widget-title">${widget.title}</h6>
                 <div class="widget-actions">
-                    <button class="btn btn-sm btn-link text-muted refresh-widget-btn" data-widget-id="${widget.id}" title="Refresh">
+                    <button class="btn btn-sm btn-link text-muted refresh-widget-btn" data-widget-id="${widget.id}" title="Refresh${isAISummary ? ' (uses cached if available)' : ''}">
                         <i class="fas fa-sync"></i>
                     </button>
+                    ${isAISummary ? `
+                    <button class="btn btn-sm btn-link text-warning force-refresh-widget-btn" data-widget-id="${widget.id}" title="Force Regenerate AI Summary">
+                        <i class="fas fa-bolt"></i>
+                    </button>
+                    ` : ''}
                     <button class="btn btn-sm btn-link text-primary edit-widget-btn" data-widget-id="${widget.id}" title="Edit">
                         <i class="fas fa-edit"></i>
                     </button>
@@ -1089,11 +1108,15 @@ function renderAISummary(bodyEl, data) {
     
     html += '</div>';
     
-    // Add metadata footer if available
-    if (data.context) {
-        html += `<div class="text-muted small mt-3 pt-2 border-top">
-            <i class="fas fa-info-circle me-1"></i>
-            Based on ${data.context.total_entries} entries across ${data.context.states} states
+    // Add metadata footer with cache status
+    if (data.context || data.cached !== undefined) {
+        html += `<div class="text-muted small mt-3 pt-2 border-top d-flex justify-content-between align-items-center">
+            <div>
+                <i class="fas fa-info-circle me-1"></i>
+                ${data.context ? `Based on ${data.context.total_entries} entries across ${data.context.states} states` : ''}
+                ${data.cached ? `<span class="badge bg-success ms-2"><i class="fas fa-check-circle me-1"></i>Cached (Today)</span>` : ''}
+                ${data.generated_date ? `<span class="text-muted ms-2">Generated: ${data.generated_date}</span>` : ''}
+            </div>
         </div>`;
     }
     
@@ -1203,16 +1226,38 @@ async function saveWidgetPositions() {
 // Refresh Functions
 // ============================================================================
 
-async function refreshWidget(widgetId) {
+async function refreshWidget(widgetId, forceRefresh = false) {
     const widget = currentDashboard.widgets.find(w => w.id === widgetId);
     if (!widget) return;
     
     const bodyEl = document.getElementById(`widget-body-${widgetId}`);
     if (bodyEl) {
-        bodyEl.innerHTML = '<div class="widget-loading"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+        if (widget.widget_type === 'ai_summary' && forceRefresh) {
+            bodyEl.innerHTML = '<div class="widget-loading"><i class="fas fa-spinner fa-spin"></i> Regenerating AI summary...</div>';
+        } else {
+            bodyEl.innerHTML = '<div class="widget-loading"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+        }
     }
     
-    await loadWidgetData(widget);
+    // For AI summary widgets with force refresh, add query parameter
+    if (widget.widget_type === 'ai_summary' && forceRefresh) {
+        try {
+            const response = await fetch(`/api/widgets/${widget.id}/data?force_refresh=true`);
+            if (!response.ok) throw new Error('Failed to load widget data');
+            
+            const data = await response.json();
+            renderWidget(widget, data);
+            
+            showNotification('AI summary regenerated', 'success');
+        } catch (error) {
+            console.error(`Error loading widget ${widget.id} data:`, error);
+            if (bodyEl) {
+                bodyEl.innerHTML = '<div class="text-danger text-center p-3">Error loading widget data</div>';
+            }
+        }
+    } else {
+        await loadWidgetData(widget);
+    }
 }
 
 async function refreshAllWidgets() {

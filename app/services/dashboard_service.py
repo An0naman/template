@@ -305,13 +305,19 @@ class DashboardService:
         
         Args:
             search_id: Saved search to filter by
-            attribute: Attribute to aggregate by ('status', 'entry_type', 'created_date', 'end_date')
-            config: Optional configuration (e.g., timeline_grouping for date attributes)
+            attribute: Attribute to aggregate by ('status', 'entry_type', 'date_timeline')
+            config: Optional configuration (e.g., date_field and timeline_grouping for date_timeline)
             
         Returns:
             Dict with category distribution data
         """
         # Handle timeline-based attributes
+        if attribute == 'date_timeline':
+            date_field = config.get('date_field', 'created_date') if config else 'created_date'
+            grouping = config.get('timeline_grouping', 'month') if config else 'month'
+            return DashboardService.get_timeline_distribution(search_id, date_field, grouping)
+        
+        # Legacy support for old chart widgets with created_date or end_date attributes
         if attribute in ['created_date', 'end_date']:
             grouping = config.get('timeline_grouping', 'month') if config else 'month'
             return DashboardService.get_timeline_distribution(search_id, attribute, grouping)
@@ -612,19 +618,23 @@ class DashboardService:
             return {'error': str(e), 'data_points': [], 'sensor_type': sensor_type}
 
     @staticmethod
-    def generate_ai_summary(search_id: int, widget_config: Dict[str, Any] = None) -> Dict[str, Any]:
+    def generate_ai_summary(search_id: int, widget_config: Dict[str, Any] = None, widget_id: int = None, force_refresh: bool = False) -> Dict[str, Any]:
         """
-        Generate AI summary for a saved search
+        Generate AI summary for a saved search (with daily caching)
         
         Args:
             search_id: ID of the saved search
             widget_config: Optional widget configuration containing custom_prompt
+            widget_id: Widget ID for caching purposes
+            force_refresh: If True, bypass cache and regenerate
             
         Returns:
             Dict with AI-generated summary
         """
         try:
             from app.services.ai_service import get_ai_service
+            from datetime import date
+            import hashlib
             
             ai_service = get_ai_service()
             if not ai_service.is_available():
@@ -632,6 +642,42 @@ class DashboardService:
                     'summary': 'AI service is not configured. Please configure Gemini API key in system settings.',
                     'available': False
                 }
+            
+            # Check for force refresh in config
+            if widget_config and widget_config.get('_force_refresh'):
+                force_refresh = True
+                widget_config = {k: v for k, v in widget_config.items() if k != '_force_refresh'}
+            
+            # Generate config hash to detect changes
+            config_str = json.dumps(widget_config or {}, sort_keys=True)
+            config_hash = hashlib.md5(config_str.encode()).hexdigest()
+            today = date.today().isoformat()
+            
+            # Check cache if we have a widget_id and not forcing refresh
+            if widget_id and not force_refresh:
+                conn = DashboardService.get_db()
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    SELECT summary_text, config_hash
+                    FROM AISummaryCache
+                    WHERE widget_id = ? AND generated_date = ?
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                """, (widget_id, today))
+                
+                cached = cursor.fetchone()
+                if cached and cached['config_hash'] == config_hash:
+                    logger.info(f"Widget ID {widget_id} - Using cached AI summary from {today}")
+                    conn.close()
+                    return {
+                        'summary': cached['summary_text'],
+                        'available': True,
+                        'cached': True,
+                        'generated_date': today
+                    }
+                
+                conn.close()
             
             # Get entries from saved search
             search_data = DashboardService.get_saved_search_entries(search_id)
@@ -798,12 +844,40 @@ class DashboardService:
 Please incorporate these specific instructions into your analysis and summary."""
 
             # Use the model's generate_content method
+            logger.info(f"Widget ID {widget_id} - Generating new AI summary for {today}")
             response = ai_service.model.generate_content(prompt)
             summary = response.text.strip() if response and response.text else "Unable to generate summary"
+            
+            # Cache the summary if we have a widget_id
+            if widget_id:
+                try:
+                    conn = DashboardService.get_db()
+                    cursor = conn.cursor()
+                    
+                    # Delete old cache entries for this widget (keep only today's)
+                    cursor.execute("""
+                        DELETE FROM AISummaryCache
+                        WHERE widget_id = ? AND generated_date != ?
+                    """, (widget_id, today))
+                    
+                    # Insert new cache entry
+                    cursor.execute("""
+                        INSERT OR REPLACE INTO AISummaryCache
+                        (widget_id, search_id, summary_text, generated_date, config_hash)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (widget_id, search_id, summary, today, config_hash))
+                    
+                    conn.commit()
+                    conn.close()
+                    logger.info(f"Widget ID {widget_id} - Cached AI summary for {today}")
+                except Exception as cache_error:
+                    logger.error(f"Error caching AI summary: {cache_error}")
             
             return {
                 'summary': summary,
                 'available': True,
+                'cached': False,
+                'generated_date': today,
                 'context': {
                     'total_entries': context['total_entries'],
                     'states': len(context['state_distribution'])
@@ -894,9 +968,10 @@ Please incorporate these specific instructions into your analysis and summary.""
                 return result
             
             elif widget_type == 'ai_summary' and data_source_type == 'saved_search':
-                logger.info(f"Widget ID {widget.get('id')} - Generating AI summary for search {data_source_id}")
-                result = DashboardService.generate_ai_summary(data_source_id, config)
-                logger.info(f"Widget ID {widget.get('id')} - AI summary result: available={result.get('available')}, has_summary={bool(result.get('summary'))}, error={result.get('error')}")
+                widget_id = widget.get('id')
+                logger.info(f"Widget ID {widget_id} - Generating AI summary for search {data_source_id}")
+                result = DashboardService.generate_ai_summary(data_source_id, config, widget_id=widget_id)
+                logger.info(f"Widget ID {widget_id} - AI summary result: available={result.get('available')}, cached={result.get('cached')}, has_summary={bool(result.get('summary'))}, error={result.get('error')}")
                 return result
             
             elif widget_type == 'stat_card':

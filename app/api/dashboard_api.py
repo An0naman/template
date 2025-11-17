@@ -411,6 +411,9 @@ def delete_widget(widget_id):
 def get_widget_data(widget_id):
     """Get data for a specific widget"""
     try:
+        # Check if force_refresh parameter is set (for AI summaries)
+        force_refresh = request.args.get('force_refresh', 'false').lower() == 'true'
+        
         conn = get_db()
         cursor = conn.cursor()
         
@@ -426,6 +429,14 @@ def get_widget_data(widget_id):
             return jsonify({'error': 'Widget not found'}), 404
         
         widget = dict(widget_row)
+        
+        # Pass force_refresh to widget data getter for AI summaries
+        if force_refresh and widget['widget_type'] == 'ai_summary':
+            # Temporarily add force_refresh to config
+            import json
+            config = json.loads(widget['config']) if widget['config'] else {}
+            config['_force_refresh'] = True
+            widget['config'] = json.dumps(config)
         
         # Get widget data using DashboardService
         data = DashboardService.get_widget_data(widget)

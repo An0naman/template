@@ -348,12 +348,19 @@
                                     <option value="">Select attribute...</option>
                                     <option value="status">Status</option>
                                     <option value="entry_type">Entry Type</option>
-                                    <option value="created_date">Created Date (Timeline)</option>
-                                    <option value="end_date">End Date (Timeline)</option>
+                                    <option value="date_timeline">Date/Timeline</option>
                                 </select>
                             </div>
                             
                             <div id="timelineOptions" style="display: none;">
+                                <div class="mb-3">
+                                    <label for="dateField" class="form-label">Date Field</label>
+                                    <select class="form-select" id="dateField">
+                                        <option value="created_date">Created Date</option>
+                                        <option value="end_date">End Date</option>
+                                    </select>
+                                </div>
+                                
                                 <div class="mb-3">
                                     <label for="timelineGrouping" class="form-label">Group By</label>
                                     <select class="form-select" id="timelineGrouping">
