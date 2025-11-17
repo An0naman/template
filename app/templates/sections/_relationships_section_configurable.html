@@ -1839,15 +1839,27 @@
             showNotification(`Importing ${relationships.length} relationships...`, 'info');
             
             // Use the shared relationships API endpoint
-            const response = await fetch(`/api/entries/${entryId}/import_shared_relationships`, {
+            const response = await fetch(`/api/entries/${entryId}/create_shared_relationships`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ relationships: relationships })
             });
             
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Failed to import relationships');
+                let errorMessage = 'Failed to import relationships';
+                try {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        const error = await response.json();
+                        errorMessage = error.error || errorMessage;
+                    } else {
+                        const text = await response.text();
+                        errorMessage = `Server error (${response.status}): ${text.substring(0, 100)}`;
+                    }
+                } catch (parseError) {
+                    errorMessage = `Server error (${response.status})`;
+                }
+                throw new Error(errorMessage);
             }
             
             const result = await response.json();
@@ -1855,7 +1867,19 @@
             // Reload relationships to show the imported ones
             await loadRelationships();
             
-            showNotification(`Successfully imported ${result.created} relationship${result.created !== 1 ? 's' : ''}`, 'success');
+            // Show summary notification
+            if (result.summary) {
+                const { created_count, failed_count } = result.summary;
+                if (failed_count === 0) {
+                    showNotification(`Successfully imported ${created_count} relationships`, 'success');
+                } else if (created_count === 0) {
+                    showNotification(`Failed to import relationships: ${result.failed[0]?.error || 'Unknown error'}`, 'danger');
+                } else {
+                    showNotification(`Imported ${created_count} relationships (${failed_count} failed)`, 'warning');
+                }
+            } else {
+                showNotification('Relationships imported successfully', 'success');
+            }
         } catch (error) {
             console.error('Error importing relationships:', error);
             showNotification('Error importing relationships: ' + error.message, 'danger');
