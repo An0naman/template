@@ -48,6 +48,12 @@ function setupEventListeners() {
     document.getElementById('saveWidgetBtn').addEventListener('click', addWidget);
     document.getElementById('widgetType').addEventListener('change', handleWidgetTypeChange);
     
+    // Chart attribute change handler
+    const chartAttributeSelect = document.getElementById('chartAttribute');
+    if (chartAttributeSelect) {
+        chartAttributeSelect.addEventListener('change', handleChartAttributeChange);
+    }
+    
     // Event delegation for widget buttons (since they're dynamically created)
     document.addEventListener('click', function(e) {
         // Handle refresh widget button
@@ -356,12 +362,14 @@ function handleWidgetTypeChange(event) {
     const savedSearchConfig = document.getElementById('savedSearchConfig');
     const sensorDataConfig = document.getElementById('sensorDataConfig');
     const aiSummaryPromptConfig = document.getElementById('aiSummaryPromptConfig');
+    const chartConfig = document.getElementById('chartConfig');
     
     // Hide all configs
     savedSearchConfig.style.display = 'none';
     sensorDataConfig.style.display = 'none';
     dataSourceConfig.style.display = 'none';
     aiSummaryPromptConfig.style.display = 'none';
+    if (chartConfig) chartConfig.style.display = 'none';
     
     // Show relevant config based on widget type
     if (widgetType === 'list' || widgetType === 'ai_summary' || widgetType === 'stat_card') {
@@ -376,9 +384,24 @@ function handleWidgetTypeChange(event) {
         dataSourceConfig.style.display = 'block';
         savedSearchConfig.style.display = 'block';
         sensorDataConfig.style.display = 'block';
-    } else if (widgetType === 'pie_chart') {
+    } else if (widgetType === 'chart') {
+        if (chartConfig) chartConfig.style.display = 'block';
         dataSourceConfig.style.display = 'block';
         savedSearchConfig.style.display = 'block';
+    }
+}
+
+function handleChartAttributeChange(event) {
+    const attribute = event ? event.target.value : document.getElementById('chartAttribute').value;
+    const timelineOptions = document.getElementById('timelineOptions');
+    
+    if (timelineOptions) {
+        // Show timeline options for date-based attributes
+        if (attribute === 'created_date' || attribute === 'end_date') {
+            timelineOptions.style.display = 'block';
+        } else {
+            timelineOptions.style.display = 'none';
+        }
     }
 }
 
@@ -414,7 +437,7 @@ async function addWidget() {
     }
     
     // Set data source based on widget type
-    if (widgetType === 'list' || widgetType === 'ai_summary' || widgetType === 'stat_card' || widgetType === 'pie_chart') {
+    if (widgetType === 'list' || widgetType === 'ai_summary' || widgetType === 'stat_card') {
         const savedSearchId = document.getElementById('savedSearchSelect').value;
         if (savedSearchId) {
             widgetData.data_source_type = 'saved_search';
@@ -427,6 +450,28 @@ async function addWidget() {
             if (customPrompt) {
                 widgetData.config.custom_prompt = customPrompt;
             }
+        }
+    }
+    
+    if (widgetType === 'chart') {
+        const savedSearchId = document.getElementById('savedSearchSelect').value;
+        const chartType = document.getElementById('chartType').value;
+        const chartAttribute = document.getElementById('chartAttribute').value;
+        
+        if (savedSearchId && chartType && chartAttribute) {
+            widgetData.data_source_type = 'saved_search';
+            widgetData.data_source_id = parseInt(savedSearchId);
+            widgetData.config.chart_type = chartType;
+            widgetData.config.chart_attribute = chartAttribute;
+            
+            // Add timeline grouping for date-based attributes
+            if (chartAttribute === 'created_date' || chartAttribute === 'end_date') {
+                const timelineGrouping = document.getElementById('timelineGrouping').value;
+                widgetData.config.timeline_grouping = timelineGrouping;
+            }
+        } else {
+            showNotification('Please select chart type, attribute, and data source', 'warning');
+            return;
         }
     }
     
@@ -564,6 +609,31 @@ async function editWidget(widgetId) {
         }
     }
     
+    // For chart widgets, load chart configuration
+    if (widget.widget_type === 'chart' && widget.config) {
+        try {
+            const config = typeof widget.config === 'string' ? JSON.parse(widget.config) : widget.config;
+            if (config.chart_type) {
+                const chartTypeSelect = document.getElementById('chartType');
+                if (chartTypeSelect) chartTypeSelect.value = config.chart_type;
+            }
+            if (config.chart_attribute) {
+                const chartAttributeSelect = document.getElementById('chartAttribute');
+                if (chartAttributeSelect) {
+                    chartAttributeSelect.value = config.chart_attribute;
+                    // Trigger change to show/hide timeline options
+                    handleChartAttributeChange({ target: { value: config.chart_attribute } });
+                }
+            }
+            if (config.timeline_grouping) {
+                const timelineGroupingSelect = document.getElementById('timelineGrouping');
+                if (timelineGroupingSelect) timelineGroupingSelect.value = config.timeline_grouping;
+            }
+        } catch (e) {
+            console.error('Error parsing widget config for chart:', e);
+        }
+    }
+    
     // Store the widget ID for updating
     document.getElementById('saveWidgetBtn').dataset.editingWidgetId = widgetId;
     document.getElementById('saveWidgetBtn').textContent = 'Update Widget';
@@ -638,9 +708,9 @@ function addWidgetToGrid(widget) {
 async function loadAllWidgetData() {
     if (!currentDashboard || !currentDashboard.widgets) return;
     
-    for (const widget of currentDashboard.widgets) {
-        await loadWidgetData(widget);
-    }
+    // Load all widgets in parallel so fast widgets don't wait for slow ones (like AI summary)
+    const loadPromises = currentDashboard.widgets.map(widget => loadWidgetData(widget));
+    await Promise.allSettled(loadPromises); // Use allSettled so one failure doesn't stop others
 }
 
 async function loadWidgetData(widget) {
@@ -668,7 +738,11 @@ function renderWidget(widget, data) {
         case 'list':
             renderListWidget(bodyEl, data);
             break;
+        case 'chart':
+            renderChart(bodyEl, widget.id, widget, data);
+            break;
         case 'pie_chart':
+            // Legacy support - convert to chart
             renderPieChart(bodyEl, widget.id, data);
             break;
         case 'line_chart':
@@ -775,6 +849,103 @@ function renderPieChart(bodyEl, widgetId, data) {
     });
 }
 
+function renderChart(bodyEl, widgetId, widget, data) {
+    if (data.error || !data.categories || data.categories.length === 0) {
+        bodyEl.innerHTML = '<div class="text-muted text-center p-3">No data available</div>';
+        return;
+    }
+    
+    // Get chart configuration from widget config
+    const config = typeof widget.config === 'string' ? JSON.parse(widget.config) : widget.config;
+    const chartType = config.chart_type || 'pie';
+    
+    const canvasId = `chart-${widgetId}`;
+    bodyEl.innerHTML = `<div class="chart-container"><canvas id="${canvasId}"></canvas></div>`;
+    
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    
+    // Destroy existing chart if exists
+    if (widgetCharts[widgetId]) {
+        widgetCharts[widgetId].destroy();
+    }
+    
+    // Check if this is a timeline chart
+    const isTimeline = data.is_timeline || false;
+    
+    // Prepare data based on chart type
+    const chartData = {
+        labels: data.categories.map(c => c.name),
+        datasets: [{
+            label: data.attribute_label || 'Count',
+            data: data.categories.map(c => c.count),
+            backgroundColor: isTimeline 
+                ? (chartType === 'line' ? 'rgba(75, 192, 192, 0.2)' : 'rgba(54, 162, 235, 0.8)')
+                : data.categories.map(c => c.color || generateColor(c.name)),
+            borderWidth: chartType === 'pie' || chartType === 'doughnut' || chartType === 'polarArea' ? 2 : 1,
+            borderColor: isTimeline && chartType === 'line' 
+                ? 'rgba(75, 192, 192, 1)' 
+                : (chartType === 'pie' || chartType === 'doughnut' || chartType === 'polarArea' ? '#fff' : 'rgba(54, 162, 235, 1)'),
+            tension: chartType === 'line' ? 0.4 : 0,
+            fill: chartType === 'line' && isTimeline
+        }]
+    };
+    
+    // Configure options based on chart type
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: chartType === 'bar' ? 'top' : 'bottom',
+                labels: {
+                    padding: 10,
+                    usePointStyle: true
+                }
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        const label = context.label || '';
+                        const value = context.parsed || context.parsed.y || 0;
+                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        const percentage = ((value / total) * 100).toFixed(1);
+                        return `${label}: ${value} (${percentage}%)`;
+                    }
+                }
+            }
+        }
+    };
+    
+    // Add scales for bar and line charts
+    if (chartType === 'bar' || chartType === 'line') {
+        chartOptions.scales = {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    precision: 0
+                }
+            }
+        };
+    }
+    
+    widgetCharts[widgetId] = new Chart(ctx, {
+        type: chartType,
+        data: chartData,
+        options: chartOptions
+    });
+}
+
+// Helper function to generate colors for categories
+function generateColor(name) {
+    // Simple hash function to generate consistent colors
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = hash % 360;
+    return `hsl(${hue}, 70%, 60%)`;
+}
+
 function renderLineChart(bodyEl, widgetId, data) {
     if (data.error || !data.data_points || data.data_points.length === 0) {
         bodyEl.innerHTML = '<div class="text-muted text-center p-3">No sensor data available</div>';
@@ -855,13 +1026,29 @@ function renderStatCard(bodyEl, data) {
 }
 
 function renderAISummary(bodyEl, data) {
+    // Show loading state if summary is being generated
+    if (data.loading || (!data.summary && !data.error && !data.available)) {
+        bodyEl.innerHTML = `
+            <div class="text-center p-4">
+                <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+                <p class="text-muted">Generating AI summary...</p>
+            </div>
+        `;
+        return;
+    }
+    
     if (!data.available) {
-        bodyEl.innerHTML = `<div class="alert alert-warning">${data.summary}</div>`;
+        bodyEl.innerHTML = `<div class="alert alert-warning">${data.summary || 'AI service is not available'}</div>`;
         return;
     }
     
     if (data.error) {
         bodyEl.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+        return;
+    }
+    
+    if (!data.summary) {
+        bodyEl.innerHTML = `<div class="alert alert-info">No summary available yet. Please refresh the widget.</div>`;
         return;
     }
     

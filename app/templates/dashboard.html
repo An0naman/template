@@ -312,7 +312,7 @@
                             <select class="form-select" id="widgetType" required>
                                 <option value="">Select widget type...</option>
                                 <option value="list">Entry List</option>
-                                <option value="pie_chart">Pie Chart (States)</option>
+                                <option value="chart">Chart (Visual Data)</option>
                                 {% if get_system_parameters().get('enable_sensors', '1') == '1' %}
                                 <option value="line_chart">Line Chart (Sensor Data)</option>
                                 {% endif %}
@@ -323,6 +323,48 @@
                         <div class="mb-3">
                             <label for="widgetTitle" class="form-label">Widget Title</label>
                             <input type="text" class="form-control" id="widgetTitle" required>
+                        </div>
+
+                        <!-- Chart Configuration -->
+                        <div id="chartConfig" style="display: none;">
+                            <hr>
+                            <h6>Chart Configuration</h6>
+                            
+                            <div class="mb-3">
+                                <label for="chartType" class="form-label">Chart Type</label>
+                                <select class="form-select" id="chartType" required>
+                                    <option value="">Select chart type...</option>
+                                    <option value="pie">Pie Chart</option>
+                                    <option value="doughnut">Doughnut Chart</option>
+                                    <option value="bar">Bar Chart</option>
+                                    <option value="line">Line Chart</option>
+                                    <option value="polarArea">Polar Area Chart</option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="chartAttribute" class="form-label">Data Attribute</label>
+                                <select class="form-select" id="chartAttribute" required>
+                                    <option value="">Select attribute...</option>
+                                    <option value="status">Status</option>
+                                    <option value="entry_type">Entry Type</option>
+                                    <option value="created_date">Created Date (Timeline)</option>
+                                    <option value="end_date">End Date (Timeline)</option>
+                                </select>
+                            </div>
+                            
+                            <div id="timelineOptions" style="display: none;">
+                                <div class="mb-3">
+                                    <label for="timelineGrouping" class="form-label">Group By</label>
+                                    <select class="form-select" id="timelineGrouping">
+                                        <option value="day">Day</option>
+                                        <option value="week">Week</option>
+                                        <option value="month" selected>Month</option>
+                                        <option value="quarter">Quarter</option>
+                                        <option value="year">Year</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Data Source Configuration -->

@@ -175,13 +175,13 @@ def init_db():
             CREATE TABLE IF NOT EXISTS DashboardWidget (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 dashboard_id INTEGER NOT NULL,
-                widget_type TEXT NOT NULL, -- 'list', 'pie_chart', 'line_chart', 'ai_summary', 'stat_card'
+                widget_type TEXT NOT NULL, -- 'list', 'chart', 'line_chart', 'ai_summary', 'stat_card', 'pie_chart' (legacy)
                 title TEXT NOT NULL,
                 position_x INTEGER DEFAULT 0,
                 position_y INTEGER DEFAULT 0,
                 width INTEGER DEFAULT 4, -- Grid columns
                 height INTEGER DEFAULT 2, -- Grid rows
-                config TEXT DEFAULT '{}', -- JSON configuration for the widget
+                config TEXT DEFAULT '{}', -- JSON configuration for the widget (includes chart_type and chart_attribute for chart widgets)
                 data_source_type TEXT, -- 'saved_search', 'entry_states', 'sensor_data'
                 data_source_id INTEGER, -- ID of the saved search or other data source
                 refresh_interval INTEGER DEFAULT 300, -- Refresh interval in seconds (0 = manual only)

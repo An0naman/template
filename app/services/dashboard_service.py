@@ -211,9 +211,191 @@ class DashboardService:
             return {'error': str(e), 'entries': []}
 
     @staticmethod
+    def get_timeline_distribution(search_id: int, date_field: str, grouping: str = 'month') -> Dict[str, Any]:
+        """
+        Get distribution of entries over time
+        
+        Args:
+            search_id: Saved search to filter by
+            date_field: Which date field to use ('created_date' or 'end_date')
+            grouping: How to group dates ('day', 'week', 'month', 'quarter', 'year')
+            
+        Returns:
+            Dict with timeline distribution data
+        """
+        try:
+            conn = DashboardService.get_db()
+            cursor = conn.cursor()
+            
+            # Get entries from saved search
+            search_data = DashboardService.get_saved_search_entries(search_id)
+            entries = search_data['entries']
+            
+            if not entries:
+                return {'categories': [], 'total': 0, 'attribute': date_field, 'attribute_label': f'{date_field.replace("_", " ").title()} Timeline'}
+            
+            from datetime import datetime
+            from collections import defaultdict
+            
+            timeline_data = defaultdict(int)
+            
+            # Choose the date field
+            field_key = 'created_at' if date_field == 'created_date' else 'actual_end_date' if date_field == 'end_date' else 'created_at'
+            
+            for entry in entries:
+                date_str = entry.get(field_key)
+                if not date_str:
+                    continue
+                    
+                try:
+                    date_obj = datetime.fromisoformat(date_str.replace('+00:00', '').replace('Z', ''))
+                    
+                    # Group by the specified period
+                    if grouping == 'day':
+                        key = date_obj.strftime('%Y-%m-%d')
+                    elif grouping == 'week':
+                        # ISO week format
+                        key = f"{date_obj.year}-W{date_obj.isocalendar()[1]:02d}"
+                    elif grouping == 'month':
+                        key = date_obj.strftime('%Y-%m')
+                    elif grouping == 'quarter':
+                        quarter = (date_obj.month - 1) // 3 + 1
+                        key = f"{date_obj.year}-Q{quarter}"
+                    elif grouping == 'year':
+                        key = str(date_obj.year)
+                    else:
+                        key = date_obj.strftime('%Y-%m')
+                    
+                    timeline_data[key] += 1
+                except:
+                    pass
+            
+            # Sort the timeline data
+            sorted_keys = sorted(timeline_data.keys())
+            categories = []
+            total = 0
+            
+            for key in sorted_keys:
+                count = timeline_data[key]
+                total += count
+                categories.append({
+                    'name': key,
+                    'count': count,
+                    'color': None  # Will be generated or use single color
+                })
+            
+            conn.close()
+            
+            return {
+                'categories': categories,
+                'total': total,
+                'attribute': date_field,
+                'attribute_label': f'{date_field.replace("_", " ").title()} ({grouping.title()})',
+                'is_timeline': True
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting timeline distribution: {e}", exc_info=True)
+            return {'error': str(e), 'categories': [], 'total': 0}
+    
+    @staticmethod
+    def get_attribute_distribution(search_id: int, attribute: str, config: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        Get distribution of entries by a specific attribute
+        
+        Args:
+            search_id: Saved search to filter by
+            attribute: Attribute to aggregate by ('status', 'entry_type', 'created_date', 'end_date')
+            config: Optional configuration (e.g., timeline_grouping for date attributes)
+            
+        Returns:
+            Dict with category distribution data
+        """
+        # Handle timeline-based attributes
+        if attribute in ['created_date', 'end_date']:
+            grouping = config.get('timeline_grouping', 'month') if config else 'month'
+            return DashboardService.get_timeline_distribution(search_id, attribute, grouping)
+        
+        try:
+            conn = DashboardService.get_db()
+            cursor = conn.cursor()
+            
+            # Get entries from saved search
+            search_data = DashboardService.get_saved_search_entries(search_id)
+            entry_ids = [e['id'] for e in search_data['entries']]
+            
+            if not entry_ids:
+                return {'categories': [], 'total': 0, 'attribute': attribute, 'attribute_label': attribute.replace('_', ' ').title()}
+            
+            placeholders = ','.join(['?' for _ in entry_ids])
+            
+            # Build query based on attribute
+            if attribute == 'status':
+                query = f"""
+                    SELECT e.status, es.name, es.color, COUNT(*) as count
+                    FROM Entry e
+                    LEFT JOIN EntryState es ON e.status = es.name AND e.entry_type_id = es.entry_type_id
+                    WHERE e.id IN ({placeholders})
+                    GROUP BY e.status, es.name, es.color
+                    ORDER BY count DESC
+                """
+                cursor.execute(query, entry_ids)
+                rows = cursor.fetchall()
+                
+                categories = []
+                total = 0
+                for row in rows:
+                    count = row['count']
+                    total += count
+                    categories.append({
+                        'name': row['name'] or row['status'] or 'Unknown',
+                        'count': count,
+                        'color': row['color'] or '#6c757d'
+                    })
+                    
+            elif attribute == 'entry_type':
+                query = f"""
+                    SELECT et.singular_label as name, COUNT(*) as count
+                    FROM Entry e
+                    JOIN EntryType et ON e.entry_type_id = et.id
+                    WHERE e.id IN ({placeholders})
+                    GROUP BY et.id, et.singular_label
+                    ORDER BY count DESC
+                """
+                cursor.execute(query, entry_ids)
+                rows = cursor.fetchall()
+                
+                categories = []
+                total = 0
+                for row in rows:
+                    count = row['count']
+                    total += count
+                    categories.append({
+                        'name': row['name'] or 'Unknown',
+                        'count': count,
+                        'color': None  # Will be generated by frontend
+                    })
+            else:
+                conn.close()
+                return {'error': f'Unsupported attribute: {attribute}', 'categories': [], 'total': 0}
+            
+            conn.close()
+            
+            return {
+                'categories': categories,
+                'total': total,
+                'attribute': attribute,
+                'attribute_label': attribute.replace('_', ' ').title()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting attribute distribution: {e}", exc_info=True)
+            return {'error': str(e), 'categories': [], 'total': 0}
+
+    @staticmethod
     def get_state_distribution(search_id: Optional[int] = None, entry_type_id: Optional[int] = None) -> Dict[str, Any]:
         """
-        Get distribution of entry states
+        Get distribution of entry states (legacy method for backward compatibility)
         
         Args:
             search_id: Optional saved search to filter by
@@ -662,7 +844,18 @@ Please incorporate these specific instructions into your analysis and summary.""
                     logger.info(f"Widget ID {widget.get('id')} - First entry sample: {result['entries'][0]}")
                 return result
             
+            elif widget_type == 'chart':
+                # New flexible chart widget type
+                if data_source_type == 'saved_search' and data_source_id:
+                    chart_attribute = config.get('chart_attribute', 'status')
+                    result = DashboardService.get_attribute_distribution(data_source_id, chart_attribute, config)
+                    logger.info(f"Widget ID {widget.get('id')} - Chart returned {len(result.get('categories', []))} categories for attribute '{chart_attribute}'")
+                    return result
+                else:
+                    return {'error': 'Invalid chart configuration - saved search required'}
+            
             elif widget_type == 'pie_chart':
+                # Legacy support for pie_chart widget type
                 if data_source_type == 'entry_states':
                     if data_source_id:
                         return DashboardService.get_state_distribution(search_id=data_source_id)
@@ -701,7 +894,10 @@ Please incorporate these specific instructions into your analysis and summary.""
                 return result
             
             elif widget_type == 'ai_summary' and data_source_type == 'saved_search':
-                return DashboardService.generate_ai_summary(data_source_id, config)
+                logger.info(f"Widget ID {widget.get('id')} - Generating AI summary for search {data_source_id}")
+                result = DashboardService.generate_ai_summary(data_source_id, config)
+                logger.info(f"Widget ID {widget.get('id')} - AI summary result: available={result.get('available')}, has_summary={bool(result.get('summary'))}, error={result.get('error')}")
+                return result
             
             elif widget_type == 'stat_card':
                 if data_source_type == 'saved_search':
