@@ -25,12 +25,14 @@ class DashboardService:
         return conn
 
     @staticmethod
-    def get_saved_search_entries(search_id: int) -> Dict[str, Any]:
+    def get_saved_search_entries(search_id: int, ignore_limit: bool = False) -> Dict[str, Any]:
         """
         Get entries matching a saved search
         
         Args:
             search_id: ID of the saved search
+            ignore_limit: If True, return all matching entries regardless of result_limit setting
+                         (useful for dashboard widgets that need complete data for aggregations)
             
         Returns:
             Dict with entries and metadata
@@ -105,9 +107,10 @@ class DashboardService:
                     elif sort_by == 'title_desc':
                         detail_query += " ORDER BY e.title DESC"
                     
-                    # Apply result limit
-                    limit = int(search['result_limit'] or 50)
-                    detail_query += f" LIMIT {limit}"
+                    # Apply result limit (unless ignore_limit is True)
+                    if not ignore_limit:
+                        limit = int(search['result_limit'] or 50)
+                        detail_query += f" LIMIT {limit}"
                     
                     cursor.execute(detail_query, entry_ids)
                     rows = cursor.fetchall()
@@ -174,9 +177,10 @@ class DashboardService:
                 elif sort_by == 'title_desc':
                     query += " ORDER BY e.title DESC"
                 
-                # Result limit
-                limit = int(search['result_limit'] or 50)
-                query += f" LIMIT {limit}"
+                # Result limit (unless ignore_limit is True)
+                if not ignore_limit:
+                    limit = int(search['result_limit'] or 50)
+                    query += f" LIMIT {limit}"
                 
                 # Debug logging
                 logger.info(f"Saved search {search_id} query: {query}")
@@ -227,8 +231,8 @@ class DashboardService:
             conn = DashboardService.get_db()
             cursor = conn.cursor()
             
-            # Get entries from saved search
-            search_data = DashboardService.get_saved_search_entries(search_id)
+            # Get entries from saved search (ignore limit for accurate timeline data)
+            search_data = DashboardService.get_saved_search_entries(search_id, ignore_limit=True)
             entries = search_data['entries']
             
             if not entries:
@@ -326,12 +330,12 @@ class DashboardService:
             conn = DashboardService.get_db()
             cursor = conn.cursor()
             
-            # Get entries from saved search
-            search_data = DashboardService.get_saved_search_entries(search_id)
+            # Get entries from saved search (ignore limit for accurate timeline data)
+            search_data = DashboardService.get_saved_search_entries(search_id, ignore_limit=True)
             entry_ids = [e['id'] for e in search_data['entries']]
             
             if not entry_ids:
-                return {'categories': [], 'total': 0, 'attribute': attribute, 'attribute_label': attribute.replace('_', ' ').title()}
+                return {'categories': [], 'total': 0, 'attribute': date_field, 'attribute_label': f'{date_field.replace("_", " ").title()} Timeline'}
             
             placeholders = ','.join(['?' for _ in entry_ids])
             
@@ -416,8 +420,8 @@ class DashboardService:
             
             # Build query
             if search_id:
-                # Get entries from saved search, then aggregate states
-                search_data = DashboardService.get_saved_search_entries(search_id)
+                # Get entries from saved search, then aggregate states (ignore limit for accurate distribution)
+                search_data = DashboardService.get_saved_search_entries(search_id, ignore_limit=True)
                 entry_ids = [e['id'] for e in search_data['entries']]
                 
                 if not entry_ids:
@@ -679,8 +683,8 @@ class DashboardService:
                 
                 conn.close()
             
-            # Get entries from saved search
-            search_data = DashboardService.get_saved_search_entries(search_id)
+            # Get entries from saved search (ignore limit for comprehensive AI summary)
+            search_data = DashboardService.get_saved_search_entries(search_id, ignore_limit=True)
             entries = search_data.get('entries', [])
             
             if not entries:
@@ -951,9 +955,9 @@ Please incorporate these specific instructions into your analysis and summary.""
                     logger.error(f"Widget ID {widget.get('id')} - Line chart missing sensor_type in config")
                     return {'error': 'Sensor type not configured', 'data_points': [], 'sensor_type': 'Unknown'}
                 
-                # Get entry IDs from saved search if specified
+                # Get entry IDs from saved search if specified (ignore limit for complete sensor data)
                 if data_source_id:
-                    search_data = DashboardService.get_saved_search_entries(data_source_id)
+                    search_data = DashboardService.get_saved_search_entries(data_source_id, ignore_limit=True)
                     if 'error' in search_data:
                         logger.error(f"Widget ID {widget.get('id')} - Error loading saved search {data_source_id}: {search_data['error']}")
                         return {'error': f"Saved search not found (ID: {data_source_id})", 'data_points': [], 'sensor_type': sensor_type}
@@ -976,7 +980,7 @@ Please incorporate these specific instructions into your analysis and summary.""
             
             elif widget_type == 'stat_card':
                 if data_source_type == 'saved_search':
-                    search_data = DashboardService.get_saved_search_entries(data_source_id)
+                    search_data = DashboardService.get_saved_search_entries(data_source_id, ignore_limit=True)
                     return {
                         'value': search_data.get('total_count', 0),
                         'label': config.get('label', 'Total Entries')

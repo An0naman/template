@@ -51,11 +51,13 @@ def entries():
         set_user_preference('default_result_limit', result_limit)
     
     # Convert result_limit to integer, with fallback
+    # For the entries list page, we load all entries since filtering is done client-side
+    # If you have thousands of entries, consider implementing server-side pagination
     try:
-        result_limit_int = int(result_limit) if result_limit else 50
-        result_limit_int = max(1, min(result_limit_int, 1000))  # Limit between 1 and 1000
+        result_limit_int = int(result_limit) if result_limit else 10000
+        result_limit_int = max(1, min(result_limit_int, 10000))  # Limit between 1 and 10000
     except (ValueError, TypeError):
-        result_limit_int = 50
+        result_limit_int = 10000
     
     # Build the query based on filters
     query_parts = []
