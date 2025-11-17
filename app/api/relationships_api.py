@@ -365,11 +365,21 @@ def add_new_entry_relationship(entry_id):
             else:
                 quantity = None
 
-        # Create the new entry with the correct entry_type_id
+        # Get the default state for this entry type
         cursor.execute('''
-            INSERT INTO Entry (title, description, entry_type_id, created_at) 
-            VALUES (?, ?, ?, datetime('now'))
-        ''', (new_entry_title, new_entry_description, target_entry_type_id))
+            SELECT name FROM EntryState
+            WHERE entry_type_id = ? AND is_default = 1
+            ORDER BY display_order ASC
+            LIMIT 1
+        ''', (target_entry_type_id,))
+        default_state = cursor.fetchone()
+        status = default_state['name'] if default_state else 'Active'
+
+        # Create the new entry with the correct entry_type_id and default status
+        cursor.execute('''
+            INSERT INTO Entry (title, description, entry_type_id, status, created_at) 
+            VALUES (?, ?, ?, ?, datetime('now'))
+        ''', (new_entry_title, new_entry_description, target_entry_type_id, status))
         new_entry_id = cursor.lastrowid
 
         # Add the relationship
