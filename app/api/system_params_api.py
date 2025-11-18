@@ -52,7 +52,9 @@ def api_update_system_params():
             'project_name', 'entry_singular_label', 'entry_plural_label', 'project_subtitle', 'enable_sensors', 'sensor_types', 
             'project_logo_path', 'label_font_size', 'label_include_qr_code', 'label_include_logo',
             'label_qr_code_prefix', 'allowed_file_types', 'max_file_size', 'custom_note_types',
-            'gemini_api_key', 'groq_api_key', 'gemini_model_name', 'groq_model_name', 'gemini_base_prompt',
+            'gemini_api_key', 'groq_api_key', 'huggingface_api_key',
+            'gemini_model_name', 'groq_model_name', 'huggingface_model', 'huggingface_image_size',
+            'gemini_base_prompt',
             'prompt_description', 'prompt_note', 'prompt_sql', 'prompt_theme', 'prompt_chat', 'prompt_diagram', 'prompt_diagram_rules', 'prompt_summary',
             'default_search_term', 'default_type_filter', 'default_status_filter', 
             'default_date_range', 'default_sort_by', 'default_content_display', 'default_result_limit'
@@ -60,7 +62,9 @@ def api_update_system_params():
         
         for param_name, param_value in data.items():
             # Track if AI-related parameters are being updated
-            if param_name in ['gemini_api_key', 'groq_api_key', 'gemini_model_name', 'groq_model_name', 'gemini_base_prompt', 
+            if param_name in ['gemini_api_key', 'groq_api_key', 'huggingface_api_key',
+                             'gemini_model_name', 'groq_model_name', 'huggingface_model', 'huggingface_image_size',
+                             'gemini_base_prompt', 
                              'prompt_description', 'prompt_note', 'prompt_sql', 'prompt_theme', 'prompt_chat', 'prompt_diagram', 'prompt_diagram_rules', 'prompt_summary']:
                 ai_params_updated = True
             
@@ -81,7 +85,7 @@ def api_update_system_params():
                     updated_count += 1
         conn.commit()
         
-        # If AI parameters were updated, reconfigure the AI service
+        # If AI parameters were updated, reconfigure the AI services
         if ai_params_updated:
             try:
                 from app.services.ai_service import get_ai_service
@@ -90,6 +94,15 @@ def api_update_system_params():
                 logger.info("AI service reconfigured after parameter update")
             except Exception as e:
                 logger.warning(f"Could not reconfigure AI service: {e}")
+            
+            # Also reconfigure image service if Hugging Face params were updated
+            try:
+                from app.services.image_service import get_image_service
+                image_service = get_image_service()
+                image_service.reconfigure()
+                logger.info("Image service reconfigured after parameter update")
+            except Exception as e:
+                logger.warning(f"Could not reconfigure image service: {e}")
         
         return jsonify({'message': f'{updated_count} parameters updated successfully!'}), 200
     except Exception as e:

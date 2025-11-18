@@ -239,6 +239,7 @@
                                 <select class="form-select" id="aiServiceSelector" onchange="switchAiServiceSettings()">
                                     <option value="gemini">Google Gemini (Primary AI Service)</option>
                                     <option value="groq">Groq (Diagram Generation - Optional)</option>
+                                    <option value="huggingface">Hugging Face (Image Generation - Free!)</option>
                                 </select>
                                 <small class="text-muted">Choose which AI service you want to configure</small>
                             </div>
@@ -256,10 +257,24 @@
                                 <div class="mb-3">
                                     <label for="geminiApiKey" class="form-label">
                                         <i class="fas fa-key me-1"></i>Google Gemini API Key:
+                                        {% if params.gemini_api_key %}
+                                        <span class="badge bg-success ms-2">
+                                            <i class="fas fa-check-circle me-1"></i>Configured
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-warning ms-2">
+                                            <i class="fas fa-exclamation-circle me-1"></i>Not Set
+                                        </span>
+                                        {% endif %}
                                     </label>
-                                    <input type="password" class="form-control" id="geminiApiKey" 
-                                           value="{{ params.gemini_api_key if params.gemini_api_key else '' }}" 
-                                           placeholder="Enter your Google Gemini API key">
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="geminiApiKey" 
+                                               value="{{ params.gemini_api_key if params.gemini_api_key else '' }}" 
+                                               placeholder="Enter your Google Gemini API key">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('geminiApiKey', this)">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
                                     <small class="text-muted">
                                         Get your API key from 
                                         <a href="https://makersuite.google.com/app/apikey" target="_blank" class="text-decoration-none">
@@ -307,10 +322,24 @@
                                 <div class="mb-3">
                                     <label for="groqApiKey" class="form-label">
                                         <i class="fas fa-key me-1"></i>Groq API Key:
+                                        {% if params.groq_api_key %}
+                                        <span class="badge bg-success ms-2">
+                                            <i class="fas fa-check-circle me-1"></i>Configured
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-warning ms-2">
+                                            <i class="fas fa-exclamation-circle me-1"></i>Not Set
+                                        </span>
+                                        {% endif %}
                                     </label>
-                                    <input type="password" class="form-control" id="groqApiKey" 
-                                           value="{{ params.groq_api_key if params.groq_api_key else '' }}" 
-                                           placeholder="Enter your Groq API key">
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="groqApiKey" 
+                                               value="{{ params.groq_api_key if params.groq_api_key else '' }}" 
+                                               placeholder="Enter your Groq API key">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('groqApiKey', this)">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
                                     <small class="text-muted">
                                         Get your free API key from 
                                         <a href="https://console.groq.com" target="_blank" class="text-decoration-none">
@@ -344,6 +373,100 @@
                         <div class="alert alert-warning">
                             <i class="fas fa-exclamation-triangle me-2"></i>
                             <strong>Note:</strong> If Groq is not configured, diagram generation will fall back to using Gemini, which may have safety filter issues with technical diagrams.
+                        </div>
+                    </div>
+
+                    <!-- Hugging Face Settings -->
+                    <div id="huggingfaceSettings" class="ai-service-settings" style="display: none;">
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong>Hugging Face</strong> offers FREE API access for image generation! Perfect for creating custom wallpapers and backgrounds.
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <label for="huggingfaceApiKey" class="form-label">
+                                        <i class="fas fa-key me-1"></i>Hugging Face API Token (FREE):
+                                        {% if params.huggingface_api_key %}
+                                        <span class="badge bg-success ms-2">
+                                            <i class="fas fa-check-circle me-1"></i>Configured
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-warning ms-2">
+                                            <i class="fas fa-exclamation-circle me-1"></i>Not Set
+                                        </span>
+                                        {% endif %}
+                                    </label>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="huggingfaceApiKey" 
+                                               value="{{ params.huggingface_api_key if params.huggingface_api_key else '' }}" 
+                                               placeholder="Enter your Hugging Face API token">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('huggingfaceApiKey', this)">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">
+                                        Get your free token from 
+                                        <a href="https://huggingface.co/settings/tokens" target="_blank" class="text-decoration-none">
+                                            Hugging Face Settings <i class="fas fa-external-link-alt"></i>
+                                        </a>
+                                        - 100% free, no credit card required!
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="huggingfaceModel" class="form-label">
+                                        <i class="fas fa-brain me-1"></i>Image Generation Model:
+                                    </label>
+                                    <select class="form-select" id="huggingfaceModel">
+                                        <option value="stabilityai/stable-diffusion-xl-base-1.0" {{ 'selected' if params.huggingface_model == 'stabilityai/stable-diffusion-xl-base-1.0' or not params.huggingface_model else '' }}>Stable Diffusion XL (Recommended)</option>
+                                        <option value="runwayml/stable-diffusion-v1-5" {{ 'selected' if params.huggingface_model == 'runwayml/stable-diffusion-v1-5' else '' }}>Stable Diffusion v1.5 (Faster)</option>
+                                        <option value="prompthero/openjourney" {{ 'selected' if params.huggingface_model == 'prompthero/openjourney' else '' }}>OpenJourney (Artistic)</option>
+                                        <option value="SG161222/Realistic_Vision_V2.0" {{ 'selected' if params.huggingface_model == 'SG161222/Realistic_Vision_V2.0' else '' }}>Realistic Vision (Photorealistic)</option>
+                                    </select>
+                                    <small class="text-muted">
+                                        Free access to powerful image generation models
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="huggingfaceImageSize" class="form-label">
+                                        <i class="fas fa-arrows-alt me-1"></i>Image Size:
+                                    </label>
+                                    <select class="form-select" id="huggingfaceImageSize">
+                                        <option value="1024x576" {{ 'selected' if params.huggingface_image_size == '1024x576' or not params.huggingface_image_size else '' }}>1024x576 (16:9 Landscape)</option>
+                                        <option value="1280x720" {{ 'selected' if params.huggingface_image_size == '1280x720' else '' }}>1280x720 (HD)</option>
+                                        <option value="768x768" {{ 'selected' if params.huggingface_image_size == '768x768' else '' }}>768x768 (Square)</option>
+                                        <option value="512x512" {{ 'selected' if params.huggingface_image_size == '512x512' else '' }}>512x512 (Fast)</option>
+                                    </select>
+                                    <small class="text-muted">
+                                        Larger = better quality, slower generation
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>How to get your token:</strong>
+                            <ol class="mb-0 mt-2">
+                                <li>Go to <a href="https://huggingface.co/join" target="_blank">huggingface.co/join</a> and create free account</li>
+                                <li>Visit <a href="https://huggingface.co/settings/tokens" target="_blank">Settings → Access Tokens</a></li>
+                                <li>Click "New token" → Select "Read" role → Create</li>
+                                <li>Copy the token and paste it above</li>
+                            </ol>
+                        </div>
+                        
+                        <div class="alert alert-success">
+                            <i class="fas fa-gift me-2"></i>
+                            <strong>100% FREE:</strong> No rate limits, no credit card, unlimited generations!
                         </div>
                     </div>
 
@@ -862,6 +985,22 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Toggle password visibility function
+        function togglePasswordVisibility(inputId, button) {
+            const input = document.getElementById(inputId);
+            const icon = button.querySelector('i');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+        
         // General Settings Form
         document.getElementById('generalSettingsForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1593,8 +1732,11 @@
             const formData = {
                 gemini_api_key: document.getElementById('geminiApiKey').value,
                 groq_api_key: document.getElementById('groqApiKey').value,
+                huggingface_api_key: document.getElementById('huggingfaceApiKey').value,
                 gemini_model_name: document.getElementById('geminiModelName').value,
                 groq_model_name: document.getElementById('groqModelName').value,
+                huggingface_model: document.getElementById('huggingfaceModel').value,
+                huggingface_image_size: document.getElementById('huggingfaceImageSize').value,
                 gemini_base_prompt: document.getElementById('geminiBasePrompt').value,
                 prompt_description: document.getElementById('promptDescription').value,
                 prompt_note: document.getElementById('promptNote').value,

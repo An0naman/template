@@ -1232,3 +1232,59 @@ Keep your response concise and helpful."""
     except Exception as e:
         logger.error(f"Error analyzing diagram: {str(e)}", exc_info=True)
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
+
+@ai_api_bp.route('/ai/generate_image', methods=['POST'])
+def generate_image():
+    """Generate an image using Hugging Face API"""
+    try:
+        from app.services.image_service import get_image_service
+        
+        data = request.json
+        if not data or 'prompt' not in data:
+            return jsonify({'error': 'Prompt is required'}), 400
+        
+        prompt = data['prompt']
+        negative_prompt = data.get('negative_prompt', 'blurry, low quality, distorted, ugly')
+        
+        image_service = get_image_service()
+        
+        if not image_service.is_available():
+            return jsonify({
+                'error': 'Image generation not configured. Please add your Hugging Face API token in System Settings → AI Services → Hugging Face.'
+            }), 503
+        
+        result = image_service.generate_image(prompt, negative_prompt)
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'image_data': result['image_data'],
+                'content_type': result['content_type']
+            })
+        else:
+            return jsonify({'error': result['error']}), 500
+            
+    except Exception as e:
+        logger.error(f"Error generating image: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
+
+@ai_api_bp.route('/ai/image_status', methods=['GET'])
+def image_status():
+    """Check if image generation service is available"""
+    try:
+        from app.services.image_service import get_image_service
+        
+        image_service = get_image_service()
+        return jsonify({
+            'available': image_service.is_available(),
+            'service': 'Hugging Face' if image_service.is_available() else 'Not configured'
+        })
+    except Exception as e:
+        logger.error(f"Error checking image service status: {str(e)}")
+        return jsonify({
+            'available': False,
+            'service': 'Error',
+            'error': str(e)
+        }), 500
