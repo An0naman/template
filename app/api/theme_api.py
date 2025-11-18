@@ -1,8 +1,11 @@
-from flask import Blueprint, request, jsonify, render_template, session, g, current_app
+from flask import Blueprint, request, jsonify, render_template, session, g, current_app, send_from_directory
 import sqlite3
 import json
 import logging
+import os
+import base64
 from datetime import datetime, time
+from werkzeug.utils import secure_filename
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +112,7 @@ def handle_theme_settings():
                 custom_light_mode = data.get('custom_light_mode', {})
                 custom_dark_mode = data.get('custom_dark_mode', {})
                 section_styles = data.get('section_styles', {})
+                background_image = data.get('background_image', {})
                 
                 # Valid options validation
                 valid_themes = ['default', 'emerald', 'purple', 'amber', 'custom']
@@ -238,6 +242,12 @@ def handle_theme_settings():
                 else:
                     cursor.execute("DELETE FROM SystemParameters WHERE parameter_name = 'theme_custom_dark_mode'")
                 
+                # Add background image settings
+                if background_image:
+                    theme_settings.append(('theme_background_image', json.dumps(background_image)))
+                else:
+                    cursor.execute("DELETE FROM SystemParameters WHERE parameter_name = 'theme_background_image'")
+                
                 for param_name, param_value in theme_settings:
                     cursor.execute("""
                         INSERT OR REPLACE INTO SystemParameters (parameter_name, parameter_value)
@@ -258,7 +268,8 @@ def handle_theme_settings():
                     'custom_colors': custom_colors if theme == 'custom' else {},
                     'custom_light_mode': custom_light_mode,
                     'custom_dark_mode': custom_dark_mode,
-                    'section_styles': section_styles
+                    'section_styles': section_styles,
+                    'background_image': background_image
                 }
                 
                 return jsonify({
@@ -285,6 +296,7 @@ def handle_theme_settings():
                 custom_light_mode = {}
                 custom_dark_mode = {}
                 section_styles = {}
+                background_image = {}
                 
                 for parameter_name, parameter_value in cursor.fetchall():
                     if parameter_name == 'theme_color_scheme':
@@ -321,6 +333,11 @@ def handle_theme_settings():
                             section_styles = json.loads(parameter_value)
                         except (json.JSONDecodeError, TypeError):
                             section_styles = {}
+                    elif parameter_name == 'theme_background_image':
+                        try:
+                            background_image = json.loads(parameter_value)
+                        except (json.JSONDecodeError, TypeError):
+                            background_image = {}
                 
                 # Set defaults if not found
                 settings.setdefault('theme', 'default')
@@ -334,6 +351,7 @@ def handle_theme_settings():
                 settings['custom_light_mode'] = custom_light_mode
                 settings['custom_dark_mode'] = custom_dark_mode
                 settings['section_styles'] = section_styles
+                settings['background_image'] = background_image
                 
                 return jsonify(settings)
                 
@@ -366,6 +384,7 @@ def get_current_theme_settings():
         custom_light_mode = {}
         custom_dark_mode = {}
         section_styles = {}
+        background_image = {}
         auto_dark_mode = False
         dark_mode_start = '18:00'
         dark_mode_end = '06:00'
@@ -405,6 +424,11 @@ def get_current_theme_settings():
                     section_styles = json.loads(parameter_value)
                 except (json.JSONDecodeError, TypeError):
                     section_styles = {}
+            elif parameter_name == 'theme_background_image':
+                try:
+                    background_image = json.loads(parameter_value)
+                except (json.JSONDecodeError, TypeError):
+                    background_image = {}
         
         # Set defaults
         settings.setdefault('current_theme', 'default')
@@ -420,6 +444,7 @@ def get_current_theme_settings():
         settings['custom_light_mode'] = custom_light_mode
         settings['custom_dark_mode'] = custom_dark_mode
         settings['section_styles'] = section_styles
+        settings['background_image'] = background_image
         
         conn.close()
         return settings
@@ -2490,4 +2515,104 @@ def generate_theme_css(settings=None):
         }}
         """
     
+    # Add background image support
+    bg_image = settings.get('background_image', {})
+    if bg_image.get('enabled', False) and bg_image.get('url'):
+        opacity = bg_image.get('opacity', 50) / 100
+        blur = bg_image.get('blur', 0)
+        parallax = bg_image.get('parallax', False)
+        attachment = 'fixed' if parallax else 'scroll'
+        size = bg_image.get('size', 'cover')
+        position = bg_image.get('position', 'center')
+        
+        css += f"""
+        /* Background Image */
+        body {{
+            position: relative;
+        }}
+        
+        body::before {{
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('{bg_image['url']}');
+            background-size: {size};
+            background-position: {position};
+            background-repeat: no-repeat;
+            background-attachment: {attachment};
+            opacity: {opacity};
+            z-index: -1;
+            {f'filter: blur({blur}px);' if blur > 0 else ''}
+        }}
+        """
+    
     return css
+
+
+@theme_api.route('/upload_background', methods=['POST'])
+def upload_background():
+    """Upload a custom background image"""
+    try:
+        if 'image' not in request.files:
+            return jsonify({'error': 'No image file provided'}), 400
+        
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Validate file type
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
+        filename = secure_filename(file.filename)
+        file_ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+        
+        if file_ext not in allowed_extensions:
+            return jsonify({'error': 'Invalid file type. Allowed: PNG, JPG, JPEG, WEBP, GIF'}), 400
+        
+        # Use /app/uploads which is mounted as a volume for persistence
+        # Create backgrounds subdirectory if it doesn't exist
+        upload_folder = '/app/uploads/backgrounds'
+        os.makedirs(upload_folder, exist_ok=True)
+        
+        # Generate unique filename
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        new_filename = f"background_{timestamp}.{file_ext}"
+        filepath = os.path.join(upload_folder, new_filename)
+        
+        # Save the file
+        file.save(filepath)
+        
+        # Generate URL (served via /static/uploads route in __init__.py)
+        image_url = f"/static/uploads/backgrounds/{new_filename}"
+        
+        return jsonify({
+            'success': True,
+            'url': image_url,
+            'filename': new_filename
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to upload background image: {str(e)}")
+        return jsonify({'error': f'Upload failed: {str(e)}'}), 500
+
+
+@theme_api.route('/delete_background/<filename>', methods=['DELETE'])
+def delete_background(filename):
+    """Delete a background image"""
+    try:
+        # Sanitize filename
+        filename = secure_filename(filename)
+        # Use /app/uploads which is mounted as a volume for persistence
+        filepath = os.path.join('/app/uploads/backgrounds', filename)
+        
+        if os.path.exists(filepath):
+            os.remove(filepath)
+            return jsonify({'success': True, 'message': 'Background image deleted'})
+        else:
+            return jsonify({'error': 'File not found'}), 404
+            
+    except Exception as e:
+        logger.error(f"Failed to delete background image: {str(e)}")
+        return jsonify({'error': f'Delete failed: {str(e)}'}), 500

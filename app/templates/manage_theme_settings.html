@@ -676,6 +676,33 @@
             margin-top: 1rem;
         }
 
+        /* Quick Action Buttons */
+        .btn-outline-primary.btn-sm {
+            padding: 0.5rem 0.75rem;
+            text-align: left;
+            transition: all 0.2s ease;
+            border: 1px solid var(--theme-primary, var(--bs-primary));
+            color: var(--theme-primary, var(--bs-primary));
+        }
+
+        .btn-outline-primary.btn-sm:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: var(--theme-primary, var(--bs-primary));
+            color: white;
+        }
+
+        .btn-outline-primary.btn-sm i {
+            opacity: 0.8;
+        }
+
+        .btn-outline-primary.btn-sm .small {
+            font-size: 0.75rem;
+            font-weight: 500;
+            line-height: 1.2;
+            margin-top: 0.15rem;
+        }
+
         .ai-theme-preview {
             display: none;
             margin-top: 1rem;
@@ -949,14 +976,49 @@
                                             <i class="fas fa-robot"></i>
                                         </div>
                                         <div class="ai-message-content">
-                                            <p>Hi! I'll help you create custom themes. Just describe what you want and I'll generate the colors!</p>
-                                            <p class="mb-0"><strong>Try these:</strong></p>
-                                            <ul class="mb-0">
-                                                <li>"Create a warm sunset theme"</li>
-                                                <li>"Make a dark forest theme"</li>
-                                                <li>"Generate corporate blue colors"</li>
-                                                <li>"Make it more purple" (to modify the last theme)</li>
-                                            </ul>
+                                            <p>Hi! I'll help you create custom themes and backgrounds. What would you like to do?</p>
+                                            
+                                            <!-- Quick Action Buttons -->
+                                            <div class="row g-2 mt-2 mb-2">
+                                                <div class="col-6">
+                                                    <button class="btn btn-outline-primary btn-sm w-100" onclick="sendQuickAction('I want to create a custom color theme for my app. Help me generate a color palette with primary, secondary, success, warning, danger, and info colors. I prefer [describe your style, e.g., professional blue, nature green, warm sunset, etc.]')">
+                                                        <i class="fas fa-palette me-1"></i>
+                                                        <div class="small">Create Theme</div>
+                                                    </button>
+                                                </div>
+                                                <div class="col-6">
+                                                    <button class="btn btn-outline-primary btn-sm w-100" onclick="sendQuickAction('I want to add a custom background wallpaper to my app. Can you suggest prompts I can use with ChatGPT/DALL-E or Midjourney to generate a beautiful, professional background image? I prefer [describe style: minimalist, nature, abstract, tech, etc.]')">
+                                                        <i class="fas fa-image me-1"></i>
+                                                        <div class="small">Background Ideas</div>
+                                                    </button>
+                                                </div>
+                                                <div class="col-6">
+                                                    <button class="btn btn-outline-primary btn-sm w-100" onclick="sendQuickAction('Suggest some beautiful color combinations that would work well for an application interface. Include both light and dark mode recommendations.')">
+                                                        <i class="fas fa-swatchbook me-1"></i>
+                                                        <div class="small">Color Ideas</div>
+                                                    </button>
+                                                </div>
+                                                <div class="col-6">
+                                                    <button class="btn btn-outline-primary btn-sm w-100" onclick="sendQuickAction('Help me choose the best theme colors and style for my application. Consider factors like professionalism, readability, and modern design trends.')">
+                                                        <i class="fas fa-lightbulb me-1"></i>
+                                                        <div class="small">Theme Advice</div>
+                                                    </button>
+                                                </div>
+                                                <div class="col-6">
+                                                    <button class="btn btn-outline-primary btn-sm w-100" onclick="sendQuickAction('Help me make my current theme more accessible. Suggest improvements for color contrast, readability, and WCAG compliance.')">
+                                                        <i class="fas fa-universal-access me-1"></i>
+                                                        <div class="small">Accessibility</div>
+                                                    </button>
+                                                </div>
+                                                <div class="col-6">
+                                                    <button class="btn btn-outline-primary btn-sm w-100" onclick="sendQuickAction('Modify the last theme')">
+                                                        <i class="fas fa-edit me-1"></i>
+                                                        <div class="small">Modify Theme</div>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            
+                                            <p class="mb-0 mt-2 small text-muted">Or type your own request below:</p>
                                         </div>
                                     </div>
                                 </div>
@@ -964,16 +1026,19 @@
                                 <div class="ai-chat-input-container">
                                     <div class="input-group">
                                         <input type="text" id="aiThemeInput" class="form-control" 
-                                               placeholder="Describe your ideal theme or ask follow-up questions..." 
+                                               placeholder="Describe your wallpaper or theme..." 
                                                maxlength="500">
-                                        <button class="btn btn-primary" type="button" id="aiThemeGenerateBtn">
+                                        <button class="btn btn-success" type="button" id="aiGenerateWallpaperBtn" title="Generate Wallpaper with AI">
+                                            <i class="fas fa-image me-1"></i>Generate Wallpaper
+                                        </button>
+                                        <button class="btn btn-primary" type="button" id="aiThemeGenerateBtn" title="Send Message">
                                             <i class="fas fa-paper-plane me-1"></i>Send
                                         </button>
                                     </div>
                                     <div class="d-flex justify-content-between align-items-center mt-1">
                                         <small class="text-muted">
-                                            <i class="fas fa-info-circle me-1"></i>
-                                            Ask questions, request modifications, or describe new themes.
+                                            <i class="fas fa-lightbulb me-1"></i>
+                                            <strong>Generate Wallpaper:</strong> Creates an AI image from your prompt. <strong>Send:</strong> Chat about themes and colors.
                                         </small>
                                         <button class="btn btn-outline-secondary btn-sm" type="button" id="aiClearChatBtn">
                                             <i class="fas fa-trash me-1"></i>Clear Chat
@@ -1394,6 +1459,119 @@
                         </div>
                     </div>
 
+                    <!-- Background Image (Collapsible) -->
+                    <div class="settings-section collapsible-section collapsed" id="backgroundImageSection">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0" style="color: var(--theme-primary, #6f42c1);">
+                                <i class="fas fa-image me-2"></i>Background Image
+                            </h5>
+                            <button class="btn btn-outline-secondary btn-sm" type="button" onclick="toggleSection('backgroundImageSection')">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="collapsible-content">
+                            <p class="text-muted mb-3">Add a custom high-resolution background image to your app</p>
+                            
+                            <!-- Enable Background Image -->
+                            <div class="row align-items-center mb-3">
+                                <div class="col-md-8">
+                                    <h6>Enable Background Image</h6>
+                                    <p class="text-muted mb-0 small">Show custom background behind all pages</p>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <label class="switch">
+                                        <input type="checkbox" id="backgroundImageEnabled" onchange="backgroundManager.toggleEnabled(this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div id="backgroundImageControls">
+                                <!-- Current Background Preview -->
+                                <div id="currentBackgroundPreview" class="mb-3" style="display: none;">
+                                    <label class="form-label">Current Background</label>
+                                    <div class="position-relative" style="border: 2px solid var(--theme-border); border-radius: 8px; overflow: hidden; max-height: 200px;">
+                                        <img id="currentBackgroundImg" src="" alt="Current Background" style="width: 100%; height: auto; display: block;">
+                                        <button type="button" class="btn btn-sm btn-danger position-absolute" style="top: 10px; right: 10px;" onclick="backgroundManager.removeBackground()">
+                                            <i class="fas fa-trash"></i> Remove
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Upload New Background -->
+                                <div class="mb-3">
+                                    <label class="form-label">Upload Background Image</label>
+                                    <div class="input-group">
+                                        <input type="file" class="form-control" id="backgroundImageFile" accept="image/*" onchange="backgroundManager.uploadBackground(this.files[0])">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('backgroundImageFile').click()">
+                                            <i class="fas fa-upload"></i>
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">Supported: PNG, JPG, JPEG, WEBP, GIF. Recommended: High resolution (1920x1080 or higher)</small>
+                                </div>
+
+                                <!-- Background Settings -->
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label for="backgroundOpacity" class="form-label">Opacity: <span id="opacityValue">50</span>%</label>
+                                        <input type="range" class="form-range" id="backgroundOpacity" min="0" max="100" value="50" oninput="backgroundManager.updateOpacity(this.value)">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="backgroundBlur" class="form-label">Blur: <span id="blurValue">0</span>px</label>
+                                        <input type="range" class="form-range" id="backgroundBlur" min="0" max="20" value="0" oninput="backgroundManager.updateBlur(this.value)">
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label for="backgroundSize" class="form-label">Size</label>
+                                        <select class="form-select" id="backgroundSize" onchange="backgroundManager.updateSize(this.value)">
+                                            <option value="cover">Cover (Fill screen)</option>
+                                            <option value="contain">Contain (Fit in screen)</option>
+                                            <option value="auto">Auto (Original size)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="backgroundPosition" class="form-label">Position</label>
+                                        <select class="form-select" id="backgroundPosition" onchange="backgroundManager.updatePosition(this.value)">
+                                            <option value="center">Center</option>
+                                            <option value="top">Top</option>
+                                            <option value="bottom">Bottom</option>
+                                            <option value="left">Left</option>
+                                            <option value="right">Right</option>
+                                            <option value="top left">Top Left</option>
+                                            <option value="top right">Top Right</option>
+                                            <option value="bottom left">Bottom Left</option>
+                                            <option value="bottom right">Bottom Right</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Parallax Effect -->
+                                <div class="row align-items-center mb-3">
+                                    <div class="col-md-8">
+                                        <h6 class="mb-0">Parallax Effect</h6>
+                                        <p class="text-muted mb-0 small">Fixed background when scrolling</p>
+                                    </div>
+                                    <div class="col-md-4 text-end">
+                                        <label class="switch">
+                                            <input type="checkbox" id="backgroundParallax" onchange="backgroundManager.toggleParallax(this.checked)">
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- AI Generation (if available) -->
+                                <div class="alert alert-info">
+                                    <i class="fas fa-sparkles me-2"></i>
+                                    <strong>AI Background Generation:</strong> 
+                                    To generate custom backgrounds using AI, please use the <strong>AI Chat</strong> feature below and ask it to create a wallpaper or background image for you!
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Reset Section -->
                     <div class="settings-section">
                         <h5 class="mb-3" style="color: var(--theme-danger, #dc3545);">
@@ -1446,7 +1624,8 @@
                 customColors: {{ custom_colors|tojson if custom_colors else '{}' }},
                 customLightMode: {{ custom_light_mode|tojson if custom_light_mode else '{}' }},
                 customDarkMode: {{ custom_dark_mode|tojson if custom_dark_mode else '{}' }},
-                sectionStyles: {{ section_styles|tojson if section_styles else '{}' }}
+                sectionStyles: {{ section_styles|tojson if section_styles else '{}' }},
+                backgroundImage: {{ background_image|tojson if background_image else '{}' }}
             };
             
             themeManager.init(initialState);
@@ -1867,9 +2046,65 @@
         let currentGeneratedTheme = null;
         let conversationHistory = [];
         
+        // Quick Action Function - Send predefined prompts
+        async function sendQuickAction(prompt) {
+            const messagesContainer = document.getElementById('aiChatMessages');
+            
+            // Add user message to chat
+            addChatMessage('user', prompt);
+            conversationHistory.push({role: 'user', content: prompt});
+            
+            // Show loading message
+            const loadingId = Date.now();
+            const loadingMsg = document.createElement('div');
+            loadingMsg.className = 'ai-message assistant';
+            loadingMsg.id = `loading-${loadingId}`;
+            loadingMsg.innerHTML = `
+                <div class="ai-message-avatar"><i class="fas fa-robot"></i></div>
+                <div class="ai-message-content">
+                    <div class="spinner-border spinner-border-sm me-2"></div>
+                    Thinking...
+                </div>
+            `;
+            messagesContainer.appendChild(loadingMsg);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            try {
+                const response = await fetch('/api/ai/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: prompt,
+                        conversation_history: conversationHistory,
+                        context: 'theme_settings'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // Remove loading message
+                loadingMsg.remove();
+                
+                if (data.success) {
+                    // Add AI response
+                    addChatMessage('assistant', data.response);
+                    conversationHistory.push({role: 'assistant', content: data.response});
+                } else {
+                    addChatMessage('assistant', 'Sorry, I encountered an error. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                loadingMsg.remove();
+                addChatMessage('assistant', 'Sorry, I encountered an error. Please try again.');
+            }
+        }
+        
         function initAIThemeChat() {
             const input = document.getElementById('aiThemeInput');
             const generateBtn = document.getElementById('aiThemeGenerateBtn');
+            const generateWallpaperBtn = document.getElementById('aiGenerateWallpaperBtn');
             const messagesContainer = document.getElementById('aiChatMessages');
             
             // Handle Enter key in input
@@ -1882,6 +2117,9 @@
             
             // Handle generate button click
             generateBtn.addEventListener('click', generateTheme);
+            
+            // Handle generate wallpaper button click
+            generateWallpaperBtn.addEventListener('click', generateWallpaper);
             
             // Handle clear chat button
             const clearBtn = document.getElementById('aiClearChatBtn');
@@ -1984,6 +2222,157 @@
                     generateBtn.disabled = false;
                     generateBtn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Send';
                     input.classList.remove('ai-generating');
+                }
+            }
+            
+            async function generateWallpaper() {
+                const prompt = input.value.trim();
+                
+                if (!prompt) {
+                    showMessage('Please describe the wallpaper you want to generate.', 'warning');
+                    return;
+                }
+                
+                // Add user message to chat
+                addChatMessage('user', `Generate wallpaper: ${prompt}`);
+                input.value = '';
+                
+                // Show loading state
+                generateWallpaperBtn.disabled = true;
+                generateWallpaperBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating...';
+                
+                // Add loading message
+                const loadingId = Date.now();
+                const loadingMsg = document.createElement('div');
+                loadingMsg.className = 'ai-message assistant';
+                loadingMsg.id = `loading-${loadingId}`;
+                loadingMsg.innerHTML = `
+                    <div class="ai-message-avatar"><i class="fas fa-robot"></i></div>
+                    <div class="ai-message-content">
+                        <div class="spinner-border spinner-border-sm me-2"></div>
+                        Generating your wallpaper with AI... This may take 20-30 seconds.
+                    </div>
+                `;
+                messagesContainer.appendChild(loadingMsg);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                
+                try {
+                    // Enhance prompt for better wallpapers
+                    const enhancedPrompt = `${prompt}, high resolution wallpaper, 16:9 aspect ratio, professional quality, suitable for application background, detailed, beautiful composition`;
+                    const negativePrompt = 'blurry, low quality, distorted, ugly, text, watermark, logo, busy, cluttered';
+                    
+                    const response = await fetch('/api/ai/generate_image', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            prompt: enhancedPrompt,
+                            negative_prompt: negativePrompt
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    // Remove loading message
+                    loadingMsg.remove();
+                    
+                    if (data.success) {
+                        // Create wallpaper preview with apply button
+                        const previewDiv = document.createElement('div');
+                        previewDiv.className = 'ai-message assistant';
+                        previewDiv.innerHTML = `
+                            <div class="ai-message-avatar"><i class="fas fa-robot"></i></div>
+                            <div class="ai-message-content">
+                                <p><strong>✨ Wallpaper Generated!</strong></p>
+                                <div style="border: 2px solid var(--theme-border); border-radius: 8px; overflow: hidden; margin: 10px 0;">
+                                    <img src="data:${data.content_type};base64,${data.image_data}" 
+                                         style="width: 100%; height: auto; display: block;" 
+                                         alt="Generated Wallpaper"
+                                         id="generated-wallpaper-${loadingId}">
+                                </div>
+                                <div class="d-flex gap-2 mt-2">
+                                    <button class="btn btn-success btn-sm apply-wallpaper-btn" data-image="${data.image_data}">
+                                        <i class="fas fa-check me-1"></i>Apply as Background
+                                    </button>
+                                    <button class="btn btn-outline-primary btn-sm download-wallpaper-btn" data-image="${data.image_data}">
+                                        <i class="fas fa-download me-1"></i>Download
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm" onclick="this.closest('.ai-message').remove()">
+                                        <i class="fas fa-times me-1"></i>Dismiss
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                        messagesContainer.appendChild(previewDiv);
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                        
+                        // Attach event listeners to the buttons
+                        const applyBtn = previewDiv.querySelector('.apply-wallpaper-btn');
+                        const downloadBtn = previewDiv.querySelector('.download-wallpaper-btn');
+                        
+                        applyBtn.addEventListener('click', () => applyGeneratedWallpaper(data.image_data));
+                        downloadBtn.addEventListener('click', () => downloadGeneratedWallpaper(data.image_data));
+                        
+                    } else {
+                        addChatMessage('assistant', `❌ Error generating wallpaper: ${data.error}`);
+                    }
+                    
+                } catch (error) {
+                    console.error('Wallpaper generation error:', error);
+                    loadingMsg.remove();
+                    addChatMessage('assistant', '❌ Failed to generate wallpaper. Please try again or check your Hugging Face API configuration in System Settings.');
+                } finally {
+                    // Reset button
+                    generateWallpaperBtn.disabled = false;
+                    generateWallpaperBtn.innerHTML = '<i class="fas fa-image me-1"></i>Generate Wallpaper';
+                }
+            }
+            
+            async function applyGeneratedWallpaper(imageData) {
+                try {
+                    showMessage('Applying wallpaper...', 'info');
+                    
+                    // Convert base64 to blob
+                    const byteCharacters = atob(imageData);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    const blob = new Blob([byteArray], { type: 'image/jpeg' });
+                    
+                    // Create file from blob
+                    const file = new File([blob], `ai-wallpaper-${Date.now()}.jpg`, { type: 'image/jpeg' });
+                    
+                    // Upload using background manager
+                    await backgroundManager.uploadBackground(file);
+                    
+                    // Show success message
+                    showMessage('✅ Wallpaper applied! Don\'t forget to save your theme settings.', 'success');
+                    
+                    // Scroll to background image section
+                    document.getElementById('backgroundImageSection').scrollIntoView({ behavior: 'smooth' });
+                    
+                } catch (error) {
+                    console.error('Apply wallpaper error:', error);
+                    showMessage('Failed to apply wallpaper', 'danger');
+                }
+            }
+            
+            function downloadGeneratedWallpaper(imageData) {
+                try {
+                    const link = document.createElement('a');
+                    link.href = `data:image/jpeg;base64,${imageData}`;
+                    link.download = `ai-wallpaper-${Date.now()}.jpg`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    showMessage('✅ Wallpaper downloaded!', 'success');
+                } catch (error) {
+                    console.error('Download error:', error);
+                    showMessage('Failed to download wallpaper', 'danger');
                 }
             }
             
@@ -2136,9 +2525,166 @@
             showMessage(`Applied "${theme.name}" theme! Don't forget to save your settings.`, 'success');
         }
         
-        // Initialize AI chat when DOM is loaded
+        // Background Image Manager
+        const backgroundManager = {
+            state: {
+                enabled: false,
+                url: '',
+                opacity: 50,
+                blur: 0,
+                size: 'cover',
+                position: 'center',
+                parallax: false
+            },
+            
+            init() {
+                // Load current settings
+                const bgImage = themeManager.state.backgroundImage || {};
+                this.state = {
+                    enabled: bgImage.enabled || false,
+                    url: bgImage.url || '',
+                    opacity: bgImage.opacity || 50,
+                    blur: bgImage.blur || 0,
+                    size: bgImage.size || 'cover',
+                    position: bgImage.position || 'center',
+                    parallax: bgImage.parallax || false
+                };
+                
+                // Update UI
+                this.updateUI();
+            },
+            
+            updateUI() {
+                document.getElementById('backgroundImageEnabled').checked = this.state.enabled;
+                document.getElementById('backgroundOpacity').value = this.state.opacity;
+                document.getElementById('backgroundBlur').value = this.state.blur;
+                document.getElementById('backgroundSize').value = this.state.size;
+                document.getElementById('backgroundPosition').value = this.state.position;
+                document.getElementById('backgroundParallax').checked = this.state.parallax;
+                
+                document.getElementById('opacityValue').textContent = this.state.opacity;
+                document.getElementById('blurValue').textContent = this.state.blur;
+                
+                const controls = document.getElementById('backgroundImageControls');
+                if (this.state.enabled) {
+                    controls.style.display = 'block';
+                } else {
+                    controls.style.display = 'none';
+                }
+                
+                if (this.state.url) {
+                    document.getElementById('currentBackgroundPreview').style.display = 'block';
+                    document.getElementById('currentBackgroundImg').src = this.state.url;
+                } else {
+                    document.getElementById('currentBackgroundPreview').style.display = 'none';
+                }
+                
+                // Update theme manager state
+                themeManager.state.backgroundImage = {...this.state};
+                themeManager.updatePreview();
+            },
+            
+            toggleEnabled(enabled) {
+                this.state.enabled = enabled;
+                this.updateUI();
+            },
+            
+            async uploadBackground(file) {
+                if (!file) return;
+                
+                // Show loading
+                showMessage('Uploading background image...', 'info');
+                
+                const formData = new FormData();
+                formData.append('image', file);
+                
+                try {
+                    const response = await fetch('/api/upload_background', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.state.url = data.url;
+                        this.state.enabled = true;
+                        this.updateUI();
+                        showMessage('Background image uploaded successfully!', 'success');
+                    } else {
+                        showMessage(data.error || 'Upload failed', 'danger');
+                    }
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    showMessage('Failed to upload image', 'danger');
+                }
+                
+                // Clear file input
+                document.getElementById('backgroundImageFile').value = '';
+            },
+            
+            async removeBackground() {
+                if (!this.state.url) return;
+                
+                if (!confirm('Are you sure you want to remove the background image?')) {
+                    return;
+                }
+                
+                const filename = this.state.url.split('/').pop();
+                
+                try {
+                    const response = await fetch(`/api/delete_background/${filename}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.state.url = '';
+                        this.state.enabled = false;
+                        this.updateUI();
+                        showMessage('Background image removed', 'success');
+                    } else {
+                        showMessage(data.error || 'Delete failed', 'warning');
+                    }
+                } catch (error) {
+                    console.error('Delete error:', error);
+                    showMessage('Failed to remove image', 'danger');
+                }
+            },
+            
+            updateOpacity(value) {
+                this.state.opacity = parseInt(value);
+                document.getElementById('opacityValue').textContent = value;
+                this.updateUI();
+            },
+            
+            updateBlur(value) {
+                this.state.blur = parseInt(value);
+                document.getElementById('blurValue').textContent = value;
+                this.updateUI();
+            },
+            
+            updateSize(value) {
+                this.state.size = value;
+                this.updateUI();
+            },
+            
+            updatePosition(value) {
+                this.state.position = value;
+                this.updateUI();
+            },
+            
+            toggleParallax(enabled) {
+                this.state.parallax = enabled;
+                this.updateUI();
+            }
+        };
+
+        // Initialize AI chat and background manager when DOM is loaded
         document.addEventListener('DOMContentLoaded', () => {
             initAIThemeChat();
+            backgroundManager.init();
         });
     </script>
     <script src="{{ url_for('static', filename='global-theme-manager.js') }}"></script>
