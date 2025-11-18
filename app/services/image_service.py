@@ -101,8 +101,8 @@ class ImageService:
                 "parameters": {
                     "width": width,
                     "height": height,
-                    "num_inference_steps": 30,  # Good balance of quality and speed
-                    "guidance_scale": 7.5  # How closely to follow the prompt
+                    "num_inference_steps": 35,  # More steps for better quality
+                    "guidance_scale": 9.0  # Higher value = follows prompt more closely (7.5 default, 9+ for strict adherence)
                 }
             }
             
@@ -121,9 +121,20 @@ class ImageService:
             
             if response.status_code == 503:
                 # Model is loading, wait and retry
-                logger.info("Model is loading, waiting...")
+                logger.info("Model is loading, waiting 20 seconds...")
                 time.sleep(20)
                 response = requests.post(api_url, headers=headers, json=payload, timeout=60)
+            
+            # If still failing, try with simpler parameters (some models don't support all params)
+            if response.status_code == 400 or response.status_code == 422:
+                logger.warning(f"Model may not support all parameters, retrying with basic config...")
+                simplified_payload = {
+                    "inputs": prompt,
+                    "parameters": {}
+                }
+                if negative_prompt:
+                    simplified_payload["parameters"]["negative_prompt"] = negative_prompt
+                response = requests.post(api_url, headers=headers, json=simplified_payload, timeout=60)
             
             if response.status_code == 200:
                 # Convert image bytes to base64

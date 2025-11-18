@@ -117,7 +117,7 @@ def handle_theme_settings():
                 # Valid options validation
                 valid_themes = ['default', 'emerald', 'purple', 'amber', 'custom']
                 valid_font_sizes = ['small', 'normal', 'large', 'extra-large']
-                valid_section_border_styles = ['none', 'thin', 'thick', 'dashed', 'retro', 'pixelated', 'pokemon', 'nature', 'autumn', 'ocean', 'forest', 'sunset']
+                valid_section_border_styles = ['none', 'thin', 'thick', 'dashed', 'rounded', 'retro', 'pixelated', 'pokemon', 'nature', 'autumn', 'ocean', 'forest', 'sunset']
                 valid_section_spacing = ['compact', 'normal', 'spacious']
                 valid_section_backgrounds = ['flat', 'subtle', 'elevated', 'glassmorphic']
                 valid_section_animations = ['none', 'fade', 'slide', 'bounce', 'pulse']

@@ -424,13 +424,15 @@
                                         <i class="fas fa-brain me-1"></i>Image Generation Model:
                                     </label>
                                     <select class="form-select" id="huggingfaceModel">
-                                        <option value="stabilityai/stable-diffusion-xl-base-1.0" {{ 'selected' if params.huggingface_model == 'stabilityai/stable-diffusion-xl-base-1.0' or not params.huggingface_model else '' }}>Stable Diffusion XL (Recommended)</option>
-                                        <option value="runwayml/stable-diffusion-v1-5" {{ 'selected' if params.huggingface_model == 'runwayml/stable-diffusion-v1-5' else '' }}>Stable Diffusion v1.5 (Faster)</option>
-                                        <option value="prompthero/openjourney" {{ 'selected' if params.huggingface_model == 'prompthero/openjourney' else '' }}>OpenJourney (Artistic)</option>
-                                        <option value="SG161222/Realistic_Vision_V2.0" {{ 'selected' if params.huggingface_model == 'SG161222/Realistic_Vision_V2.0' else '' }}>Realistic Vision (Photorealistic)</option>
+                                        <option value="stabilityai/stable-diffusion-xl-base-1.0" {{ 'selected' if params.huggingface_model == 'stabilityai/stable-diffusion-xl-base-1.0' or not params.huggingface_model else '' }}>Stable Diffusion XL Base 1.0 ⭐ (Recommended)</option>
+                                        <option value="black-forest-labs/FLUX.1-schnell" {{ 'selected' if params.huggingface_model == 'black-forest-labs/FLUX.1-schnell' else '' }}>FLUX.1 Schnell (Fast, High Quality)</option>
+                                        <option value="stabilityai/stable-diffusion-2-1" {{ 'selected' if params.huggingface_model == 'stabilityai/stable-diffusion-2-1' else '' }}>Stable Diffusion 2.1 (Balanced)</option>
+                                        <option value="runwayml/stable-diffusion-v1-5" {{ 'selected' if params.huggingface_model == 'runwayml/stable-diffusion-v1-5' else '' }}>Stable Diffusion v1.5 (Legacy)</option>
+                                        <option value="prompthero/openjourney-v4" {{ 'selected' if params.huggingface_model == 'prompthero/openjourney-v4' else '' }}>OpenJourney v4 (Artistic)</option>
+                                        <option value="CompVis/stable-diffusion-v1-4" {{ 'selected' if params.huggingface_model == 'CompVis/stable-diffusion-v1-4' else '' }}>Stable Diffusion v1.4 (Classic)</option>
                                     </select>
                                     <small class="text-muted">
-                                        Free access to powerful image generation models
+                                        Models with ⭐ are tested and work reliably. Others may have loading times or require PRO tokens.
                                     </small>
                                 </div>
                             </div>

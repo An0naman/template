@@ -2257,9 +2257,9 @@
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 
                 try {
-                    // Enhance prompt for better wallpapers
-                    const enhancedPrompt = `${prompt}, high resolution wallpaper, 16:9 aspect ratio, professional quality, suitable for application background, detailed, beautiful composition`;
-                    const negativePrompt = 'blurry, low quality, distorted, ugly, text, watermark, logo, busy, cluttered';
+                    // Enhance prompt for better wallpapers with more specific guidance
+                    const enhancedPrompt = `A beautiful ${prompt}, professional wallpaper design, high quality, 16:9 wide format, clean and elegant, suitable for application background, detailed yet uncluttered, photorealistic, trending on artstation`;
+                    const negativePrompt = 'blurry, low quality, distorted, ugly, text, words, letters, watermark, logo, signature, busy, cluttered, messy, chaotic, people, faces, nsfw';
                     
                     const response = await fetch('/api/ai/generate_image', {
                         method: 'POST',
