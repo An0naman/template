@@ -25,7 +25,8 @@ def get_entry_states(entry_type_id):
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT id, entry_type_id, name, category, color, display_order, is_default, created_at
+            SELECT id, entry_type_id, name, category, color, display_order, is_default, 
+                   sets_commenced, sets_ended, created_at
             FROM EntryState
             WHERE entry_type_id = ?
             ORDER BY display_order ASC, name ASC
@@ -42,6 +43,8 @@ def get_entry_states(entry_type_id):
                 'color': row['color'],
                 'display_order': row['display_order'],
                 'is_default': bool(row['is_default']),
+                'sets_commenced': bool(row['sets_commenced']) if row['sets_commenced'] is not None else False,
+                'sets_ended': bool(row['sets_ended']) if row['sets_ended'] is not None else False,
                 'created_at': row['created_at']
             })
         
@@ -60,6 +63,8 @@ def create_entry_state(entry_type_id):
         color = data.get('color', '#6c757d')
         display_order = data.get('display_order', 0)
         is_default = data.get('is_default', 0)
+        sets_commenced = data.get('sets_commenced', 0)
+        sets_ended = data.get('sets_ended', 0)
         
         if not name or not category:
             return jsonify({'error': 'Name and category are required.'}), 400
@@ -83,9 +88,11 @@ def create_entry_state(entry_type_id):
             )
         
         cursor.execute('''
-            INSERT INTO EntryState (entry_type_id, name, category, color, display_order, is_default, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (entry_type_id, name, category, color, display_order, is_default, datetime.now(timezone.utc).isoformat()))
+            INSERT INTO EntryState (entry_type_id, name, category, color, display_order, is_default, 
+                                   sets_commenced, sets_ended, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (entry_type_id, name, category, color, display_order, is_default, sets_commenced, sets_ended, 
+              datetime.now(timezone.utc).isoformat()))
         
         conn.commit()
         
@@ -143,6 +150,12 @@ def update_entry_state(entry_type_id, state_id):
                 )
             set_clauses.append("is_default = ?")
             params.append(1 if is_default else 0)
+        if 'sets_commenced' in data:
+            set_clauses.append("sets_commenced = ?")
+            params.append(1 if data['sets_commenced'] else 0)
+        if 'sets_ended' in data:
+            set_clauses.append("sets_ended = ?")
+            params.append(1 if data['sets_ended'] else 0)
         
         if not set_clauses:
             return jsonify({'message': 'No fields provided for update.'}), 200
@@ -230,7 +243,7 @@ def get_available_states_for_entry(entry_id):
         
         # Get all states for this entry type
         cursor.execute('''
-            SELECT id, name, category, color, display_order, is_default
+            SELECT id, name, category, color, display_order, is_default, sets_commenced, sets_ended
             FROM EntryState
             WHERE entry_type_id = ?
             ORDER BY display_order ASC, name ASC
@@ -245,7 +258,9 @@ def get_available_states_for_entry(entry_id):
                 'category': row['category'],
                 'color': row['color'],
                 'display_order': row['display_order'],
-                'is_default': bool(row['is_default'])
+                'is_default': bool(row['is_default']),
+                'sets_commenced': bool(row['sets_commenced']) if row['sets_commenced'] is not None else False,
+                'sets_ended': bool(row['sets_ended']) if row['sets_ended'] is not None else False
             })
         
         return jsonify(states), 200

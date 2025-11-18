@@ -24,15 +24,18 @@ def get_db():
 def update_entry_intended_end_date(entry_id, cursor):
     """
     Update the entry's intended_end_date based on total milestone duration.
-    If milestones exist: intended_end_date = created_at + sum(all durations)
+    If milestones exist: intended_end_date = commenced_at (or created_at if not set) + sum(all durations)
     If no milestones: leave intended_end_date unchanged
     """
     try:
-        # Get entry created_at
-        cursor.execute("SELECT created_at FROM Entry WHERE id = ?", (entry_id,))
+        # Get entry commenced_at (fallback to created_at if null)
+        cursor.execute("SELECT commenced_at, created_at FROM Entry WHERE id = ?", (entry_id,))
         entry = cursor.fetchone()
         if not entry:
             return
+        
+        # Use commenced_at if available, otherwise fall back to created_at
+        start_date_str = entry['commenced_at'] if entry['commenced_at'] else entry['created_at']
         
         # Calculate total duration from all milestones
         cursor.execute("""
@@ -44,9 +47,9 @@ def update_entry_intended_end_date(entry_id, cursor):
         total_days = result['total_days']
         
         if total_days > 0:
-            # Parse created_at and add total days
-            created_at = datetime.fromisoformat(entry['created_at'].replace('Z', '+00:00'))
-            new_end_date = created_at + timedelta(days=total_days)
+            # Parse start date and add total days
+            start_date = datetime.fromisoformat(start_date_str.replace('Z', '+00:00'))
+            new_end_date = start_date + timedelta(days=total_days)
             
             # Update entry
             cursor.execute("""
@@ -55,7 +58,7 @@ def update_entry_intended_end_date(entry_id, cursor):
                 WHERE id = ?
             """, (new_end_date.isoformat(), entry_id))
             
-            logger.info(f"Updated entry {entry_id} intended_end_date to {new_end_date} ({total_days} days)")
+            logger.info(f"Updated entry {entry_id} intended_end_date to {new_end_date} ({total_days} days from {start_date})")
         
     except Exception as e:
         logger.error(f"Error updating intended_end_date for entry {entry_id}: {e}", exc_info=True)

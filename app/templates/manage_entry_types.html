@@ -615,6 +615,26 @@
                                         </label>
                                     </div>
 
+                                    <div class="mb-3">
+                                        <label class="form-label d-block mb-2">Automatic Date Triggers</label>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input" id="stateSetsCommenced">
+                                            <label class="form-check-label" for="stateSetsCommenced">
+                                                <i class="fas fa-play-circle text-success me-1"></i>
+                                                Sets "Commenced" Date
+                                            </label>
+                                            <div><small class="text-muted">Automatically sets the commenced_at date when this status is applied (if not already set)</small></div>
+                                        </div>
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input" id="stateSetsEnded">
+                                            <label class="form-check-label" for="stateSetsEnded">
+                                                <i class="fas fa-flag-checkered text-danger me-1"></i>
+                                                Sets "Ended" Date
+                                            </label>
+                                            <div><small class="text-muted">Automatically sets the actual_end_date when this status is applied (if not already set)</small></div>
+                                        </div>
+                                    </div>
+
                                     <div class="d-flex gap-2">
                                         <button type="submit" class="btn btn-primary">
                                             <i class="fas fa-save me-2"></i>Save State
@@ -1361,6 +1381,12 @@
                 const defaultBadge = state.is_default 
                     ? '<span class="badge bg-primary ms-1">Default</span>' 
                     : '';
+                const commencedBadge = state.sets_commenced 
+                    ? '<span class="badge bg-info ms-1" title="Sets Commenced Date"><i class="fas fa-play-circle"></i> Commenced</span>' 
+                    : '';
+                const endedBadge = state.sets_ended 
+                    ? '<span class="badge bg-warning ms-1" title="Sets Ended Date"><i class="fas fa-flag-checkered"></i> Ended</span>' 
+                    : '';
                 
                 html += `
                     <div class="list-group-item d-flex justify-content-between align-items-center">
@@ -1371,6 +1397,8 @@
                                 <div class="small">
                                     ${categoryBadge}
                                     ${defaultBadge}
+                                    ${commencedBadge}
+                                    ${endedBadge}
                                 </div>
                             </div>
                         </div>
@@ -1407,6 +1435,8 @@
             document.getElementById('stateColor').value = state.color;
             document.getElementById('stateDisplayOrder').value = state.display_order;
             document.getElementById('stateIsDefault').checked = state.is_default;
+            document.getElementById('stateSetsCommenced').checked = state.sets_commenced || false;
+            document.getElementById('stateSetsEnded').checked = state.sets_ended || false;
             document.getElementById('stateFormContainer').style.display = 'block';
         }
 
@@ -1422,6 +1452,8 @@
             const color = document.getElementById('stateColor').value;
             const displayOrder = document.getElementById('stateDisplayOrder').value;
             const isDefault = document.getElementById('stateIsDefault').checked;
+            const setsCommenced = document.getElementById('stateSetsCommenced').checked;
+            const setsEnded = document.getElementById('stateSetsEnded').checked;
 
             if (!name || !category) {
                 alert('Name and category are required.');
@@ -1433,7 +1465,9 @@
                 category: category,
                 color: color,
                 display_order: parseInt(displayOrder),
-                is_default: isDefault
+                is_default: isDefault,
+                sets_commenced: setsCommenced,
+                sets_ended: setsEnded
             };
 
             const url = stateId 

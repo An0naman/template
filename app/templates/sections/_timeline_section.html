@@ -15,7 +15,11 @@
         <div class="d-flex justify-content-between align-items-center mb-2">
             <small class="text-muted">
                 <i class="fas fa-play-circle me-1"></i>
+                {% if entry.commenced_at %}
+                Started: <span id="timeline-start-date">{{ entry.commenced_at[:10] if entry.commenced_at else '' }}</span>
+                {% else %}
                 Created: <span id="timeline-start-date">{{ entry.created_at[:10] if entry.created_at else '' }}</span>
+                {% endif %}
             </small>
             <small class="fw-bold" id="unified-progress-text">
                 <span id="unified-progress-percentage">0</span>% Complete
@@ -576,6 +580,7 @@
     // Store dynamic entry data (updated when milestones change)
     let entryData = {
         createdAt: '{{ entry.created_at }}',
+        commencedAt: '{{ entry.commenced_at if entry.commenced_at else entry.created_at }}',
         intendedEndDate: '{{ entry.intended_end_date }}',
         showEndDates: {{ 'true' if entry.show_end_dates else 'false' }}
     };
@@ -669,7 +674,8 @@
         
         if (milestones.length === 0) return;
         
-        const startDate = new Date('{{ entry.created_at }}');
+        // Use commenced_at if available, otherwise use created_at
+        const startDate = new Date(entryData.commencedAt);
         const now = new Date();
         
         // Use actual_end_date if entry is complete, otherwise use today
@@ -883,7 +889,8 @@
             return;
         }
         
-        const startDate = new Date('{{ entry.created_at }}');
+        // Use commenced_at if available, otherwise use created_at
+        const startDate = new Date(entryData.commencedAt);
         const endDate = new Date();
         const totalDuration = endDate - startDate;
         

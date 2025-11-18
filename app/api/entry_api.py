@@ -27,7 +27,7 @@ def get_all_entries():
         
         cursor.execute('''
             SELECT e.id, e.title, e.description, e.intended_end_date, e.actual_end_date, 
-                   e.status, e.created_at, e.entry_type_id, et.singular_label AS entry_type_label
+                   e.status, e.created_at, e.commenced_at, e.entry_type_id, et.singular_label AS entry_type_label
             FROM Entry e
             JOIN EntryType et ON e.entry_type_id = et.id
             ORDER BY e.created_at DESC
@@ -45,6 +45,7 @@ def get_all_entries():
                 'actual_end_date': row['actual_end_date'],
                 'status': row['status'],
                 'created_at': row['created_at'],
+                'commenced_at': row['commenced_at'],
                 'entry_type_id': row['entry_type_id'],
                 'entry_type_label': row['entry_type_label']
             })
@@ -64,7 +65,7 @@ def get_sensor_enabled_entries():
         
         cursor.execute('''
             SELECT e.id, e.title, e.description, e.intended_end_date, e.actual_end_date, 
-                   e.status, e.created_at, et.singular_label AS entry_type_label, 
+                   e.status, e.created_at, e.commenced_at, et.singular_label AS entry_type_label, 
                    et.enabled_sensor_types
             FROM Entry e
             JOIN EntryType et ON e.entry_type_id = et.id
@@ -84,6 +85,7 @@ def get_sensor_enabled_entries():
                 'actual_end_date': row['actual_end_date'],
                 'status': row['status'],
                 'created_at': row['created_at'],
+                'commenced_at': row['commenced_at'],
                 'entry_type_label': row['entry_type_label'],
                 'enabled_sensor_types': row['enabled_sensor_types']
             })
@@ -101,6 +103,7 @@ def add_entry():
     description = data.get('description')
     entry_type_id = data.get('entry_type_id')
     intended_end_date = data.get('intended_end_date')
+    commenced_at = data.get('commenced_at')  # Optional: when work actually started
     status = data.get('status')
 
     if not title or not entry_type_id:
@@ -120,9 +123,10 @@ def add_entry():
             default_state = cursor.fetchone()
             status = default_state['name'] if default_state else 'Active'
         
+        now = datetime.now(timezone.utc).isoformat()
         cursor.execute(
-            "INSERT INTO Entry (title, description, entry_type_id, intended_end_date, status, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (title, description, entry_type_id, intended_end_date, status, datetime.now(timezone.utc).isoformat())
+            "INSERT INTO Entry (title, description, entry_type_id, intended_end_date, commenced_at, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (title, description, entry_type_id, intended_end_date, commenced_at, status, now)
         )
         conn.commit()
         # Use main_bp.entry_detail_v2 because it's in a different blueprint (now the default view)
@@ -141,7 +145,7 @@ def get_entry(entry_id):
         
         cursor.execute('''
             SELECT e.id, e.title, e.description, e.intended_end_date, e.actual_end_date, 
-                   e.status, e.created_at, e.entry_type_id, 
+                   e.status, e.created_at, e.commenced_at, e.entry_type_id, 
                    et.singular_label AS entry_type_label,
                    et.name AS entry_type_name,
                    et.has_sensors,
@@ -163,6 +167,7 @@ def get_entry(entry_id):
             'actual_end_date': row['actual_end_date'],
             'status': row['status'],
             'created_at': row['created_at'],
+            'commenced_at': row['commenced_at'],
             'entry_type_id': row['entry_type_id'],
             'entry_type_label': row['entry_type_label'],
             'entry_type_name': row['entry_type_name'],
@@ -183,7 +188,7 @@ def update_entry(entry_id):
     cursor = conn.cursor()
 
     # Get the current entry to check for status changes
-    cursor.execute("SELECT title, status FROM Entry WHERE id = ?", (entry_id,))
+    cursor.execute("SELECT title, status, entry_type_id, commenced_at, actual_end_date FROM Entry WHERE id = ?", (entry_id,))
     current_entry = cursor.fetchone()
     
     if not current_entry:
@@ -191,6 +196,7 @@ def update_entry(entry_id):
     
     old_status = current_entry['status']
     entry_title = current_entry['title']
+    entry_type_id = current_entry['entry_type_id']
 
     set_clauses = []
     params = []
@@ -207,12 +213,40 @@ def update_entry(entry_id):
     if 'intended_end_date' in data:
         set_clauses.append("intended_end_date = ?")
         params.append(data['intended_end_date'])
+    if 'commenced_at' in data:
+        set_clauses.append("commenced_at = ?")
+        params.append(data['commenced_at'])
     if 'actual_end_date' in data:
         set_clauses.append("actual_end_date = ?")
         params.append(data['actual_end_date'])
     if 'status' in data:
+        new_status = data['status']
         set_clauses.append("status = ?")
-        params.append(data['status'])
+        params.append(new_status)
+        
+        # Check if this status has triggers that should set dates
+        if new_status != old_status:
+            cursor.execute("""
+                SELECT sets_commenced, sets_ended
+                FROM EntryState
+                WHERE entry_type_id = ? AND name = ?
+            """, (entry_type_id, new_status))
+            
+            state_info = cursor.fetchone()
+            if state_info:
+                # Auto-set commenced_at if status triggers it and it's not already set
+                if state_info['sets_commenced'] and not current_entry['commenced_at']:
+                    now = datetime.now(timezone.utc).isoformat()
+                    set_clauses.append("commenced_at = ?")
+                    params.append(now)
+                    logger.info(f"Auto-setting commenced_at for entry {entry_id} due to status '{new_status}'")
+                
+                # Auto-set actual_end_date if status triggers it and it's not already set
+                if state_info['sets_ended'] and not current_entry['actual_end_date']:
+                    now = datetime.now(timezone.utc).isoformat()
+                    set_clauses.append("actual_end_date = ?")
+                    params.append(now)
+                    logger.info(f"Auto-setting actual_end_date for entry {entry_id} due to status '{new_status}'")
 
     if not set_clauses:
         return jsonify({'message': 'No fields provided for update.'}), 200

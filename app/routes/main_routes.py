@@ -273,7 +273,7 @@ def entry_detail_v2(entry_id):
             et.singular_label AS entry_type_label,
             et.name AS entry_type_name,
             et.note_types, et.has_sensors, et.enabled_sensor_types, et.show_labels_section, 
-            et.show_end_dates, e.created_at,
+            et.show_end_dates, e.created_at, e.commenced_at,
             COALESCE(es.category, 'active') AS status_category,
             COALESCE(es.color, '#28a745') AS status_color
         FROM Entry e
@@ -303,7 +303,8 @@ def entry_detail_v2(entry_id):
         'status': entry['status'] if 'status' in entry.keys() else 'Active',
         'status_category': entry['status_category'] if 'status_category' in entry.keys() else 'active',
         'status_color': entry['status_color'] if 'status_color' in entry.keys() else '#28a745',
-        'created_at': entry['created_at']
+        'created_at': entry['created_at'],
+        'commenced_at': entry['commenced_at']
     }
     
     # Get layout configuration

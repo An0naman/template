@@ -92,6 +92,12 @@
                         <strong>Created On:</strong><br class="d-md-none">
                         <span class="ms-md-2" id="created-at">{{ entry.created_at }}</span>
                     </div>
+                    {% if entry.commenced_at %}
+                    <div class="mb-2">
+                        <strong>Commenced:</strong><br class="d-md-none">
+                        <span class="ms-md-2" id="commenced-at-display">{{ entry.commenced_at[:10] if entry.commenced_at else '' }}</span>
+                    </div>
+                    {% endif %}
                     {% if entry.intended_end_date and entry.show_end_dates %}
                     <div class="mb-2">
                         <strong>Intended End:</strong><br class="d-md-none">
@@ -111,6 +117,11 @@
                     <div class="mb-2">
                         <strong>Created On:</strong><br class="d-md-none">
                         <span class="ms-md-2 text-muted" id="created-at-edit">{{ entry.created_at }}</span>
+                    </div>
+                    <div class="mb-2">
+                        <label for="commencedAtInput" class="form-label small">Commenced Date</label>
+                        <input type="date" class="form-control form-control-sm" id="commencedAtInput" value="{{ entry.commenced_at[:10] if entry.commenced_at else '' }}">
+                        <small class="text-muted">Start date for milestone calculations</small>
                     </div>
                     <div class="mb-2">
                         <label for="intendedEndDateInput" class="form-label small">Intended End Date</label>
@@ -232,6 +243,7 @@ const descriptionTextarea = document.getElementById('descriptionTextarea');
 {% if entry.show_end_dates %}
 const intendedEndDateInput = document.getElementById('intendedEndDateInput');
 const actualEndDateInput = document.getElementById('actualEndDateInput');
+const commencedAtInput = document.getElementById('commencedAtInput');
 {% endif %}
 
 // Original values for cancel
@@ -242,7 +254,8 @@ const originalValues = {
     status: {{ (entry.status if entry.status else "active")|tojson }},
     {% if entry.show_end_dates %}
     intendedEndDate: '{{ entry.intended_end_date[:10] if entry.intended_end_date else "" }}',
-    actualEndDate: '{{ entry.actual_end_date[:10] if entry.actual_end_date else "" }}'
+    actualEndDate: '{{ entry.actual_end_date[:10] if entry.actual_end_date else "" }}',
+    commencedAt: '{{ entry.commenced_at[:10] if entry.commenced_at else "" }}'
     {% endif %}
 };
 
@@ -410,6 +423,7 @@ document.getElementById('cancelEditBtn')?.addEventListener('click', function() {
     {% if entry.show_end_dates %}
     if (intendedEndDateInput) intendedEndDateInput.value = originalValues.intendedEndDate;
     if (actualEndDateInput) actualEndDateInput.value = originalValues.actualEndDate;
+    if (commencedAtInput) commencedAtInput.value = originalValues.commencedAt;
     {% endif %}
     
     toggleEditMode(false);
@@ -423,9 +437,11 @@ document.getElementById('saveEntryBtn')?.addEventListener('click', async functio
     {% if entry.show_end_dates %}
     const intendedEndDate = intendedEndDateInput ? intendedEndDateInput.value : null;
     const actualEndDate = actualEndDateInput ? actualEndDateInput.value : null;
+    const commencedAt = commencedAtInput ? commencedAtInput.value : null;
     {% else %}
     const intendedEndDate = null;
     const actualEndDate = null;
+    const commencedAt = null;
     {% endif %}
     
     if (!newTitle) {
@@ -451,7 +467,8 @@ document.getElementById('saveEntryBtn')?.addEventListener('click', async functio
                 entry_type_id: entryTypeId,
                 status: status,
                 intended_end_date: intendedEndDate,
-                actual_end_date: actualEndDate
+                actual_end_date: actualEndDate,
+                commenced_at: commencedAt
             })
         });
         
