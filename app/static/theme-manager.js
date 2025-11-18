@@ -28,6 +28,17 @@ class ThemeManager {
                 effect: 'none',
                 pattern: 'none',
                 decoration: 'none'
+            },
+            
+            // Background image
+            backgroundImage: {
+                enabled: false,
+                url: '',
+                opacity: 50,
+                blur: 0,
+                size: 'cover',
+                position: 'center',
+                parallax: false
             }
         };
         
@@ -997,7 +1008,8 @@ class ThemeManager {
                 custom_colors: this.state.customColors,
                 custom_light_mode: this.state.customLightMode,
                 custom_dark_mode: this.state.customDarkMode,
-                section_styles: this.state.sectionStyles
+                section_styles: this.state.sectionStyles,
+                background_image: this.state.backgroundImage
             };
 
             const response = await fetch('/api/theme_settings', {
