@@ -162,6 +162,8 @@
         .grid-stack-item-content {
             background: transparent;
             overflow: hidden;
+            position: absolute;
+            inset: 0;
         }
 
         /* Dashboard Controls */
@@ -202,6 +204,58 @@
             
             .dashboard-widget {
                 padding: 0.75rem;
+            }
+            
+            /* Force single column layout on mobile */
+            .grid-stack {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 30px !important;
+                margin: 0 !important;
+            }
+            
+            .grid-stack-item {
+                position: relative !important;
+                width: 100% !important;
+                left: 0 !important;
+                top: auto !important;
+                margin: 0 0 30px 0 !important;
+                height: auto !important;
+                transform: none !important;
+            }
+            
+            .grid-stack-item:last-child {
+                margin-bottom: 0 !important;
+            }
+            
+            .grid-stack-item-content {
+                position: relative !important;
+                inset: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+            }
+            
+            /* Improve touch targets for mobile */
+            .widget-actions .btn {
+                padding: 0.375rem 0.5rem;
+                font-size: 0.875rem;
+            }
+            
+            /* Dashboard controls stack on mobile */
+            .dashboard-controls h1 {
+                font-size: 1.5rem;
+            }
+            
+            .dashboard-controls .btn-group {
+                display: flex;
+                flex-wrap: wrap;
+                width: 100%;
+                gap: 0.25rem;
+            }
+            
+            .dashboard-controls .btn-group .btn {
+                flex: 1 1 calc(50% - 0.125rem);
+                font-size: 0.75rem;
             }
         }
     </style>

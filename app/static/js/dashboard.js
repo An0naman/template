@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ============================================================================
 
 function initializeDashboard() {
-    // Initialize GridStack
+    // Initialize GridStack with responsive breakpoints
     gridStack = GridStack.init({
         column: 12,
         cellHeight: 100,
@@ -28,7 +28,13 @@ function initializeDashboard() {
         float: false,
         disableResize: true,
         disableDrag: true,
-        animate: true
+        animate: true,
+        // Responsive: stack widgets on mobile
+        columnOpts: {
+            breakpoints: [
+                {w: 768, c: 1, margin: 5}  // 1 column on screens <= 768px (mobile) with reduced margin
+            ]
+        }
     });
 }
 

@@ -43,6 +43,18 @@
             padding: var(--content-spacing);
         }
 
+        /* Separate styling for filter and results frames */
+        .content-card.filters-frame {
+            border-left: 3px solid var(--theme-primary, #0d6efd);
+        }
+
+        .content-card.results-frame {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            padding: 0;
+        }
+
         .section-header {
             border-bottom: 1px solid var(--theme-border, var(--bs-border-color));
             margin-bottom: var(--content-spacing);
@@ -800,10 +812,9 @@
     {% include 'components/ribbon.html' %}
     
     <div class="container main-container">
-        <div class="content-card theme-section">
-            <!-- Smart Search & Filter Section -->
-            <div class="mb-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
+        <!-- Filters Card -->
+        <div class="content-card theme-section filters-frame mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="mb-0">
                         <i class="fas fa-search me-2"></i>Search & Filter
                     </h5>
@@ -849,6 +860,22 @@
                             </optgroup>
                         </select>
                     </div>
+                </div>
+
+                <!-- Results Header -->
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center my-3 gap-2">
+                    <div class="d-flex align-items-center gap-3">
+                        <h5 class="mb-0">
+                            <i class="fas fa-list me-2"></i>{{ entry_plural_label }}
+                            {% if entries %}
+                                <span class="badge bg-secondary ms-2">{{ entries|length }}</span>
+                            {% endif %}
+                        </h5>
+                        <div id="searchResultsInfo" class="text-muted small"></div>
+                    </div>
+                    <button id="showAddEntryFormBtn" class="btn btn-theme-primary flex-shrink-0">
+                        <i class="fas fa-plus me-1"></i>New {{ entry_singular_label }}
+                    </button>
                 </div>
 
                 <!-- Advanced Filters -->
@@ -1043,25 +1070,12 @@ LIMIT 100</textarea>
                     </div>
                 </div>
             </div>
+        </div>
+        <!-- End of Filters Card -->
 
-            <!-- Entries List -->
-            <div class="mb-4">
-                <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 gap-2">
-                    <div class="d-flex align-items-center gap-3">
-                        <h5 class="mb-0">
-                            <i class="fas fa-list me-2"></i>{{ entry_plural_label }}
-                            {% if entries %}
-                                <span class="badge bg-secondary ms-2">{{ entries|length }}</span>
-                            {% endif %}
-                        </h5>
-                        <div id="searchResultsInfo" class="text-muted small"></div>
-                    </div>
-                    <button id="showAddEntryFormBtn" class="btn btn-theme-primary flex-shrink-0">
-                        <i class="fas fa-plus me-1"></i>New {{ entry_singular_label }}
-                    </button>
-                </div>
-
-                <div id="entries-list">
+        <!-- Results Card -->
+        <div class="content-card theme-section results-frame">
+            <div id="entries-list">
                 {% if entries %}
                     {% for entry in entries %}
                         <div class="entry-item" data-id="{{ entry.id }}"
@@ -1116,8 +1130,8 @@ LIMIT 100</textarea>
                     </div>
                 {% endif %}
                 </div>
-            </div>
         </div>
+        <!-- End of Results Card -->
     </div>
 
     <!-- Add Entry Modal -->
