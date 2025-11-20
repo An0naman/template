@@ -471,3 +471,81 @@ def entry_layout_builder(entry_type_id):
                           project_name=params.get('project_name'),
                           theme_settings=theme_settings,
                           theme_css=theme_css)
+
+@main_bp.route('/kanban')
+def kanban_list():
+    """Kanban boards list route - redirects to default board if one exists"""
+    from ..db import get_system_parameters
+    from ..api.theme_api import generate_theme_css, get_current_theme_settings
+    
+    params = get_system_parameters()
+    theme_settings = get_current_theme_settings()
+    theme_css = generate_theme_css(theme_settings)
+    
+    # Check if user explicitly wants to see the list
+    show_list = request.args.get('list', 'false').lower() == 'true'
+    
+    # If not explicitly requesting list, check if there's a default board
+    if not show_list:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id FROM KanbanBoard 
+            WHERE is_default = 1 
+            ORDER BY created_at DESC 
+            LIMIT 1
+        """)
+        default_board = cursor.fetchone()
+        
+        # If a default board exists, redirect to it
+        if default_board:
+            return redirect(url_for('main.kanban_board', board_id=default_board['id']))
+    
+    return render_template('kanban_list.html',
+                          project_name=params.get('project_name'),
+                          theme_settings=theme_settings,
+                          theme_css=theme_css)
+
+@main_bp.route('/kanban/<int:board_id>')
+def kanban_board(board_id):
+    """Kanban board detail view route"""
+    from ..db import get_system_parameters
+    from ..api.theme_api import generate_theme_css, get_current_theme_settings
+    
+    params = get_system_parameters()
+    theme_settings = get_current_theme_settings()
+    theme_css = generate_theme_css(theme_settings)
+    
+    # Get board information
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT kb.id, kb.name, kb.description, kb.entry_type_id,
+               et.singular_label AS entry_type_label,
+               et.plural_label AS entry_type_plural
+        FROM KanbanBoard kb
+        JOIN EntryType et ON kb.entry_type_id = et.id
+        WHERE kb.id = ?
+    """, (board_id,))
+    
+    board = cursor.fetchone()
+    
+    if not board:
+        return render_template('404.html'), 404
+    
+    board_dict = {
+        'id': board['id'],
+        'name': board['name'],
+        'description': board['description'],
+        'entry_type_id': board['entry_type_id'],
+        'entry_type_label': board['entry_type_label'],
+        'entry_type_plural': board['entry_type_plural']
+    }
+    
+    return render_template('kanban_board.html',
+                          board_id=board_id,
+                          board=board_dict,
+                          project_name=params.get('project_name'),
+                          theme_settings=theme_settings,
+                          theme_css=theme_css)

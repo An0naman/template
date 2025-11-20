@@ -164,6 +164,24 @@
                         </div>
                     </div>
                     
+                    <!-- Kanban Feature Toggle -->
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="alert alert-purple">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1"><i class="fas fa-columns me-2"></i>Kanban Functionality</h6>
+                                        <small>Enable or disable Kanban boards across the entire application. When disabled, the Kanban menu item will be hidden.</small>
+                                    </div>
+                                    <div class="form-check form-switch ms-3">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="enableKanbanToggle" style="width: 3rem; height: 1.5rem;">
+                                        <label class="form-check-label ms-2 fw-bold" for="enableKanbanToggle" id="kanbanToggleLabel">Loading...</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <button type="submit" class="btn btn-purple">
                         <i class="fas fa-save me-1"></i>Save General Settings
                     </button>
@@ -1012,7 +1030,8 @@
                 project_subtitle: document.getElementById('projectSubtitle').value,
                 entry_singular_label: document.getElementById('entrySingularLabel').value,
                 entry_plural_label: document.getElementById('entryPluralLabel').value,
-                enable_sensors: document.getElementById('enableSensorsToggle').checked ? '1' : '0'
+                enable_sensors: document.getElementById('enableSensorsToggle').checked ? '1' : '0',
+                enable_kanban: document.getElementById('enableKanbanToggle').checked ? 'true' : 'false'
             };
             
             try {
@@ -1113,6 +1132,8 @@
             
             // Load sensor toggle state
             loadSensorToggleState();
+            // Load kanban toggle state
+            loadKanbanToggleState();
         });
         
         // Load current sensor toggle state
@@ -1130,6 +1151,24 @@
             } catch (error) {
                 console.error('Error loading sensor toggle state:', error);
                 document.getElementById('sensorToggleLabel').textContent = 'Error';
+            }
+        }
+        
+        // Load current kanban toggle state
+        async function loadKanbanToggleState() {
+            try {
+                const response = await fetch('/api/system_params/enable_kanban');
+                const data = await response.json();
+                const toggle = document.getElementById('enableKanbanToggle');
+                const label = document.getElementById('kanbanToggleLabel');
+                
+                const isEnabled = data.value === 'true';
+                toggle.checked = isEnabled;
+                label.textContent = isEnabled ? 'Enabled' : 'Disabled';
+                label.style.color = isEnabled ? '#198754' : '#dc3545';
+            } catch (error) {
+                console.error('Error loading kanban toggle state:', error);
+                document.getElementById('kanbanToggleLabel').textContent = 'Error';
             }
         }
 

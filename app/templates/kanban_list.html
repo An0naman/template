@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="{{ 'dark' if theme_settings.dark_mode_enabled else 'light' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ project_name }} - Kanban Boards</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='notifications_modern.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='mobile.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='ribbon.css') }}">
+    
+    <!-- Dynamic Theme CSS -->
+    <style id="theme-styles">
+        {{ theme_css|safe }}
+    </style>
+    
+    <style>
+        :root {
+            --content-spacing: 1.5rem;
+            --border-radius: 0.5rem;
+            --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        body {
+            background-color: var(--theme-bg-body, var(--bs-body-bg));
+            color: var(--theme-text, var(--bs-body-color));
+        }
+
+        .main-container {
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .content-card {
+            background: var(--theme-bg-card, var(--bs-body-bg));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-md);
+            padding: var(--content-spacing);
+        }
+
+        .board-card {
+            background: var(--theme-bg-card, var(--bs-body-bg));
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .board-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .board-card h3 {
+            color: var(--theme-text, var(--bs-body-color));
+            margin-bottom: 0.5rem;
+        }
+
+        .board-card .badge {
+            font-size: 0.85rem;
+        }
+
+        .board-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--theme-text-muted, #6c757d);
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            opacity: 0.5;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Universal App Ribbon -->
+    {% include 'components/ribbon.html' %}
+    
+    <!-- Main Container -->
+    <div class="container main-container">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-columns me-2"></i>Kanban Boards
+            </h1>
+            <button class="btn" id="newBoardBtn" style="background-color: var(--theme-primary, #0d6efd); color: white; border-color: var(--theme-primary, #0d6efd);">
+                <i class="fas fa-plus me-2"></i>New Board
+            </button>
+        </div>
+
+        <!-- Boards List -->
+        <div id="boardsList">
+            <!-- Boards will be loaded here -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <i class="fas fa-columns"></i>
+            <h3>No Kanban Boards Yet</h3>
+            <p>Create your first Kanban board to start organizing your entries visually.</p>
+            <button class="btn" id="createFirstBoard" style="background-color: var(--theme-primary, #0d6efd); color: white; border-color: var(--theme-primary, #0d6efd);">
+                <i class="fas fa-plus me-2"></i>Create Your First Board
+            </button>
+        </div>
+    </div>
+
+    <!-- New Board Modal -->
+    <div class="modal fade" id="newBoardModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Kanban Board</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="newBoardForm">
+                        <div class="mb-3">
+                            <label for="boardName" class="form-label">Board Name</label>
+                            <input type="text" class="form-control" id="boardName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="boardDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="boardDescription" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="boardEntryType" class="form-label">Entry Type</label>
+                            <select class="form-select" id="boardEntryType" required>
+                                <option value="">Select entry type...</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Columns (States)</label>
+                            <div id="columnsList">
+                                <!-- Columns will be added here based on entry type states -->
+                            </div>
+                            <small class="text-muted">Select the states/statuses to include as columns in your Kanban board.</small>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="boardIsDefault">
+                            <label class="form-check-label" for="boardIsDefault">
+                                Set as default board
+                            </label>
+                            <small class="form-text text-muted d-block mt-1">
+                                Only one default board can exist. Setting this will unset any other default board.
+                            </small>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn" id="saveBoardBtn" style="background-color: var(--theme-primary, #0d6efd); color: white; border-color: var(--theme-primary, #0d6efd);">Create Board</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Board Modal -->
+    <div class="modal fade" id="editBoardModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Kanban Board</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editBoardForm">
+                        <input type="hidden" id="editBoardId">
+                        <div class="mb-3">
+                            <label for="editBoardName" class="form-label">Board Name</label>
+                            <input type="text" class="form-control" id="editBoardName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editBoardDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="editBoardDescription" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Entry Type</label>
+                            <input type="text" class="form-control" id="editBoardEntryType" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Manage Columns</label>
+                            <div id="editColumnsList">
+                                <!-- Columns will be managed here -->
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="addColumnBtn">
+                                <i class="fas fa-plus me-1"></i>Add Column
+                            </button>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="editBoardIsDefault">
+                            <label class="form-check-label" for="editBoardIsDefault">
+                                Set as default board
+                            </label>
+                            <small class="form-text text-muted d-block mt-1">
+                                Only one default board can exist. Setting this will unset any other default board.
+                            </small>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn" id="updateBoardBtn" style="background-color: var(--theme-primary, #0d6efd); color: white; border-color: var(--theme-primary, #0d6efd);">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- About Modal -->
+    {% include 'components/about_modal.html' %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let allEntryTypes = [];
+        let currentBoardId = null;
+        let boardStates = {};
+
+        // Load boards on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadBoards();
+            loadEntryTypes();
+
+            // Event listeners
+            document.getElementById('newBoardBtn').addEventListener('click', openNewBoardModal);
+            document.getElementById('createFirstBoard').addEventListener('click', openNewBoardModal);
+            document.getElementById('saveBoardBtn').addEventListener('click', createBoard);
+            document.getElementById('updateBoardBtn').addEventListener('click', updateBoard);
+            document.getElementById('boardEntryType').addEventListener('change', loadStatesForEntryType);
+            document.getElementById('addColumnBtn').addEventListener('click', addColumnToEditForm);
+        });
+
+        async function loadBoards() {
+            try {
+                const response = await fetch('/api/kanban/boards');
+                const boards = await response.json();
+
+                const boardsList = document.getElementById('boardsList');
+                const emptyState = document.getElementById('emptyState');
+
+                if (boards.length === 0) {
+                    boardsList.innerHTML = '';
+                    emptyState.style.display = 'block';
+                    return;
+                }
+
+                emptyState.style.display = 'none';
+                boardsList.innerHTML = boards.map(board => `
+                    <div class="board-card" onclick="openBoard(${board.id})">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h3>
+                                    ${board.name}
+                                    ${board.is_default ? '<span class="badge bg-primary ms-2">Default</span>' : ''}
+                                </h3>
+                                <p class="text-muted mb-2">${board.description || 'No description'}</p>
+                                <div>
+                                    <span class="badge bg-secondary">
+                                        <i class="fas fa-tag me-1"></i>${board.entry_type_label}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="board-actions" onclick="event.stopPropagation()">
+                                <button class="btn btn-sm btn-outline-primary" onclick="editBoard(${board.id})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteBoard(${board.id})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading boards:', error);
+                alert('Failed to load boards. Please refresh the page.');
+            }
+        }
+
+        async function loadEntryTypes() {
+            try {
+                const response = await fetch('/api/entry-types');
+                allEntryTypes = await response.json();
+                
+                const select = document.getElementById('boardEntryType');
+                select.innerHTML = '<option value="">Select entry type...</option>' +
+                    allEntryTypes.map(et => `<option value="${et.id}">${et.singular_label}</option>`).join('');
+            } catch (error) {
+                console.error('Error loading entry types:', error);
+            }
+        }
+
+        async function loadStatesForEntryType() {
+            const entryTypeId = document.getElementById('boardEntryType').value;
+            if (!entryTypeId) {
+                document.getElementById('columnsList').innerHTML = '';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/kanban/entry-types/${entryTypeId}/states`);
+                const states = await response.json();
+                boardStates[entryTypeId] = states;
+
+                const columnsList = document.getElementById('columnsList');
+                columnsList.innerHTML = states.map((state, index) => `
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="state_${state.id}" 
+                               value="${state.name}" data-order="${index}" checked>
+                        <label class="form-check-label" for="state_${state.id}">
+                            <span class="badge" style="background-color: ${state.color || '#6c757d'}">
+                                ${state.name}
+                            </span>
+                        </label>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading states:', error);
+            }
+        }
+
+        function openNewBoardModal() {
+            document.getElementById('newBoardForm').reset();
+            document.getElementById('columnsList').innerHTML = '';
+            new bootstrap.Modal(document.getElementById('newBoardModal')).show();
+        }
+
+        async function createBoard() {
+            const name = document.getElementById('boardName').value.trim();
+            const description = document.getElementById('boardDescription').value.trim();
+            const entryTypeId = document.getElementById('boardEntryType').value;
+            const isDefault = document.getElementById('boardIsDefault').checked;
+
+            if (!name || !entryTypeId) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            // Get selected columns
+            const columns = [];
+            document.querySelectorAll('#columnsList input[type="checkbox"]:checked').forEach((checkbox, index) => {
+                columns.push({
+                    state_name: checkbox.value,
+                    display_order: index,
+                    wip_limit: null
+                });
+            });
+
+            if (columns.length === 0) {
+                alert('Please select at least one column');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/kanban/boards', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name,
+                        description,
+                        entry_type_id: parseInt(entryTypeId),
+                        is_default: isDefault,
+                        columns
+                    })
+                });
+
+                if (response.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('newBoardModal')).hide();
+                    loadBoards();
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Failed to create board');
+                }
+            } catch (error) {
+                console.error('Error creating board:', error);
+                alert('Failed to create board');
+            }
+        }
+
+        function openBoard(boardId) {
+            window.location.href = `/kanban/${boardId}`;
+        }
+
+        async function editBoard(boardId) {
+            try {
+                const response = await fetch(`/api/kanban/boards/${boardId}`);
+                const board = await response.json();
+
+                currentBoardId = boardId;
+                document.getElementById('editBoardId').value = boardId;
+                document.getElementById('editBoardName').value = board.name;
+                document.getElementById('editBoardDescription').value = board.description || '';
+                document.getElementById('editBoardEntryType').value = board.entry_type_label;
+                document.getElementById('editBoardIsDefault').checked = board.is_default;
+
+                // Load available states for this entry type
+                const statesResponse = await fetch(`/api/kanban/entry-types/${board.entry_type_id}/states`);
+                const allStates = await statesResponse.json();
+                boardStates[board.entry_type_id] = allStates;
+
+                // Render columns
+                const editColumnsList = document.getElementById('editColumnsList');
+                editColumnsList.innerHTML = board.columns.map((col, index) => `
+                    <div class="d-flex align-items-center mb-2 column-item" data-column-id="${col.id}">
+                        <span class="badge me-2" style="background-color: ${col.color || '#6c757d'}">
+                            ${col.state_name}
+                        </span>
+                        <input type="number" class="form-control form-control-sm me-2" 
+                               style="width: 100px" placeholder="WIP Limit" 
+                               value="${col.wip_limit || ''}" data-wip-limit>
+                        <button type="button" class="btn btn-sm btn-outline-danger" 
+                                onclick="removeColumn(${col.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `).join('');
+
+                new bootstrap.Modal(document.getElementById('editBoardModal')).show();
+            } catch (error) {
+                console.error('Error loading board:', error);
+                alert('Failed to load board details');
+            }
+        }
+
+        function addColumnToEditForm() {
+            const boardId = document.getElementById('editBoardId').value;
+            // This would need to show a selector for available states
+            // For now, just show a simple prompt
+            const stateName = prompt('Enter state name for new column:');
+            if (stateName) {
+                const editColumnsList = document.getElementById('editColumnsList');
+                const newColumn = document.createElement('div');
+                newColumn.className = 'd-flex align-items-center mb-2 column-item';
+                newColumn.innerHTML = `
+                    <span class="badge me-2 bg-secondary">${stateName}</span>
+                    <input type="number" class="form-control form-control-sm me-2" 
+                           style="width: 100px" placeholder="WIP Limit" data-wip-limit data-new-column>
+                    <input type="hidden" value="${stateName}" data-new-state-name>
+                    <button type="button" class="btn btn-sm btn-outline-danger" 
+                            onclick="this.parentElement.remove()">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                `;
+                editColumnsList.appendChild(newColumn);
+            }
+        }
+
+        async function removeColumn(columnId) {
+            if (!confirm('Remove this column from the board?')) return;
+
+            try {
+                const response = await fetch(`/api/kanban/columns/${columnId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    document.querySelector(`[data-column-id="${columnId}"]`).remove();
+                } else {
+                    alert('Failed to remove column');
+                }
+            } catch (error) {
+                console.error('Error removing column:', error);
+                alert('Failed to remove column');
+            }
+        }
+
+        async function updateBoard() {
+            const boardId = document.getElementById('editBoardId').value;
+            const name = document.getElementById('editBoardName').value.trim();
+            const description = document.getElementById('editBoardDescription').value.trim();
+            const isDefault = document.getElementById('editBoardIsDefault').checked;
+
+            if (!name) {
+                alert('Please enter a board name');
+                return;
+            }
+
+            try {
+                // Update board info
+                const response = await fetch(`/api/kanban/boards/${boardId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, description, is_default: isDefault })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert(error.error || 'Failed to update board');
+                    return;
+                }
+
+                // Update WIP limits for existing columns
+                const columnItems = document.querySelectorAll('.column-item');
+                for (const item of columnItems) {
+                    const columnId = item.dataset.columnId;
+                    if (columnId) {
+                        const wipLimit = item.querySelector('[data-wip-limit]').value;
+                        await fetch(`/api/kanban/columns/${columnId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                wip_limit: wipLimit ? parseInt(wipLimit) : null,
+                                display_order: 0
+                            })
+                        });
+                    }
+                }
+
+                // Add new columns
+                const newColumns = document.querySelectorAll('[data-new-column]');
+                for (const newCol of newColumns) {
+                    const stateName = newCol.parentElement.querySelector('[data-new-state-name]').value;
+                    const wipLimit = newCol.value;
+                    await fetch(`/api/kanban/boards/${boardId}/columns`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            state_name: stateName,
+                            wip_limit: wipLimit ? parseInt(wipLimit) : null,
+                            display_order: 0
+                        })
+                    });
+                }
+
+                bootstrap.Modal.getInstance(document.getElementById('editBoardModal')).hide();
+                loadBoards();
+            } catch (error) {
+                console.error('Error updating board:', error);
+                alert('Failed to update board');
+            }
+        }
+
+        async function deleteBoard(boardId) {
+            if (!confirm('Are you sure you want to delete this board? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/kanban/boards/${boardId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    loadBoards();
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Failed to delete board');
+                }
+            } catch (error) {
+                console.error('Error deleting board:', error);
+                alert('Failed to delete board');
+            }
+        }
+    </script>
+</body>
+</html>

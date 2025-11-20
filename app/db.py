@@ -206,6 +206,34 @@ def init_db():
             );
         ''')
 
+        # Create Kanban Board Table for storing kanban board configurations
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS KanbanBoard (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                description TEXT,
+                entry_type_id INTEGER NOT NULL,
+                is_default INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (entry_type_id) REFERENCES EntryType(id) ON DELETE CASCADE
+            );
+        ''')
+
+        # Create Kanban Column Table for storing kanban columns
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS KanbanColumn (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                board_id INTEGER NOT NULL,
+                state_name TEXT NOT NULL,
+                display_order INTEGER DEFAULT 0,
+                wip_limit INTEGER, -- Work-in-progress limit (NULL for no limit)
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (board_id) REFERENCES KanbanBoard(id) ON DELETE CASCADE,
+                UNIQUE(board_id, state_name)
+            );
+        ''')
+
         # Create RelationshipDefinition Table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS RelationshipDefinition (
@@ -819,6 +847,9 @@ def init_db():
             # Notification settings
             'overdue_check_enabled': 'true',
             'overdue_check_schedule': '0 9 * * *',  # Daily at 9:00 AM by default
+            
+            # Feature toggles
+            'enable_kanban': 'true',
             
             # Default search parameters for index page
             'default_search_term': '',

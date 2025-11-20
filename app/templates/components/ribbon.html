@@ -34,6 +34,13 @@
                 <span class="ribbon-btn-text">Entries</span>
             </a>
             
+            {% if get_system_parameters().get('enable_kanban', 'true') == 'true' %}
+            <a href="{{ url_for('main.kanban_list') }}" class="ribbon-btn ribbon-nav-btn" data-nav-page="kanban" title="Kanban">
+                <i class="fas fa-columns"></i>
+                <span class="ribbon-btn-text">Kanban</span>
+            </a>
+            {% endif %}
+            
             <a href="{{ url_for('maintenance.maintenance_module_page') }}" class="ribbon-btn ribbon-nav-btn" data-nav-page="settings" title="Settings">
                 <i class="fas fa-cog"></i>
                 <span class="ribbon-btn-text">Settings</span>
