@@ -7,6 +7,7 @@ import os
 import logging
 from typing import Optional, Dict, Any
 import google.generativeai as genai
+import google.generativeai.types as genai_types
 from flask import current_app
 import json
 import json
@@ -24,8 +25,16 @@ class AIService:
         self.groq_client = None
         self.groq_model_name = 'llama-3.3-70b-versatile'  # Default Groq model
         self.groq_configured = False
+        self.default_timeout = 30  # Default timeout for all AI requests
         self._configure()
         self._configure_groq()
+    
+    def _generate_with_timeout(self, prompt, timeout=None):
+        """Helper method to generate content with timeout"""
+        if timeout is None:
+            timeout = self.default_timeout
+        request_options = genai_types.RequestOptions(timeout=timeout)
+        return self.model.generate_content(prompt, request_options=request_options)
     
     def _configure(self):
         """Configure the Gemini AI model"""
@@ -268,7 +277,7 @@ class AIService:
         
         try:
             prompt = self._build_note_generation_prompt(title, entry_type, note_type, context)
-            response = self.model.generate_content(prompt)
+            response = self._generate_with_timeout(prompt)
             
             if response and response.text:
                 return response.text.strip()
@@ -1462,8 +1471,14 @@ You are currently discussing the following entry:
                 context_prompt += f"\n\nUser's question: {user_message}\n\n"
                 context_prompt += "Please provide a helpful response based on the entry context above."
             
-            # Generate response
-            response = self.model.generate_content(context_prompt)
+            # Generate response with timeout
+            import google.generativeai.types as genai_types
+            request_options = genai_types.RequestOptions(timeout=30)
+            
+            response = self.model.generate_content(
+                context_prompt,
+                request_options=request_options
+            )
             
             if response and response.text:
                 # Store the actual prompt for debugging
