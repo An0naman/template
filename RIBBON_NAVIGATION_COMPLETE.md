@@ -12,8 +12,7 @@ Successfully added dynamic navigation elements with history tracking to the ribb
 - ✅ `index.html` - Entries listing
 - ✅ `dashboard.html` - Analytics dashboard
 - ✅ `settings.html` - System parameters
-- ✅ `entry_detail.html` - Classic entry detail view
-- ✅ `entry_detail_v2.html` - Modern entry detail view
+- ✅ `entry_detail_v2.html` - Entry detail view
 - ✅ `404.html` - Error page
 
 ### Settings/Maintenance Pages

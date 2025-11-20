@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-Batch apply collapsible pattern to all remaining sections in entry_detail.html
+DEPRECATED: This script was for entry_detail.html (v1) which has been removed.
+The v2 template (entry_detail_v2.html) is now the only version.
+This file can be safely deleted.
 """
 
 # Define all sections that need the pattern applied

@@ -154,7 +154,6 @@ The navigation seamlessly integrates with existing theme system:
 <!-- - index.html (Entries) -->
 <!-- - dashboard.html -->
 <!-- - settings.html -->
-<!-- - entry_detail.html -->
 <!-- - entry_detail_v2.html -->
 
 <!-- Navigation happens automatically -->

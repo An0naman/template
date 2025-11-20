@@ -46,7 +46,7 @@ def test_ai_chatbot():
     # Test 3: Check template for AI chat section
     print("\n3. Checking template for AI chat UI...")
     try:
-        template_path = 'app/templates/entry_detail.html'
+        template_path = 'app/templates/entry_detail_v2.html'
         with open(template_path, 'r') as f:
             content = f.read()
             

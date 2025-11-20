@@ -42,11 +42,11 @@
         
         <!-- Ribbon Actions -->
         <div class="ribbon-actions">
-            <!-- Notifications Button -->
+            <!-- Notifications Button (hidden by default, shown only when notifications exist) -->
             <button type="button" class="ribbon-btn ribbon-notification-btn" id="ribbonNotificationBtn" title="Notifications" style="display: none;">
                 <i class="fas fa-bell"></i>
                 <span class="ribbon-btn-text">Notifications</span>
-                <span class="ribbon-notification-badge" id="ribbonNotificationBadge">0</span>
+                <span class="ribbon-notification-badge" id="ribbonNotificationBadge" style="display: none;"></span>
             </button>
             
             <!-- About Button -->
@@ -90,19 +90,23 @@
                 const unreadCount = notificationManager.notifications.filter(n => !n.is_read).length;
                 const totalCount = notificationManager.notifications.length;
                 
-                // Show button if there are notifications
+                // Only show button if there are notifications
                 if (totalCount > 0) {
                     ribbonNotificationBtn.style.display = 'flex';
-                    ribbonNotificationBadge.textContent = unreadCount > 0 ? unreadCount : '';
                     
-                    // Add pulse effect for unread notifications
+                    // Show badge only if there are unread notifications
                     if (unreadCount > 0) {
+                        ribbonNotificationBadge.textContent = unreadCount;
                         ribbonNotificationBadge.style.display = 'flex';
                     } else {
+                        ribbonNotificationBadge.textContent = '';
                         ribbonNotificationBadge.style.display = 'none';
                     }
                 } else {
+                    // No notifications at all - hide the entire button
                     ribbonNotificationBtn.style.display = 'none';
+                    ribbonNotificationBadge.style.display = 'none';
+                    ribbonNotificationBadge.textContent = '';
                 }
             }
         }

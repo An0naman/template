@@ -8,8 +8,7 @@ The universal app ribbon has been successfully integrated into the following pag
 1. **index.html** - Main entries listing page
 2. **settings.html** - System parameters/settings page
 3. **dashboard.html** - Dashboard with analytics and widgets
-4. **entry_detail_v2.html** - Modern entry detail page (v2)
-5. **entry_detail.html** - Classic entry detail page
+4. **entry_detail_v2.html** - Entry detail page
 
 ## What Users Will See
 
