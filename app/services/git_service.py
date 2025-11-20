@@ -213,33 +213,10 @@ class GitService:
                          (local_path, repo_id))
             self.conn.commit()
         
-        # Try to open existing repo
-        try:
-            repo = Repo(local_path)
-            logger.info(f"Opened existing repository at {local_path}")
-            
-            # Pull latest changes
-            try:
-                origin = repo.remotes.origin
-                # Use token in URL if provided
-                if token:
-                    url = repo_info['url']
-                    if 'github.com' in url:
-                        auth_url = url.replace('https://', f'https://{token}@')
-                    elif 'gitlab.com' in url:
-                        auth_url = url.replace('https://', f'https://oauth2:{token}@')
-                    else:
-                        auth_url = url
-                    origin.set_url(auth_url)
-                
-                origin.pull()
-                logger.info(f"Pulled latest changes for repo {repo_id}")
-            except Exception as e:
-                logger.warning(f"Could not pull latest changes: {e}")
-                
-        except InvalidGitRepositoryError:
-            # Clone the repository with authentication
-            logger.info(f"Cloning repository from {repo_info['url']}")
+        # Check if path exists and is a git repository
+        if not os.path.exists(local_path):
+            # Path doesn't exist, need to clone
+            logger.info(f"Local path {local_path} doesn't exist, cloning repository from {repo_info['url']}")
             clone_url = repo_info['url']
             
             if token:
@@ -250,6 +227,61 @@ class GitService:
             
             repo = Repo.clone_from(clone_url, local_path)
             logger.info(f"Cloned repository to {local_path}")
+        elif os.path.exists(local_path) and not os.path.exists(os.path.join(local_path, '.git')):
+            # Path exists but is not a git repository - clean it and clone
+            logger.warning(f"Path {local_path} exists but is not a git repo, removing and re-cloning")
+            import shutil
+            shutil.rmtree(local_path)
+            
+            clone_url = repo_info['url']
+            if token:
+                if 'github.com' in clone_url:
+                    clone_url = clone_url.replace('https://', f'https://{token}@')
+                elif 'gitlab.com' in clone_url:
+                    clone_url = clone_url.replace('https://', f'https://oauth2:{token}@')
+            
+            repo = Repo.clone_from(clone_url, local_path)
+            logger.info(f"Cloned repository to {local_path}")
+        else:
+            # Path exists, try to open as git repo
+            try:
+                repo = Repo(local_path)
+                logger.info(f"Opened existing repository at {local_path}")
+                
+                # Pull latest changes
+                try:
+                    origin = repo.remotes.origin
+                    # Use token in URL if provided
+                    if token:
+                        url = repo_info['url']
+                        if 'github.com' in url:
+                            auth_url = url.replace('https://', f'https://{token}@')
+                        elif 'gitlab.com' in url:
+                            auth_url = url.replace('https://', f'https://oauth2:{token}@')
+                        else:
+                            auth_url = url
+                        origin.set_url(auth_url)
+                    
+                    origin.pull()
+                    logger.info(f"Pulled latest changes for repo {repo_id}")
+                except Exception as e:
+                    logger.warning(f"Could not pull latest changes: {e}")
+                    
+            except InvalidGitRepositoryError:
+                # Path exists but is not a valid git repo, remove and re-clone
+                logger.warning(f"Path {local_path} exists but is not a valid git repo, removing and re-cloning")
+                import shutil
+                shutil.rmtree(local_path)
+                
+                clone_url = repo_info['url']
+                if token:
+                    if 'github.com' in clone_url:
+                        clone_url = clone_url.replace('https://', f'https://{token}@')
+                    elif 'gitlab.com' in clone_url:
+                        clone_url = clone_url.replace('https://', f'https://oauth2:{token}@')
+                
+                repo = Repo.clone_from(clone_url, local_path)
+                logger.info(f"Cloned repository to {local_path}")
         
         return repo, local_path
     
@@ -277,6 +309,18 @@ class GitService:
                 # Get commit stats
                 stats = commit.stats.total
                 
+                # Get branch name if available
+                try:
+                    # Try to get the current branch we're iterating from
+                    if branch:
+                        branch_name = branch
+                    elif repo.active_branch:
+                        branch_name = repo.active_branch.name
+                    else:
+                        branch_name = 'main'
+                except Exception:
+                    branch_name = 'main'
+                
                 commit_data = {
                     'hash': commit.hexsha,
                     'short_hash': commit.hexsha[:7],
@@ -288,7 +332,7 @@ class GitService:
                     'files_changed': stats['files'],
                     'insertions': stats['insertions'],
                     'deletions': stats['deletions'],
-                    'branches': [ref.name for ref in commit.refs if 'HEAD' not in ref.name]
+                    'branch': branch_name
                 }
                 commits.append(commit_data)
             

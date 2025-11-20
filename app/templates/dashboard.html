@@ -154,6 +154,37 @@
             min-height: 200px;
         }
 
+        /* Git Commits Widget */
+        .git-commits-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .commit-item {
+            transition: background-color 0.2s;
+        }
+
+        .commit-item:hover {
+            background-color: var(--theme-bg-surface, var(--bs-secondary-bg));
+        }
+
+        .commit-message {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .commit-actions {
+            flex-shrink: 0;
+        }
+
+        .commit-actions .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+
         /* Gridstack Customization */
         .grid-stack-item {
             touch-action: none;

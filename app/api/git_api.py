@@ -83,6 +83,8 @@ def list_repositories():
                 r.local_path,
                 r.default_branch,
                 r.last_synced,
+                r.entry_type_id,
+                r.allowed_statuses,
                 COUNT(c.id) as total_commits
             FROM GitRepository r
             LEFT JOIN GitCommit c ON r.id = c.repository_id
@@ -101,6 +103,8 @@ def list_repositories():
                 'local_path': row['local_path'],
                 'default_branch': row['default_branch'],
                 'last_synced': row['last_synced'],
+                'entry_type_id': row['entry_type_id'],
+                'allowed_statuses': row['allowed_statuses'],
                 'stats': {
                     'total_commits': row['total_commits']
                 }
@@ -269,6 +273,60 @@ def get_repository(repo_id):
             'error': str(e)
         }), 500
 
+@git_api_bp.route('/api/git/repositories/<int:repo_id>', methods=['PATCH'])
+def update_repository(repo_id):
+    """Update repository configuration"""
+    try:
+        data = request.get_json() or {}
+        
+        from app.db import get_connection
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Verify repository exists
+        cursor.execute('SELECT id FROM GitRepository WHERE id = ?', (repo_id,))
+        if not cursor.fetchone():
+            return jsonify({
+                'success': False,
+                'error': 'Repository not found'
+            }), 404
+        
+        # Build update query dynamically based on provided fields
+        updates = []
+        params = []
+        
+        if 'entry_type_id' in data:
+            updates.append('entry_type_id = ?')
+            params.append(data['entry_type_id'])
+        
+        if 'allowed_statuses' in data:
+            updates.append('allowed_statuses = ?')
+            params.append(data['allowed_statuses'])
+        
+        if not updates:
+            return jsonify({
+                'success': False,
+                'error': 'No fields to update'
+            }), 400
+        
+        # Update the repository
+        params.append(repo_id)
+        query = f"UPDATE GitRepository SET {', '.join(updates)} WHERE id = ?"
+        cursor.execute(query, params)
+        conn.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Repository updated successfully'
+        })
+    
+    except Exception as e:
+        logger.error(f"Failed to update repository: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @git_api_bp.route('/api/git/repositories/<int:repo_id>/sync', methods=['POST'])
 def sync_repository(repo_id):
     """Sync repository commits and branches"""
@@ -390,6 +448,7 @@ def create_entry_from_commit(commit_hash):
     try:
         data = request.get_json() or {}
         entry_type_id = data.get('entry_type_id')
+        custom_title = data.get('title')
         
         if not entry_type_id:
             return jsonify({
@@ -427,8 +486,8 @@ def create_entry_from_commit(commit_hash):
                 'entry_id': commit['entry_id']
             }), 400
         
-        # Create entry
-        title = commit['message'][:200]
+        # Create entry - use custom title if provided
+        title = custom_title if custom_title else commit['message'][:200]
         content = f"""**Commit:** `{commit['commit_hash'][:7]}`
 **Repository:** {commit['repo_name']}
 **Author:** {commit['author']} <{commit['author_email']}>
@@ -538,6 +597,49 @@ def link_git_commit(entry_id):
     
     except Exception as e:
         logger.error(f"Failed to link entry to commit: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@git_api_bp.route('/api/git/commits/<commit_hash>/unlink', methods=['POST'])
+def unlink_commit_from_entry(commit_hash):
+    """Unlink a commit from its entry"""
+    try:
+        from app.db import get_connection
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Verify commit exists
+        cursor.execute('SELECT id, entry_id FROM GitCommit WHERE commit_hash = ?', (commit_hash,))
+        commit = cursor.fetchone()
+        
+        if not commit:
+            return jsonify({
+                'success': False,
+                'error': 'Commit not found'
+            }), 404
+        
+        if not commit['entry_id']:
+            return jsonify({
+                'success': False,
+                'error': 'Commit is not linked to any entry'
+            }), 400
+        
+        # Unlink
+        cursor.execute('''
+            UPDATE GitCommit SET entry_id = NULL WHERE commit_hash = ?
+        ''', (commit_hash,))
+        
+        conn.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Commit unlinked from entry'
+        })
+    
+    except Exception as e:
+        logger.error(f"Failed to unlink commit: {e}")
         return jsonify({
             'success': False,
             'error': str(e)

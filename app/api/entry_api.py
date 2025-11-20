@@ -311,27 +311,44 @@ def delete_entry(entry_id):
         return jsonify({'error': 'An internal error occurred.'}), 500
 
 @entry_api_bp.route('/search_entries', methods=['GET'])
+@entry_api_bp.route('/entries/search', methods=['GET'])
 def search_entries():
     query = request.args.get('q', '').strip()
     entry_type_id = request.args.get('entry_type_id', type=int)
+    statuses_param = request.args.get('statuses', '').strip()
+    limit = request.args.get('limit', 10, type=int)
     conn = get_db()
     cursor = conn.cursor()
     results = []
 
-    search_query_param = f"%{query}%" # Correct way to use LIKE with parameters
     sql = '''
-        SELECT e.id, e.title, et.singular_label AS entry_type_label
+        SELECT e.id, e.title, e.status, et.singular_label AS entry_type_label
         FROM Entry e
         JOIN EntryType et ON e.entry_type_id = et.id
-        WHERE (e.title LIKE ? OR e.description LIKE ?)
+        WHERE 1=1
     '''
-    params = [search_query_param, search_query_param]
+    params = []
+
+    # Add search filter only if query is provided
+    if query:
+        search_query_param = f"%{query}%"
+        sql += " AND (e.title LIKE ? OR e.description LIKE ?)"
+        params.extend([search_query_param, search_query_param])
 
     if entry_type_id:
         sql += " AND e.entry_type_id = ?"
         params.append(entry_type_id)
+    
+    if statuses_param:
+        # Parse comma-separated statuses
+        statuses = [s.strip() for s in statuses_param.split(',') if s.strip()]
+        if statuses:
+            placeholders = ','.join(['?' for _ in statuses])
+            sql += f" AND e.status IN ({placeholders})"
+            params.extend(statuses)
 
-    sql += " LIMIT 10"
+    sql += " ORDER BY e.created_at DESC LIMIT ?"
+    params.append(limit)
 
     try:
         cursor.execute(sql, tuple(params))
@@ -340,6 +357,7 @@ def search_entries():
             results.append({
                 'id': row['id'],
                 'title': row['title'],
+                'status': row['status'],
                 'entry_type_label': row['entry_type_label']
             })
         return jsonify(results)

@@ -779,6 +779,12 @@
                             </div>
                         </div>
                     </form>
+                    
+                    <!-- Tracked Repositories Configuration -->
+                    <div class="mt-4" id="trackedReposConfig" style="display: none;">
+                        <h6 class="mb-3">Tracked Repositories Configuration</h6>
+                        <div id="trackedReposList"></div>
+                    </div>
                 </div>
                 
                 <div id="gitSettingsStatus" class="mt-3 d-none"></div>
@@ -2417,6 +2423,8 @@
                 if (params['git_integration_enabled'] === '1') {
                     enableToggle.checked = true;
                     configSection.style.display = 'block';
+                    document.getElementById('trackedReposConfig').style.display = 'block';
+                    loadTrackedRepositories();
                 }
                 
                 if (params['git_provider']) {
@@ -2440,6 +2448,12 @@
             enableToggle.addEventListener('change', async () => {
                 const isEnabled = enableToggle.checked;
                 configSection.style.display = isEnabled ? 'block' : 'none';
+                document.getElementById('trackedReposConfig').style.display = isEnabled ? 'block' : 'none';
+                
+                // Load tracked repos if enabling
+                if (isEnabled) {
+                    loadTrackedRepositories();
+                }
                 
                 try {
                     await fetch('/api/system_params', {
@@ -2450,7 +2464,7 @@
                         })
                     });
                     displayStatus('gitSettingsStatus', 
-                        isEnabled ? '✅ Git integration enabled' : 'Git integration disabled', 
+                        isEnabled ? '✅ Git integration enabled' : 'Git integration enabled', 
                         isEnabled ? 'alert-success' : 'alert-info');
                 } catch (err) {
                     displayStatus('gitSettingsStatus', 'Failed to update: ' + err.message, 'alert-danger');
@@ -2647,6 +2661,166 @@
                 }
             });
         });
+        
+        // Load and configure tracked repositories
+        async function loadTrackedRepositories() {
+            try {
+                const [reposRes, typesRes] = await Promise.all([
+                    fetch('/api/git/repositories'),
+                    fetch('/api/entry_types')
+                ]);
+                
+                const reposData = await reposRes.json();
+                const entryTypes = await typesRes.json();
+                
+                const trackedReposList = document.getElementById('trackedReposList');
+                
+                if (!reposData.repositories || reposData.repositories.length === 0) {
+                    trackedReposList.innerHTML = '<p class="text-muted">No repositories tracked yet. Use the "Discover Repositories" button above to add some.</p>';
+                    return;
+                }
+                
+                // Get statuses per entry type and build a combined map
+                const entryTypeStates = {}; // Map of entry_type_id -> [statuses]
+                const allStatuses = new Set();
+                
+                for (const et of entryTypes) {
+                    try {
+                        const statesRes = await fetch(`/api/entry_types/${et.id}/states`);
+                        if (statesRes.ok) {
+                            const states = await statesRes.json();
+                            entryTypeStates[et.id] = states.map(state => state.name).sort();
+                            states.forEach(state => allStatuses.add(state.name));
+                        } else {
+                            entryTypeStates[et.id] = [];
+                        }
+                    } catch (err) {
+                        console.warn(`Failed to load states for entry type ${et.id}:`, err);
+                        entryTypeStates[et.id] = [];
+                    }
+                }
+                const allStatusOptions = Array.from(allStatuses).sort();
+                
+                trackedReposList.innerHTML = '';
+                
+                for (const repo of reposData.repositories) {
+                    const card = document.createElement('div');
+                    card.className = 'card mb-3';
+                    
+                    // Determine which statuses to show initially
+                    const currentEntryTypeId = repo.entry_type_id;
+                    const initialStatusOptions = currentEntryTypeId && entryTypeStates[currentEntryTypeId] 
+                        ? entryTypeStates[currentEntryTypeId] 
+                        : allStatusOptions;
+                    
+                    card.innerHTML = `
+                        <div class="card-body">
+                            <h6 class="card-title">
+                                <i class="fab fa-git-alt me-2"></i>${repo.name}
+                            </h6>
+                            <p class="card-text small text-muted mb-3">${repo.url}</p>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label class="form-label small">Default Entry Type for Commits</label>
+                                    <select class="form-select form-select-sm repo-entry-type" data-repo-id="${repo.id}">
+                                        <option value="">-- No default --</option>
+                                        ${entryTypes.map(et => 
+                                            `<option value="${et.id}" ${et.id == repo.entry_type_id ? 'selected' : ''}>${et.singular_label}</option>`
+                                        ).join('')}
+                                    </select>
+                                    <small class="text-muted">Used when creating entries from commits</small>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label class="form-label small">Allowed Statuses</label>
+                                    <select class="form-select form-select-sm repo-statuses" data-repo-id="${repo.id}" multiple size="4">
+                                        ${initialStatusOptions.map(status => {
+                                            const allowedStatuses = repo.allowed_statuses ? repo.allowed_statuses.split(',') : [];
+                                            return `<option value="${status}" ${allowedStatuses.includes(status) ? 'selected' : ''}>${status}</option>`;
+                                        }).join('')}
+                                    </select>
+                                    <small class="text-muted">Only entries with these statuses can be linked (Ctrl+Click for multiple)</small>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-3">
+                                <button class="btn btn-sm btn-primary save-repo-config" data-repo-id="${repo.id}">
+                                    <i class="fas fa-save me-1"></i>Save Configuration
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    trackedReposList.appendChild(card);
+                }
+                
+                // Attach entry type change handlers to update statuses dropdown
+                document.querySelectorAll('.repo-entry-type').forEach(select => {
+                    select.addEventListener('change', function() {
+                        const repoId = this.dataset.repoId;
+                        const statusesSelect = document.querySelector(`.repo-statuses[data-repo-id="${repoId}"]`);
+                        const selectedEntryTypeId = this.value;
+                        
+                        // Get previously selected statuses
+                        const previouslySelected = Array.from(statusesSelect.selectedOptions).map(opt => opt.value);
+                        
+                        // Determine which statuses to show
+                        const statusesToShow = selectedEntryTypeId && entryTypeStates[selectedEntryTypeId]
+                            ? entryTypeStates[selectedEntryTypeId]
+                            : allStatusOptions;
+                        
+                        // Rebuild the statuses dropdown
+                        statusesSelect.innerHTML = statusesToShow.map(status => {
+                            const isSelected = previouslySelected.includes(status);
+                            return `<option value="${status}" ${isSelected ? 'selected' : ''}>${status}</option>`;
+                        }).join('');
+                    });
+                });
+                
+                // Attach save handlers
+                document.querySelectorAll('.save-repo-config').forEach(btn => {
+                    btn.addEventListener('click', async function() {
+                        const repoId = this.dataset.repoId;
+                        await saveRepoConfig(repoId);
+                    });
+                });
+                
+            } catch (err) {
+                console.error('Failed to load tracked repositories:', err);
+            }
+        }
+        
+        async function saveRepoConfig(repoId) {
+            try {
+                const entryTypeSelect = document.querySelector(`.repo-entry-type[data-repo-id="${repoId}"]`);
+                const statusesSelect = document.querySelector(`.repo-statuses[data-repo-id="${repoId}"]`);
+                
+                const entryTypeId = entryTypeSelect.value || null;
+                const selectedStatuses = Array.from(statusesSelect.selectedOptions).map(opt => opt.value);
+                const allowedStatuses = selectedStatuses.length > 0 ? selectedStatuses.join(',') : null;
+                
+                const response = await fetch(`/api/git/repositories/${repoId}`, {
+                    method: 'PATCH',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        entry_type_id: entryTypeId,
+                        allowed_statuses: allowedStatuses
+                    })
+                });
+                
+                if (response.ok) {
+                    displayStatus('gitSettingsStatus', '✅ Repository configuration saved successfully!', 'alert-success');
+                } else {
+                    const error = await response.json();
+                    displayStatus('gitSettingsStatus', 'Failed to save: ' + (error.error || 'Unknown error'), 'alert-danger');
+                }
+            } catch (err) {
+                displayStatus('gitSettingsStatus', 'Save failed: ' + err.message, 'alert-danger');
+            }
+        }
+        
+
     </script>
     
     <!-- About Modal -->

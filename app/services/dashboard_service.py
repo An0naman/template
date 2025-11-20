@@ -915,11 +915,71 @@ Please incorporate these specific instructions into your analysis and summary.""
             
             limit = config.get('commit_limit', 10)
             
-            # Get commits for this repository
+            # Check if repository has any commits in database
             cursor.execute('''
-                SELECT c.*, r.name as repo_name
+                SELECT COUNT(*) as count
+                FROM GitCommit 
+                WHERE repository_id = ?
+            ''', (repo_id,))
+            
+            commit_count = cursor.fetchone()['count']
+            
+            # Auto-sync if no commits exist
+            if commit_count == 0:
+                logger.info(f"No commits found for repo {repo_id}, attempting auto-sync")
+                try:
+                    from app.services.git_service import get_git_service
+                    
+                    # Get git token from system parameters
+                    cursor.execute('''
+                        SELECT parameter_value 
+                        FROM SystemParameters 
+                        WHERE parameter_name = 'git_token'
+                    ''')
+                    token_row = cursor.fetchone()
+                    git_token = token_row['parameter_value'] if token_row else None
+                    
+                    if not git_token:
+                        logger.warning("No git_token found in system parameters")
+                        return {
+                            'success': False,
+                            'error': 'Repository not synced. Please configure Git token in System Parameters and sync manually.',
+                            'commits': []
+                        }
+                    
+                    git_service = get_git_service()
+                    
+                    # Clone/update repository first
+                    try:
+                        git_service.clone_or_open_repository(repo_id, token=git_token)
+                    except Exception as clone_error:
+                        logger.error(f"Failed to clone/open repository: {clone_error}")
+                        return {
+                            'success': False,
+                            'error': f'Failed to access repository: {str(clone_error)}',
+                            'commits': []
+                        }
+                    
+                    # Now sync commits
+                    sync_result = git_service.sync_commits(repo_id, limit=max(limit, 100))
+                    logger.info(f"Auto-sync completed: {sync_result}")
+                except Exception as sync_error:
+                    logger.error(f"Auto-sync failed for repo {repo_id}: {sync_error}")
+                    return {
+                        'success': False,
+                        'error': f'Repository sync failed: {str(sync_error)}',
+                        'commits': []
+                    }
+            
+            # Get commits for this repository with entry association info and repo settings
+            cursor.execute('''
+                SELECT c.*, r.name as repo_name, r.entry_type_id as default_entry_type_id,
+                       r.allowed_statuses as repo_allowed_statuses,
+                       e.id as entry_id, e.title as entry_title, et.singular_label as entry_type_label
                 FROM GitCommit c
                 JOIN GitRepository r ON c.repository_id = r.id
+                LEFT JOIN Entry e ON c.entry_id = e.id
+                LEFT JOIN EntryType et ON e.entry_type_id = et.id
                 WHERE c.repository_id = ?
                 ORDER BY c.commit_date DESC
                 LIMIT ?
@@ -927,14 +987,28 @@ Please incorporate these specific instructions into your analysis and summary.""
             
             commits = []
             for row in cursor.fetchall():
-                commits.append({
+                commit_data = {
                     'id': row['id'],
                     'commit_hash': row['commit_hash'],
                     'author': row['author'],
                     'message': row['message'],
                     'commit_date': row['commit_date'],
-                    'branch': row['branch']
-                })
+                    'branch': row['branch'],
+                    'default_entry_type_id': row['default_entry_type_id'],
+                    'repo_allowed_statuses': row['repo_allowed_statuses']
+                }
+                
+                # Add entry association info if linked
+                if row['entry_id']:
+                    commit_data['entry'] = {
+                        'id': row['entry_id'],
+                        'title': row['entry_title'],
+                        'type_label': row['entry_type_label']
+                    }
+                else:
+                    commit_data['entry'] = None
+                
+                commits.append(commit_data)
             
             return {
                 'success': True,

@@ -616,6 +616,26 @@ async function editWidget(widgetId) {
         });
     }
     
+    // Populate git repositories dropdown
+    const gitRepoSelect = document.getElementById('gitRepositorySelect');
+    if (gitRepoSelect) {
+        try {
+            const res = await fetch('/api/git/repositories');
+            const data = await res.json();
+            gitRepoSelect.innerHTML = '<option value="">Select repository...</option>';
+            if (data.success && data.repositories) {
+                data.repositories.forEach(repo => {
+                    const option = document.createElement('option');
+                    option.value = repo.id;
+                    option.textContent = repo.name;
+                    gitRepoSelect.appendChild(option);
+                });
+            }
+        } catch (e) {
+            console.warn('Could not load git repositories during edit', e);
+        }
+    }
+    
     // Populate the form with current values
     document.getElementById('widgetTitle').value = widget.title;
     document.getElementById('widgetType').value = widget.widget_type;
@@ -689,6 +709,32 @@ async function editWidget(widgetId) {
             }
         } catch (e) {
             console.error('Error parsing widget config for chart:', e);
+        }
+    }
+    
+    // For git commits widgets, load repository configuration
+    if (widget.widget_type === 'git_commits') {
+        // Set the repository select
+        if (widget.data_source_type === 'git_repository' && widget.data_source_id) {
+            const gitRepoSelect = document.getElementById('gitRepositorySelect');
+            if (gitRepoSelect) {
+                gitRepoSelect.value = widget.data_source_id;
+            }
+        }
+        
+        // Set commit limit if available in config
+        if (widget.config) {
+            try {
+                const config = typeof widget.config === 'string' ? JSON.parse(widget.config) : widget.config;
+                if (config.commit_limit) {
+                    const commitLimitSelect = document.getElementById('gitCommitLimit');
+                    if (commitLimitSelect) {
+                        commitLimitSelect.value = config.commit_limit;
+                    }
+                }
+            } catch (e) {
+                console.error('Error parsing widget config for git commits:', e);
+            }
         }
     }
     
@@ -1194,12 +1240,55 @@ function renderGitCommits(bodyEl, data) {
         const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
         const shortHash = commit.commit_hash.substring(0, 7);
         
+        // Determine entry status
+        let entryStatusBadge = '';
+        let actionButton = '';
+        
+        if (commit.entry) {
+            // Commit is linked to an entry
+            entryStatusBadge = `
+                <span class="badge bg-success ms-2" title="Linked to entry">
+                    <i class="fas fa-link"></i> ${escapeHtml(commit.entry.title)}
+                </span>
+            `;
+            actionButton = `
+                <button class="btn btn-sm btn-outline-secondary view-entry-btn" 
+                        data-entry-id="${commit.entry.id}" 
+                        title="View entry">
+                    <i class="fas fa-external-link-alt"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger unlink-commit-btn" 
+                        data-commit-hash="${commit.commit_hash}" 
+                        title="Unlink from entry">
+                    <i class="fas fa-unlink"></i>
+                </button>
+            `;
+        } else {
+            // Commit not linked - show pending status
+            entryStatusBadge = `
+                <span class="badge bg-warning text-dark ms-2" title="Not linked to entry">
+                    <i class="fas fa-exclamation-triangle"></i> Pending
+                </span>
+            `;
+            actionButton = `
+                <button class="btn btn-sm btn-primary link-commit-btn" 
+                        data-commit-hash="${commit.commit_hash}"
+                        data-commit-message="${escapeHtml(commit.message)}"
+                        data-default-entry-type="${commit.default_entry_type_id || ''}"
+                        data-allowed-statuses="${commit.repo_allowed_statuses || ''}"
+                        title="Link or create entry">
+                    <i class="fas fa-plus"></i> Link Entry
+                </button>
+            `;
+        }
+        
         html += `
             <div class="commit-item p-2 mb-2 border-bottom">
                 <div class="d-flex justify-content-between align-items-start">
                     <div class="flex-grow-1">
                         <div class="commit-message fw-semibold">
                             ${escapeHtml(commit.message)}
+                            ${entryStatusBadge}
                         </div>
                         <div class="commit-meta text-muted small mt-1">
                             <span class="commit-hash badge bg-light text-dark font-monospace">${shortHash}</span>
@@ -1209,6 +1298,9 @@ function renderGitCommits(bodyEl, data) {
                             <span class="commit-date">${dateStr}</span>
                         </div>
                     </div>
+                    <div class="commit-actions d-flex gap-1 ms-2">
+                        ${actionButton}
+                    </div>
                 </div>
             </div>
         `;
@@ -1216,6 +1308,9 @@ function renderGitCommits(bodyEl, data) {
     html += '</div>';
     
     bodyEl.innerHTML = html;
+    
+    // Attach event listeners
+    attachGitCommitEventListeners(bodyEl);
 }
 
 // Helper function to escape HTML
@@ -1229,6 +1324,289 @@ function escapeHtml(text) {
         "'": '&#039;'
     };
     return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+// Attach event listeners for git commit actions
+function attachGitCommitEventListeners(container) {
+    // Link commit button
+    container.querySelectorAll('.link-commit-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const commitHash = this.dataset.commitHash;
+            const commitMessage = this.dataset.commitMessage;
+            const defaultEntryType = this.dataset.defaultEntryType;
+            const allowedStatuses = this.dataset.allowedStatuses;
+            showLinkCommitModal(commitHash, commitMessage, defaultEntryType, allowedStatuses);
+        });
+    });
+    
+    // Unlink commit button
+    container.querySelectorAll('.unlink-commit-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const commitHash = this.dataset.commitHash;
+            if (confirm('Are you sure you want to unlink this commit from its entry?')) {
+                await unlinkCommit(commitHash);
+            }
+        });
+    });
+    
+    // View entry button
+    container.querySelectorAll('.view-entry-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const entryId = this.dataset.entryId;
+            window.location.href = `/entry/${entryId}`;
+        });
+    });
+}
+
+async function showLinkCommitModal(commitHash, commitMessage, defaultEntryType, allowedStatuses) {
+    // Load available entry types
+    const entryTypesResponse = await fetch('/api/entry_types');
+    const entryTypes = await entryTypesResponse.json();
+    
+    // Build modal HTML
+    const modalHtml = `
+        <div class="modal fade" id="linkCommitModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Link Commit to Entry</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted">Commit: <code>${commitHash.substring(0, 7)}</code></p>
+                        <p><strong>${escapeHtml(commitMessage)}</strong></p>
+                        
+                        <ul class="nav nav-tabs mb-3" role="tablist">
+                            <li class="nav-item">
+                                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#linkExisting">Link Existing</button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#createNew">Create New</button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content">
+                            <div class="tab-pane fade show active" id="linkExisting">
+                                <div class="mb-3">
+                                    <label class="form-label">Filter Entries (Optional)</label>
+                                    <input type="text" class="form-control" id="entrySearchInput" placeholder="Type to filter the list below...">
+                                </div>
+                                <div id="entrySearchResults" class="list-group" style="max-height: 350px; overflow-y: auto;">
+                                    <div class="text-muted p-2">Loading entries...</div>
+                                </div>
+                            </div>
+                            
+                            <div class="tab-pane fade" id="createNew">
+                                <div class="mb-3">
+                                    <label class="form-label">Entry Type</label>
+                                    <select class="form-select" id="newEntryType">
+                                        <option value="">Select entry type...</option>
+                                        ${entryTypes.map(et => 
+                                            `<option value="${et.id}" ${et.id == defaultEntryType ? 'selected' : ''}>${et.singular_label}</option>`
+                                        ).join('')}
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Entry Title</label>
+                                    <input type="text" class="form-control" id="newEntryTitle" value="${escapeHtml(commitMessage).substring(0, 200)}">
+                                </div>
+                                <button class="btn btn-primary" id="createEntryBtn">
+                                    <i class="fas fa-plus"></i> Create Entry
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if present
+    const existingModal = document.getElementById('linkCommitModal');
+    if (existingModal) existingModal.remove();
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    const modal = new bootstrap.Modal(document.getElementById('linkCommitModal'));
+    modal.show();
+    
+    // Setup search functionality
+    setupEntrySearch(commitHash, defaultEntryType, allowedStatuses);
+    
+    // Setup create entry button
+    document.getElementById('createEntryBtn').addEventListener('click', async function() {
+        const entryTypeId = document.getElementById('newEntryType').value;
+        const title = document.getElementById('newEntryTitle').value;
+        
+        if (!entryTypeId) {
+            showNotification('Please select an entry type', 'warning');
+            return;
+        }
+        
+        if (!title.trim()) {
+            showNotification('Please enter a title', 'warning');
+            return;
+        }
+        
+        await createEntryFromCommit(commitHash, entryTypeId, title);
+        modal.hide();
+    });
+}
+
+function setupEntrySearch(commitHash, defaultEntryType = '', allowedStatuses = '') {
+    const searchInput = document.getElementById('entrySearchInput');
+    const resultsDiv = document.getElementById('entrySearchResults');
+    
+    // Function to load and display entries
+    async function loadEntries(query = '') {
+        try {
+            // Build query parameters
+            let queryParams = 'limit=50'; // Show more entries when not searching
+            
+            if (query) {
+                queryParams += `&q=${encodeURIComponent(query)}`;
+            }
+            if (defaultEntryType) {
+                queryParams += `&entry_type_id=${defaultEntryType}`;
+            }
+            if (allowedStatuses) {
+                queryParams += `&statuses=${encodeURIComponent(allowedStatuses)}`;
+            }
+            
+            const response = await fetch(`/api/entries/search?${queryParams}`);
+            const entries = await response.json();
+            
+            if (entries.length === 0) {
+                if (query) {
+                    resultsDiv.innerHTML = '<div class="text-muted p-2">No entries found matching your search</div>';
+                } else if (defaultEntryType || allowedStatuses) {
+                    resultsDiv.innerHTML = '<div class="text-muted p-2">No entries found matching the configured criteria</div>';
+                } else {
+                    resultsDiv.innerHTML = '<div class="text-muted p-2">No entries available</div>';
+                }
+                return;
+            }
+            
+            resultsDiv.innerHTML = entries.map(entry => `
+                <button class="list-group-item list-group-item-action link-to-entry-btn" 
+                        data-entry-id="${entry.id}">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>${escapeHtml(entry.title)}</strong>
+                            <br>
+                            <small class="text-muted">${entry.entry_type_label || 'Entry'} • ${entry.status || 'No status'}</small>
+                        </div>
+                        <span class="badge bg-primary">Link</span>
+                    </div>
+                </button>
+            `).join('');
+            
+            // Attach click handlers
+            resultsDiv.querySelectorAll('.link-to-entry-btn').forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const entryId = this.dataset.entryId;
+                    await linkCommitToEntry(commitHash, entryId);
+                    bootstrap.Modal.getInstance(document.getElementById('linkCommitModal')).hide();
+                });
+            });
+            
+        } catch (error) {
+            console.error('Error searching entries:', error);
+            resultsDiv.innerHTML = '<div class="text-danger p-2">Error loading entries</div>';
+        }
+    }
+    
+    // Load entries immediately on modal open
+    resultsDiv.innerHTML = '<div class="text-muted p-2"><i class="fas fa-spinner fa-spin me-2"></i>Loading entries...</div>';
+    loadEntries();
+    
+    // Setup search functionality
+    let searchTimeout;
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        const query = this.value.trim();
+        
+        searchTimeout = setTimeout(() => {
+            loadEntries(query);
+        }, 300);
+    });
+}
+
+async function linkCommitToEntry(commitHash, entryId) {
+    try {
+        const response = await fetch(`/api/entries/${entryId}/git/link`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ commit_hash: commitHash })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showBanner('Commit linked to entry successfully', 'success');
+            // Reload the current dashboard to refresh widget data
+            if (currentDashboard) {
+                await loadDashboard(currentDashboard.id);
+            }
+        } else {
+            showBanner(result.error || 'Failed to link commit', 'error');
+        }
+    } catch (error) {
+        console.error('Error linking commit:', error);
+        showBanner('Failed to link commit', 'error');
+    }
+}
+
+async function unlinkCommit(commitHash) {
+    try {
+        const response = await fetch(`/api/git/commits/${commitHash}/unlink`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showBanner('Commit unlinked successfully', 'success');
+            // Reload the current dashboard to refresh widget data
+            if (currentDashboard) {
+                await loadDashboard(currentDashboard.id);
+            }
+        } else {
+            showBanner(result.error || 'Failed to unlink commit', 'error');
+        }
+    } catch (error) {
+        console.error('Error unlinking commit:', error);
+        showBanner('Failed to unlink commit', 'error');
+    }
+}
+
+async function createEntryFromCommit(commitHash, entryTypeId, title) {
+    try {
+        const response = await fetch(`/api/git/commits/${commitHash}/create-entry`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                entry_type_id: entryTypeId,
+                title: title
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showBanner('Entry created and linked successfully', 'success');
+            // Reload the current dashboard to refresh widget data
+            if (currentDashboard) {
+                await loadDashboard(currentDashboard.id);
+            }
+        } else {
+            showBanner(result.error || 'Failed to create entry', 'error');
+        }
+    } catch (error) {
+        console.error('Error creating entry:', error);
+        showBanner('Failed to create entry', 'error');
+    }
 }
 
 // ============================================================================
