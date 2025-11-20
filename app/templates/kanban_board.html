@@ -188,6 +188,86 @@
                 font-size: 1.5rem;
             }
         }
+
+        /* Hierarchy Tree Styles */
+        .hierarchy-empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--theme-text-muted, #6c757d);
+        }
+
+        .hierarchy-empty-state i {
+            font-size: 3rem;
+            opacity: 0.5;
+            margin-bottom: 1rem;
+        }
+
+        .relationship-tree {
+            padding: 1rem 0;
+        }
+
+        .tree-node {
+            margin: 0.25rem 0;
+            position: relative;
+        }
+
+        .tree-node-content {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            transition: background-color 0.2s;
+        }
+
+        .tree-node-content:hover {
+            background-color: var(--theme-bg-surface, rgba(0, 0, 0, 0.05));
+        }
+
+        .tree-node-content.current-entry {
+            background-color: rgba(var(--bs-success-rgb), 0.1);
+            border-left: 3px solid var(--bs-success);
+        }
+
+        .tree-toggle-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.25rem;
+            color: var(--theme-text, var(--bs-body-color));
+            transition: transform 0.2s;
+        }
+
+        .tree-toggle-btn.collapsed i {
+            transform: rotate(-90deg);
+        }
+
+        .tree-spacer {
+            width: 24px;
+            display: inline-block;
+        }
+
+        .tree-entry-type {
+            font-size: 1rem;
+        }
+
+        .tree-direction-icon {
+            font-size: 0.875rem;
+        }
+
+        .tree-entry-link {
+            color: var(--theme-text, var(--bs-body-color));
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .tree-entry-link:hover {
+            text-decoration: underline;
+        }
+
+        .tree-node.hidden {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -221,14 +301,51 @@
 
     <!-- Entry Detail Modal -->
     <div class="modal fade" id="entryDetailModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="entryDetailTitle"></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body" id="entryDetailBody">
-                    <!-- Entry details will be loaded here -->
+                <div class="modal-body">
+                    <!-- Tabs -->
+                    <ul class="nav nav-tabs mb-3" id="entryDetailTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="details-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#detailsPane" type="button" role="tab">
+                                <i class="fas fa-info-circle me-1"></i>Details
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="hierarchy-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#hierarchyPane" type="button" role="tab">
+                                <i class="fas fa-sitemap me-1"></i>Hierarchy
+                            </button>
+                        </li>
+                    </ul>
+                    
+                    <!-- Tab Content -->
+                    <div class="tab-content">
+                        <!-- Details Tab -->
+                        <div class="tab-pane fade show active" id="detailsPane" role="tabpanel">
+                            <div id="entryDetailBody">
+                                <!-- Entry details will be loaded here -->
+                            </div>
+                        </div>
+                        
+                        <!-- Hierarchy Tab -->
+                        <div class="tab-pane fade" id="hierarchyPane" role="tabpanel">
+                            <div id="hierarchyLoading" class="text-center py-4" style="display: none;">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2 text-muted">Loading hierarchy...</p>
+                            </div>
+                            <div id="hierarchyContent">
+                                <!-- Hierarchy will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -393,8 +510,14 @@
             }
         }
 
+        let currentEntryId = null;
+        let hierarchyLoaded = false;
+
         async function showEntryDetail(entryId) {
             try {
+                currentEntryId = entryId;
+                hierarchyLoaded = false;
+                
                 const response = await fetch(`/api/entries/${entryId}`);
                 const entry = await response.json();
 
@@ -430,12 +553,224 @@
                 `;
 
                 document.getElementById('entryDetailBody').innerHTML = bodyHtml;
-
+                
+                // Reset hierarchy tab
+                document.getElementById('hierarchyContent').innerHTML = '';
+                document.querySelector('#details-tab').click(); // Switch to details tab
+                
                 new bootstrap.Modal(document.getElementById('entryDetailModal')).show();
             } catch (error) {
                 console.error('Error loading entry detail:', error);
                 alert('Failed to load entry details');
             }
+        }
+
+        // Load hierarchy when hierarchy tab is clicked
+        document.addEventListener('DOMContentLoaded', function() {
+            const hierarchyTab = document.getElementById('hierarchy-tab');
+            if (hierarchyTab) {
+                hierarchyTab.addEventListener('shown.bs.tab', function() {
+                    if (!hierarchyLoaded && currentEntryId) {
+                        loadHierarchy(currentEntryId);
+                    }
+                });
+            }
+        });
+
+        async function loadHierarchy(entryId) {
+            const loadingDiv = document.getElementById('hierarchyLoading');
+            const contentDiv = document.getElementById('hierarchyContent');
+            
+            loadingDiv.style.display = 'block';
+            contentDiv.innerHTML = '';
+            
+            try {
+                const response = await fetch(`/api/entries/${entryId}/relationships/hierarchy`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to load hierarchy');
+                }
+                
+                const hierarchy = data.hierarchy || [];
+                renderHierarchyTree(hierarchy, contentDiv);
+                hierarchyLoaded = true;
+                
+            } catch (error) {
+                console.error('Error loading hierarchy:', error);
+                contentDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Error loading hierarchy: ${escapeHtml(error.message)}
+                    </div>
+                `;
+            } finally {
+                loadingDiv.style.display = 'none';
+            }
+        }
+
+        function renderHierarchyTree(hierarchy, container) {
+            if (!hierarchy || hierarchy.length === 0) {
+                container.innerHTML = `
+                    <div class="hierarchy-empty-state">
+                        <i class="fas fa-sitemap"></i>
+                        <p class="text-muted">No hierarchical relationships found</p>
+                        <small class="text-muted d-block">Parent-child relationships will appear here</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Build HTML for each relationship type tree
+            let treeHtml = '';
+            if (hierarchy.length > 1) {
+                // Multiple relationship types - show separate trees with headers
+                treeHtml = hierarchy.map((rootNode, index) => {
+                    const relationshipTypeName = rootNode.relationship_type_name || `Relationship ${index + 1}`;
+                    const treeContent = renderTreeNode(rootNode, 0);
+                    return `
+                        <div class="relationship-tree-section mb-4">
+                            <div class="tree-header mb-3 p-2" style="background-color: var(--bs-light); border-left: 3px solid var(--bs-primary); border-radius: 0.25rem;">
+                                <h6 class="text-primary mb-0">
+                                    <i class="fas fa-sitemap me-2"></i>${escapeHtml(relationshipTypeName)}
+                                </h6>
+                            </div>
+                            <div class="relationship-tree">${treeContent}</div>
+                        </div>
+                    `;
+                }).join('<hr class="my-3">');
+            } else {
+                // Single relationship type tree
+                const rootNode = hierarchy[0];
+                const relationshipTypeName = rootNode.relationship_type_name;
+                const headerHtml = relationshipTypeName ? `
+                    <div class="tree-header mb-3 p-2" style="background-color: var(--bs-light); border-left: 3px solid var(--bs-primary); border-radius: 0.25rem;">
+                        <h6 class="text-primary mb-0">
+                            <i class="fas fa-sitemap me-2"></i>${escapeHtml(relationshipTypeName)}
+                        </h6>
+                    </div>
+                ` : '';
+                treeHtml = `${headerHtml}<div class="relationship-tree">${renderTreeNode(rootNode, 0)}</div>`;
+            }
+            
+            container.innerHTML = treeHtml;
+            
+            // Initialize tree toggles
+            initializeTreeToggles();
+        }
+
+        function renderTreeNode(node, level) {
+            const isTarget = node.is_target || false;
+            const hasChildren = node.children && node.children.length > 0;
+            
+            const nodeClasses = ['tree-node-content'];
+            if (isTarget) nodeClasses.push('current-entry');
+            
+            let html = `
+                <div class="tree-node level-${level}" data-entry-id="${node.id}" style="padding-left: ${level * 20}px;">
+                    <div class="${nodeClasses.join(' ')}">
+            `;
+            
+            // Toggle button or spacer
+            if (hasChildren) {
+                html += `
+                    <button class="tree-toggle-btn" data-node-id="${node.id}">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                `;
+            } else {
+                html += `<span class="tree-spacer"></span>`;
+            }
+            
+            // Entry type icon
+            html += `
+                <span class="tree-entry-type" 
+                      style="color: ${node.entry_type.color || '#6c757d'};"
+                      title="${escapeHtml(node.entry_type.label)}">
+                    <i class="${node.entry_type.icon || 'fas fa-link'}"></i>
+                </span>
+            `;
+            
+            // Direction indicator
+            const direction = node.direction || 'unknown';
+            if (direction === 'ancestor') {
+                html += `
+                    <span class="tree-direction-icon" title="Parent/Ancestor">
+                        <i class="fas fa-arrow-up text-primary"></i>
+                    </span>
+                `;
+            } else if (direction === 'descendant') {
+                html += `
+                    <span class="tree-direction-icon" title="Child/Descendant">
+                        <i class="fas fa-arrow-down text-success"></i>
+                    </span>
+                `;
+            }
+            
+            // Entry title and link
+            html += `
+                <a href="/entry/${node.id}" 
+                   class="tree-entry-link ${isTarget ? 'fw-bold' : ''}"
+                   target="_blank">
+                    ${escapeHtml(node.title)}
+            `;
+            
+            if (isTarget) {
+                html += `<span class="badge bg-success ms-2">Current</span>`;
+            }
+            html += `</a>`;
+            
+            // Status badge
+            if (node.status) {
+                const statusColor = node.status_color || '#6c757d';
+                html += `
+                    <span class="badge ms-2" style="background-color: ${statusColor};">
+                        ${escapeHtml(node.status)}
+                    </span>
+                `;
+            }
+            
+            html += `
+                    </div>
+                </div>
+            `;
+            
+            // Render children recursively
+            if (hasChildren) {
+                html += node.children.map(child => renderTreeNode(child, level + 1)).join('');
+            }
+            
+            return html;
+        }
+
+        function initializeTreeToggles() {
+            document.querySelectorAll('.tree-toggle-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const nodeId = this.dataset.nodeId;
+                    const currentNode = this.closest('.tree-node');
+                    let nextNode = currentNode.nextElementSibling;
+                    
+                    // Toggle collapsed state
+                    this.classList.toggle('collapsed');
+                    
+                    // Find and toggle all direct children
+                    const currentLevel = parseInt(currentNode.className.match(/level-(\d+)/)[1]);
+                    while (nextNode && nextNode.classList.contains('tree-node')) {
+                        const nextLevel = parseInt(nextNode.className.match(/level-(\d+)/)[1]);
+                        
+                        if (nextLevel <= currentLevel) break;
+                        
+                        if (nextLevel === currentLevel + 1) {
+                            nextNode.classList.toggle('hidden');
+                        }
+                        
+                        nextNode = nextNode.nextElementSibling;
+                    }
+                });
+            });
         }
 
         function escapeHtml(text) {
