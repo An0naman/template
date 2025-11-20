@@ -24,17 +24,21 @@ def check_if_applied(db_path: str) -> bool:
     cursor = conn.cursor()
     
     try:
-        # Check if migration is recorded
+        # First check schema_migrations table if it exists
         cursor.execute("""
-            SELECT COUNT(*) FROM MigrationHistory 
-            WHERE migration_id = ?
-        """, (MIGRATION_ID,))
+            SELECT name FROM sqlite_master 
+            WHERE type='table' AND name='schema_migrations'
+        """)
+        if cursor.fetchone():
+            cursor.execute("""
+                SELECT COUNT(*) FROM schema_migrations 
+                WHERE migration_name = ?
+            """, ('add_sql_mode_to_saved_search.py',))
+            if cursor.fetchone()[0] > 0:
+                logger.info(f"Migration {MIGRATION_ID} already applied (found in schema_migrations)")
+                return True
         
-        if cursor.fetchone()[0] > 0:
-            logger.info(f"Migration {MIGRATION_ID} already applied (found in history)")
-            return True
-        
-        # Check if column exists
+        # Fallback: Check if column exists
         cursor.execute("PRAGMA table_info(SavedSearch)")
         columns = [row[1] for row in cursor.fetchall()]
         
@@ -43,6 +47,16 @@ def check_if_applied(db_path: str) -> bool:
             return True
             
         return False
+        
+    except Exception as e:
+        logger.warning(f"Error checking if migration applied: {e}")
+        # If there's an error, check column existence as fallback
+        try:
+            cursor.execute("PRAGMA table_info(SavedSearch)")
+            columns = [row[1] for row in cursor.fetchall()]
+            return 'use_sql_mode' in columns
+        except:
+            return False
         
     finally:
         conn.close()
@@ -64,12 +78,21 @@ def apply_migration(db_path: str) -> bool:
         cursor.execute(sql)
         conn.commit()
         
-        # Record migration
-        cursor.execute("""
-            INSERT INTO MigrationHistory (migration_id, name, version, applied_at)
-            VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-        """, (MIGRATION_ID, MIGRATION_NAME, MIGRATION_VERSION))
-        conn.commit()
+        # Record migration in schema_migrations table if it exists
+        try:
+            cursor.execute("""
+                SELECT name FROM sqlite_master 
+                WHERE type='table' AND name='schema_migrations'
+            """)
+            if cursor.fetchone():
+                cursor.execute("""
+                    INSERT OR IGNORE INTO schema_migrations (migration_name) 
+                    VALUES (?)
+                """, ('add_sql_mode_to_saved_search.py',))
+                conn.commit()
+                logger.info("✓ Migration recorded in schema_migrations")
+        except Exception as e:
+            logger.warning(f"Could not record migration in schema_migrations: {e}")
         
         logger.info(f"✓ Successfully added use_sql_mode column to SavedSearch table")
         return True
