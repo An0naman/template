@@ -48,6 +48,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-dejavu-extra \
     bluez \
     bluetooth \
+    git \
     libbluetooth3 \
     dumb-init \
     && rm -rf /var/lib/apt/lists/* \

@@ -3,13 +3,14 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system packages including fonts for label generation and Bluetooth support
+# Install system packages including fonts for label generation, Bluetooth support, and Git
 RUN apt-get update && apt-get install -y \
     fonts-dejavu-core \
     fonts-dejavu-extra \
     bluez \
     bluetooth \
     libbluetooth-dev \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Ensure the data directory exists for the volume mount (if needed)
@@ -18,6 +19,9 @@ RUN mkdir -p /app/data
 
 # Create uploads directory for static files (will be mounted as volume)
 RUN mkdir -p /app/app/static/uploads
+
+# Create repos directory for Git repositories
+RUN mkdir -p /app/repos
 
 # Copy requirements.txt and install dependencies
 COPY requirements.txt .

@@ -700,6 +700,91 @@
             </div>
         </div>
 
+        <!-- Git Integration Settings (token-based discovery) -->
+        <div class="settings-section">
+            <div class="section-card">
+                <div class="section-title">
+                    <i class="fab fa-git-alt me-2"></i>Git Integration
+                </div>
+                
+                <!-- Enable/Disable Toggle -->
+                <div class="mb-4">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="gitIntegrationEnabled">
+                        <label class="form-check-label" for="gitIntegrationEnabled">
+                            <strong>Enable Git Integration</strong>
+                        </label>
+                    </div>
+                    <small class="text-muted">Track commits from GitHub or GitLab repositories</small>
+                </div>
+                
+                <!-- Configuration Form (shown when enabled) -->
+                <div id="gitConfigSection" style="display:none;">
+                    <form id="gitSettingsForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="gitProvider" class="form-label">Git Provider</label>
+                                    <select class="form-select" id="gitProvider">
+                                        <option value="">-- Select Provider --</option>
+                                        <option value="github">GitHub</option>
+                                        <option value="gitlab">GitLab</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6" id="gitlabUrlSection" style="display:none;">
+                                <div class="mb-3">
+                                    <label for="gitlabUrl" class="form-label">GitLab URL</label>
+                                    <input type="text" class="form-control" id="gitlabUrl" placeholder="https://gitlab.com">
+                                    <small class="text-muted">For self-hosted instances</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <label for="gitToken" class="form-label">Personal Access Token</label>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="gitToken" placeholder="Enter your personal access token">
+                                        <button class="btn btn-outline-secondary" type="button" id="toggleTokenVisibility">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">
+                                        Token needs read access to repositories. 
+                                        <a href="#" id="tokenHelpLink" target="_blank">How to create?</a>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-primary me-2" id="saveGitConfigBtn">
+                                <i class="fas fa-save me-1"></i>Save Configuration
+                            </button>
+                            <button type="button" class="btn btn-secondary" id="discoverReposBtn" disabled>
+                                <i class="fas fa-search me-1"></i>Discover Repositories
+                            </button>
+                        </div>
+                        
+                        <div id="discoveredRepos" class="mt-4" style="display:none;">
+                            <h6 class="mb-3">Discovered Repositories</h6>
+                            <div class="list-group" id="reposList" style="max-height: 400px; overflow-y: auto;"></div>
+                            <div class="mt-3">
+                                <button type="button" class="btn btn-success" id="saveTrackedReposBtn">
+                                    <i class="fas fa-save me-1"></i>Save Tracked Repositories
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                
+                <div id="gitSettingsStatus" class="mt-3 d-none"></div>
+            </div>
+        </div>
+
         <!-- Label Printing Settings -->
         <div class="settings-section">
             <div class="section-card">
@@ -2303,6 +2388,266 @@
     </script>
     <script src="{{ url_for('static', filename='global-theme-manager.js') }}"></script>
     <script src="{{ url_for('static', filename='notifications.js') }}"></script>
+    <script>
+        // Git integration settings handling
+        document.addEventListener('DOMContentLoaded', async () => {
+            const enableToggle = document.getElementById('gitIntegrationEnabled');
+            const configSection = document.getElementById('gitConfigSection');
+            const providerSelect = document.getElementById('gitProvider');
+            const gitlabUrlSection = document.getElementById('gitlabUrlSection');
+            const gitlabUrlInput = document.getElementById('gitlabUrl');
+            const tokenInput = document.getElementById('gitToken');
+            const toggleVisibilityBtn = document.getElementById('toggleTokenVisibility');
+            const saveConfigBtn = document.getElementById('saveGitConfigBtn');
+            const discoverBtn = document.getElementById('discoverReposBtn');
+            const saveBtn = document.getElementById('saveTrackedReposBtn');
+            const discoveredSection = document.getElementById('discoveredRepos');
+            const reposList = document.getElementById('reposList');
+            const statusEl = document.getElementById('gitSettingsStatus');
+            const tokenHelpLink = document.getElementById('tokenHelpLink');
+            
+            let discoveredReposData = [];
+
+            // Load current git settings from system params
+            try {
+                const res = await fetch('/api/system_params');
+                const params = await res.json();
+                
+                // Load enable/disable state
+                if (params['git_integration_enabled'] === '1') {
+                    enableToggle.checked = true;
+                    configSection.style.display = 'block';
+                }
+                
+                if (params['git_provider']) {
+                    providerSelect.value = params['git_provider'];
+                    if (params['git_provider'] === 'gitlab') {
+                        gitlabUrlSection.style.display = 'flex';
+                    }
+                }
+                if (params['git_token']) {
+                    tokenInput.value = params['git_token'];
+                    discoverBtn.disabled = false; // Enable discover if token exists
+                }
+                if (params['gitlab_url']) {
+                    gitlabUrlInput.value = params['gitlab_url'];
+                }
+            } catch (e) {
+                console.warn('Could not load git settings', e);
+            }
+            
+            // Handle enable/disable toggle
+            enableToggle.addEventListener('change', async () => {
+                const isEnabled = enableToggle.checked;
+                configSection.style.display = isEnabled ? 'block' : 'none';
+                
+                try {
+                    await fetch('/api/system_params', {
+                        method: 'PATCH',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            git_integration_enabled: isEnabled ? '1' : '0'
+                        })
+                    });
+                    displayStatus('gitSettingsStatus', 
+                        isEnabled ? '✅ Git integration enabled' : 'Git integration disabled', 
+                        isEnabled ? 'alert-success' : 'alert-info');
+                } catch (err) {
+                    displayStatus('gitSettingsStatus', 'Failed to update: ' + err.message, 'alert-danger');
+                }
+            });
+            
+            // Toggle token visibility
+            toggleVisibilityBtn.addEventListener('click', () => {
+                const icon = toggleVisibilityBtn.querySelector('i');
+                if (tokenInput.type === 'password') {
+                    tokenInput.type = 'text';
+                    icon.className = 'fas fa-eye-slash';
+                } else {
+                    tokenInput.type = 'password';
+                    icon.className = 'fas fa-eye';
+                }
+            });
+
+            // Show/hide GitLab URL based on provider
+            providerSelect.addEventListener('change', () => {
+                const isGitLab = providerSelect.value === 'gitlab';
+                gitlabUrlSection.style.display = isGitLab ? 'flex' : 'none';
+                
+                // Update help link
+                if (providerSelect.value === 'github') {
+                    tokenHelpLink.href = 'https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token';
+                } else if (providerSelect.value === 'gitlab') {
+                    tokenHelpLink.href = 'https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html';
+                } else {
+                    tokenHelpLink.href = '#';
+                }
+            });
+            
+            // Save Configuration button
+            saveConfigBtn.addEventListener('click', async () => {
+                const provider = providerSelect.value;
+                const token = tokenInput.value.trim();
+                const gitlabUrl = gitlabUrlInput.value.trim();
+                
+                if (!provider) {
+                    displayStatus('gitSettingsStatus', 'Please select a Git provider', 'alert-warning');
+                    return;
+                }
+                if (!token) {
+                    displayStatus('gitSettingsStatus', 'Please enter a personal access token', 'alert-warning');
+                    return;
+                }
+                if (provider === 'gitlab' && !gitlabUrl) {
+                    displayStatus('gitSettingsStatus', 'Please enter GitLab URL', 'alert-warning');
+                    return;
+                }
+                
+                try {
+                    displayStatus('gitSettingsStatus', 'Saving configuration...', 'alert-info');
+                    
+                    const res = await fetch('/api/system_params', {
+                        method: 'PATCH',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            git_provider: provider,
+                            git_token: token,
+                            gitlab_url: gitlabUrl || 'https://gitlab.com'
+                        })
+                    });
+                    
+                    if (!res.ok) throw new Error('Failed to save configuration');
+                    
+                    discoverBtn.disabled = false; // Enable discover button after save
+                    displayStatus('gitSettingsStatus', '✅ Configuration saved! You can now discover repositories.', 'alert-success');
+                } catch (err) {
+                    displayStatus('gitSettingsStatus', 'Save failed: ' + err.message, 'alert-danger');
+                }
+            });
+
+            // Discover repositories
+            discoverBtn.addEventListener('click', async () => {
+                const provider = providerSelect.value;
+                const token = tokenInput.value.trim();
+                const gitlabUrl = gitlabUrlInput.value.trim();
+
+                if (!provider || !token) {
+                    displayStatus('gitSettingsStatus', 'Please save configuration first', 'alert-warning');
+                    return;
+                }
+
+                try {
+                    displayStatus('gitSettingsStatus', 'Discovering repositories...', 'alert-info');
+                    
+                    // Discover repos
+                    const res = await fetch('/api/git/discover', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            provider: provider,
+                            token: token,
+                            gitlab_url: gitlabUrl || undefined
+                        })
+                    });
+                    
+                    if (!res.ok) {
+                        const error = await res.json();
+                        throw new Error(error.error || 'Discovery failed');
+                    }
+                    
+                    const data = await res.json();
+                    discoveredReposData = data.repositories || [];
+                    
+                    if (discoveredReposData.length === 0) {
+                        displayStatus('gitSettingsStatus', 'No repositories found', 'alert-warning');
+                        return;
+                    }
+                    
+                    // Load currently tracked repos
+                    const trackedRes = await fetch('/api/git/repositories');
+                    const trackedData = await trackedRes.json();
+                    const trackedRepos = trackedData.repositories || [];
+                    const trackedUrls = new Set(trackedRepos.map(r => r.url));
+                    
+                    // Display repos with toggle switches
+                    reposList.innerHTML = '';
+                    discoveredReposData.forEach(repo => {
+                        const isTracked = trackedUrls.has(repo.url);
+                        const item = document.createElement('div');
+                        item.className = 'list-group-item d-flex justify-content-between align-items-center';
+                        item.innerHTML = `
+                            <div>
+                                <strong>${repo.name}</strong>
+                                <br><small class="text-muted">${repo.url}</small>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input repo-toggle" type="checkbox" 
+                                       data-repo-index="${discoveredReposData.indexOf(repo)}"
+                                       ${isTracked ? 'checked' : ''}>
+                            </div>
+                        `;
+                        reposList.appendChild(item);
+                    });
+                    
+                    discoveredSection.style.display = 'block';
+                    saveBtn.style.display = 'inline-block';
+                    displayStatus('gitSettingsStatus', 
+                        `✅ Found ${discoveredReposData.length} repositories!`, 
+                        'alert-success');
+                } catch (err) {
+                    displayStatus('gitSettingsStatus', 'Discovery failed: ' + err.message, 'alert-danger');
+                }
+            });
+
+            // Save tracked repositories
+            saveBtn.addEventListener('click', async () => {
+                const toggles = document.querySelectorAll('.repo-toggle:checked');
+                const selectedRepos = Array.from(toggles).map(toggle => {
+                    const index = parseInt(toggle.dataset.repoIndex);
+                    return discoveredReposData[index];
+                });
+
+                if (selectedRepos.length === 0) {
+                    displayStatus('gitSettingsStatus', 'No repositories selected', 'alert-warning');
+                    return;
+                }
+
+                try {
+                    displayStatus('gitSettingsStatus', 'Saving tracked repositories...', 'alert-info');
+                    
+                    const token = tokenInput.value.trim();
+                    let successCount = 0;
+                    
+                    for (const repo of selectedRepos) {
+                        try {
+                            const res = await fetch('/api/git/repositories', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({
+                                    ...repo,
+                                    token: token
+                                })
+                            });
+                            if (res.ok) successCount++;
+                        } catch (e) {
+                            console.warn('Failed to add repo:', repo.name, e);
+                        }
+                    }
+                    
+                    displayStatus('gitSettingsStatus', 
+                        `✅ Successfully added ${successCount}/${selectedRepos.length} repositories!`, 
+                        'alert-success');
+                    
+                    // Refresh after a moment
+                    setTimeout(() => {
+                        window.location.href = '/?show_git=1';
+                    }, 2000);
+                } catch (err) {
+                    displayStatus('gitSettingsStatus', 'Save failed: ' + err.message, 'alert-danger');
+                }
+            });
+        });
+    </script>
     
     <!-- About Modal -->
     {% include 'components/about_modal.html' %}

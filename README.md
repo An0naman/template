@@ -11,6 +11,7 @@ A sophisticated Flask-based content management system with dynamic theming, rela
 - 🏷️ **Label Printing**: QR codes, thermal printers (Niimbot B1/D110), A4 sheets
 - 🔔 **Notification System**: Priority-based alerts with scheduling and ntfy integration
 - 📡 **IoT Sensor Integration**: Real-time data collection from ESP32/network devices
+- 🐙 **Git Integration**: DevOps dashboard with commit tracking and auto-entry creation
 
 ### **User Experience**
 - 🎨 **Dynamic Theme System**: Multiple color schemes with dark mode support
@@ -118,6 +119,8 @@ template/
 - **[Deployment Guide](docs/setup/DEPLOYMENT.md)** - Production deployment
 
 ### **Features**
+- **[Git Integration](docs/features/GIT_INTEGRATION.md)** - 🆕 DevOps dashboard & commit tracking
+- **[Git Quick Start](docs/features/GIT_INTEGRATION_QUICKSTART.md)** - Get started in 3 steps
 - **[Label Printing](docs/features/LABEL_PRINTING.md)** - Complete printing system guide
 - **[Niimbot Printers](docs/features/NIIMBOT.md)** - Bluetooth thermal printers
 - **[AI Chatbot](docs/features/AI_CHATBOT_FEATURE.md)** - AI-powered assistance

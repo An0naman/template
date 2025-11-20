@@ -895,6 +895,56 @@ Please incorporate these specific instructions into your analysis and summary.""
                 'available': False,
                 'error': str(e)
             }
+    
+    @staticmethod
+    def get_git_commits(repo_id: int, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Get commits from a Git repository
+        
+        Args:
+            repo_id: ID of the Git repository
+            config: Widget configuration with commit_limit
+            
+        Returns:
+            Dict with commits list
+        """
+        try:
+            from app.db import get_connection
+            conn = get_connection()
+            cursor = conn.cursor()
+            
+            limit = config.get('commit_limit', 10)
+            
+            # Get commits for this repository
+            cursor.execute('''
+                SELECT c.*, r.name as repo_name
+                FROM GitCommit c
+                JOIN GitRepository r ON c.repository_id = r.id
+                WHERE c.repository_id = ?
+                ORDER BY c.commit_date DESC
+                LIMIT ?
+            ''', (repo_id, limit))
+            
+            commits = []
+            for row in cursor.fetchall():
+                commits.append({
+                    'id': row['id'],
+                    'commit_hash': row['commit_hash'],
+                    'author': row['author'],
+                    'message': row['message'],
+                    'commit_date': row['commit_date'],
+                    'branch': row['branch']
+                })
+            
+            return {
+                'success': True,
+                'commits': commits,
+                'total': len(commits)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting git commits for repo {repo_id}: {e}")
+            return {'error': str(e)}
 
     @staticmethod
     def get_widget_data(widget: Dict[str, Any]) -> Dict[str, Any]:
@@ -991,6 +1041,10 @@ Please incorporate these specific instructions into your analysis and summary.""
                         'value': state_data.get('total', 0),
                         'label': config.get('label', 'Total Entries')
                     }
+            
+            elif widget_type == 'git_commits' and data_source_type == 'git_repository':
+                # Get commits from Git integration
+                return DashboardService.get_git_commits(data_source_id, config)
             
             return {'error': 'Unsupported widget type or data source'}
             

@@ -372,6 +372,9 @@
                                 {% endif %}
                                 <option value="stat_card">Stat Card</option>
                                 <option value="ai_summary">AI Summary</option>
+                                {% if get_system_parameters().get('git_integration_enabled', '0') == '1' %}
+                                <option value="git_commits">Git Commits</option>
+                                {% endif %}
                             </select>
                         </div>
                         <div class="mb-3">
@@ -482,6 +485,30 @@
                                 </small>
                             </div>
                         </div>
+
+                        <!-- Git Commits Configuration -->
+                        {% if get_system_parameters().get('git_integration_enabled', '0') == '1' %}
+                        <div id="gitCommitsConfig" style="display: none;">
+                            <hr>
+                            <h6><i class="fab fa-git-alt me-2"></i>Git Repository</h6>
+                            <div class="mb-3">
+                                <label for="gitRepositorySelect" class="form-label">Repository</label>
+                                <select class="form-select" id="gitRepositorySelect">
+                                    <option value="">Select repository...</option>
+                                </select>
+                                <small class="text-muted">Choose which repository to display commits from</small>
+                            </div>
+                            <div class="mb-3">
+                                <label for="gitCommitLimit" class="form-label">Number of Commits</label>
+                                <select class="form-select" id="gitCommitLimit">
+                                    <option value="10" selected>10 commits</option>
+                                    <option value="20">20 commits</option>
+                                    <option value="50">50 commits</option>
+                                    <option value="100">100 commits</option>
+                                </select>
+                            </div>
+                        </div>
+                        {% endif %}
 
                         <hr>
                         <h6>Layout</h6>

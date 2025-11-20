@@ -1,0 +1,137 @@
+<!-- Git widget partial - embeddable into dashboard -->
+<div id="gitWidgetContainer" class="mt-4" style="display:none;">
+    <div class="dashboard-widget">
+        <div class="widget-header">
+            <h5 class="widget-title"><i class="fab fa-git-alt me-2"></i>DevOps / Git</h5>
+            <div class="widget-actions">
+                <button class="btn btn-sm btn-outline-secondary" id="gitRefreshBtn"><i class="fas fa-sync"></i></button>
+                <a href="/git" class="btn btn-sm btn-outline-primary" id="gitOpenPageBtn">Open Full View</a>
+            </div>
+        </div>
+        <div class="widget-body" id="gitWidgetBody">
+            <div id="gitLoading" class="widget-loading">
+                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+            </div>
+            <div id="gitEmpty" style="display:none;" class="empty-dashboard">
+                <i class="fab fa-git-alt"></i>
+                <h5>Connect Your Git Provider</h5>
+                <p>Link your GitHub or GitLab account to automatically discover and track repositories.</p>
+                <a href="/settings#git" class="btn btn-primary">
+                    <i class="fas fa-link me-1"></i>Connect Provider
+                </a>
+            </div>
+            <div id="gitContent" style="display:none;">
+                <div id="gitRepoList" class="mb-3"></div>
+                <div id="gitCommits"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function initGitWidget() {
+    const container = document.getElementById('gitWidgetContainer');
+    const loading = document.getElementById('gitLoading');
+    const empty = document.getElementById('gitEmpty');
+    const content = document.getElementById('gitContent');
+
+    try {
+        const res = await fetch('/api/git/repositories');
+        const data = await res.json();
+        loading.style.display = 'none';
+
+        if (!data.success || !data.repositories || data.repositories.length === 0) {
+            empty.style.display = 'block';
+            content.style.display = 'none';
+            container.style.display = 'block';
+            return;
+        }
+
+        // Show content
+        container.style.display = 'block';
+        empty.style.display = 'none';
+        content.style.display = 'block';
+
+        const repoList = document.getElementById('gitRepoList');
+        repoList.innerHTML = '';
+
+        data.repositories.forEach(repo => {
+            const card = document.createElement('div');
+            card.className = 'mb-2 p-2 border rounded';
+            card.innerHTML = `
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <strong>${escapeHtml(repo.name)}</strong>
+                        <div class="text-muted small">${escapeHtml(repo.url)}</div>
+                    </div>
+                    <div class="text-end">
+                        <small class="text-muted">${repo.stats?.total_commits || 0} commits</small>
+                    </div>
+                </div>
+            `;
+            card.onclick = () => loadRepoCommits(repo.id);
+            repoList.appendChild(card);
+        });
+
+        // Load first repo commits by default
+        loadRepoCommits(data.repositories[0].id);
+
+    } catch (e) {
+        loading.style.display = 'none';
+        empty.style.display = 'block';
+        container.style.display = 'block';
+        console.error('Failed to load git widget', e);
+    }
+}
+
+async function loadRepoCommits(repoId) {
+    const commitsDiv = document.getElementById('gitCommits');
+    commitsDiv.innerHTML = '<div class="widget-loading"><div class="spinner-border text-primary"></div></div>';
+
+    try {
+        const res = await fetch(`/api/git/repositories/${repoId}/commits?limit=10`);
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Failed to load commits');
+
+        if (!data.commits || data.commits.length === 0) {
+            commitsDiv.innerHTML = '<div class="text-muted">No commits found for this repository.</div>';
+            return;
+        }
+
+        commitsDiv.innerHTML = '';
+        data.commits.forEach(c => {
+            const item = document.createElement('div');
+            item.className = 'mb-2 p-2 border rounded';
+            const date = c.commit_date ? new Date(c.commit_date).toLocaleString() : '';
+            item.innerHTML = `
+                <div><strong>${escapeHtml(c.message)}</strong></div>
+                <div class="text-muted small">${c.commit_hash.substring(0,7)} • ${escapeHtml(c.author)} • ${date}</div>
+            `;
+            commitsDiv.appendChild(item);
+        });
+
+    } catch (e) {
+        commitsDiv.innerHTML = `<div class="text-danger">Failed to load commits: ${escapeHtml(e.message)}</div>`;
+    }
+}
+
+document.getElementById('gitRefreshBtn')?.addEventListener('click', () => initGitWidget());
+
+// Initialize when included
+document.addEventListener('DOMContentLoaded', () => {
+    // If dashboard URL includes show_git, show the widget
+    if (window.location.search.includes('show_git=1') || window.location.hash === '#git') {
+        initGitWidget();
+        // Scroll to widget after a short delay
+        setTimeout(() => {
+            document.getElementById('gitWidgetContainer')?.scrollIntoView({behavior: 'smooth'});
+        }, 400);
+    }
+});
+
+// Simple escape helper
+function escapeHtml(text) {
+    if (!text) return '';
+    return text.replace(/[&<>\"]/g, function (m) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]; });
+}
+</script>

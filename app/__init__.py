@@ -134,6 +134,10 @@ def create_app():
     from .api.entry_type_relationship_api import entry_type_relationship_api_bp
     from .api.planning_api import planning_api_bp
     from .api.kanban_api import kanban_api_bp
+    
+    # Import Git integration blueprints
+    from .api.git_api import git_api_bp
+    from .routes.git_routes import git_routes_bp
 
     # Register all blueprints
     app.register_blueprint(main_bp)
@@ -171,6 +175,10 @@ def create_app():
     app.register_blueprint(entry_type_relationship_api_bp, url_prefix='/api')
     app.register_blueprint(planning_api_bp)
     app.register_blueprint(kanban_api_bp, url_prefix='/api')
+    
+    # Register Git integration blueprints
+    app.register_blueprint(git_api_bp)  # API routes have /api prefix in the blueprint
+    app.register_blueprint(git_routes_bp)  # Page routes
 
     app.logger.info("Blueprints registered.")
 

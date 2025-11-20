@@ -364,6 +364,26 @@ async function showAddWidgetModal() {
         });
     }
     
+    // Populate git repositories
+    const gitRepoSelect = document.getElementById('gitRepositorySelect');
+    if (gitRepoSelect) {
+        try {
+            const res = await fetch('/api/git/repositories');
+            const data = await res.json();
+            gitRepoSelect.innerHTML = '<option value="">Select repository...</option>';
+            if (data.success && data.repositories) {
+                data.repositories.forEach(repo => {
+                    const option = document.createElement('option');
+                    option.value = repo.id;
+                    option.textContent = repo.name;
+                    gitRepoSelect.appendChild(option);
+                });
+            }
+        } catch (e) {
+            console.warn('Could not load git repositories', e);
+        }
+    }
+    
     const modal = new bootstrap.Modal(document.getElementById('addWidgetModal'));
     modal.show();
 }
@@ -401,6 +421,9 @@ function handleWidgetTypeChange(event) {
         if (chartConfig) chartConfig.style.display = 'block';
         dataSourceConfig.style.display = 'block';
         savedSearchConfig.style.display = 'block';
+    } else if (widgetType === 'git_commits') {
+        const gitCommitsConfig = document.getElementById('gitCommitsConfig');
+        if (gitCommitsConfig) gitCommitsConfig.style.display = 'block';
     }
 }
 
@@ -502,6 +525,22 @@ async function addWidget() {
                 sensor_type: sensorType,
                 time_range: timeRange
             };
+        }
+    }
+    
+    if (widgetType === 'git_commits') {
+        const repoId = document.getElementById('gitRepositorySelect').value;
+        const commitLimit = document.getElementById('gitCommitLimit').value;
+        
+        if (repoId) {
+            widgetData.data_source_type = 'git_repository';
+            widgetData.data_source_id = parseInt(repoId);
+            widgetData.config = {
+                commit_limit: parseInt(commitLimit)
+            };
+        } else {
+            showNotification('Please select a repository', 'warning');
+            return;
         }
     }
     
@@ -778,6 +817,9 @@ function renderWidget(widget, data) {
             break;
         case 'ai_summary':
             renderAISummary(bodyEl, data);
+            break;
+        case 'git_commits':
+            renderGitCommits(bodyEl, data);
             break;
         default:
             bodyEl.innerHTML = '<div class="text-muted">Unknown widget type</div>';
@@ -1127,6 +1169,66 @@ function renderAISummary(bodyEl, data) {
     }
     
     bodyEl.innerHTML = html;
+}
+
+function renderGitCommits(bodyEl, data) {
+    if (data.error) {
+        bodyEl.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+        return;
+    }
+    
+    if (!data.commits || data.commits.length === 0) {
+        bodyEl.innerHTML = `
+            <div class="text-center p-4 text-muted">
+                <i class="fab fa-git-alt fa-3x mb-3 opacity-50"></i>
+                <p>No commits found for this repository</p>
+                <small>The repository may be empty or not yet synced</small>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="git-commits-list">';
+    data.commits.forEach(commit => {
+        const date = new Date(commit.commit_date);
+        const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        const shortHash = commit.commit_hash.substring(0, 7);
+        
+        html += `
+            <div class="commit-item p-2 mb-2 border-bottom">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div class="commit-message fw-semibold">
+                            ${escapeHtml(commit.message)}
+                        </div>
+                        <div class="commit-meta text-muted small mt-1">
+                            <span class="commit-hash badge bg-light text-dark font-monospace">${shortHash}</span>
+                            <span class="mx-1">•</span>
+                            <span class="commit-author">${escapeHtml(commit.author || 'Unknown')}</span>
+                            <span class="mx-1">•</span>
+                            <span class="commit-date">${dateStr}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    
+    bodyEl.innerHTML = html;
+}
+
+// Helper function to escape HTML
+function escapeHtml(text) {
+    if (!text) return '';
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
 }
 
 // ============================================================================
