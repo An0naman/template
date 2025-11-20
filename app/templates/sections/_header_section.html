@@ -262,55 +262,69 @@ function toggleEditMode(editing) {
     
     if (editing) {
         // Show edit elements, hide display elements
-        entryTitleDisplay.classList.add('d-none');
-        entryTitleInput.classList.remove('d-none');
-        detailsDisplay.classList.add('d-none');
-        detailsEdit.classList.remove('d-none');
+        if (entryTitleDisplay) entryTitleDisplay.classList.add('d-none');
+        if (entryTitleInput) entryTitleInput.classList.remove('d-none');
+        if (detailsDisplay) detailsDisplay.classList.add('d-none');
+        if (detailsEdit) detailsEdit.classList.remove('d-none');
         {% if entry.show_end_dates %}
         if (datesDisplay) datesDisplay.classList.add('d-none');
         if (datesEdit) datesEdit.classList.remove('d-none');
         {% endif %}
-        descriptionDisplay.classList.add('d-none');
-        descriptionEdit.classList.remove('d-none');
+        if (descriptionDisplay) descriptionDisplay.classList.add('d-none');
+        if (descriptionEdit) descriptionEdit.classList.remove('d-none');
         
         // Show save/cancel buttons, hide other buttons
         const saveBtn = document.getElementById('saveEntryBtn');
         const cancelBtn = document.getElementById('cancelEditBtn');
-        saveBtn.classList.remove('d-none');
-        saveBtn.style.display = '';
-        cancelBtn.classList.remove('d-none');
-        cancelBtn.style.display = '';
+        if (saveBtn) {
+            saveBtn.classList.remove('d-none');
+            saveBtn.style.display = '';
+        }
+        if (cancelBtn) {
+            cancelBtn.classList.remove('d-none');
+            cancelBtn.style.display = '';
+        }
         
-        document.getElementById('editEntryBtn').classList.add('d-none');
-        document.getElementById('deleteEntryBtn').classList.add('d-none');
-        document.getElementById('backBtn').classList.add('d-none');
+        const editBtn = document.getElementById('editEntryBtn');
+        const deleteBtn = document.getElementById('deleteEntryBtn');
+        const backBtn = document.getElementById('backBtn');
+        if (editBtn) editBtn.classList.add('d-none');
+        if (deleteBtn) deleteBtn.classList.add('d-none');
+        if (backBtn) backBtn.classList.add('d-none');
         
         // Load entry types
         loadEntryTypes();
     } else {
         // Show display elements, hide edit elements
-        entryTitleDisplay.classList.remove('d-none');
-        entryTitleInput.classList.add('d-none');
-        detailsDisplay.classList.remove('d-none');
-        detailsEdit.classList.add('d-none');
+        if (entryTitleDisplay) entryTitleDisplay.classList.remove('d-none');
+        if (entryTitleInput) entryTitleInput.classList.add('d-none');
+        if (detailsDisplay) detailsDisplay.classList.remove('d-none');
+        if (detailsEdit) detailsEdit.classList.add('d-none');
         {% if entry.show_end_dates %}
         if (datesDisplay) datesDisplay.classList.remove('d-none');
         if (datesEdit) datesEdit.classList.add('d-none');
         {% endif %}
-        descriptionDisplay.classList.remove('d-none');
-        descriptionEdit.classList.add('d-none');
+        if (descriptionDisplay) descriptionDisplay.classList.remove('d-none');
+        if (descriptionEdit) descriptionEdit.classList.add('d-none');
         
         // Show other buttons, hide save/cancel buttons
         const saveBtn = document.getElementById('saveEntryBtn');
         const cancelBtn = document.getElementById('cancelEditBtn');
-        saveBtn.classList.add('d-none');
-        saveBtn.style.display = 'none';
-        cancelBtn.classList.add('d-none');
-        cancelBtn.style.display = 'none';
+        if (saveBtn) {
+            saveBtn.classList.add('d-none');
+            saveBtn.style.display = 'none';
+        }
+        if (cancelBtn) {
+            cancelBtn.classList.add('d-none');
+            cancelBtn.style.display = 'none';
+        }
         
-        document.getElementById('editEntryBtn').classList.remove('d-none');
-        document.getElementById('deleteEntryBtn').classList.remove('d-none');
-        document.getElementById('backBtn').classList.remove('d-none');
+        const editBtn = document.getElementById('editEntryBtn');
+        const deleteBtn = document.getElementById('deleteEntryBtn');
+        const backBtn = document.getElementById('backBtn');
+        if (editBtn) editBtn.classList.remove('d-none');
+        if (deleteBtn) deleteBtn.classList.remove('d-none');
+        if (backBtn) backBtn.classList.remove('d-none');
     }
 }
 
@@ -318,23 +332,46 @@ function toggleEditMode(editing) {
 async function loadEntryTypes() {
     try {
         const response = await fetch('/api/entry_types');
+        if (!response.ok) {
+            throw new Error(`Failed to load entry types: ${response.status} ${response.statusText}`);
+        }
         const entryTypes = await response.json();
         
+        if (!entryTypes || entryTypes.length === 0) {
+            console.error('[Entry Edit] No entry types returned from API');
+            alert('Failed to load entry types. Please refresh the page.');
+            return;
+        }
+        
+        console.log('[Entry Edit] Loading entry types. Original entry type ID:', originalEntryTypeId);
+        console.log('[Entry Edit] Available entry types:', entryTypes);
+        
         entryTypeSelect.innerHTML = '';
+        let foundMatch = false;
         entryTypes.forEach(type => {
             const option = document.createElement('option');
             option.value = type.id;
             option.textContent = type.singular_label;
             if (type.id == originalEntryTypeId) {
                 option.selected = true;
+                foundMatch = true;
+                console.log('[Entry Edit] Selected entry type:', type.singular_label, 'with ID:', type.id);
             }
             entryTypeSelect.appendChild(option);
         });
         
+        if (!foundMatch) {
+            console.warn('[Entry Edit] Original entry type ID not found in available types:', originalEntryTypeId);
+        }
+        
+        console.log('[Entry Edit] Entry type select value after loading:', entryTypeSelect.value);
+        console.log('[Entry Edit] Selected index:', entryTypeSelect.selectedIndex);
+        
         // Load states for the current entry type
         await loadStatesForEntry();
     } catch (error) {
-        console.error('Error loading entry types:', error);
+        console.error('[Entry Edit] Error loading entry types:', error);
+        alert('Failed to load entry types. Please refresh the page and try again.');
     }
 }
 
@@ -446,11 +483,33 @@ document.getElementById('saveEntryBtn')?.addEventListener('click', async functio
         return;
     }
     
+    if (!entryTypeId || isNaN(entryTypeId)) {
+        console.error('[Entry Save] Invalid entry type ID:', entryTypeId);
+        alert('Please select a valid entry type');
+        return;
+    }
+    
+    console.log('[Entry Save] Saving with entry type ID:', entryTypeId);
+    console.log('[Entry Save] Entry type select value:', entryTypeSelect.value);
+    console.log('[Entry Save] Entry type selected index:', entryTypeSelect.selectedIndex);
+    
     // Show loading
     const saveBtn = document.getElementById('saveEntryBtn');
     const originalHTML = saveBtn.innerHTML;
     saveBtn.disabled = true;
     saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
+    
+    const payload = {
+        title: newTitle,
+        description: description,
+        entry_type_id: entryTypeId,
+        status: status,
+        intended_end_date: intendedEndDate,
+        actual_end_date: actualEndDate,
+        commenced_at: commencedAt
+    };
+    
+    console.log('[Entry Save] Request payload:', payload);
     
     try {
         const response = await fetch(`/api/entries/{{ entry.id }}`, {
@@ -458,15 +517,7 @@ document.getElementById('saveEntryBtn')?.addEventListener('click', async functio
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-                title: newTitle,
-                description: description,
-                entry_type_id: entryTypeId,
-                status: status,
-                intended_end_date: intendedEndDate,
-                actual_end_date: actualEndDate,
-                commenced_at: commencedAt
-            })
+            body: JSON.stringify(payload)
         });
         
         if (response.ok) {
@@ -482,7 +533,12 @@ document.getElementById('saveEntryBtn')?.addEventListener('click', async functio
             
             // Update entry type display
             const selectedOption = entryTypeSelect.options[entryTypeSelect.selectedIndex];
-            document.getElementById('entryTypeDisplay').textContent = selectedOption.textContent;
+            if (selectedOption) {
+                document.getElementById('entryTypeDisplay').textContent = selectedOption.textContent;
+                console.log('[Entry Save] Updated entry type display to:', selectedOption.textContent);
+            } else {
+                console.error('[Entry Save] No selected option found in entry type dropdown');
+            }
             
             // Update status display with color
             const selectedStatus = statusSelect.options[statusSelect.selectedIndex];

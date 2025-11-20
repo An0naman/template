@@ -208,8 +208,13 @@ def update_entry(entry_id):
         set_clauses.append("description = ?")
         params.append(data['description'])
     if 'entry_type_id' in data:
-        set_clauses.append("entry_type_id = ?")
-        params.append(data['entry_type_id'])
+        # Validate that the entry_type_id is not None, null, or NaN
+        entry_type_id_value = data['entry_type_id']
+        if entry_type_id_value is not None and entry_type_id_value != '' and str(entry_type_id_value).lower() != 'nan':
+            set_clauses.append("entry_type_id = ?")
+            params.append(entry_type_id_value)
+        else:
+            logger.warning(f"Invalid entry_type_id value received: {entry_type_id_value}. Skipping update.")
     if 'intended_end_date' in data:
         set_clauses.append("intended_end_date = ?")
         params.append(data['intended_end_date'])
