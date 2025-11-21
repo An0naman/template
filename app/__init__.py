@@ -40,6 +40,15 @@ def create_app():
 
     # Import and register database functions
     from .db import get_connection, init_db
+    
+    # Run auto-migrations to ensure schema is up-to-date
+    try:
+        from .utils.auto_migrate import run_auto_migration
+        if os.path.exists(app.config['DATABASE_PATH']):
+            app.logger.info("Running auto-migration check...")
+            run_auto_migration(app.config['DATABASE_PATH'])
+    except Exception as e:
+        app.logger.warning(f"Auto-migration check failed (non-critical): {e}")
 
     def get_db():
         if 'db' not in g:
