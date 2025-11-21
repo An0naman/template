@@ -449,6 +449,7 @@ def create_entry_from_commit(commit_hash):
         data = request.get_json() or {}
         entry_type_id = data.get('entry_type_id')
         custom_title = data.get('title')
+        custom_status = data.get('status')
         
         if not entry_type_id:
             return jsonify({
@@ -486,7 +487,7 @@ def create_entry_from_commit(commit_hash):
                 'entry_id': commit['entry_id']
             }), 400
         
-        # Create entry - use custom title if provided
+        # Create entry - use custom title and status if provided
         title = custom_title if custom_title else commit['message'][:200]
         description = f"""**Commit:** `{commit['commit_hash'][:7]}`
 **Repository:** {commit['repo_name']}
@@ -502,10 +503,22 @@ def create_entry_from_commit(commit_hash):
 - Deletions: -{commit['deletions']}
 """
         
+        # Determine status - use custom if provided, otherwise get default for entry type
+        status = custom_status
+        if not status:
+            # Get default status for this entry type
+            cursor.execute('''
+                SELECT name FROM EntryState 
+                WHERE entry_type_id = ? AND is_default = 1
+                LIMIT 1
+            ''', (entry_type_id,))
+            default_state = cursor.fetchone()
+            status = default_state[0] if default_state else 'active'
+        
         cursor.execute('''
-            INSERT INTO Entry (entry_type_id, title, description, created_at)
-            VALUES (?, ?, ?, ?)
-        ''', (entry_type_id, title, description, commit['commit_date']))
+            INSERT INTO Entry (entry_type_id, title, description, status, created_at)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (entry_type_id, title, description, status, commit['commit_date']))
         
         entry_id = cursor.lastrowid
         

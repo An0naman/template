@@ -409,10 +409,19 @@ class GitService:
 - Deletions: -{commit_data['deletions']}
 """
         
+        # Get default status for this entry type
         cursor.execute('''
-            INSERT INTO Entry (entry_type_id, title, description, created_at)
-            VALUES (?, ?, ?, ?)
-        ''', (entry_type_id, title, description, commit_data['date']))
+            SELECT name FROM EntryState 
+            WHERE entry_type_id = ? AND is_default = 1
+            LIMIT 1
+        ''', (entry_type_id,))
+        default_state = cursor.fetchone()
+        status = default_state[0] if default_state else 'active'
+        
+        cursor.execute('''
+            INSERT INTO Entry (entry_type_id, title, description, status, created_at)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (entry_type_id, title, description, status, commit_data['date']))
         
         entry_id = cursor.lastrowid
         

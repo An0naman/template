@@ -1621,6 +1621,13 @@ async function showLinkCommitModal(commitHash, commitMessage, defaultEntryType, 
                                     <label class="form-label">Entry Title</label>
                                     <input type="text" class="form-control" id="newEntryTitle" value="${escapeHtml(commitMessage).substring(0, 200)}">
                                 </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Initial Status</label>
+                                    <select class="form-select" id="newEntryStatus">
+                                        <option value="">Select status...</option>
+                                    </select>
+                                    <small class="text-muted">Select an entry type first to load available statuses</small>
+                                </div>
                                 <button class="btn btn-primary" id="createEntryBtn">
                                     <i class="fas fa-plus"></i> Create Entry
                                 </button>
@@ -1645,10 +1652,52 @@ async function showLinkCommitModal(commitHash, commitMessage, defaultEntryType, 
     // Setup search functionality
     setupEntrySearch(commitHash, defaultEntryType, allowedStatuses);
     
+    // Setup entry type change handler to load states
+    const entryTypeSelect = document.getElementById('newEntryType');
+    const statusSelect = document.getElementById('newEntryStatus');
+    
+    async function loadStatesForEntryType(entryTypeId) {
+        if (!entryTypeId) {
+            statusSelect.innerHTML = '<option value="">Select status...</option>';
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/entry_types/${entryTypeId}/states`);
+            const states = await response.json();
+            
+            if (states.length === 0) {
+                statusSelect.innerHTML = '<option value="">No statuses available</option>';
+                return;
+            }
+            
+            // Find default state
+            const defaultState = states.find(s => s.is_default);
+            
+            statusSelect.innerHTML = states.map(state => 
+                `<option value="${state.name}" ${state.is_default ? 'selected' : ''}>${state.name}</option>`
+            ).join('');
+            
+        } catch (error) {
+            console.error('Error loading states:', error);
+            statusSelect.innerHTML = '<option value="">Error loading statuses</option>';
+        }
+    }
+    
+    entryTypeSelect.addEventListener('change', function() {
+        loadStatesForEntryType(this.value);
+    });
+    
+    // Load states for default entry type if set
+    if (defaultEntryType) {
+        loadStatesForEntryType(defaultEntryType);
+    }
+    
     // Setup create entry button
     document.getElementById('createEntryBtn').addEventListener('click', async function() {
         const entryTypeId = document.getElementById('newEntryType').value;
         const title = document.getElementById('newEntryTitle').value;
+        const status = document.getElementById('newEntryStatus').value;
         
         if (!entryTypeId) {
             showNotification('Please select an entry type', 'warning');
@@ -1660,7 +1709,7 @@ async function showLinkCommitModal(commitHash, commitMessage, defaultEntryType, 
             return;
         }
         
-        await createEntryFromCommit(commitHash, entryTypeId, title);
+        await createEntryFromCommit(commitHash, entryTypeId, title, status);
         modal.hide();
     });
 }
@@ -1792,15 +1841,22 @@ async function unlinkCommit(commitHash) {
     }
 }
 
-async function createEntryFromCommit(commitHash, entryTypeId, title) {
+async function createEntryFromCommit(commitHash, entryTypeId, title, status = null) {
     try {
+        const requestBody = { 
+            entry_type_id: entryTypeId,
+            title: title
+        };
+        
+        // Add status if provided
+        if (status) {
+            requestBody.status = status;
+        }
+        
         const response = await fetch(`/api/git/commits/${commitHash}/create-entry`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                entry_type_id: entryTypeId,
-                title: title
-            })
+            body: JSON.stringify(requestBody)
         });
         
         const result = await response.json();
