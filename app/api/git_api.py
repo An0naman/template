@@ -674,6 +674,19 @@ def get_entry_commits(entry_id):
                 'error': 'Entry not found'
             }), 404
         
+        # Check if GitCommit table exists
+        cursor.execute("""
+            SELECT name FROM sqlite_master 
+            WHERE type='table' AND name='GitCommit'
+        """)
+        if not cursor.fetchone():
+            # Git integration tables don't exist yet
+            return jsonify({
+                'success': True,
+                'commits': [],
+                'count': 0
+            })
+        
         # Get all commits linked to this entry
         cursor.execute('''
             SELECT 
