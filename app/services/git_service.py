@@ -396,7 +396,7 @@ class GitService:
         
         # Create entry
         title = commit_data['message'][:200]  # Limit title length
-        content = f"""**Commit:** `{commit_data['short_hash']}`
+        description = f"""**Commit:** `{commit_data['short_hash']}`
 **Author:** {commit_data['author']} <{commit_data['author_email']}>
 **Date:** {commit_data['date'].strftime('%Y-%m-%d %H:%M:%S')}
 
@@ -410,9 +410,9 @@ class GitService:
 """
         
         cursor.execute('''
-            INSERT INTO Entry (entry_type_id, title, content, created_at)
+            INSERT INTO Entry (entry_type_id, title, description, created_at)
             VALUES (?, ?, ?, ?)
-        ''', (entry_type_id, title, content, commit_data['date']))
+        ''', (entry_type_id, title, description, commit_data['date']))
         
         entry_id = cursor.lastrowid
         

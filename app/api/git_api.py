@@ -488,7 +488,7 @@ def create_entry_from_commit(commit_hash):
         
         # Create entry - use custom title if provided
         title = custom_title if custom_title else commit['message'][:200]
-        content = f"""**Commit:** `{commit['commit_hash'][:7]}`
+        description = f"""**Commit:** `{commit['commit_hash'][:7]}`
 **Repository:** {commit['repo_name']}
 **Author:** {commit['author']} <{commit['author_email']}>
 **Date:** {commit['commit_date']}
@@ -503,9 +503,9 @@ def create_entry_from_commit(commit_hash):
 """
         
         cursor.execute('''
-            INSERT INTO Entry (entry_type_id, title, content, created_at)
+            INSERT INTO Entry (entry_type_id, title, description, created_at)
             VALUES (?, ?, ?, ?)
-        ''', (entry_type_id, title, content, commit['commit_date']))
+        ''', (entry_type_id, title, description, commit['commit_date']))
         
         entry_id = cursor.lastrowid
         
