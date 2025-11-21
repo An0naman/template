@@ -134,12 +134,19 @@
             
             const data = await response.json();
             
+            console.log('Git commits API response:', data);
+            console.log('Commits array:', data.commits);
+            console.log('Commits length:', data.commits ? data.commits.length : 'undefined');
+            
             loadingEl.style.display = 'none';
             
             if (!data.commits || data.commits.length === 0) {
+                console.log('No commits found, showing empty state');
                 emptyEl.style.display = 'block';
                 return;
             }
+            
+            console.log('Rendering', data.commits.length, 'commits');
             
             // Render commits
             listEl.innerHTML = data.commits.map(commit => `

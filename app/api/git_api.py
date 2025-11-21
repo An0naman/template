@@ -700,6 +700,7 @@ def get_entry_commits(entry_id):
         
         # Get all commits linked to this entry
         try:
+            logger.info(f"Querying commits for entry_id={entry_id}")
             cursor.execute('''
                 SELECT 
                     c.commit_hash,
@@ -721,13 +722,15 @@ def get_entry_commits(entry_id):
             
             columns = [desc[0] for desc in cursor.description]
             commits = [dict(zip(columns, row)) for row in cursor.fetchall()]
+            logger.info(f"Found {len(commits)} commits for entry {entry_id}")
         except Exception as query_error:
-            logger.error(f"Error querying commits: {query_error}")
+            logger.error(f"Error querying commits for entry {entry_id}: {query_error}", exc_info=True)
             # If query fails, return empty (graceful degradation)
             return jsonify({
                 'success': True,
                 'commits': [],
-                'count': 0
+                'count': 0,
+                'debug_error': str(query_error)
             })
         
         # Add URL to view commit if available and detect provider from URL
