@@ -675,11 +675,22 @@ def get_entry_commits(entry_id):
             }), 404
         
         # Check if GitCommit table exists
-        cursor.execute("""
-            SELECT name FROM sqlite_master 
-            WHERE type='table' AND name='GitCommit'
-        """)
-        if not cursor.fetchone():
+        try:
+            cursor.execute("""
+                SELECT name FROM sqlite_master 
+                WHERE type='table' AND name='GitCommit'
+            """)
+            table_exists = cursor.fetchone()
+        except Exception as table_check_error:
+            logger.error(f"Error checking for GitCommit table: {table_check_error}")
+            # If we can't even check for the table, return empty
+            return jsonify({
+                'success': True,
+                'commits': [],
+                'count': 0
+            })
+        
+        if not table_exists:
             # Git integration tables don't exist yet
             return jsonify({
                 'success': True,
@@ -688,28 +699,37 @@ def get_entry_commits(entry_id):
             })
         
         # Get all commits linked to this entry
-        cursor.execute('''
-            SELECT 
-                c.commit_hash,
-                c.message,
-                c.message_body,
-                c.author,
-                c.author_email,
-                c.commit_date,
-                c.files_changed,
-                c.insertions,
-                c.deletions,
-                r.name as repository_name,
-                r.url as repository_url,
-                r.provider
-            FROM GitCommit c
-            JOIN GitRepository r ON c.repository_id = r.id
-            WHERE c.entry_id = ?
-            ORDER BY c.commit_date DESC
-        ''', (entry_id,))
-        
-        columns = [desc[0] for desc in cursor.description]
-        commits = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        try:
+            cursor.execute('''
+                SELECT 
+                    c.commit_hash,
+                    c.message,
+                    c.message_body,
+                    c.author,
+                    c.author_email,
+                    c.commit_date,
+                    c.files_changed,
+                    c.insertions,
+                    c.deletions,
+                    r.name as repository_name,
+                    r.url as repository_url,
+                    r.provider
+                FROM GitCommit c
+                JOIN GitRepository r ON c.repository_id = r.id
+                WHERE c.entry_id = ?
+                ORDER BY c.commit_date DESC
+            ''', (entry_id,))
+            
+            columns = [desc[0] for desc in cursor.description]
+            commits = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        except Exception as query_error:
+            logger.error(f"Error querying commits: {query_error}")
+            # If query fails, return empty (graceful degradation)
+            return jsonify({
+                'success': True,
+                'commits': [],
+                'count': 0
+            })
         
         # Add URL to view commit if available
         for commit in commits:
@@ -732,7 +752,10 @@ def get_entry_commits(entry_id):
     
     except Exception as e:
         logger.error(f"Failed to get commits for entry {entry_id}: {e}")
+        # Even on error, return empty list instead of 500
         return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+            'success': True,
+            'commits': [],
+            'count': 0,
+            'warning': 'Error loading commits'
+        }), 200
