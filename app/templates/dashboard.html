@@ -396,16 +396,21 @@
                             <label for="widgetType" class="form-label">Widget Type</label>
                             <select class="form-select" id="widgetType" required>
                                 <option value="">Select widget type...</option>
-                                <option value="list">Entry List</option>
-                                <option value="chart">Chart (Visual Data)</option>
+                                <option value="list">📋 Entry List</option>
+                                <option value="chart">📈 Chart (Visual Data)</option>
                                 {% if get_system_parameters().get('enable_sensors', '1') == '1' %}
-                                <option value="line_chart">Line Chart (Sensor Data)</option>
+                                <option value="line_chart">📉 Line Chart (Sensor Data)</option>
+                                {% else %}
+                                <option value="" disabled>📉 Line Chart (Enable sensors in settings)</option>
                                 {% endif %}
-                                <option value="stat_card">Stat Card</option>
-                                <option value="ai_summary">AI Summary</option>
+                                <option value="stat_card">📊 Stat Card</option>
+                                <option value="ai_summary">🤖 AI Summary</option>
                                 {% if get_system_parameters().get('git_integration_enabled', '0') == '1' %}
-                                <option value="git_commits">Git Commits</option>
-                                <option value="git_commits_chart">Git Commits Chart</option>
+                                <option value="git_commits">🔀 Git Commits</option>
+                                <option value="git_commits_chart">📊 Git Commits Chart</option>
+                                {% else %}
+                                <option value="" disabled>🔀 Git Commits (Enable git in settings)</option>
+                                <option value="" disabled>📊 Git Commits Chart (Enable git in settings)</option>
                                 {% endif %}
                             </select>
                         </div>

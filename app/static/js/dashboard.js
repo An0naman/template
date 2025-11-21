@@ -451,10 +451,20 @@ function handleWidgetTypeChange(event) {
         savedSearchConfig.style.display = 'block';
     } else if (widgetType === 'git_commits') {
         const gitCommitsConfig = document.getElementById('gitCommitsConfig');
-        if (gitCommitsConfig) gitCommitsConfig.style.display = 'block';
+        if (gitCommitsConfig) {
+            gitCommitsConfig.style.display = 'block';
+        } else {
+            // Git integration is not enabled
+            showNotification('Git integration is not enabled. Please enable it in System Settings to use git widgets.', 'warning');
+        }
     } else if (widgetType === 'git_commits_chart') {
         const gitCommitsChartConfig = document.getElementById('gitCommitsChartConfig');
-        if (gitCommitsChartConfig) gitCommitsChartConfig.style.display = 'block';
+        if (gitCommitsChartConfig) {
+            gitCommitsChartConfig.style.display = 'block';
+        } else {
+            // Git integration is not enabled
+            showNotification('Git integration is not enabled. Please enable it in System Settings to use git widgets.', 'warning');
+        }
     }
 }
 
@@ -560,7 +570,13 @@ async function addWidget() {
     }
     
     if (widgetType === 'git_commits') {
-        const repoId = document.getElementById('gitRepositorySelect').value;
+        const repoSelect = document.getElementById('gitRepositorySelect');
+        if (!repoSelect) {
+            showNotification('Git integration is not enabled in this app', 'error');
+            return;
+        }
+        
+        const repoId = repoSelect.value;
         const commitLimit = document.getElementById('gitCommitLimit').value;
         
         if (repoId) {
@@ -570,13 +586,19 @@ async function addWidget() {
                 commit_limit: parseInt(commitLimit)
             };
         } else {
-            showNotification('Please select a repository', 'warning');
+            showNotification('Please select a repository or configure one in Settings', 'warning');
             return;
         }
     }
     
     if (widgetType === 'git_commits_chart') {
-        const repoId = document.getElementById('gitChartRepositorySelect').value;
+        const repoSelect = document.getElementById('gitChartRepositorySelect');
+        if (!repoSelect) {
+            showNotification('Git integration is not enabled in this app', 'error');
+            return;
+        }
+        
+        const repoId = repoSelect.value;
         const grouping = document.getElementById('gitChartGrouping').value;
         const timeRange = document.getElementById('gitChartTimeRange').value;
         
@@ -588,7 +610,7 @@ async function addWidget() {
                 time_range: parseInt(timeRange)
             };
         } else {
-            showNotification('Please select a repository', 'warning');
+            showNotification('Please select a repository or configure one in Settings', 'warning');
             return;
         }
     }
