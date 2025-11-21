@@ -1,0 +1,267 @@
+<!-- Git Commits Section -->
+<div id="gitCommitsSection" class="git-commits-section">
+    <div id="gitCommitsLoading" class="text-center py-4">
+        <div class="spinner-border spinner-border-sm text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="text-muted mt-2 mb-0">Loading git commits...</p>
+    </div>
+    
+    <div id="gitCommitsContent" style="display: none;">
+        <div id="gitCommitsList"></div>
+    </div>
+    
+    <div id="gitCommitsEmpty" class="text-center py-4" style="display: none;">
+        <i class="fas fa-code-branch fa-2x text-muted mb-2"></i>
+        <p class="text-muted mb-0">No git commits linked to this entry</p>
+    </div>
+    
+    <div id="gitCommitsError" class="alert alert-danger" style="display: none;" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <span id="gitCommitsErrorMessage">Failed to load git commits</span>
+    </div>
+</div>
+
+<style>
+.git-commits-section {
+    padding: 0.5rem 0;
+}
+
+.git-commit-item {
+    border: 1px solid var(--theme-border, var(--bs-border-color));
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    background: var(--theme-bg-surface, var(--bs-body-bg));
+    transition: all 0.2s;
+}
+
+.git-commit-item:hover {
+    border-color: var(--theme-primary, var(--bs-primary));
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.git-commit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 0.75rem;
+}
+
+.git-commit-hash {
+    font-family: monospace;
+    font-size: 0.875rem;
+    color: var(--theme-primary, var(--bs-primary));
+    font-weight: 600;
+}
+
+.git-commit-date {
+    font-size: 0.875rem;
+    color: var(--theme-text-muted, var(--bs-secondary-color));
+}
+
+.git-commit-message {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: var(--theme-text, var(--bs-body-color));
+}
+
+.git-commit-author {
+    font-size: 0.875rem;
+    color: var(--theme-text-muted, var(--bs-secondary-color));
+    margin-bottom: 0.5rem;
+}
+
+.git-commit-stats {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.875rem;
+    color: var(--theme-text-muted, var(--bs-secondary-color));
+}
+
+.git-commit-stat {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.git-commit-stat.additions {
+    color: #28a745;
+}
+
+.git-commit-stat.deletions {
+    color: #dc3545;
+}
+
+.git-commit-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.git-commit-actions .btn {
+    font-size: 0.875rem;
+    padding: 0.25rem 0.75rem;
+}
+
+.git-repo-badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    background: var(--theme-bg-secondary, var(--bs-secondary-bg));
+    border-radius: 0.25rem;
+    margin-bottom: 0.5rem;
+}
+</style>
+
+<script>
+(function() {
+    const entryId = {{ entry.id }};
+    
+    async function loadGitCommits() {
+        const loadingEl = document.getElementById('gitCommitsLoading');
+        const contentEl = document.getElementById('gitCommitsContent');
+        const emptyEl = document.getElementById('gitCommitsEmpty');
+        const errorEl = document.getElementById('gitCommitsError');
+        const listEl = document.getElementById('gitCommitsList');
+        
+        try {
+            const response = await fetch(`/api/entries/${entryId}/git/commits`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            loadingEl.style.display = 'none';
+            
+            if (!data.commits || data.commits.length === 0) {
+                emptyEl.style.display = 'block';
+                return;
+            }
+            
+            // Render commits
+            listEl.innerHTML = data.commits.map(commit => `
+                <div class="git-commit-item">
+                    ${commit.repository_name ? `<span class="git-repo-badge"><i class="fas fa-code-branch me-1"></i>${escapeHtml(commit.repository_name)}</span>` : ''}
+                    <div class="git-commit-header">
+                        <div>
+                            <code class="git-commit-hash">${escapeHtml(commit.commit_hash.substring(0, 7))}</code>
+                        </div>
+                        <span class="git-commit-date">
+                            <i class="far fa-clock me-1"></i>
+                            ${new Date(commit.commit_date).toLocaleString()}
+                        </span>
+                    </div>
+                    <div class="git-commit-message">${escapeHtml(commit.message)}</div>
+                    <div class="git-commit-author">
+                        <i class="far fa-user me-1"></i>
+                        ${escapeHtml(commit.author)}${commit.author_email ? ` <${escapeHtml(commit.author_email)}>` : ''}
+                    </div>
+                    ${commit.files_changed !== null ? `
+                    <div class="git-commit-stats">
+                        <span class="git-commit-stat">
+                            <i class="fas fa-file"></i>
+                            ${commit.files_changed} file${commit.files_changed !== 1 ? 's' : ''}
+                        </span>
+                        ${commit.insertions !== null ? `
+                        <span class="git-commit-stat additions">
+                            <i class="fas fa-plus"></i>
+                            +${commit.insertions}
+                        </span>
+                        ` : ''}
+                        ${commit.deletions !== null ? `
+                        <span class="git-commit-stat deletions">
+                            <i class="fas fa-minus"></i>
+                            -${commit.deletions}
+                        </span>
+                        ` : ''}
+                    </div>
+                    ` : ''}
+                    <div class="git-commit-actions">
+                        ${commit.url ? `
+                        <a href="${escapeHtml(commit.url)}" target="_blank" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-external-link-alt me-1"></i>View on ${commit.provider || 'Git'}
+                        </a>
+                        ` : ''}
+                        <button class="btn btn-sm btn-outline-danger unlink-commit-btn" data-commit-hash="${escapeHtml(commit.commit_hash)}">
+                            <i class="fas fa-unlink me-1"></i>Unlink
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            
+            // Attach unlink handlers
+            listEl.querySelectorAll('.unlink-commit-btn').forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const commitHash = this.dataset.commitHash;
+                    if (confirm('Are you sure you want to unlink this commit from this entry?')) {
+                        await unlinkCommit(commitHash);
+                    }
+                });
+            });
+            
+            contentEl.style.display = 'block';
+            
+        } catch (error) {
+            console.error('Error loading git commits:', error);
+            loadingEl.style.display = 'none';
+            errorEl.style.display = 'block';
+            document.getElementById('gitCommitsErrorMessage').textContent = 
+                error.message || 'Failed to load git commits';
+        }
+    }
+    
+    async function unlinkCommit(commitHash) {
+        try {
+            const response = await fetch(`/api/git/commits/${commitHash}/unlink`, {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showNotification('Commit unlinked successfully', 'success');
+                // Reload the commits
+                document.getElementById('gitCommitsContent').style.display = 'none';
+                document.getElementById('gitCommitsLoading').style.display = 'block';
+                await loadGitCommits();
+            } else {
+                showNotification(result.error || 'Failed to unlink commit', 'error');
+            }
+        } catch (error) {
+            console.error('Error unlinking commit:', error);
+            showNotification('Failed to unlink commit', 'error');
+        }
+    }
+    
+    function escapeHtml(text) {
+        if (!text) return '';
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return String(text).replace(/[&<>"']/g, m => map[m]);
+    }
+    
+    function showNotification(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type === 'error' ? 'danger' : type} position-fixed top-0 end-0 m-3`;
+        toast.style.zIndex = '9999';
+        toast.textContent = message;
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+    
+    // Load commits when the page loads
+    loadGitCommits();
+})();
+</script>

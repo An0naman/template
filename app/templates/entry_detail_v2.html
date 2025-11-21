@@ -492,6 +492,8 @@
                                             {% with section_id=section.id %}{% include 'sections/_timeline_section.html' %}{% endwith %}
                                         {% elif section_type == 'drawio' %}
                                             {% with section_id=section.id %}{% include 'sections/_drawio_section.html' %}{% endwith %}
+                                        {% elif section_type == 'git_commits' %}
+                                            {% with section_id=section.id %}{% include 'sections/_git_commits_section.html' %}{% endwith %}
                                         {% endif %}
                                 
                                 </div>

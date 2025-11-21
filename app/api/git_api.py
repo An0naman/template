@@ -648,11 +648,77 @@ def unlink_commit_from_entry(commit_hash):
         
         return jsonify({
             'success': True,
-            'message': 'Commit unlinked from entry'
+            'message': 'Commit unlinked successfully'
         })
     
     except Exception as e:
         logger.error(f"Failed to unlink commit: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@git_api_bp.route('/api/entries/<int:entry_id>/git/commits', methods=['GET'])
+def get_entry_commits(entry_id):
+    """Get all git commits linked to an entry"""
+    try:
+        from app.db import get_connection
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Verify entry exists
+        cursor.execute('SELECT id FROM Entry WHERE id = ?', (entry_id,))
+        if not cursor.fetchone():
+            return jsonify({
+                'success': False,
+                'error': 'Entry not found'
+            }), 404
+        
+        # Get all commits linked to this entry
+        cursor.execute('''
+            SELECT 
+                c.commit_hash,
+                c.message,
+                c.message_body,
+                c.author,
+                c.author_email,
+                c.commit_date,
+                c.files_changed,
+                c.insertions,
+                c.deletions,
+                r.name as repository_name,
+                r.url as repository_url,
+                r.provider
+            FROM GitCommit c
+            JOIN GitRepository r ON c.repository_id = r.id
+            WHERE c.entry_id = ?
+            ORDER BY c.commit_date DESC
+        ''', (entry_id,))
+        
+        columns = [desc[0] for desc in cursor.description]
+        commits = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        
+        # Add URL to view commit if available
+        for commit in commits:
+            if commit['repository_url'] and commit['provider']:
+                base_url = commit['repository_url'].rstrip('/')
+                if commit['provider'] == 'github':
+                    commit['url'] = f"{base_url}/commit/{commit['commit_hash']}"
+                elif commit['provider'] == 'gitlab':
+                    commit['url'] = f"{base_url}/-/commit/{commit['commit_hash']}"
+                else:
+                    commit['url'] = None
+            else:
+                commit['url'] = None
+        
+        return jsonify({
+            'success': True,
+            'commits': commits,
+            'count': len(commits)
+        })
+    
+    except Exception as e:
+        logger.error(f"Failed to get commits for entry {entry_id}: {e}")
         return jsonify({
             'success': False,
             'error': str(e)

@@ -219,6 +219,19 @@ class EntryLayoutService:
                 'toolbar': True,
                 'save_automatically': True
             }
+        },
+        'git_commits': {
+            'title': 'Git Commits',
+            'section_type': 'git_commits',
+            'position_x': 0,
+            'position_y': 110,
+            'width': 12,
+            'height': 4,
+            'is_visible': 0,
+            'is_collapsible': 1,
+            'default_collapsed': 0,
+            'display_order': 110,
+            'config': {}
         }
     }
     
