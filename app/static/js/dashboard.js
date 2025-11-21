@@ -384,6 +384,26 @@ async function showAddWidgetModal() {
         }
     }
     
+    // Populate git repositories for chart widget
+    const gitChartRepoSelect = document.getElementById('gitChartRepositorySelect');
+    if (gitChartRepoSelect) {
+        try {
+            const res = await fetch('/api/git/repositories');
+            const data = await res.json();
+            gitChartRepoSelect.innerHTML = '<option value="">Select repository...</option>';
+            if (data.success && data.repositories) {
+                data.repositories.forEach(repo => {
+                    const option = document.createElement('option');
+                    option.value = repo.id;
+                    option.textContent = repo.name;
+                    gitChartRepoSelect.appendChild(option);
+                });
+            }
+        } catch (e) {
+            console.warn('Could not load git repositories for chart', e);
+        }
+    }
+    
     const modal = new bootstrap.Modal(document.getElementById('addWidgetModal'));
     modal.show();
 }
@@ -424,6 +444,9 @@ function handleWidgetTypeChange(event) {
     } else if (widgetType === 'git_commits') {
         const gitCommitsConfig = document.getElementById('gitCommitsConfig');
         if (gitCommitsConfig) gitCommitsConfig.style.display = 'block';
+    } else if (widgetType === 'git_commits_chart') {
+        const gitCommitsChartConfig = document.getElementById('gitCommitsChartConfig');
+        if (gitCommitsChartConfig) gitCommitsChartConfig.style.display = 'block';
     }
 }
 
@@ -537,6 +560,24 @@ async function addWidget() {
             widgetData.data_source_id = parseInt(repoId);
             widgetData.config = {
                 commit_limit: parseInt(commitLimit)
+            };
+        } else {
+            showNotification('Please select a repository', 'warning');
+            return;
+        }
+    }
+    
+    if (widgetType === 'git_commits_chart') {
+        const repoId = document.getElementById('gitChartRepositorySelect').value;
+        const grouping = document.getElementById('gitChartGrouping').value;
+        const timeRange = document.getElementById('gitChartTimeRange').value;
+        
+        if (repoId) {
+            widgetData.data_source_type = 'git_repository';
+            widgetData.data_source_id = parseInt(repoId);
+            widgetData.config = {
+                grouping: grouping,
+                time_range: parseInt(timeRange)
             };
         } else {
             showNotification('Please select a repository', 'warning');
@@ -738,6 +779,55 @@ async function editWidget(widgetId) {
         }
     }
     
+    // For git commits chart widgets, load repository configuration
+    if (widget.widget_type === 'git_commits_chart') {
+        // Load git repositories into chart select
+        const gitChartRepoSelect = document.getElementById('gitChartRepositorySelect');
+        if (gitChartRepoSelect) {
+            try {
+                const res = await fetch('/api/git/repositories');
+                const data = await res.json();
+                gitChartRepoSelect.innerHTML = '<option value="">Select repository...</option>';
+                if (data.success && data.repositories) {
+                    data.repositories.forEach(repo => {
+                        const option = document.createElement('option');
+                        option.value = repo.id;
+                        option.textContent = repo.name;
+                        gitChartRepoSelect.appendChild(option);
+                    });
+                }
+            } catch (e) {
+                console.warn('Could not load git repositories for chart during edit', e);
+            }
+            
+            // Set the selected repository
+            if (widget.data_source_type === 'git_repository' && widget.data_source_id) {
+                gitChartRepoSelect.value = widget.data_source_id;
+            }
+        }
+        
+        // Set chart configuration if available
+        if (widget.config) {
+            try {
+                const config = typeof widget.config === 'string' ? JSON.parse(widget.config) : widget.config;
+                if (config.grouping) {
+                    const groupingSelect = document.getElementById('gitChartGrouping');
+                    if (groupingSelect) {
+                        groupingSelect.value = config.grouping;
+                    }
+                }
+                if (config.time_range) {
+                    const timeRangeSelect = document.getElementById('gitChartTimeRange');
+                    if (timeRangeSelect) {
+                        timeRangeSelect.value = config.time_range;
+                    }
+                }
+            } catch (e) {
+                console.error('Error parsing widget config for git commits chart:', e);
+            }
+        }
+    }
+    
     // Store the widget ID for updating
     document.getElementById('saveWidgetBtn').dataset.editingWidgetId = widgetId;
     document.getElementById('saveWidgetBtn').textContent = 'Update Widget';
@@ -866,6 +956,9 @@ function renderWidget(widget, data) {
             break;
         case 'git_commits':
             renderGitCommits(bodyEl, data);
+            break;
+        case 'git_commits_chart':
+            renderGitCommitsChart(bodyEl, widget.id, data, widget);
             break;
         default:
             bodyEl.innerHTML = '<div class="text-muted">Unknown widget type</div>';
@@ -1311,6 +1404,90 @@ function renderGitCommits(bodyEl, data) {
     
     // Attach event listeners
     attachGitCommitEventListeners(bodyEl);
+}
+
+function renderGitCommitsChart(bodyEl, widgetId, data, widget) {
+    if (data.error) {
+        bodyEl.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+        return;
+    }
+    
+    if (!data.success || !data.timeline) {
+        bodyEl.innerHTML = '<div class="text-muted text-center p-3">No commit data available</div>';
+        return;
+    }
+    
+    // Clear any existing chart
+    if (widgetCharts[widgetId]) {
+        widgetCharts[widgetId].destroy();
+        delete widgetCharts[widgetId];
+    }
+    
+    // Create canvas for chart
+    bodyEl.innerHTML = '<div class="chart-container"><canvas id="chart-' + widgetId + '"></canvas></div>';
+    const canvas = document.getElementById('chart-' + widgetId);
+    const ctx = canvas.getContext('2d');
+    
+    // Prepare chart data
+    const labels = data.timeline.map(point => point.period);
+    const values = data.timeline.map(point => point.count);
+    
+    // Create chart
+    widgetCharts[widgetId] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Commits',
+                data: values,
+                backgroundColor: 'rgba(111, 66, 193, 0.7)',
+                borderColor: 'rgba(111, 66, 193, 1)',
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                title: {
+                    display: true,
+                    text: `Commit Activity - ${data.repository_name || 'Repository'}`,
+                    color: getComputedStyle(document.documentElement).getPropertyValue('--bs-body-color').trim() || '#212529'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.parsed.y} commit${context.parsed.y !== 1 ? 's' : ''}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1,
+                        color: getComputedStyle(document.documentElement).getPropertyValue('--bs-body-color').trim() || '#6c757d'
+                    },
+                    grid: {
+                        color: getComputedStyle(document.documentElement).getPropertyValue('--bs-border-color').trim() || '#dee2e6'
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: getComputedStyle(document.documentElement).getPropertyValue('--bs-body-color').trim() || '#6c757d'
+                    },
+                    grid: {
+                        color: getComputedStyle(document.documentElement).getPropertyValue('--bs-border-color').trim() || '#dee2e6'
+                    }
+                }
+            }
+        }
+    });
 }
 
 // Helper function to escape HTML

@@ -405,6 +405,7 @@
                                 <option value="ai_summary">AI Summary</option>
                                 {% if get_system_parameters().get('git_integration_enabled', '0') == '1' %}
                                 <option value="git_commits">Git Commits</option>
+                                <option value="git_commits_chart">Git Commits Chart</option>
                                 {% endif %}
                             </select>
                         </div>
@@ -537,6 +538,41 @@
                                     <option value="50">50 commits</option>
                                     <option value="100">100 commits</option>
                                 </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Git Commits Chart Configuration -->
+                        <div id="gitCommitsChartConfig" style="display: none;">
+                            <hr>
+                            <h6><i class="fas fa-chart-line me-2"></i>Git Commits Chart</h6>
+                            <div class="mb-3">
+                                <label for="gitChartRepositorySelect" class="form-label">Repository</label>
+                                <select class="form-select" id="gitChartRepositorySelect">
+                                    <option value="">Select repository...</option>
+                                </select>
+                                <small class="text-muted">Choose which repository to display commits from</small>
+                            </div>
+                            <div class="mb-3">
+                                <label for="gitChartGrouping" class="form-label">Group By</label>
+                                <select class="form-select" id="gitChartGrouping">
+                                    <option value="day">Day</option>
+                                    <option value="week" selected>Week</option>
+                                    <option value="month">Month</option>
+                                </select>
+                                <small class="text-muted">How to group commits over time</small>
+                            </div>
+                            <div class="mb-3">
+                                <label for="gitChartTimeRange" class="form-label">Time Range</label>
+                                <select class="form-select" id="gitChartTimeRange">
+                                    <option value="7">Last 7 days</option>
+                                    <option value="14">Last 14 days</option>
+                                    <option value="30" selected>Last 30 days</option>
+                                    <option value="60">Last 60 days</option>
+                                    <option value="90">Last 90 days</option>
+                                    <option value="180">Last 6 months</option>
+                                    <option value="365">Last year</option>
+                                </select>
+                                <small class="text-muted">How far back to look for commits</small>
                             </div>
                         </div>
                         {% endif %}

@@ -1019,6 +1019,118 @@ Please incorporate these specific instructions into your analysis and summary.""
         except Exception as e:
             logger.error(f"Error getting git commits for repo {repo_id}: {e}")
             return {'error': str(e)}
+    
+    @staticmethod
+    def get_git_commits_timeline(repo_id: int, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Get commit timeline data for a Git repository
+        
+        Args:
+            repo_id: ID of the Git repository
+            config: Widget configuration with grouping and time_range
+            
+        Returns:
+            Dict with timeline data
+        """
+        try:
+            conn = DashboardService.get_db()
+            cursor = conn.cursor()
+            
+            # Get repository info
+            cursor.execute('SELECT name FROM GitRepository WHERE id = ?', (repo_id,))
+            repo_row = cursor.fetchone()
+            if not repo_row:
+                return {'error': 'Repository not found'}
+            
+            repo_name = repo_row['name']
+            
+            # Get configuration
+            grouping = config.get('grouping', 'week')  # day, week, month
+            time_range = config.get('time_range', 30)  # days to look back
+            
+            # Calculate the date threshold
+            from datetime import datetime, timedelta
+            threshold_date = datetime.now() - timedelta(days=time_range)
+            threshold_str = threshold_date.strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Get commits within the time range
+            cursor.execute('''
+                SELECT commit_date
+                FROM GitCommit
+                WHERE repository_id = ? AND commit_date >= ?
+                ORDER BY commit_date ASC
+            ''', (repo_id, threshold_str))
+            
+            commits = cursor.fetchall()
+            
+            if not commits:
+                return {
+                    'success': True,
+                    'repository_name': repo_name,
+                    'timeline': [],
+                    'grouping': grouping,
+                    'time_range': time_range
+                }
+            
+            # Group commits by time period
+            from collections import defaultdict
+            timeline_data = defaultdict(int)
+            
+            for row in commits:
+                commit_date = datetime.fromisoformat(row['commit_date'])
+                
+                if grouping == 'day':
+                    period_key = commit_date.strftime('%Y-%m-%d')
+                    period_label = commit_date.strftime('%b %d')
+                elif grouping == 'week':
+                    # Get the Monday of the week
+                    week_start = commit_date - timedelta(days=commit_date.weekday())
+                    period_key = week_start.strftime('%Y-%m-%d')
+                    period_label = week_start.strftime('%b %d')
+                elif grouping == 'month':
+                    period_key = commit_date.strftime('%Y-%m')
+                    period_label = commit_date.strftime('%b %Y')
+                else:
+                    period_key = commit_date.strftime('%Y-%m-%d')
+                    period_label = commit_date.strftime('%b %d')
+                
+                timeline_data[period_key] = timeline_data[period_key] + 1
+            
+            # Convert to list and sort
+            timeline = []
+            for period_key in sorted(timeline_data.keys()):
+                # Recreate the label from the key
+                if grouping == 'day':
+                    dt = datetime.strptime(period_key, '%Y-%m-%d')
+                    period_label = dt.strftime('%b %d')
+                elif grouping == 'week':
+                    dt = datetime.strptime(period_key, '%Y-%m-%d')
+                    period_label = dt.strftime('%b %d')
+                elif grouping == 'month':
+                    dt = datetime.strptime(period_key, '%Y-%m')
+                    period_label = dt.strftime('%b %Y')
+                else:
+                    dt = datetime.strptime(period_key, '%Y-%m-%d')
+                    period_label = dt.strftime('%b %d')
+                
+                timeline.append({
+                    'period': period_label,
+                    'period_key': period_key,
+                    'count': timeline_data[period_key]
+                })
+            
+            return {
+                'success': True,
+                'repository_name': repo_name,
+                'timeline': timeline,
+                'total_commits': sum(timeline_data.values()),
+                'grouping': grouping,
+                'time_range': time_range
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting git commits timeline for repo {repo_id}: {e}")
+            return {'error': str(e)}
 
     @staticmethod
     def get_widget_data(widget: Dict[str, Any]) -> Dict[str, Any]:
@@ -1119,6 +1231,10 @@ Please incorporate these specific instructions into your analysis and summary.""
             elif widget_type == 'git_commits' and data_source_type == 'git_repository':
                 # Get commits from Git integration
                 return DashboardService.get_git_commits(data_source_id, config)
+            
+            elif widget_type == 'git_commits_chart' and data_source_type == 'git_repository':
+                # Get commit timeline data for Git chart
+                return DashboardService.get_git_commits_timeline(data_source_id, config)
             
             return {'error': 'Unsupported widget type or data source'}
             
