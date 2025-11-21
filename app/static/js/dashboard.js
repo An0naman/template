@@ -1994,3 +1994,22 @@ function showNotification(message, type = 'info') {
         toast.remove();
     }, 3000);
 }
+
+function showBanner(message, type = 'info') {
+    // Create a banner notification at the top of the page
+    const banner = document.createElement('div');
+    banner.className = `alert alert-${type === 'error' ? 'danger' : type === 'warning' ? 'warning' : type === 'success' ? 'success' : 'info'} alert-dismissible fade show position-fixed start-50 translate-middle-x`;
+    banner.style.cssText = 'top: 20px; z-index: 9999; min-width: 300px; max-width: 600px;';
+    banner.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    document.body.appendChild(banner);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        banner.classList.remove('show');
+        setTimeout(() => banner.remove(), 150);
+    }, 5000);
+}
