@@ -425,30 +425,34 @@ function handleWidgetTypeChange(event) {
     const aiSummaryPromptConfig = document.getElementById('aiSummaryPromptConfig');
     const chartConfig = document.getElementById('chartConfig');
     
-    // Hide all configs
-    savedSearchConfig.style.display = 'none';
-    sensorDataConfig.style.display = 'none';
-    dataSourceConfig.style.display = 'none';
-    aiSummaryPromptConfig.style.display = 'none';
+    // Hide all configs (check if they exist first)
+    if (savedSearchConfig) savedSearchConfig.style.display = 'none';
+    if (sensorDataConfig) sensorDataConfig.style.display = 'none';
+    if (dataSourceConfig) dataSourceConfig.style.display = 'none';
+    if (aiSummaryPromptConfig) aiSummaryPromptConfig.style.display = 'none';
     if (chartConfig) chartConfig.style.display = 'none';
     
     // Show relevant config based on widget type
     if (widgetType === 'list' || widgetType === 'ai_summary' || widgetType === 'stat_card') {
-        dataSourceConfig.style.display = 'block';
-        savedSearchConfig.style.display = 'block';
+        if (dataSourceConfig) dataSourceConfig.style.display = 'block';
+        if (savedSearchConfig) savedSearchConfig.style.display = 'block';
         
         // Show AI prompt config only for AI summary widgets
-        if (widgetType === 'ai_summary') {
+        if (widgetType === 'ai_summary' && aiSummaryPromptConfig) {
             aiSummaryPromptConfig.style.display = 'block';
         }
     } else if (widgetType === 'line_chart') {
-        dataSourceConfig.style.display = 'block';
-        savedSearchConfig.style.display = 'block';
-        sensorDataConfig.style.display = 'block';
+        if (dataSourceConfig) dataSourceConfig.style.display = 'block';
+        if (savedSearchConfig) savedSearchConfig.style.display = 'block';
+        if (sensorDataConfig) {
+            sensorDataConfig.style.display = 'block';
+        } else {
+            showNotification('Sensor data is not enabled in this app', 'warning');
+        }
     } else if (widgetType === 'chart') {
         if (chartConfig) chartConfig.style.display = 'block';
-        dataSourceConfig.style.display = 'block';
-        savedSearchConfig.style.display = 'block';
+        if (dataSourceConfig) dataSourceConfig.style.display = 'block';
+        if (savedSearchConfig) savedSearchConfig.style.display = 'block';
     } else if (widgetType === 'git_commits') {
         const gitCommitsConfig = document.getElementById('gitCommitsConfig');
         if (gitCommitsConfig) {
