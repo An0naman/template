@@ -600,6 +600,8 @@
                                     {% include 'sections/_timeline_section.html' %}
                                 {% elif section_type == 'drawio' %}
                                     {% with section_id=section.id %}{% include 'sections/_drawio_section.html' %}{% endwith %}
+                                {% elif section_type == 'git_commits' %}
+                                    {% with section_id=section.id %}{% include 'sections/_git_commits_section.html' %}{% endwith %}
                                 {% else %}
                                     <h5>{{ section_type|title }} Section</h5>
                                     <p class="text-muted">Content will go here</p>
