@@ -343,64 +343,72 @@ async function showAddWidgetModal() {
     // Populate saved searches
     if (availableSources && availableSources.saved_searches) {
         const select = document.getElementById('savedSearchSelect');
-        select.innerHTML = '<option value="">Select saved search...</option>';
-        availableSources.saved_searches.forEach(search => {
-            const option = document.createElement('option');
-            option.value = search.id;
-            option.textContent = search.name;
-            select.appendChild(option);
-        });
+        if (select) {
+            select.innerHTML = '<option value="">Select saved search...</option>';
+            availableSources.saved_searches.forEach(search => {
+                const option = document.createElement('option');
+                option.value = search.id;
+                option.textContent = search.name;
+                select.appendChild(option);
+            });
+        }
     }
     
-    // Populate sensor types
+    // Populate sensor types (only if sensor elements exist in DOM)
     if (availableSources && availableSources.sensor_types) {
         const select = document.getElementById('sensorTypeSelect');
-        select.innerHTML = '<option value="">Select sensor type...</option>';
-        availableSources.sensor_types.forEach(sensorType => {
-            const option = document.createElement('option');
-            option.value = sensorType;
-            option.textContent = sensorType;
-            select.appendChild(option);
-        });
+        if (select) {  // Check if element exists before accessing
+            select.innerHTML = '<option value="">Select sensor type...</option>';
+            availableSources.sensor_types.forEach(sensorType => {
+                const option = document.createElement('option');
+                option.value = sensorType;
+                option.textContent = sensorType;
+                select.appendChild(option);
+            });
+        }
     }
     
-    // Populate git repositories
+    // Populate git repositories (only if git integration is enabled)
     const gitRepoSelect = document.getElementById('gitRepositorySelect');
     if (gitRepoSelect) {
         try {
             const res = await fetch('/api/git/repositories');
-            const data = await res.json();
-            gitRepoSelect.innerHTML = '<option value="">Select repository...</option>';
-            if (data.success && data.repositories) {
-                data.repositories.forEach(repo => {
-                    const option = document.createElement('option');
-                    option.value = repo.id;
-                    option.textContent = repo.name;
-                    gitRepoSelect.appendChild(option);
-                });
+            if (res.ok) {
+                const data = await res.json();
+                gitRepoSelect.innerHTML = '<option value="">Select repository...</option>';
+                if (data.success && data.repositories) {
+                    data.repositories.forEach(repo => {
+                        const option = document.createElement('option');
+                        option.value = repo.id;
+                        option.textContent = repo.name;
+                        gitRepoSelect.appendChild(option);
+                    });
+                }
             }
         } catch (e) {
-            console.warn('Could not load git repositories', e);
+            console.warn('Could not load git repositories:', e);
         }
     }
     
-    // Populate git repositories for chart widget
+    // Populate git repositories for chart widget (only if git integration is enabled)
     const gitChartRepoSelect = document.getElementById('gitChartRepositorySelect');
     if (gitChartRepoSelect) {
         try {
             const res = await fetch('/api/git/repositories');
-            const data = await res.json();
-            gitChartRepoSelect.innerHTML = '<option value="">Select repository...</option>';
-            if (data.success && data.repositories) {
-                data.repositories.forEach(repo => {
-                    const option = document.createElement('option');
-                    option.value = repo.id;
-                    option.textContent = repo.name;
-                    gitChartRepoSelect.appendChild(option);
-                });
+            if (res.ok) {
+                const data = await res.json();
+                gitChartRepoSelect.innerHTML = '<option value="">Select repository...</option>';
+                if (data.success && data.repositories) {
+                    data.repositories.forEach(repo => {
+                        const option = document.createElement('option');
+                        option.value = repo.id;
+                        option.textContent = repo.name;
+                        gitChartRepoSelect.appendChild(option);
+                    });
+                }
             }
         } catch (e) {
-            console.warn('Could not load git repositories for chart', e);
+            console.warn('Could not load git repositories for chart:', e);
         }
     }
     
