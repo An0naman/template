@@ -712,8 +712,7 @@ def get_entry_commits(entry_id):
                     c.insertions,
                     c.deletions,
                     r.name as repository_name,
-                    r.url as repository_url,
-                    r.provider
+                    r.url as repository_url
                 FROM GitCommit c
                 JOIN GitRepository r ON c.repository_id = r.id
                 WHERE c.entry_id = ?
@@ -731,17 +730,23 @@ def get_entry_commits(entry_id):
                 'count': 0
             })
         
-        # Add URL to view commit if available
+        # Add URL to view commit if available and detect provider from URL
         for commit in commits:
-            if commit['repository_url'] and commit['provider']:
-                base_url = commit['repository_url'].rstrip('/')
-                if commit['provider'] == 'github':
+            repo_url = commit.get('repository_url', '')
+            if repo_url:
+                base_url = repo_url.rstrip('/')
+                # Detect provider from URL
+                if 'github.com' in repo_url.lower():
+                    commit['provider'] = 'github'
                     commit['url'] = f"{base_url}/commit/{commit['commit_hash']}"
-                elif commit['provider'] == 'gitlab':
+                elif 'gitlab.com' in repo_url.lower() or 'gitlab' in repo_url.lower():
+                    commit['provider'] = 'gitlab'
                     commit['url'] = f"{base_url}/-/commit/{commit['commit_hash']}"
                 else:
+                    commit['provider'] = None
                     commit['url'] = None
             else:
+                commit['provider'] = None
                 commit['url'] = None
         
         return jsonify({
