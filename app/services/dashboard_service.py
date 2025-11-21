@@ -915,61 +915,51 @@ Please incorporate these specific instructions into your analysis and summary.""
             
             limit = config.get('commit_limit', 10)
             
-            # Check if repository has any commits in database
-            cursor.execute('''
-                SELECT COUNT(*) as count
-                FROM GitCommit 
-                WHERE repository_id = ?
-            ''', (repo_id,))
-            
-            commit_count = cursor.fetchone()['count']
-            
-            # Auto-sync if no commits exist
-            if commit_count == 0:
-                logger.info(f"No commits found for repo {repo_id}, attempting auto-sync")
-                try:
-                    from app.services.git_service import get_git_service
-                    
-                    # Get git token from system parameters
-                    cursor.execute('''
-                        SELECT parameter_value 
-                        FROM SystemParameters 
-                        WHERE parameter_name = 'git_token'
-                    ''')
-                    token_row = cursor.fetchone()
-                    git_token = token_row['parameter_value'] if token_row else None
-                    
-                    if not git_token:
-                        logger.warning("No git_token found in system parameters")
-                        return {
-                            'success': False,
-                            'error': 'Repository not synced. Please configure Git token in System Parameters and sync manually.',
-                            'commits': []
-                        }
-                    
-                    git_service = get_git_service()
-                    
-                    # Clone/update repository first
-                    try:
-                        git_service.clone_or_open_repository(repo_id, token=git_token)
-                    except Exception as clone_error:
-                        logger.error(f"Failed to clone/open repository: {clone_error}")
-                        return {
-                            'success': False,
-                            'error': f'Failed to access repository: {str(clone_error)}',
-                            'commits': []
-                        }
-                    
-                    # Now sync commits
-                    sync_result = git_service.sync_commits(repo_id, limit=max(limit, 100))
-                    logger.info(f"Auto-sync completed: {sync_result}")
-                except Exception as sync_error:
-                    logger.error(f"Auto-sync failed for repo {repo_id}: {sync_error}")
+            # Always sync on page load to get latest commits from remote
+            logger.info(f"Syncing latest commits for repo {repo_id}")
+            try:
+                from app.services.git_service import get_git_service
+                
+                # Get git token from system parameters
+                cursor.execute('''
+                    SELECT parameter_value 
+                    FROM SystemParameters 
+                    WHERE parameter_name = 'git_token'
+                ''')
+                token_row = cursor.fetchone()
+                git_token = token_row['parameter_value'] if token_row else None
+                
+                if not git_token:
+                    logger.warning("No git_token found in system parameters")
                     return {
                         'success': False,
-                        'error': f'Repository sync failed: {str(sync_error)}',
+                        'error': 'Repository not synced. Please configure Git token in System Parameters.',
                         'commits': []
                     }
+                
+                git_service = get_git_service()
+                
+                # Clone/update repository first (pulls latest from remote)
+                try:
+                    git_service.clone_or_open_repository(repo_id, token=git_token)
+                except Exception as clone_error:
+                    logger.error(f"Failed to clone/open repository: {clone_error}")
+                    return {
+                        'success': False,
+                        'error': f'Failed to access repository: {str(clone_error)}',
+                        'commits': []
+                    }
+                
+                # Now sync commits to database
+                sync_result = git_service.sync_commits(repo_id, limit=max(limit, 100))
+                logger.info(f"Sync completed: {sync_result}")
+            except Exception as sync_error:
+                logger.error(f"Sync failed for repo {repo_id}: {sync_error}")
+                return {
+                    'success': False,
+                    'error': f'Repository sync failed: {str(sync_error)}',
+                    'commits': []
+                }
             
             # Get commits for this repository with entry association info and repo settings
             cursor.execute('''
@@ -1043,6 +1033,37 @@ Please incorporate these specific instructions into your analysis and summary.""
                 return {'error': 'Repository not found'}
             
             repo_name = repo_row['name']
+            
+            # Always sync on page load to get latest commits from remote
+            logger.info(f"Syncing latest commits for chart widget, repo {repo_id}")
+            try:
+                from app.services.git_service import get_git_service
+                
+                # Get git token from system parameters
+                cursor.execute('''
+                    SELECT parameter_value 
+                    FROM SystemParameters 
+                    WHERE parameter_name = 'git_token'
+                ''')
+                token_row = cursor.fetchone()
+                git_token = token_row['parameter_value'] if token_row else None
+                
+                if git_token:
+                    git_service = get_git_service()
+                    
+                    # Clone/update repository (pulls latest from remote)
+                    try:
+                        git_service.clone_or_open_repository(repo_id, token=git_token)
+                        # Sync commits to database
+                        sync_result = git_service.sync_commits(repo_id, limit=100)
+                        logger.info(f"Chart widget sync completed: {sync_result}")
+                    except Exception as sync_error:
+                        logger.warning(f"Chart widget sync failed for repo {repo_id}: {sync_error}")
+                        # Continue anyway with existing data
+                else:
+                    logger.warning("No git_token found, using existing commit data")
+            except Exception as e:
+                logger.warning(f"Chart widget sync error: {e}, using existing data")
             
             # Get configuration
             grouping = config.get('grouping', 'week')  # day, week, month
