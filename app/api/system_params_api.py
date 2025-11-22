@@ -50,7 +50,7 @@ def api_update_system_params():
         # Allowed parameter prefixes/names
         allowed_params = [
             # Core UI/system params
-            'project_name', 'entry_singular_label', 'entry_plural_label', 'project_subtitle', 'enable_sensors', 'enable_kanban', 'sensor_types', 
+            'project_name', 'entry_singular_label', 'entry_plural_label', 'project_subtitle', 'enable_sensors', 'enable_sensor_master_control', 'enable_kanban', 'sensor_types', 
             # Git integration settings
             'git_integration_enabled', 'git_provider', 'git_token', 'gitlab_url',
             'project_logo_path', 'label_font_size', 'label_include_qr_code', 'label_include_logo',

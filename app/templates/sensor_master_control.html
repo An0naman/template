@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="{{ 'dark' if theme_settings.dark_mode_enabled else 'light' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor Master Control - {{ project_name }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='notifications_modern.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='mobile.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='ribbon.css') }}">
+    
+    <!-- Dynamic Theme CSS -->
+    <style id="theme-styles">
+        {{ theme_css|safe }}
+    </style>
+    
+<style>
+    :root {
+        --content-spacing: 1.5rem;
+        --border-radius: 0.5rem;
+        --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+        --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    }
+
+    body {
+        background-color: var(--theme-bg-body, var(--bs-body-bg));
+        color: var(--theme-text, var(--bs-body-color));
+    }
+
+    .container-fluid {
+        margin-top: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    /* Status Badges */
+    .master-status-badge {
+        padding: 0.35rem 0.65rem;
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+    
+    .master-status-active {
+        background-color: var(--bs-success-bg-subtle);
+        color: var(--bs-success-text-emphasis);
+        border: 1px solid var(--bs-success-border-subtle);
+    }
+    
+    .master-status-inactive {
+        background-color: var(--bs-danger-bg-subtle);
+        color: var(--bs-danger-text-emphasis);
+        border: 1px solid var(--bs-danger-border-subtle);
+    }
+    
+    /* Sensor Status Icons */
+    .sensor-status-online {
+        color: var(--bs-success);
+    }
+    
+    .sensor-status-offline {
+        color: var(--bs-danger);
+    }
+    
+    .sensor-status-pending {
+        color: var(--bs-warning);
+    }
+    
+    /* Config Viewer */
+    .config-viewer {
+        background-color: var(--theme-bg-surface, var(--bs-tertiary-bg));
+        border: 1px solid var(--theme-border, var(--bs-border-color));
+        border-radius: var(--border-radius);
+        padding: 1rem;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .config-viewer pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        color: var(--theme-text, var(--bs-body-color));
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.875rem;
+    }
+    
+    /* Stat Cards */
+    .stat-card {
+        border-left: 4px solid var(--theme-primary, var(--bs-primary));
+        background: var(--theme-bg-card, var(--bs-body-bg));
+        border: 1px solid var(--theme-border, var(--bs-border-color));
+        border-left: 4px solid var(--theme-primary, var(--bs-primary));
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-md);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 12px -2px rgb(0 0 0 / 0.15);
+    }
+    
+    .stat-card.success {
+        border-left-color: var(--bs-success);
+    }
+    
+    .stat-card.danger {
+        border-left-color: var(--bs-danger);
+    }
+    
+    .stat-card.warning {
+        border-left-color: var(--bs-warning);
+    }
+
+    .stat-card .card-body h3 {
+        color: var(--theme-primary, var(--bs-primary));
+    }
+
+    .stat-card.success .card-body h3 {
+        color: var(--bs-success);
+    }
+
+    .stat-card.danger .card-body h3 {
+        color: var(--bs-danger);
+    }
+
+    .stat-card.warning .card-body h3 {
+        color: var(--bs-warning);
+    }
+    
+    /* Cards */
+    .card {
+        background: var(--theme-bg-card, var(--bs-body-bg));
+        border: 1px solid var(--theme-border, var(--bs-border-color));
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-md);
+    }
+
+    .card-header {
+        background: var(--theme-bg-surface, var(--bs-secondary-bg));
+        border-bottom: 1px solid var(--theme-border, var(--bs-border-color));
+        color: var(--theme-text, var(--bs-body-color));
+    }
+
+    .card-body {
+        background: var(--theme-bg-card, var(--bs-body-bg));
+    }
+    
+    /* List Items */
+    .sensor-list-item {
+        transition: all 0.2s;
+    }
+    
+    .sensor-list-item:hover {
+        background-color: var(--theme-bg-surface, var(--bs-tertiary-bg));
+        transform: translateX(2px);
+    }
+
+    /* Tables */
+    .table {
+        color: var(--theme-text, var(--bs-body-color));
+    }
+
+    .table thead th {
+        background: var(--theme-bg-surface, var(--bs-secondary-bg));
+        border-color: var(--theme-border, var(--bs-border-color));
+        color: var(--theme-text, var(--bs-body-color));
+    }
+
+    .table tbody tr {
+        border-color: var(--theme-border, var(--bs-border-color));
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: var(--theme-bg-surface, var(--bs-tertiary-bg));
+    }
+
+    /* Modals */
+    .modal-content {
+        background: var(--theme-bg-card, var(--bs-body-bg));
+        border: 1px solid var(--theme-border, var(--bs-border-color));
+        color: var(--theme-text, var(--bs-body-color));
+    }
+
+    .modal-header {
+        border-bottom: 1px solid var(--theme-border, var(--bs-border-color));
+    }
+
+    .modal-footer {
+        border-top: 1px solid var(--theme-border, var(--bs-border-color));
+    }
+
+    /* Form Controls */
+    .form-control, .form-select {
+        background-color: var(--theme-bg-surface, var(--bs-tertiary-bg));
+        border-color: var(--theme-border, var(--bs-border-color));
+        color: var(--theme-text, var(--bs-body-color));
+    }
+
+    .form-control:focus, .form-select:focus {
+        background-color: var(--theme-bg-surface, var(--bs-tertiary-bg));
+        border-color: var(--theme-primary, var(--bs-primary));
+        color: var(--theme-text, var(--bs-body-color));
+    }
+
+    /* Empty States */
+    .text-center.py-4.text-muted {
+        color: var(--theme-text-muted, var(--bs-secondary-color)) !important;
+    }
+
+    /* Page Header */
+    h1 {
+        color: var(--theme-text, var(--bs-body-color));
+        margin-bottom: 0;
+    }
+
+    /* Badges */
+    .badge {
+        font-weight: 500;
+    }
+
+    /* Buttons - Ensure they respect theme colors */
+    .btn-primary {
+        background-color: var(--theme-primary, var(--bs-primary));
+        border-color: var(--theme-primary, var(--bs-primary));
+        color: #fff;
+    }
+
+    .btn-primary:hover,
+    .btn-primary:focus,
+    .btn-primary:active {
+        background-color: var(--theme-primary-dark, var(--bs-primary));
+        border-color: var(--theme-primary-dark, var(--bs-primary));
+        color: #fff;
+        opacity: 0.9;
+    }
+
+    .btn-outline-primary {
+        color: var(--theme-primary, var(--bs-primary));
+        border-color: var(--theme-primary, var(--bs-primary));
+    }
+
+    .btn-outline-primary:hover,
+    .btn-outline-primary:focus,
+    .btn-outline-primary:active {
+        background-color: var(--theme-primary, var(--bs-primary));
+        border-color: var(--theme-primary, var(--bs-primary));
+        color: #fff;
+    }
+</style>
+</head>
+<body>
+    <!-- Universal App Ribbon -->
+    {% include 'components/ribbon.html' %}
+    
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-broadcast-tower"></i> Sensor Master Control</h1>
+        <div>
+            <button class="btn btn-success" onclick="createMasterInstance()">
+                <i class="fas fa-plus"></i> New Master Instance
+            </button>
+            <button class="btn btn-primary" onclick="refreshData()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4" id="statsContainer">
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <h6 class="text-muted">Total Sensors</h6>
+                    <h3 id="stat-total-sensors">-</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card success">
+                <div class="card-body">
+                    <h6 class="text-muted">Online</h6>
+                    <h3 id="stat-online-sensors" class="text-success">-</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card danger">
+                <div class="card-body">
+                    <h6 class="text-muted">Offline</h6>
+                    <h3 id="stat-offline-sensors" class="text-danger">-</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card warning">
+                <div class="card-body">
+                    <h6 class="text-muted">Pending</h6>
+                    <h3 id="stat-pending-sensors" class="text-warning">-</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Master Instances -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-server"></i> Master Control Instances</h5>
+        </div>
+        <div class="card-body">
+            <div id="masterInstancesContainer">
+                <div class="text-center py-4">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Registered Sensors -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-microchip"></i> Registered Sensors</h5>
+            <div>
+                <select class="form-select form-select-sm" id="statusFilter" onchange="loadSensors()">
+                    <option value="">All Status</option>
+                    <option value="online">Online</option>
+                    <option value="offline">Offline</option>
+                    <option value="pending">Pending</option>
+                </select>
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="sensorsContainer">
+                <div class="text-center py-4">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Templates -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-cog"></i> Configuration Templates</h5>
+            <button class="btn btn-sm btn-success" onclick="createConfigTemplate()">
+                <i class="fas fa-plus"></i> New Template
+            </button>
+        </div>
+        <div class="card-body">
+            <div id="configsContainer">
+                <div class="text-center py-4">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Master Instance Modal -->
+<div class="modal fade" id="masterInstanceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Master Control Instance</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="masterInstanceForm">
+                    <input type="hidden" id="master-id">
+                    <div class="mb-3">
+                        <label for="master-name" class="form-label">Instance Name *</label>
+                        <input type="text" class="form-control" id="master-name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="master-description" class="form-label">Description</label>
+                        <textarea class="form-control" id="master-description" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="master-endpoint" class="form-label">API Endpoint</label>
+                        <input type="text" class="form-control" id="master-endpoint" 
+                               placeholder="http://192.168.1.100:5000">
+                    </div>
+                    <div class="mb-3">
+                        <label for="master-priority" class="form-label">Priority (lower = higher priority)</label>
+                        <input type="number" class="form-control" id="master-priority" value="100">
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="master-enabled">
+                        <label class="form-check-label" for="master-enabled">Enable this master</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveMasterInstance()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Config Template Modal -->
+<div class="modal fade" id="configTemplateModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Configuration Template</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="configTemplateForm">
+                    <input type="hidden" id="config-id">
+                    <div class="mb-3">
+                        <label for="config-master" class="form-label">Master Instance *</label>
+                        <select class="form-select" id="config-master" required></select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="config-name" class="form-label">Template Name *</label>
+                        <input type="text" class="form-control" id="config-name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Apply To:</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="configScope" 
+                                   id="scope-type" value="type" checked>
+                            <label class="form-check-label" for="scope-type">
+                                All sensors of type:
+                            </label>
+                            <input type="text" class="form-control mt-2" id="config-sensor-type" 
+                                   placeholder="e.g., esp32_fermentation">
+                        </div>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="radio" name="configScope" 
+                                   id="scope-sensor" value="sensor">
+                            <label class="form-check-label" for="scope-sensor">
+                                Specific sensor:
+                            </label>
+                            <select class="form-select mt-2" id="config-sensor-id"></select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="config-data" class="form-label">Configuration (JSON) *</label>
+                        <textarea class="form-control font-monospace" id="config-data" 
+                                  rows="15" required></textarea>
+                        <small class="text-muted">Enter valid JSON configuration</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="config-description" class="form-label">Description</label>
+                        <textarea class="form-control" id="config-description" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveConfigTemplate()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sensor Detail Modal -->
+<div class="modal fade" id="sensorDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Sensor Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="sensorDetailContent">
+                <!-- Content loaded dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+let masterInstances = [];
+let sensors = [];
+let configs = [];
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    refreshData();
+});
+
+async function refreshData() {
+    await Promise.all([
+        loadMasterInstances(),
+        loadSensors(),
+        loadConfigs(),
+        loadStats()
+    ]);
+}
+
+async function loadMasterInstances() {
+    try {
+        const response = await fetch('/api/sensor-master/instances');
+        if (!response.ok) throw new Error('Failed to load master instances');
+        
+        masterInstances = await response.json();
+        renderMasterInstances();
+    } catch (error) {
+        console.error('Error loading master instances:', error);
+        showAlert('Failed to load master instances', 'danger');
+    }
+}
+
+function renderMasterInstances() {
+    const container = document.getElementById('masterInstancesContainer');
+    
+    if (masterInstances.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-4 text-muted">
+                <i class="fas fa-server fa-3x mb-3"></i>
+                <p>No master control instances configured</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = masterInstances.map(master => `
+        <div class="card mb-2">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="mb-1">
+                            ${master.instance_name}
+                            <span class="master-status-badge master-status-${master.is_enabled ? 'active' : 'inactive'}">
+                                ${master.is_enabled ? 'Active' : 'Inactive'}
+                            </span>
+                        </h6>
+                        <p class="text-muted mb-2">${master.description || 'No description'}</p>
+                        <small class="text-muted">
+                            Priority: ${master.priority} | 
+                            Registered Sensors: ${master.registered_sensors || 0}
+                            ${master.last_heartbeat ? `| Last Heartbeat: ${new Date(master.last_heartbeat).toLocaleString()}` : ''}
+                        </small>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-primary" onclick="editMasterInstance(${master.id})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteMasterInstance(${master.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function loadSensors() {
+    try {
+        const statusFilter = document.getElementById('statusFilter').value;
+        let url = '/api/sensor-master/sensors';
+        if (statusFilter) {
+            url += `?status=${statusFilter}`;
+        }
+        
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Failed to load sensors');
+        
+        sensors = await response.json();
+        renderSensors();
+    } catch (error) {
+        console.error('Error loading sensors:', error);
+        showAlert('Failed to load sensors', 'danger');
+    }
+}
+
+function renderSensors() {
+    const container = document.getElementById('sensorsContainer');
+    
+    if (sensors.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-4 text-muted">
+                <i class="fas fa-microchip fa-3x mb-3"></i>
+                <p>No sensors registered yet</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = `
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Sensor ID</th>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Master</th>
+                        <th>Last Check-in</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${sensors.map(sensor => `
+                        <tr class="sensor-list-item">
+                            <td><code>${sensor.sensor_id}</code></td>
+                            <td>${sensor.sensor_name || 'Unnamed'}</td>
+                            <td><span class="badge bg-secondary">${sensor.sensor_type}</span></td>
+                            <td>
+                                <i class="fas fa-circle sensor-status-${sensor.status}"></i>
+                                ${sensor.status}
+                            </td>
+                            <td>${sensor.master_name || 'Unassigned'}</td>
+                            <td>${sensor.last_check_in ? new Date(sensor.last_check_in).toLocaleString() : 'Never'}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" 
+                                        onclick="viewSensorDetails('${sensor.sensor_id}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" 
+                                        onclick="deleteSensor('${sensor.sensor_id}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function loadConfigs() {
+    try {
+        const response = await fetch('/api/sensor-master/configs');
+        if (!response.ok) throw new Error('Failed to load configs');
+        
+        configs = await response.json();
+        renderConfigs();
+    } catch (error) {
+        console.error('Error loading configs:', error);
+        showAlert('Failed to load configurations', 'danger');
+    }
+}
+
+function renderConfigs() {
+    const container = document.getElementById('configsContainer');
+    
+    if (configs.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-4 text-muted">
+                <i class="fas fa-cog fa-3x mb-3"></i>
+                <p>No configuration templates defined</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = configs.map(config => `
+        <div class="card mb-2">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1">
+                            ${config.config_name}
+                            ${config.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}
+                        </h6>
+                        <p class="text-muted mb-2">${config.description || 'No description'}</p>
+                        <small class="text-muted">
+                            Master: ${config.master_name} | 
+                            ${config.sensor_id ? `Sensor: ${config.sensor_id}` : `Type: ${config.sensor_type || 'All'}`} |
+                            Version: ${config.config_version}
+                        </small>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-primary" onclick="editConfigTemplate(${config.id})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteConfigTemplate(${config.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function loadStats() {
+    try {
+        const response = await fetch('/api/sensor-master/sensors');
+        if (!response.ok) throw new Error('Failed to load stats');
+        
+        const allSensors = await response.json();
+        const stats = {
+            total: allSensors.length,
+            online: allSensors.filter(s => s.status === 'online').length,
+            offline: allSensors.filter(s => s.status === 'offline').length,
+            pending: allSensors.filter(s => s.status === 'pending').length
+        };
+        
+        document.getElementById('stat-total-sensors').textContent = stats.total;
+        document.getElementById('stat-online-sensors').textContent = stats.online;
+        document.getElementById('stat-offline-sensors').textContent = stats.offline;
+        document.getElementById('stat-pending-sensors').textContent = stats.pending;
+    } catch (error) {
+        console.error('Error loading stats:', error);
+    }
+}
+
+function createMasterInstance() {
+    document.getElementById('masterInstanceForm').reset();
+    document.getElementById('master-id').value = '';
+    new bootstrap.Modal(document.getElementById('masterInstanceModal')).show();
+}
+
+function editMasterInstance(id) {
+    const master = masterInstances.find(m => m.id === id);
+    if (!master) return;
+    
+    document.getElementById('master-id').value = master.id;
+    document.getElementById('master-name').value = master.instance_name;
+    document.getElementById('master-description').value = master.description || '';
+    document.getElementById('master-endpoint').value = master.api_endpoint || '';
+    document.getElementById('master-priority').value = master.priority;
+    document.getElementById('master-enabled').checked = master.is_enabled;
+    
+    new bootstrap.Modal(document.getElementById('masterInstanceModal')).show();
+}
+
+async function saveMasterInstance() {
+    const id = document.getElementById('master-id').value;
+    const data = {
+        instance_name: document.getElementById('master-name').value,
+        description: document.getElementById('master-description').value,
+        api_endpoint: document.getElementById('master-endpoint').value,
+        priority: parseInt(document.getElementById('master-priority').value),
+        is_enabled: document.getElementById('master-enabled').checked
+    };
+    
+    try {
+        const url = id ? `/api/sensor-master/instances/${id}` : '/api/sensor-master/instances';
+        const method = id ? 'PATCH' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        
+        if (!response.ok) throw new Error('Failed to save master instance');
+        
+        bootstrap.Modal.getInstance(document.getElementById('masterInstanceModal')).hide();
+        showAlert('Master instance saved successfully', 'success');
+        await loadMasterInstances();
+    } catch (error) {
+        console.error('Error saving master instance:', error);
+        showAlert('Failed to save master instance', 'danger');
+    }
+}
+
+async function deleteMasterInstance(id) {
+    if (!confirm('Are you sure you want to delete this master instance?')) return;
+    
+    try {
+        const response = await fetch(`/api/sensor-master/instances/${id}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('Failed to delete master instance');
+        
+        showAlert('Master instance deleted successfully', 'success');
+        await loadMasterInstances();
+    } catch (error) {
+        console.error('Error deleting master instance:', error);
+        showAlert('Failed to delete master instance', 'danger');
+    }
+}
+
+function createConfigTemplate() {
+    document.getElementById('configTemplateForm').reset();
+    document.getElementById('config-id').value = '';
+    
+    // Populate master select
+    const masterSelect = document.getElementById('config-master');
+    masterSelect.innerHTML = masterInstances.map(m => 
+        `<option value="${m.id}">${m.instance_name}</option>`
+    ).join('');
+    
+    // Populate sensor select
+    const sensorSelect = document.getElementById('config-sensor-id');
+    sensorSelect.innerHTML = '<option value="">Select sensor...</option>' +
+        sensors.map(s => `<option value="${s.sensor_id}">${s.sensor_name || s.sensor_id}</option>`).join('');
+    
+    // Set default config template
+    const defaultConfig = {
+        polling_interval: 60,
+        data_endpoint: "http://localhost:5000/api/devices/data",
+        sensor_mappings: [
+            {
+                sensor_name: "sensor.temperature",
+                entry_field: "Temperature",
+                unit: "°C",
+                data_type: "float"
+            }
+        ]
+    };
+    document.getElementById('config-data').value = JSON.stringify(defaultConfig, null, 2);
+    
+    new bootstrap.Modal(document.getElementById('configTemplateModal')).show();
+}
+
+async function saveConfigTemplate() {
+    try {
+        const scope = document.querySelector('input[name="configScope"]:checked').value;
+        const configData = JSON.parse(document.getElementById('config-data').value);
+        
+        const data = {
+            master_id: parseInt(document.getElementById('config-master').value),
+            config_name: document.getElementById('config-name').value,
+            config_data: configData,
+            description: document.getElementById('config-description').value
+        };
+        
+        if (scope === 'type') {
+            data.sensor_type = document.getElementById('config-sensor-type').value;
+        } else {
+            data.sensor_id = document.getElementById('config-sensor-id').value;
+        }
+        
+        const id = document.getElementById('config-id').value;
+        const url = id ? `/api/sensor-master/configs/${id}` : '/api/sensor-master/configs';
+        const method = id ? 'PATCH' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        
+        if (!response.ok) throw new Error('Failed to save configuration');
+        
+        bootstrap.Modal.getInstance(document.getElementById('configTemplateModal')).hide();
+        showAlert('Configuration saved successfully', 'success');
+        await loadConfigs();
+    } catch (error) {
+        console.error('Error saving configuration:', error);
+        showAlert('Failed to save configuration: ' + error.message, 'danger');
+    }
+}
+
+async function deleteConfigTemplate(id) {
+    if (!confirm('Are you sure you want to delete this configuration template?')) return;
+    
+    try {
+        const response = await fetch(`/api/sensor-master/configs/${id}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('Failed to delete configuration');
+        
+        showAlert('Configuration deleted successfully', 'success');
+        await loadConfigs();
+    } catch (error) {
+        console.error('Error deleting configuration:', error);
+        showAlert('Failed to delete configuration', 'danger');
+    }
+}
+
+async function viewSensorDetails(sensorId) {
+    const sensor = sensors.find(s => s.sensor_id === sensorId);
+    if (!sensor) return;
+    
+    const content = `
+        <dl class="row">
+            <dt class="col-sm-3">Sensor ID:</dt>
+            <dd class="col-sm-9"><code>${sensor.sensor_id}</code></dd>
+            
+            <dt class="col-sm-3">Name:</dt>
+            <dd class="col-sm-9">${sensor.sensor_name || 'Unnamed'}</dd>
+            
+            <dt class="col-sm-3">Type:</dt>
+            <dd class="col-sm-9">${sensor.sensor_type}</dd>
+            
+            <dt class="col-sm-3">Status:</dt>
+            <dd class="col-sm-9">
+                <i class="fas fa-circle sensor-status-${sensor.status}"></i> ${sensor.status}
+            </dd>
+            
+            <dt class="col-sm-3">Hardware:</dt>
+            <dd class="col-sm-9">${sensor.hardware_info || 'N/A'}</dd>
+            
+            <dt class="col-sm-3">Firmware:</dt>
+            <dd class="col-sm-9">${sensor.firmware_version || 'N/A'}</dd>
+            
+            <dt class="col-sm-3">IP Address:</dt>
+            <dd class="col-sm-9">${sensor.ip_address || 'N/A'}</dd>
+            
+            <dt class="col-sm-3">MAC Address:</dt>
+            <dd class="col-sm-9">${sensor.mac_address || 'N/A'}</dd>
+            
+            <dt class="col-sm-3">Master:</dt>
+            <dd class="col-sm-9">${sensor.master_name || 'Unassigned'}</dd>
+            
+            <dt class="col-sm-3">Last Check-in:</dt>
+            <dd class="col-sm-9">${sensor.last_check_in ? new Date(sensor.last_check_in).toLocaleString() : 'Never'}</dd>
+            
+            <dt class="col-sm-3">Registered:</dt>
+            <dd class="col-sm-9">${new Date(sensor.created_at).toLocaleString()}</dd>
+            
+            <dt class="col-sm-3">Capabilities:</dt>
+            <dd class="col-sm-9">
+                ${sensor.capabilities && sensor.capabilities.length > 0 
+                    ? sensor.capabilities.map(c => `<span class="badge bg-info">${c}</span>`).join(' ')
+                    : 'None'}
+            </dd>
+        </dl>
+    `;
+    
+    document.getElementById('sensorDetailContent').innerHTML = content;
+    new bootstrap.Modal(document.getElementById('sensorDetailModal')).show();
+}
+
+async function deleteSensor(sensorId) {
+    if (!confirm('Are you sure you want to delete this sensor registration?')) return;
+    
+    try {
+        const response = await fetch(`/api/sensor-master/sensors/${sensorId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('Failed to delete sensor');
+        
+        showAlert('Sensor deleted successfully', 'success');
+        await loadSensors();
+        await loadStats();
+    } catch (error) {
+        console.error('Error deleting sensor:', error);
+        showAlert('Failed to delete sensor', 'danger');
+    }
+}
+
+function showAlert(message, type) {
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3" 
+             role="alert" style="z-index: 9999; min-width: 300px;">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', alertHtml);
+    
+    setTimeout(() => {
+        const alert = document.querySelector('.alert');
+        if (alert) {
+            bootstrap.Alert.getInstance(alert)?.close();
+        }
+    }, 5000);
+}
+</script>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

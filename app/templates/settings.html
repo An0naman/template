@@ -160,6 +160,20 @@
                                         <label class="form-check-label ms-2 fw-bold" for="enableSensorsToggle" id="sensorToggleLabel">Loading...</label>
                                     </div>
                                 </div>
+                                
+                                <!-- Sensor Master Control Sub-toggle -->
+                                <div id="sensorMasterControlContainer" class="mt-3 pt-3 border-top border-info-subtle" style="display: none;">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1"><i class="fas fa-microchip me-2"></i>Sensor Master Control</h6>
+                                            <small>Enable the Sensor Master Control interface for centralized ESP32 configuration.</small>
+                                        </div>
+                                        <div class="form-check form-switch ms-3">
+                                            <input class="form-check-input" type="checkbox" role="switch" id="enableSensorMasterControlToggle" style="width: 2.5rem; height: 1.25rem;">
+                                            <label class="form-check-label ms-2" for="enableSensorMasterControlToggle" id="sensorMasterControlToggleLabel">Disabled</label>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1122,6 +1136,7 @@
                 entry_singular_label: document.getElementById('entrySingularLabel').value,
                 entry_plural_label: document.getElementById('entryPluralLabel').value,
                 enable_sensors: document.getElementById('enableSensorsToggle').checked ? '1' : '0',
+                enable_sensor_master_control: document.getElementById('enableSensorMasterControlToggle').checked ? 'true' : 'false',
                 enable_kanban: document.getElementById('enableKanbanToggle').checked ? 'true' : 'false'
             };
             
@@ -1230,15 +1245,37 @@
         // Load current sensor toggle state
         async function loadSensorToggleState() {
             try {
+                // Load main sensor toggle
                 const response = await fetch('/api/system_params/enable_sensors');
                 const data = await response.json();
                 const toggle = document.getElementById('enableSensorsToggle');
                 const label = document.getElementById('sensorToggleLabel');
+                const masterControlContainer = document.getElementById('sensorMasterControlContainer');
                 
                 const isEnabled = data.value === '1';
                 toggle.checked = isEnabled;
                 label.textContent = isEnabled ? 'Enabled' : 'Disabled';
                 label.style.color = isEnabled ? '#198754' : '#dc3545';
+                
+                // Show/hide master control container based on main toggle
+                masterControlContainer.style.display = isEnabled ? 'block' : 'none';
+                
+                // Load master control toggle if sensors are enabled
+                if (isEnabled) {
+                    try {
+                        const mcResponse = await fetch('/api/system_params/enable_sensor_master_control');
+                        const mcData = await mcResponse.json();
+                        const mcToggle = document.getElementById('enableSensorMasterControlToggle');
+                        const mcLabel = document.getElementById('sensorMasterControlToggleLabel');
+                        
+                        const isMcEnabled = mcData.value === 'true' || mcData.value === '1';
+                        mcToggle.checked = isMcEnabled;
+                        mcLabel.textContent = isMcEnabled ? 'Enabled' : 'Disabled';
+                        mcLabel.style.color = isMcEnabled ? '#198754' : '#6c757d';
+                    } catch (mcError) {
+                        console.warn('Error loading sensor master control state:', mcError);
+                    }
+                }
             } catch (error) {
                 console.error('Error loading sensor toggle state:', error);
                 document.getElementById('sensorToggleLabel').textContent = 'Error';

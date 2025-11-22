@@ -549,3 +549,18 @@ def kanban_board(board_id):
                           project_name=params.get('project_name'),
                           theme_settings=theme_settings,
                           theme_css=theme_css)
+
+@main_bp.route('/sensor-master-control')
+def sensor_master_control():
+    """Sensor Master Control management page"""
+    from ..db import get_system_parameters
+    from ..api.theme_api import generate_theme_css, get_current_theme_settings
+    
+    params = get_system_parameters()
+    theme_settings = get_current_theme_settings()
+    theme_css = generate_theme_css(theme_settings)
+    
+    return render_template('sensor_master_control.html',
+                          project_name=params.get('project_name'),
+                          theme_settings=theme_settings,
+                          theme_css=theme_css)
