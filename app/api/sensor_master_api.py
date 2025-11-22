@@ -926,3 +926,77 @@ def get_sensor_commands():
     except Exception as e:
         logger.error(f"Error fetching commands: {e}", exc_info=True)
         return jsonify({'error': 'Failed to fetch commands'}), 500
+
+
+@sensor_master_api_bp.route('/sensor-master/export-code', methods=['POST'])
+def export_esp32_code():
+    """
+    Export ESP32 firmware code for a sensor
+    
+    Expected payload:
+    {
+        "sensor_id": "esp32_001" (optional - if not provided, generates template),
+        "sensor_type": "esp32_fermentation" (optional),
+        "language": "arduino" or "micropython",
+        "wifi_ssid": "MyWiFi",
+        "wifi_password": "MyPassword",
+        "custom_config": {} (optional)
+    }
+    
+    Returns:
+    {
+        "success": true,
+        "code": "... generated code ...",
+        "language": "arduino",
+        "sensor_id": "esp32_001",
+        "filename": "esp32_001.ino"
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'Request body is required'}), 400
+        
+        language = data.get('language', 'arduino').lower()
+        if language not in ['arduino', 'micropython']:
+            return jsonify({'error': 'Language must be "arduino" or "micropython"'}), 400
+        
+        sensor_id = data.get('sensor_id')
+        sensor_type = data.get('sensor_type')
+        wifi_ssid = data.get('wifi_ssid', '')
+        wifi_password = data.get('wifi_password', '')
+        custom_config = data.get('custom_config')
+        
+        # Import the code generator service
+        from ..services.esp32_code_generator import ESP32CodeGenerator
+        
+        conn = get_db()
+        generator = ESP32CodeGenerator(conn)
+        
+        result = generator.generate_code(
+            sensor_id=sensor_id,
+            sensor_type=sensor_type,
+            language=language,
+            wifi_ssid=wifi_ssid,
+            wifi_password=wifi_password,
+            custom_config=custom_config
+        )
+        
+        if result.get('success'):
+            # Determine filename
+            sensor_id_str = result.get('sensor_id', 'esp32_sensor')
+            if language == 'arduino':
+                filename = f"{sensor_id_str}.ino"
+            else:
+                filename = f"{sensor_id_str}.py"
+            
+            result['filename'] = filename
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 400
+        
+    except Exception as e:
+        logger.error(f"Error exporting code: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to export code', 'details': str(e)}), 500
+
