@@ -1,0 +1,14 @@
+[Unit]
+Description=Setup Docker Network Forwarding Rules
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/home/an0naman/Documents/GitHub/template/scripts/setup-docker-networking.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
