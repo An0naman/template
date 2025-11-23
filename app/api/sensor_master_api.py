@@ -388,9 +388,49 @@ def sensor_heartbeat():
         return jsonify({'error': 'Failed to process heartbeat'}), 500
 
 
+def calculate_sensor_status(last_check_in, timeout_minutes=2):
+    """
+    Calculate sensor online/offline status based on last heartbeat
+    
+    Args:
+        last_check_in: ISO timestamp string or None
+        timeout_minutes: Number of minutes before considering sensor offline (default: 2)
+    
+    Returns:
+        'online', 'offline', or 'pending'
+    """
+    if not last_check_in:
+        return 'pending'
+    
+    try:
+        # Try to parse ISO format timestamp
+        try:
+            last_check = datetime.fromisoformat(last_check_in.replace('Z', '+00:00'))
+        except ValueError:
+            # Try parsing without timezone info
+            last_check = datetime.strptime(last_check_in, '%Y-%m-%d %H:%M:%S')
+            last_check = last_check.replace(tzinfo=timezone.utc)
+        
+        now = datetime.now(timezone.utc)
+        
+        # Make last_check timezone-aware if it isn't
+        if last_check.tzinfo is None:
+            last_check = last_check.replace(tzinfo=timezone.utc)
+        
+        time_since_last = (now - last_check).total_seconds() / 60  # minutes
+        
+        if time_since_last <= timeout_minutes:
+            return 'online'
+        else:
+            return 'offline'
+    except Exception as e:
+        logger.error(f"Error calculating sensor status: {e}")
+        return 'offline'
+
+
 @sensor_master_api_bp.route('/sensor-master/sensors', methods=['GET'])
 def get_registered_sensors():
-    """Get all registered sensors"""
+    """Get all registered sensors with real-time heartbeat status"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -417,6 +457,9 @@ def get_registered_sensors():
             sensor = dict(row)
             if sensor['capabilities']:
                 sensor['capabilities'] = json.loads(sensor['capabilities'])
+            
+            # Calculate real-time status based on heartbeat
+            sensor['status'] = calculate_sensor_status(sensor.get('last_check_in'))
             
             # Get active script for this sensor (what SHOULD be running)
             cursor.execute('''
@@ -464,6 +507,54 @@ def get_registered_sensors():
     except Exception as e:
         logger.error(f"Error fetching sensors: {e}", exc_info=True)
         return jsonify({'error': 'Failed to fetch sensors'}), 500
+
+
+@sensor_master_api_bp.route('/sensor-master/check-heartbeats', methods=['POST'])
+def check_heartbeats():
+    """
+    Check all sensors and update their status based on heartbeat timeout
+    This endpoint can be called periodically to maintain accurate status
+    """
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Get all sensors
+        cursor.execute('SELECT sensor_id, last_check_in, status FROM SensorRegistration')
+        sensors = cursor.fetchall()
+        
+        updated_count = 0
+        timestamp = datetime.now(timezone.utc).isoformat()
+        
+        for sensor in sensors:
+            sensor_id = sensor['sensor_id']
+            last_check_in = sensor['last_check_in']
+            current_status = sensor['status']
+            
+            # Calculate new status
+            new_status = calculate_sensor_status(last_check_in)
+            
+            # Update if status changed
+            if new_status != current_status:
+                cursor.execute('''
+                    UPDATE SensorRegistration
+                    SET status = ?, updated_at = ?
+                    WHERE sensor_id = ?
+                ''', (new_status, timestamp, sensor_id))
+                updated_count += 1
+                logger.info(f"Sensor {sensor_id} status changed: {current_status} -> {new_status}")
+        
+        conn.commit()
+        
+        return jsonify({
+            'message': 'Heartbeat check completed',
+            'sensors_checked': len(sensors),
+            'sensors_updated': updated_count
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error checking heartbeats: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to check heartbeats'}), 500
 
 
 @sensor_master_api_bp.route('/sensor-master/sensors/<sensor_id>', methods=['PATCH'])

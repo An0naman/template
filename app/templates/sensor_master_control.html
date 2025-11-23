@@ -662,6 +662,41 @@ async function refreshData() {
         loadConfigs(),
         loadStats()
     ]);
+    
+    // Update sensor status indicators based on heartbeat
+    updateSensorStatusIndicators();
+}
+
+function updateSensorStatusIndicators() {
+    // Check each sensor's last_check_in and update visual indicators
+    const HEARTBEAT_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes in milliseconds
+    const now = new Date();
+    
+    sensors.forEach(sensor => {
+        if (!sensor.last_check_in) {
+            sensor.status = 'pending';
+            return;
+        }
+        
+        const lastCheckIn = new Date(sensor.last_check_in);
+        const timeSinceLastCheck = now - lastCheckIn;
+        
+        // Update status based on time since last heartbeat
+        if (timeSinceLastCheck > HEARTBEAT_TIMEOUT_MS) {
+            if (sensor.status !== 'offline') {
+                sensor.status = 'offline';
+                console.log(`Sensor ${sensor.sensor_id} marked as offline (last seen ${Math.floor(timeSinceLastCheck / 60000)} minutes ago)`);
+            }
+        } else {
+            if (sensor.status !== 'online') {
+                sensor.status = 'online';
+            }
+        }
+    });
+    
+    // Re-render displays to show updated status
+    renderSensors();
+    loadStats();
 }
 
 function toggleAdvancedConfig() {
@@ -1100,10 +1135,14 @@ function renderConfigs() {
 
 async function loadStats() {
     try {
-        const response = await fetch('/api/sensor-master/sensors');
-        if (!response.ok) throw new Error('Failed to load stats');
+        // Use the already-loaded sensors array if available, otherwise fetch
+        let allSensors = sensors;
+        if (!allSensors || allSensors.length === 0) {
+            const response = await fetch('/api/sensor-master/sensors');
+            if (!response.ok) throw new Error('Failed to load stats');
+            allSensors = await response.json();
+        }
         
-        const allSensors = await response.json();
         const stats = {
             total: allSensors.length,
             online: allSensors.filter(s => s.status === 'online').length,
