@@ -347,6 +347,18 @@ def sensor_heartbeat():
                 'error': 'Sensor not registered',
                 'action': 'register'
             }), 404
+            
+        # Store telemetry data if metrics are provided
+        if 'metrics' in data:
+            try:
+                cursor.execute('''
+                    INSERT INTO SensorTelemetry (sensor_id, data, timestamp)
+                    VALUES (?, ?, ?)
+                ''', (sensor_id, json.dumps(data['metrics']), timestamp))
+            except sqlite3.OperationalError:
+                # Table might not exist if migration wasn't run
+                logger.warning("SensorTelemetry table not found. Skipping telemetry storage.")
+
         
         # Process command results if provided
         if 'command_results' in data:
@@ -1423,11 +1435,11 @@ def report_script_execution():
             logger.info(f"Active script executed on {sensor_id}")
         
         conn.commit()
-        return jsonify({'message': 'Execution recorded'}), 200
+        return jsonify({'message': 'Execution reported'}), 200
         
     except Exception as e:
-        logger.error(f"Error recording script execution: {e}", exc_info=True)
-        return jsonify({'error': 'Failed to record execution'}), 500
+        logger.error(f"Error reporting script execution: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to report execution'}), 500
 
 
 @sensor_master_api_bp.route('/sensor-master/report-version', methods=['POST'])
@@ -1468,10 +1480,55 @@ def report_script_version():
         
         conn.commit()
         logger.info(f"Sensor {sensor_id} reported running version {script_version}")
-        return jsonify({'message': 'Version recorded', 'version': script_version}), 200
+        return jsonify({'message': 'Version reported', 'version': script_version}), 200
         
     except Exception as e:
-        logger.error(f"Error recording version: {e}", exc_info=True)
-        return jsonify({'error': 'Failed to record version'}), 500
+        logger.error(f"Error reporting version: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to report version'}), 500
+
+
+@sensor_master_api_bp.route('/sensor-master/telemetry/<sensor_id>', methods=['GET'])
+def get_sensor_telemetry(sensor_id):
+    """
+    Get telemetry data for a sensor
+    
+    Query params:
+    - limit: Number of records to return (default: 100)
+    """
+    try:
+        limit = request.args.get('limit', 100, type=int)
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('''
+                SELECT data, timestamp 
+                FROM SensorTelemetry
+                WHERE sensor_id = ?
+                ORDER BY timestamp DESC
+                LIMIT ?
+            ''', (sensor_id, limit))
+            
+            rows = cursor.fetchall()
+            
+            telemetry = []
+            for row in rows:
+                telemetry.append({
+                    'timestamp': row['timestamp'],
+                    'data': json.loads(row['data'])
+                })
+                
+            return jsonify({
+                'sensor_id': sensor_id,
+                'telemetry': telemetry
+            }), 200
+            
+        except sqlite3.OperationalError:
+            return jsonify({'error': 'Telemetry data not available'}), 404
+            
+    except Exception as e:
+        logger.error(f"Error getting telemetry: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to get telemetry'}), 500
 
 

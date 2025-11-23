@@ -564,3 +564,8 @@ def sensor_master_control():
                           project_name=params.get('project_name'),
                           theme_settings=theme_settings,
                           theme_css=theme_css)
+
+@main_bp.route('/sensor-plotter')
+def sensor_plotter():
+    """Render the sensor serial plotter page"""
+    return render_template('sensor_plotter.html')
