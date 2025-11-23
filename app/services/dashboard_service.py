@@ -951,15 +951,13 @@ Please incorporate these specific instructions into your analysis and summary.""
                     }
                 
                 # Now sync commits to database
-                sync_result = git_service.sync_commits(repo_id, limit=max(limit, 100))
-                logger.info(f"Sync completed: {sync_result}")
+                try:
+                    sync_result = git_service.sync_commits(repo_id, limit=max(limit, 100))
+                    logger.info(f"Sync completed: {sync_result}")
+                except Exception as sync_inner_error:
+                    logger.warning(f"Sync failed for repo {repo_id}: {sync_inner_error}, continuing with existing data")
             except Exception as sync_error:
-                logger.error(f"Sync failed for repo {repo_id}: {sync_error}")
-                return {
-                    'success': False,
-                    'error': f'Repository sync failed: {str(sync_error)}',
-                    'commits': []
-                }
+                logger.warning(f"Failed to access repository for repo {repo_id}: {sync_error}, continuing with existing data")
             
             # Get commits for this repository with entry association info and repo settings
             cursor.execute('''
