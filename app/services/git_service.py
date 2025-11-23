@@ -275,26 +275,44 @@ class GitService:
                 logger.info(f"Opened existing repository at {local_path}")
                 
                 # Check for corrupted refs before attempting operations
+                # list(repo.refs) doesn't validate ref names, so we need to check manually
+                has_invalid_refs = False
                 try:
-                    # Try to access refs - this will fail if there are invalid refs
-                    _ = list(repo.refs)
+                    refs_to_check = list(repo.refs)
+                    for ref in refs_to_check:
+                        ref_name = ref.name
+                        # Check for invalid ref names that will cause iter_commits to fail
+                        if ref_name.startswith('.') or '/.' in ref_name or ref_name.endswith('.'):
+                            logger.warning(f"Found invalid ref: {ref_name}")
+                            has_invalid_refs = True
+                            # Try to manually delete the ref file
+                            try:
+                                import os
+                                ref_path = os.path.join(local_path, '.git', 'refs', 'heads', ref_name.replace('refs/heads/', ''))
+                                if os.path.exists(ref_path):
+                                    os.remove(ref_path)
+                                    logger.info(f"Deleted invalid ref file: {ref_path}")
+                            except Exception as delete_error:
+                                logger.warning(f"Could not delete ref file: {delete_error}")
                 except Exception as ref_error:
-                    if 'Invalid reference' in str(ref_error) or 'cannot start with a period' in str(ref_error):
-                        logger.error(f"Repository has invalid refs: {ref_error}. Removing and re-cloning.")
-                        self._safe_rmtree(local_path)
-                        
-                        clone_url = repo_info['url']
-                        if token:
-                            if 'github.com' in clone_url:
-                                clone_url = clone_url.replace('https://', f'https://{token}@')
-                            elif 'gitlab.com' in clone_url:
-                                clone_url = clone_url.replace('https://', f'https://oauth2:{token}@')
-                        
-                        repo = Repo.clone_from(clone_url, local_path)
-                        logger.info(f"Re-cloned repository to {local_path} due to invalid refs")
-                        return repo, local_path
-                    else:
-                        raise
+                    logger.warning(f"Error checking refs: {ref_error}")
+                    has_invalid_refs = True
+                
+                # If we found invalid refs that couldn't be cleaned, re-clone
+                if has_invalid_refs:
+                    logger.error(f"Repository has invalid refs. Removing and re-cloning.")
+                    self._safe_rmtree(local_path)
+                    
+                    clone_url = repo_info['url']
+                    if token:
+                        if 'github.com' in clone_url:
+                            clone_url = clone_url.replace('https://', f'https://{token}@')
+                        elif 'gitlab.com' in clone_url:
+                            clone_url = clone_url.replace('https://', f'https://oauth2:{token}@')
+                    
+                    repo = Repo.clone_from(clone_url, local_path)
+                    logger.info(f"Re-cloned repository to {local_path} due to invalid refs")
+                    return repo, local_path
                 
                 # Pull latest changes
                 try:
