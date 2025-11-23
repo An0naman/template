@@ -524,7 +524,7 @@ def check_heartbeats():
         sensors = cursor.fetchall()
         
         updated_count = 0
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat();
         
         for sensor in sensors:
             sensor_id = sensor['sensor_id']
@@ -850,7 +850,7 @@ def get_sensor_commands():
             if command['command_data']:
                 command['command_data'] = json.loads(command['command_data'])
             if command['result']:
-                command['result'] = json.loads(command['result'])
+                command['result'] = json.loads(command['result']);
             commands.append(command)
         
         return jsonify(commands), 200
@@ -1044,6 +1044,147 @@ def upload_sensor_script():
     except Exception as e:
         logger.error(f"Error uploading script: {e}", exc_info=True)
         return jsonify({'error': 'Failed to upload script'}), 500
+
+
+@sensor_master_api_bp.route('/sensor-master/library-script', methods=['POST'])
+def create_library_script():
+    """
+    Create a new script in the library
+    
+    Expected payload:
+    {
+        "name": "Standard Blink",
+        "script_content": "// Arduino code here",
+        "script_version": "1.0.0",
+        "script_type": "arduino",
+        "description": "Standard LED blink pattern",
+        "target_sensor_type": "esp32_fermentation" (optional)
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        if not data or 'name' not in data or 'script_content' not in data:
+            return jsonify({'error': 'name and script_content are required'}), 400
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO ScriptLibrary
+            (name, script_content, script_version, script_type, description, target_sensor_type)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (
+            data['name'],
+            data['script_content'],
+            data.get('script_version', '1.0.0'),
+            data.get('script_type', 'arduino'),
+            data.get('description', ''),
+            data.get('target_sensor_type', '')
+        ))
+        
+        script_id = cursor.lastrowid
+        conn.commit()
+        
+        logger.info(f"Library script created: {data['name']}")
+        
+        return jsonify({
+            'message': 'Script added to library successfully',
+            'id': script_id
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Error creating library script: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to create library script'}), 500
+
+
+@sensor_master_api_bp.route('/sensor-master/library-scripts', methods=['GET'])
+def list_library_scripts():
+    """List all scripts in the library"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT * FROM ScriptLibrary
+            ORDER BY created_at DESC
+        ''')
+        
+        scripts = [dict(row) for row in cursor.fetchall()]
+        
+        return jsonify(scripts), 200
+        
+    except Exception as e:
+        logger.error(f"Error listing library scripts: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to list library scripts'}), 500
+
+
+@sensor_master_api_bp.route('/sensor-master/assign-library-script', methods=['POST'])
+def assign_library_script():
+    """
+    Assign a library script to a sensor (copies it to SensorScripts)
+    
+    Expected payload:
+    {
+        "library_script_id": 1,
+        "sensor_id": "esp32_001"
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        if not data or 'library_script_id' not in data or 'sensor_id' not in data:
+            return jsonify({'error': 'library_script_id and sensor_id are required'}), 400
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Get library script
+        cursor.execute('SELECT * FROM ScriptLibrary WHERE id = ?', (data['library_script_id'],))
+        lib_script = cursor.fetchone()
+        
+        if not lib_script:
+            return jsonify({'error': 'Library script not found'}), 404
+            
+        # Verify sensor exists
+        cursor.execute('SELECT id FROM SensorRegistration WHERE sensor_id = ?', (data['sensor_id'],))
+        if not cursor.fetchone():
+            return jsonify({'error': 'Sensor not registered'}), 404
+            
+        # Deactivate previous scripts for this sensor
+        cursor.execute('''
+            UPDATE SensorScripts
+            SET is_active = 0
+            WHERE sensor_id = ?
+        ''', (data['sensor_id'],))
+        
+        # Insert new script from library
+        cursor.execute('''
+            INSERT INTO SensorScripts
+            (sensor_id, script_content, script_version, script_type, description, is_active)
+            VALUES (?, ?, ?, ?, ?, 1)
+        ''', (
+            data['sensor_id'],
+            lib_script['script_content'],
+            lib_script['script_version'],
+            lib_script['script_type'],
+            lib_script['description']
+        ))
+        
+        new_script_id = cursor.lastrowid
+        conn.commit()
+        
+        logger.info(f"Assigned library script {data['library_script_id']} to sensor {data['sensor_id']}")
+        
+        return jsonify({
+            'message': 'Script assigned successfully',
+            'script_id': new_script_id,
+            'sensor_id': data['sensor_id']
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Error assigning library script: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to assign script'}), 500
 
 
 @sensor_master_api_bp.route('/sensor-master/scripts', methods=['GET'])
