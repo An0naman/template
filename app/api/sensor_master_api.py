@@ -607,6 +607,29 @@ def get_registered_sensors():
             sensor = dict(row)
             if sensor['capabilities']:
                 sensor['capabilities'] = json.loads(sensor['capabilities'])
+            
+            # Get active script for this sensor
+            cursor.execute('''
+                SELECT id, description, script_version, script_type, created_at, last_executed
+                FROM SensorScripts
+                WHERE sensor_id = ? AND is_active = 1
+                ORDER BY created_at DESC
+                LIMIT 1
+            ''', (sensor['sensor_id'],))
+            
+            script_row = cursor.fetchone()
+            if script_row:
+                sensor['current_script'] = {
+                    'id': script_row[0],
+                    'name': script_row[1] or 'Unnamed Script',
+                    'version': script_row[2],
+                    'language': script_row[3],
+                    'uploaded_at': script_row[4],
+                    'last_executed': script_row[5]
+                }
+            else:
+                sensor['current_script'] = None
+            
             sensors.append(sensor)
         
         return jsonify(sensors), 200
@@ -928,6 +951,238 @@ def get_sensor_commands():
         return jsonify({'error': 'Failed to fetch commands'}), 500
 
 
+@sensor_master_api_bp.route('/sensor-master/script/<sensor_id>', methods=['GET'])
+def get_sensor_script(sensor_id):
+    """
+    Get the current script/instructions for a sensor
+    
+    This endpoint is polled by the ESP32 to check for script updates
+    """
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Get sensor info and check if it has a script
+        cursor.execute('''
+            SELECT sr.*, smc.instance_name
+            FROM SensorRegistration sr
+            LEFT JOIN SensorMasterControl smc ON sr.assigned_master_id = smc.id
+            WHERE sr.sensor_id = ?
+        ''', (sensor_id,))
+        
+        sensor = cursor.fetchone()
+        
+        if not sensor:
+            return jsonify({'error': 'Sensor not found'}), 404
+        
+        # Check for sensor-specific script
+        cursor.execute('''
+            SELECT script_content, script_version, script_type, updated_at
+            FROM SensorScripts
+            WHERE sensor_id = ? AND is_active = 1
+            ORDER BY updated_at DESC
+            LIMIT 1
+        ''', (sensor_id,))
+        
+        script_row = cursor.fetchone()
+        
+        if script_row:
+            return jsonify({
+                'script_available': True,
+                'script': script_row['script_content'],
+                'version': script_row['script_version'],
+                'type': script_row['script_type'],
+                'updated_at': script_row['updated_at']
+            }), 200
+        
+        return jsonify({
+            'script_available': False,
+            'message': 'No script configured for this sensor'
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error fetching sensor script: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to fetch script'}), 500
+
+
+@sensor_master_api_bp.route('/sensor-master/script', methods=['POST'])
+def upload_sensor_script():
+    """
+    Upload or update a script for a sensor
+    
+    Expected payload:
+    {
+        "sensor_id": "esp32_001",
+        "script_content": "// Arduino code here",
+        "script_version": "1.0.0",
+        "script_type": "arduino",
+        "description": "LED control script"
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        if not data or 'sensor_id' not in data or 'script_content' not in data:
+            return jsonify({'error': 'sensor_id and script_content are required'}), 400
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Verify sensor exists
+        cursor.execute('SELECT id FROM SensorRegistration WHERE sensor_id = ?',
+                      (data['sensor_id'],))
+        if not cursor.fetchone():
+            return jsonify({'error': 'Sensor not registered'}), 404
+        
+        # Deactivate previous scripts for this sensor
+        cursor.execute('''
+            UPDATE SensorScripts
+            SET is_active = 0
+            WHERE sensor_id = ?
+        ''', (data['sensor_id'],))
+        
+        # Insert new script
+        cursor.execute('''
+            INSERT INTO SensorScripts
+            (sensor_id, script_content, script_version, script_type, description, is_active)
+            VALUES (?, ?, ?, ?, ?, 1)
+        ''', (
+            data['sensor_id'],
+            data['script_content'],
+            data.get('script_version', '1.0.0'),
+            data.get('script_type', 'arduino'),
+            data.get('description', '')
+        ))
+        
+        script_id = cursor.lastrowid
+        conn.commit()
+        
+        logger.info(f"Script uploaded for sensor {data['sensor_id']}, version {data.get('script_version')}")
+        
+        return jsonify({
+            'message': 'Script uploaded successfully',
+            'script_id': script_id,
+            'sensor_id': data['sensor_id']
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Error uploading script: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to upload script'}), 500
+
+
+@sensor_master_api_bp.route('/sensor-master/scripts', methods=['GET'])
+def list_sensor_scripts():
+    """Get all scripts for sensors"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        sensor_id = request.args.get('sensor_id')
+        
+        query = '''
+            SELECT ss.*, sr.sensor_name, sr.sensor_type
+            FROM SensorScripts ss
+            JOIN SensorRegistration sr ON ss.sensor_id = sr.sensor_id
+            WHERE 1=1
+        '''
+        params = []
+        
+        if sensor_id:
+            query += ' AND ss.sensor_id = ?'
+            params.append(sensor_id)
+        
+        query += ' ORDER BY ss.updated_at DESC'
+        
+        cursor.execute(query, params)
+        scripts = []
+        
+        for row in cursor.fetchall():
+            script = dict(row)
+            scripts.append(script)
+        
+        return jsonify(scripts), 200
+        
+    except Exception as e:
+        logger.error(f"Error listing scripts: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to list scripts'}), 500
+
+
+@sensor_master_api_bp.route('/sensor-master/scripts/<int:script_id>', methods=['DELETE'])
+def delete_script(script_id):
+    """
+    Delete a sensor script
+    """
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Check if script exists
+        cursor.execute('SELECT id FROM SensorScripts WHERE id = ?', (script_id,))
+        if not cursor.fetchone():
+            return jsonify({'error': 'Script not found'}), 404
+        
+        # Delete the script
+        cursor.execute('DELETE FROM SensorScripts WHERE id = ?', (script_id,))
+        conn.commit()
+        
+        logger.info(f"Deleted script {script_id}")
+        return jsonify({'message': 'Script deleted successfully'}), 200
+        
+    except Exception as e:
+        logger.error(f"Error deleting script: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to delete script'}), 500
+
+
+@sensor_master_api_bp.route('/sensor-master/scripts/<int:script_id>', methods=['PATCH'])
+def update_script_status(script_id):
+    """
+    Update a sensor script (mainly for activating/deactivating)
+    
+    Expected payload:
+    {
+        "is_active": true/false
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        if 'is_active' not in data:
+            return jsonify({'error': 'is_active field is required'}), 400
+        
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Check if script exists
+        cursor.execute('SELECT sensor_id FROM SensorScripts WHERE id = ?', (script_id,))
+        result = cursor.fetchone()
+        if not result:
+            return jsonify({'error': 'Script not found'}), 404
+        
+        sensor_id = result['sensor_id']
+        is_active = data['is_active']
+        
+        # If activating, deactivate other scripts for this sensor
+        if is_active:
+            cursor.execute(
+                'UPDATE SensorScripts SET is_active = 0 WHERE sensor_id = ? AND id != ?',
+                (sensor_id, script_id)
+            )
+        
+        # Update the script
+        cursor.execute(
+            'UPDATE SensorScripts SET is_active = ?, updated_at = ? WHERE id = ?',
+            (1 if is_active else 0, datetime.now(timezone.utc).isoformat(), script_id)
+        )
+        conn.commit()
+        
+        logger.info(f"Updated script {script_id} active status to {is_active}")
+        return jsonify({'message': 'Script updated successfully', 'is_active': is_active}), 200
+        
+    except Exception as e:
+        logger.error(f"Error updating script: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to update script'}), 500
+
+
 @sensor_master_api_bp.route('/sensor-master/export-code', methods=['POST'])
 def export_esp32_code():
     """
@@ -999,4 +1254,107 @@ def export_esp32_code():
     except Exception as e:
         logger.error(f"Error exporting code: {e}", exc_info=True)
         return jsonify({'error': 'Failed to export code', 'details': str(e)}), 500
+
+
+@sensor_master_api_bp.route('/sensor-master/script-executed', methods=['POST'])
+def report_script_execution():
+    """
+    ESP32 reports that it executed a script
+    
+    Expected payload:
+    {
+        "sensor_id": "esp32_fermentation_001",
+        "script_id": 123
+    }
+    """
+    try:
+        data = request.get_json()
+        sensor_id = data.get('sensor_id')
+        script_id = data.get('script_id')
+        
+        if not sensor_id:
+            return jsonify({'error': 'sensor_id is required'}), 400
+        
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # If script_id provided, update specific script
+        if script_id:
+            cursor.execute('''
+                SELECT id FROM SensorScripts 
+                WHERE id = ? AND sensor_id = ?
+            ''', (script_id, sensor_id))
+            
+            if not cursor.fetchone():
+                return jsonify({'error': 'Script not found for this sensor'}), 404
+            
+            cursor.execute('''
+                UPDATE SensorScripts 
+                SET last_executed = ? 
+                WHERE id = ? AND sensor_id = ?
+            ''', (datetime.now(timezone.utc).isoformat(), script_id, sensor_id))
+            
+            logger.info(f"Script {script_id} executed on {sensor_id}")
+        else:
+            # Update the active script for this sensor
+            cursor.execute('''
+                UPDATE SensorScripts 
+                SET last_executed = ? 
+                WHERE sensor_id = ? AND is_active = 1
+            ''', (datetime.now(timezone.utc).isoformat(), sensor_id))
+            
+            logger.info(f"Active script executed on {sensor_id}")
+        
+        conn.commit()
+        return jsonify({'message': 'Execution recorded'}), 200
+        
+    except Exception as e:
+        logger.error(f"Error recording script execution: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to record execution'}), 500
+
+
+@sensor_master_api_bp.route('/sensor-master/report-version', methods=['POST'])
+def report_script_version():
+    """
+    ESP32 reports which script version is currently running
+    
+    Expected payload:
+    {
+        "sensor_id": "esp32_fermentation_001",
+        "script_version": "1.0.0",
+        "script_id": 123 (optional)
+    }
+    """
+    try:
+        data = request.get_json()
+        sensor_id = data.get('sensor_id')
+        script_version = data.get('script_version')
+        script_id = data.get('script_id')
+        
+        if not sensor_id or not script_version:
+            return jsonify({'error': 'sensor_id and script_version are required'}), 400
+        
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Update sensor's current running version
+        cursor.execute('''
+            UPDATE SensorRegistration 
+            SET current_script_version = ?,
+                current_script_id = ?,
+                last_check_in = ?
+            WHERE sensor_id = ?
+        ''', (script_version, script_id, datetime.now(timezone.utc).isoformat(), sensor_id))
+        
+        if cursor.rowcount == 0:
+            return jsonify({'error': 'Sensor not found'}), 404
+        
+        conn.commit()
+        logger.info(f"Sensor {sensor_id} reported running version {script_version}")
+        return jsonify({'message': 'Version recorded', 'version': script_version}), 200
+        
+    except Exception as e:
+        logger.error(f"Error recording version: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to record version'}), 500
+
 

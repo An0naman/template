@@ -364,6 +364,29 @@
             </div>
         </div>
     </div>
+
+    <!-- Sensor Scripts / Instructions -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-file-code"></i> Sensor Scripts & Instructions</h5>
+            <button class="btn btn-sm btn-success" onclick="showUploadScriptModal()">
+                <i class="fas fa-upload"></i> Upload Script
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                <strong>Dynamic Script Updates:</strong> Upload Arduino or MicroPython scripts that will be automatically sent to your ESP32 devices over WiFi. Sensors check for updates every 30 seconds.
+            </div>
+            <div id="scriptsContainer">
+                <div class="text-center py-4">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Master Instance Modal -->
@@ -578,6 +601,73 @@
     </div>
 </div>
 
+<!-- Upload Script Modal -->
+<div class="modal fade" id="uploadScriptModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-upload"></i> Upload Script to Sensor</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Select Sensor <span class="text-danger">*</span></label>
+                        <select class="form-select" id="scriptSensorId" required>
+                            <option value="">Choose a sensor...</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Script Version</label>
+                        <input type="text" class="form-control" id="scriptVersion" value="1.0.0" placeholder="1.0.0">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Script Type</label>
+                        <select class="form-select" id="scriptType">
+                            <option value="arduino">Arduino C++</option>
+                            <option value="micropython">MicroPython</option>
+                            <option value="snippet">Code Snippet</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Description (Optional)</label>
+                    <input type="text" class="form-control" id="scriptDescription" 
+                           placeholder="e.g., LED blink pattern update">
+                </div>
+                
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Important:</strong> The ESP32 will check for script updates every 30 seconds when in ONLINE mode. Make sure your script is tested before uploading!
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Script Content <span class="text-danger">*</span></label>
+                    <textarea class="form-control font-monospace" id="scriptContent" rows="15" 
+                              placeholder="// Paste your Arduino code or MicroPython script here
+// Example: LED blink pattern
+void executeLocalScript() {
+    digitalWrite(LED_PIN, HIGH);
+    delay(100);
+    digitalWrite(LED_PIN, LOW);
+    delay(900);
+}"></textarea>
+                    <small class="text-muted">This code will be sent to the sensor and executed when in ONLINE mode</small>
+                </div>
+                
+                <div id="scriptUploadResult" class="alert" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="uploadScript()">
+                    <i class="fas fa-upload"></i> Upload to Sensor
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 <script>
 let masterInstances = [];
@@ -587,6 +677,9 @@ let configs = [];
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
     refreshData();
+    
+    // Auto-refresh every 30 seconds for real-time updates
+    setInterval(refreshData, 30000);
 });
 
 async function refreshData() {
@@ -594,7 +687,8 @@ async function refreshData() {
         loadMasterInstances(),
         loadSensors(),
         loadConfigs(),
-        loadStats()
+        loadStats(),
+        loadScripts()
     ]);
 }
 
@@ -697,13 +791,98 @@ function renderSensors() {
                         <th>Name</th>
                         <th>Type</th>
                         <th>Status</th>
+                        <th>Current Script</th>
+                        <th>Running Version</th>
                         <th>Master</th>
                         <th>Last Check-in</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${sensors.map(sensor => `
+                    ${sensors.map(sensor => {
+                        // Build script status indicator
+                        let scriptIndicator = '<span class="badge bg-secondary"><i class="fas fa-minus"></i> No script</span>';
+                        
+                        if (sensor.current_script) {
+                            const script = sensor.current_script;
+                            const now = new Date();
+                            const uploadedAt = new Date(script.uploaded_at);
+                            const lastExecuted = script.last_executed ? new Date(script.last_executed) : null;
+                            
+                            // Determine status
+                            let badgeClass = 'bg-secondary';
+                            let icon = 'fa-pause';
+                            let statusText = 'Idle';
+                            let title = script.name;
+                            
+                            if (lastExecuted) {
+                                const secsSinceExec = (now - lastExecuted) / 1000;
+                                
+                                if (secsSinceExec < 120) {
+                                    // Executed within last 2 minutes = running
+                                    badgeClass = 'bg-success';
+                                    icon = 'fa-play';
+                                    statusText = 'Running';
+                                    title = `${script.name} - Last run ${Math.floor(secsSinceExec)}s ago`;
+                                } else if (secsSinceExec < 3600) {
+                                    // Executed within last hour = recently ran
+                                    badgeClass = 'bg-info';
+                                    icon = 'fa-check';
+                                    const minsAgo = Math.floor(secsSinceExec / 60);
+                                    statusText = 'Recent';
+                                    title = `${script.name} - Last run ${minsAgo}m ago`;
+                                } else {
+                                    // Older execution
+                                    badgeClass = 'bg-secondary';
+                                    icon = 'fa-history';
+                                    statusText = 'Idle';
+                                    const hoursAgo = Math.floor(secsSinceExec / 3600);
+                                    title = `${script.name} - Last run ${hoursAgo}h ago`;
+                                }
+                            } else {
+                                // Never executed
+                                const secsSinceUpload = (now - uploadedAt) / 1000;
+                                if (secsSinceUpload < 300) {
+                                    // Uploaded within 5 minutes but not run yet
+                                    badgeClass = 'bg-warning';
+                                    icon = 'fa-clock';
+                                    statusText = 'Pending';
+                                    title = `${script.name} - Waiting for first execution`;
+                                } else {
+                                    badgeClass = 'bg-secondary';
+                                    icon = 'fa-pause';
+                                    statusText = 'Not run';
+                                    title = `${script.name} - Never executed`;
+                                }
+                            }
+                            
+                            scriptIndicator = `<span class="badge ${badgeClass}" title="${title}"><i class="fas ${icon}"></i> ${statusText}</span>`;
+                        }
+                        
+                        // Build running version indicator
+                        let versionIndicator = '<span class="text-muted">-</span>';
+                        if (sensor.current_script_version) {
+                            const runningVersion = sensor.current_script_version;
+                            const availableVersion = sensor.current_script ? sensor.current_script.version : null;
+                            
+                            if (availableVersion && runningVersion !== availableVersion) {
+                                // Version mismatch - needs update
+                                versionIndicator = `
+                                    <span class="badge bg-warning" title="Update available: ${availableVersion}">
+                                        <i class="fas fa-exclamation-triangle"></i> ${runningVersion}
+                                        <i class="fas fa-arrow-right"></i> ${availableVersion}
+                                    </span>
+                                `;
+                            } else {
+                                // Running latest version
+                                versionIndicator = `<code class="text-success">${runningVersion}</code>`;
+                            }
+                        } else if (sensor.current_script) {
+                            // Has script but sensor hasn't reported version
+                            versionIndicator = `<span class="badge bg-secondary" title="Waiting for version report"><i class="fas fa-question"></i> Unknown</span>`;
+                        }
+                        
+                        return `
                         <tr class="sensor-list-item">
                             <td><code>${sensor.sensor_id}</code></td>
                             <td>${sensor.sensor_name || 'Unnamed'}</td>
@@ -712,6 +891,8 @@ function renderSensors() {
                                 <i class="fas fa-circle sensor-status-${sensor.status}"></i>
                                 ${sensor.status}
                             </td>
+                            <td>${scriptIndicator}</td>
+                            <td>${versionIndicator}</td>
                             <td>${sensor.master_name || 'Unassigned'}</td>
                             <td>${sensor.last_check_in ? new Date(sensor.last_check_in).toLocaleString() : 'Never'}</td>
                             <td>
@@ -725,7 +906,8 @@ function renderSensors() {
                                 </button>
                             </td>
                         </tr>
-                    `).join('')}
+                        `;
+                    }).join('')}
                 </tbody>
             </table>
         </div>
@@ -1188,6 +1370,340 @@ function downloadCode() {
     window.URL.revokeObjectURL(url);
     
     showAlert(`Downloaded ${filename}`, 'success');
+}
+
+// ============================================================================
+// SCRIPT UPLOAD & MANAGEMENT FUNCTIONS
+// ============================================================================
+
+let scripts = [];
+
+async function loadScripts() {
+    try {
+        const response = await fetch('/api/sensor-master/scripts');
+        if (!response.ok) throw new Error('Failed to load scripts');
+        
+        scripts = await response.json();
+        renderScripts();
+    } catch (error) {
+        console.error('Error loading scripts:', error);
+        document.getElementById('scriptsContainer').innerHTML = 
+            '<div class="alert alert-danger">Failed to load scripts</div>';
+    }
+}
+
+function renderScripts() {
+    const container = document.getElementById('scriptsContainer');
+    
+    if (scripts.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-file-code fa-3x mb-3"></i>
+                <p>No scripts uploaded yet. Click "Upload Script" to send instructions to your sensors.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="table-responsive"><table class="table table-hover">';
+    html += `
+        <thead>
+            <tr>
+                <th>Sensor</th>
+                <th>Version</th>
+                <th>Type</th>
+                <th>Description</th>
+                <th>Status</th>
+                <th>Updated</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+    `;
+    
+    scripts.forEach(script => {
+        // Build detailed status badge with execution info
+        let statusBadge = '';
+        
+        if (!script.is_active) {
+            statusBadge = '<span class="badge bg-secondary"><i class="fas fa-pause"></i> Inactive</span>';
+        } else {
+            // Active script - check execution status
+            const now = new Date();
+            const uploadedAt = new Date(script.uploaded_at || script.created_at);
+            const lastExecuted = script.last_executed ? new Date(script.last_executed) : null;
+            
+            let badgeClass = 'bg-success';
+            let icon = 'fa-check-circle';
+            let statusText = 'Active';
+            let tooltip = 'Script is active';
+            
+            if (lastExecuted) {
+                const secsSinceExec = (now - lastExecuted) / 1000;
+                
+                if (secsSinceExec < 120) {
+                    // Running NOW
+                    badgeClass = 'bg-success';
+                    icon = 'fa-play';
+                    statusText = 'Running';
+                    tooltip = `Last executed ${Math.floor(secsSinceExec)}s ago`;
+                } else if (secsSinceExec < 3600) {
+                    // Recently ran
+                    badgeClass = 'bg-info';
+                    icon = 'fa-check';
+                    const minsAgo = Math.floor(secsSinceExec / 60);
+                    statusText = 'Recent';
+                    tooltip = `Last executed ${minsAgo}m ago`;
+                } else if (secsSinceExec < 86400) {
+                    // Ran today
+                    badgeClass = 'bg-secondary';
+                    icon = 'fa-history';
+                    const hoursAgo = Math.floor(secsSinceExec / 3600);
+                    statusText = 'Active';
+                    tooltip = `Last executed ${hoursAgo}h ago`;
+                } else {
+                    // Old execution
+                    badgeClass = 'bg-secondary';
+                    icon = 'fa-clock';
+                    const daysAgo = Math.floor(secsSinceExec / 86400);
+                    statusText = 'Active';
+                    tooltip = `Last executed ${daysAgo}d ago`;
+                }
+            } else {
+                // Never executed
+                const secsSinceUpload = (now - uploadedAt) / 1000;
+                if (secsSinceUpload < 300) {
+                    // Just uploaded
+                    badgeClass = 'bg-warning';
+                    icon = 'fa-clock';
+                    statusText = 'Pending';
+                    tooltip = 'Waiting for first execution';
+                } else {
+                    // Active but never ran
+                    badgeClass = 'bg-warning';
+                    icon = 'fa-exclamation-triangle';
+                    statusText = 'Not Executed';
+                    tooltip = 'Active but never executed by sensor';
+                }
+            }
+            
+            statusBadge = `<span class="badge ${badgeClass}" title="${tooltip}"><i class="fas ${icon}"></i> ${statusText}</span>`;
+        }
+        
+        html += `
+            <tr class="${script.is_active && script.last_executed ? 'table-success' : ''}">
+                <td>
+                    <strong>${script.sensor_name || script.sensor_id}</strong><br>
+                    <small class="text-muted">${script.sensor_id}</small>
+                </td>
+                <td><code>${script.script_version}</code></td>
+                <td><span class="badge bg-info">${script.script_type}</span></td>
+                <td>${script.description || '-'}</td>
+                <td>${statusBadge}</td>
+                <td><small>${new Date(script.updated_at).toLocaleString()}</small></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-${script.is_active ? 'secondary' : 'success'}" 
+                            onclick="toggleScriptActive(${script.id}, ${script.is_active})"
+                            title="${script.is_active ? 'Deactivate' : 'Activate'}">
+                        <i class="fas fa-power-off"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="viewScript(${script.id})">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteScript(${script.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+function showUploadScriptModal() {
+    // Populate sensor dropdown
+    const sensorSelect = document.getElementById('scriptSensorId');
+    sensorSelect.innerHTML = '<option value="">Choose a sensor...</option>';
+    
+    sensors.forEach(sensor => {
+        const option = document.createElement('option');
+        option.value = sensor.sensor_id;
+        option.textContent = `${sensor.sensor_name || sensor.sensor_id} (${sensor.sensor_type})`;
+        sensorSelect.appendChild(option);
+    });
+    
+    // Reset form
+    document.getElementById('scriptVersion').value = '1.0.0';
+    document.getElementById('scriptType').value = 'arduino';
+    document.getElementById('scriptDescription').value = '';
+    document.getElementById('scriptContent').value = '';
+    document.getElementById('scriptUploadResult').style.display = 'none';
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('uploadScriptModal'));
+    modal.show();
+}
+
+async function uploadScript() {
+    const sensorId = document.getElementById('scriptSensorId').value;
+    const scriptContent = document.getElementById('scriptContent').value;
+    const scriptVersion = document.getElementById('scriptVersion').value;
+    const scriptType = document.getElementById('scriptType').value;
+    const description = document.getElementById('scriptDescription').value;
+    
+    // Validation
+    if (!sensorId) {
+        showAlert('Please select a sensor', 'warning');
+        return;
+    }
+    
+    if (!scriptContent.trim()) {
+        showAlert('Please enter script content', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/sensor-master/script', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                sensor_id: sensorId,
+                script_content: scriptContent,
+                script_version: scriptVersion,
+                script_type: scriptType,
+                description: description
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            // Show success message
+            const resultDiv = document.getElementById('scriptUploadResult');
+            resultDiv.className = 'alert alert-success';
+            resultDiv.innerHTML = `
+                <i class="fas fa-check-circle"></i>
+                <strong>Script uploaded successfully!</strong><br>
+                The sensor will receive this script on its next check-in (within 30 seconds).
+            `;
+            resultDiv.style.display = 'block';
+            
+            showAlert('Script uploaded successfully! Sensor will receive it within 30 seconds.', 'success');
+            
+            // Reload scripts
+            await loadScripts();
+            
+            // Close modal after a delay
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('uploadScriptModal')).hide();
+            }, 2000);
+        } else {
+            throw new Error(data.error || 'Failed to upload script');
+        }
+    } catch (error) {
+        console.error('Error uploading script:', error);
+        const resultDiv = document.getElementById('scriptUploadResult');
+        resultDiv.className = 'alert alert-danger';
+        resultDiv.innerHTML = `
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Upload failed:</strong> ${error.message}
+        `;
+        resultDiv.style.display = 'block';
+    }
+}
+
+function viewScript(scriptId) {
+    const script = scripts.find(s => s.id === scriptId);
+    if (!script) return;
+    
+    // Show script in a modal or alert
+    const content = `
+        <div style="max-height: 500px; overflow-y: auto;">
+            <h6>Script Details</h6>
+            <p><strong>Sensor:</strong> ${script.sensor_name || script.sensor_id}</p>
+            <p><strong>Version:</strong> ${script.script_version}</p>
+            <p><strong>Type:</strong> ${script.script_type}</p>
+            <p><strong>Description:</strong> ${script.description || 'N/A'}</p>
+            <hr>
+            <h6>Script Content:</h6>
+            <pre class="bg-light p-3" style="max-height: 300px; overflow: auto;">${script.script_content}</pre>
+        </div>
+    `;
+    
+    // Create a temporary modal
+    const modalHtml = `
+        <div class="modal fade" id="viewScriptModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">View Script</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">${content}</div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove any existing view modal
+    const existing = document.getElementById('viewScriptModal');
+    if (existing) existing.remove();
+    
+    // Add and show new modal
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('viewScriptModal'));
+    modal.show();
+    
+    // Clean up when hidden
+    document.getElementById('viewScriptModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+}
+
+async function deleteScript(scriptId) {
+    if (!confirm('Are you sure you want to delete this script? This cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/sensor-master/scripts/${scriptId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('Failed to delete script');
+        
+        showAlert('Script deleted successfully', 'success');
+        await loadScripts();
+    } catch (error) {
+        console.error('Error deleting script:', error);
+        showAlert('Failed to delete script', 'danger');
+    }
+}
+
+async function toggleScriptActive(scriptId, currentActive) {
+    try {
+        const response = await fetch(`/api/sensor-master/scripts/${scriptId}`, {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({is_active: !currentActive})
+        });
+        
+        if (!response.ok) throw new Error('Failed to update script');
+        
+        const result = await response.json();
+        showAlert(`Script ${result.is_active ? 'activated' : 'deactivated'} successfully`, 'success');
+        await loadScripts();
+    } catch (error) {
+        console.error('Error toggling script:', error);
+        showAlert('Failed to update script status', 'danger');
+    }
 }
 </script>
 
