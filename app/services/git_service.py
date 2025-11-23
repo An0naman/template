@@ -291,6 +291,13 @@ class GitService:
         try:
             repo, _ = self.clone_or_open_repository(repo_id)
             
+            # Validate branch name if provided
+            if branch:
+                # Skip invalid branch names (empty, starting with ., or containing /.)
+                if not branch or branch.startswith('.') or '/.' in branch:
+                    logger.warning(f"Invalid branch name '{branch}', using default branch")
+                    branch = None
+            
             if branch:
                 try:
                     commits_iter = repo.iter_commits(branch, max_count=limit)
@@ -315,8 +322,15 @@ class GitService:
                     if branch:
                         branch_name = branch
                     elif repo.active_branch:
+                        # Clean up the branch name from refs path
                         branch_name = repo.active_branch.name
+                        if branch_name.startswith('refs/heads/'):
+                            branch_name = branch_name.replace('refs/heads/', '')
                     else:
+                        branch_name = 'main'
+                    
+                    # Validate branch name - skip invalid names
+                    if branch_name.startswith('.') or '/.' in branch_name:
                         branch_name = 'main'
                 except Exception:
                     branch_name = 'main'
@@ -366,12 +380,13 @@ class GitService:
             cursor.execute('''
                 INSERT INTO GitCommit 
                 (repository_id, commit_hash, author, author_email, message, 
-                 message_body, commit_date, files_changed, insertions, deletions)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 message_body, commit_date, branch, files_changed, insertions, deletions)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 repo_id, commit_data['hash'], commit_data['author'],
                 commit_data['author_email'], commit_data['message'],
                 commit_data['message_body'], commit_data['date'],
+                commit_data['branch'],
                 commit_data['files_changed'], commit_data['insertions'],
                 commit_data['deletions']
             ))
@@ -439,13 +454,29 @@ class GitService:
             
             branches = []
             for ref in repo.refs:
+                # Skip HEAD references
                 if 'HEAD' in ref.name:
                     continue
                 
                 try:
+                    # Extract clean branch name from ref
+                    # Handle refs like 'origin/main', 'refs/heads/main', 'refs/remotes/origin/main'
+                    branch_name = ref.name
+                    if branch_name.startswith('refs/heads/'):
+                        branch_name = branch_name.replace('refs/heads/', '')
+                    elif branch_name.startswith('refs/remotes/origin/'):
+                        branch_name = branch_name.replace('refs/remotes/origin/', '')
+                    elif branch_name.startswith('origin/'):
+                        branch_name = branch_name.replace('origin/', '')
+                    
+                    # Skip invalid branch names (starting with . or containing /.)
+                    if branch_name.startswith('.') or '/.' in branch_name:
+                        logger.debug(f"Skipping invalid branch name: {branch_name}")
+                        continue
+                    
                     last_commit = ref.commit
                     branch_data = {
-                        'name': ref.name.replace('origin/', ''),
+                        'name': branch_name,
                         'last_commit_hash': last_commit.hexsha,
                         'last_commit_date': last_commit.committed_datetime,
                         'last_commit_message': last_commit.message.split('\n')[0]
