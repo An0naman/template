@@ -225,8 +225,19 @@ class GitService:
                 elif 'gitlab.com' in clone_url:
                     clone_url = clone_url.replace('https://', f'https://oauth2:{token}@')
             
-            repo = Repo.clone_from(clone_url, local_path)
-            logger.info(f"Cloned repository to {local_path}")
+            try:
+                repo = Repo.clone_from(clone_url, local_path)
+                logger.info(f"Cloned repository to {local_path}")
+            except GitCommandError as clone_error:
+                # If clone fails because directory exists, clean it up and retry
+                if 'already exists and is not an empty directory' in str(clone_error):
+                    logger.warning(f"Directory {local_path} exists but is not empty, cleaning up")
+                    import shutil
+                    shutil.rmtree(local_path)
+                    repo = Repo.clone_from(clone_url, local_path)
+                    logger.info(f"Cloned repository to {local_path} after cleanup")
+                else:
+                    raise
         elif os.path.exists(local_path) and not os.path.exists(os.path.join(local_path, '.git')):
             # Path exists but is not a git repository - clean it and clone
             logger.warning(f"Path {local_path} exists but is not a git repo, removing and re-cloning")
@@ -247,6 +258,29 @@ class GitService:
             try:
                 repo = Repo(local_path)
                 logger.info(f"Opened existing repository at {local_path}")
+                
+                # Check for corrupted refs before attempting operations
+                try:
+                    # Try to access refs - this will fail if there are invalid refs
+                    _ = list(repo.refs)
+                except Exception as ref_error:
+                    if 'Invalid reference' in str(ref_error) or 'cannot start with a period' in str(ref_error):
+                        logger.error(f"Repository has invalid refs: {ref_error}. Removing and re-cloning.")
+                        import shutil
+                        shutil.rmtree(local_path)
+                        
+                        clone_url = repo_info['url']
+                        if token:
+                            if 'github.com' in clone_url:
+                                clone_url = clone_url.replace('https://', f'https://{token}@')
+                            elif 'gitlab.com' in clone_url:
+                                clone_url = clone_url.replace('https://', f'https://oauth2:{token}@')
+                        
+                        repo = Repo.clone_from(clone_url, local_path)
+                        logger.info(f"Re-cloned repository to {local_path} due to invalid refs")
+                        return repo, local_path
+                    else:
+                        raise
                 
                 # Pull latest changes
                 try:
@@ -280,14 +314,26 @@ class GitService:
                     logger.info(f"Pulled latest changes for repo {repo_id}")
                 except Exception as e:
                     logger.warning(f"Could not pull latest changes: {e}")
-                    # If pull fails due to invalid refs, try fetch instead
-                    if 'Invalid reference' in str(e) or 'refs/heads/' in str(e):
-                        try:
-                            logger.info(f"Attempting fetch instead of pull due to ref error")
-                            origin.fetch()
-                            logger.info(f"Fetched latest changes for repo {repo_id}")
-                        except Exception as fetch_error:
-                            logger.warning(f"Fetch also failed: {fetch_error}")
+                    # If pull fails due to invalid refs, repository is corrupted - re-clone
+                    if 'Invalid reference' in str(e) or 'cannot start with a period' in str(e):
+                        logger.error(f"Repository corrupted with invalid refs. Re-cloning.")
+                        import shutil
+                        shutil.rmtree(local_path)
+                        
+                        clone_url = repo_info['url']
+                        if token:
+                            if 'github.com' in clone_url:
+                                clone_url = clone_url.replace('https://', f'https://{token}@')
+                            elif 'gitlab.com' in clone_url:
+                                clone_url = clone_url.replace('https://', f'https://oauth2:{token}@')
+                            else:
+                                clone_url = repo_info['url']
+                        else:
+                            clone_url = repo_info['url']
+                        
+                        repo = Repo.clone_from(clone_url, local_path)
+                        logger.info(f"Re-cloned repository to {local_path} due to invalid refs")
+                        return repo, local_path
                     
             except InvalidGitRepositoryError:
                 # Path exists but is not a valid git repo, remove and re-clone
