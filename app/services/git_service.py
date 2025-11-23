@@ -33,6 +33,23 @@ class GitService:
         self.github_client = None
         self.gitlab_client = None
     
+    @staticmethod
+    def _safe_rmtree(path: str):
+        """Safely remove a directory tree, handling permission issues"""
+        import shutil
+        import stat
+        
+        def handle_remove_readonly(func, path, exc):
+            """Error handler for Windows and read-only files"""
+            os.chmod(path, stat.S_IWRITE)
+            func(path)
+        
+        try:
+            shutil.rmtree(path, onerror=handle_remove_readonly)
+        except Exception as e:
+            logger.warning(f"Failed to remove {path}: {e}, trying with ignore_errors")
+            shutil.rmtree(path, ignore_errors=True)
+    
     def connect_github(self, token: str) -> bool:
         """Connect to GitHub using Personal Access Token"""
         if not Github:
@@ -232,8 +249,7 @@ class GitService:
                 # If clone fails because directory exists, clean it up and retry
                 if 'already exists and is not an empty directory' in str(clone_error):
                     logger.warning(f"Directory {local_path} exists but is not empty, cleaning up")
-                    import shutil
-                    shutil.rmtree(local_path)
+                    self._safe_rmtree(local_path)
                     repo = Repo.clone_from(clone_url, local_path)
                     logger.info(f"Cloned repository to {local_path} after cleanup")
                 else:
@@ -241,8 +257,7 @@ class GitService:
         elif os.path.exists(local_path) and not os.path.exists(os.path.join(local_path, '.git')):
             # Path exists but is not a git repository - clean it and clone
             logger.warning(f"Path {local_path} exists but is not a git repo, removing and re-cloning")
-            import shutil
-            shutil.rmtree(local_path)
+            self._safe_rmtree(local_path)
             
             clone_url = repo_info['url']
             if token:
@@ -266,8 +281,7 @@ class GitService:
                 except Exception as ref_error:
                     if 'Invalid reference' in str(ref_error) or 'cannot start with a period' in str(ref_error):
                         logger.error(f"Repository has invalid refs: {ref_error}. Removing and re-cloning.")
-                        import shutil
-                        shutil.rmtree(local_path)
+                        self._safe_rmtree(local_path)
                         
                         clone_url = repo_info['url']
                         if token:
@@ -317,8 +331,7 @@ class GitService:
                     # If pull fails due to invalid refs, repository is corrupted - re-clone
                     if 'Invalid reference' in str(e) or 'cannot start with a period' in str(e):
                         logger.error(f"Repository corrupted with invalid refs. Re-cloning.")
-                        import shutil
-                        shutil.rmtree(local_path)
+                        self._safe_rmtree(local_path)
                         
                         clone_url = repo_info['url']
                         if token:
@@ -338,8 +351,7 @@ class GitService:
             except InvalidGitRepositoryError:
                 # Path exists but is not a valid git repo, remove and re-clone
                 logger.warning(f"Path {local_path} exists but is not a valid git repo, removing and re-cloning")
-                import shutil
-                shutil.rmtree(local_path)
+                self._safe_rmtree(local_path)
                 
                 clone_url = repo_info['url']
                 if token:
