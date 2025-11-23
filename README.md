@@ -351,8 +351,16 @@ The application is **fully compatible with CasaOS** for easy deployment:
 
 ---
 
-## 📚 **Additional Resources**
+## 📚 **Documentation**
 
+### Core Documentation
+- **[Documentation Index](docs/README.md)** - Complete documentation hub
+- **[Sensor Master Control](docs/SENSOR_MASTER_CONTROL.md)** - IoT sensor management
+- **[Quick Start Guide](docs/guides/QUICK_START.md)** - Getting started with sensor control
+- **[ESP32 Code Export](docs/guides/ESP32_CODE_EXPORT_QUICK.md)** - Generate ESP32 firmware
+- **[Migrations Guide](docs/MIGRATIONS_QUICK_REF.md)** - Database migrations reference
+
+### Additional Resources
 - **[CHANGELOG](CHANGELOG.md)** - Version history and release notes
 - **[CONTRIBUTING](CONTRIBUTING.md)** - Contribution guidelines
 - **[Archived Docs](archive/)** - Historical implementation notes (reference)

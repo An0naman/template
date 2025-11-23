@@ -88,3 +88,4 @@ btmon_capture*.txt
 # Test artifacts
 test_*.png
 test_label_*.png
+data/*.before_recovery_*

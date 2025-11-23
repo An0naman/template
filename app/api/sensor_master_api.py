@@ -4,16 +4,17 @@ Sensor Master Control API
 ==========================
 
 This API provides endpoints for the Sensor Master Control system, which allows
-sensors (like ESP32s) to "phone home" and receive configuration instructions from
-a designated master control instance.
+sensors (like ESP32s) to "phone home" and receive configuration instructions.
+
+Simplified architecture: Sensors connect directly to this instance (no master instances).
 
 Endpoints:
 ----------
 1. POST /api/sensor-master/register - Sensor registration (phone-home)
 2. GET /api/sensor-master/config/<sensor_id> - Get sensor configuration
 3. POST /api/sensor-master/heartbeat - Sensor heartbeat/status update
-4. GET/POST/PATCH/DELETE /api/sensor-master/instances - Manage master instances
-5. GET/PATCH /api/sensor-master/sensors - Manage registered sensors
+4. GET/PATCH /api/sensor-master/sensors - Manage registered sensors
+5. GET/POST/PATCH/DELETE /api/sensor-master/configs - Manage configuration templates
 6. POST /api/sensor-master/command - Queue commands for sensors
 """
 
@@ -45,21 +46,6 @@ def generate_config_hash(config_data):
     return hashlib.sha256(config_str.encode()).hexdigest()
 
 
-def get_active_master():
-    """Get the currently active master control instance"""
-    conn = get_db()
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT * FROM SensorMasterControl
-        WHERE is_enabled = 1
-        ORDER BY priority ASC, id ASC
-        LIMIT 1
-    ''')
-    
-    return cursor.fetchone()
-
-
 @sensor_master_api_bp.route('/sensor-master/register', methods=['POST'])
 def register_sensor():
     """
@@ -80,7 +66,6 @@ def register_sensor():
     Returns:
     {
         "status": "registered",
-        "assigned_master": "Local Master",
         "has_config": true,
         "message": "Sensor registered successfully"
     }
@@ -97,19 +82,9 @@ def register_sensor():
         conn = get_db()
         cursor = conn.cursor()
         
-        # Check if master control is enabled
-        master = get_active_master()
-        
-        if not master:
-            return jsonify({
-                'status': 'no_master',
-                'message': 'No active master control instance available',
-                'fallback_mode': True
-            }), 200
-        
         # Check if sensor is already registered
         cursor.execute('''
-            SELECT id, assigned_master_id, status 
+            SELECT id, status 
             FROM SensorRegistration 
             WHERE sensor_id = ?
         ''', (sensor_id,))
@@ -152,9 +127,9 @@ def register_sensor():
             cursor.execute('''
                 INSERT INTO SensorRegistration
                 (sensor_id, sensor_name, sensor_type, hardware_info, firmware_version,
-                 ip_address, mac_address, capabilities, assigned_master_id,
+                 ip_address, mac_address, capabilities,
                  last_check_in, status, registration_source)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 sensor_id,
                 data.get('sensor_name', 'Unnamed Sensor'),
@@ -164,7 +139,6 @@ def register_sensor():
                 data.get('ip_address', ''),
                 data.get('mac_address', ''),
                 json.dumps(data.get('capabilities', [])),
-                master['id'],
                 timestamp,
                 'online',
                 'auto'
@@ -175,10 +149,9 @@ def register_sensor():
         # Check if there's a configuration available
         cursor.execute('''
             SELECT COUNT(*) FROM SensorMasterConfig
-            WHERE master_id = ? 
-            AND (sensor_id = ? OR sensor_type = ?)
+            WHERE (sensor_id = ? OR sensor_type = ?)
             AND is_active = 1
-        ''', (master['id'], sensor_id, sensor_type))
+        ''', (sensor_id, sensor_type))
         
         has_config = cursor.fetchone()[0] > 0
         
@@ -186,8 +159,6 @@ def register_sensor():
         
         return jsonify({
             'status': 'registered',
-            'assigned_master': master['instance_name'],
-            'master_id': master['id'],
             'has_config': has_config,
             'message': 'Sensor registered successfully',
             'check_in_interval': 300,  # Check back every 5 minutes
@@ -224,10 +195,8 @@ def get_sensor_config(sensor_id):
         
         # Get sensor registration
         cursor.execute('''
-            SELECT sr.*, smc.instance_name as master_name
-            FROM SensorRegistration sr
-            LEFT JOIN SensorMasterControl smc ON sr.assigned_master_id = smc.id
-            WHERE sr.sensor_id = ?
+            SELECT * FROM SensorRegistration
+            WHERE sensor_id = ?
         ''', (sensor_id,))
         
         sensor = cursor.fetchone()
@@ -238,28 +207,17 @@ def get_sensor_config(sensor_id):
                 'fallback_mode': True
             }), 404
         
-        # Get master control instance
-        master = get_active_master()
-        
-        if not master or not master['is_enabled']:
-            return jsonify({
-                'config_available': False,
-                'fallback_mode': True,
-                'message': 'Master control not active'
-            }), 200
-        
-        # Get configuration (sensor-specific first, then type-specific, then default)
+        # Get configuration (sensor-specific first, then type-specific)
         cursor.execute('''
             SELECT config_data, config_version, config_name
             FROM SensorMasterConfig
-            WHERE master_id = ? 
-            AND (sensor_id = ? OR (sensor_id IS NULL AND sensor_type = ?))
+            WHERE (sensor_id = ? OR (sensor_id IS NULL AND sensor_type = ?))
             AND is_active = 1
             ORDER BY 
                 CASE WHEN sensor_id IS NOT NULL THEN 1 ELSE 2 END,
                 priority ASC
             LIMIT 1
-        ''', (master['id'], sensor_id, sensor['sensor_type']))
+        ''', (sensor_id, sensor['sensor_type']))
         
         config_row = cursor.fetchone()
         
@@ -317,10 +275,6 @@ def get_sensor_config(sensor_id):
             'config_version': config_row['config_version'],
             'config': config_data,
             'commands': commands,
-            'master': {
-                'name': master['instance_name'],
-                'id': master['id']
-            },
             'check_in_interval': 300
         }
         
@@ -364,20 +318,29 @@ def sensor_heartbeat():
         # Update sensor last check-in
         timestamp = datetime.now(timezone.utc).isoformat()
         
-        cursor.execute('''
+        # Build update query dynamically to include script version if provided
+        update_fields = {
+            'last_check_in': timestamp,
+            'status': data.get('status', 'online'),
+            'ip_address': data.get('ip_address', ''),
+            'updated_at': timestamp
+        }
+        
+        # If sensor reports current script version, update it
+        if 'current_script_version' in data:
+            update_fields['current_script_version'] = data['current_script_version']
+        
+        if 'current_script_id' in data:
+            update_fields['current_script_id'] = data['current_script_id']
+        
+        set_clause = ', '.join([f"{k} = ?" for k in update_fields.keys()])
+        values = list(update_fields.values()) + [sensor_id]
+        
+        cursor.execute(f'''
             UPDATE SensorRegistration
-            SET last_check_in = ?,
-                status = ?,
-                ip_address = ?,
-                updated_at = ?
+            SET {set_clause}
             WHERE sensor_id = ?
-        ''', (
-            timestamp,
-            data.get('status', 'online'),
-            data.get('ip_address', ''),
-            timestamp,
-            sensor_id
-        ))
+        ''', values)
         
         if cursor.rowcount == 0:
             return jsonify({
@@ -425,150 +388,6 @@ def sensor_heartbeat():
         return jsonify({'error': 'Failed to process heartbeat'}), 500
 
 
-@sensor_master_api_bp.route('/sensor-master/instances', methods=['GET'])
-def get_master_instances():
-    """Get all master control instances"""
-    try:
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT smc.*,
-                   COUNT(DISTINCT sr.id) as registered_sensors
-            FROM SensorMasterControl smc
-            LEFT JOIN SensorRegistration sr ON smc.id = sr.assigned_master_id
-            GROUP BY smc.id
-            ORDER BY smc.priority ASC, smc.instance_name ASC
-        ''')
-        
-        instances = [dict(row) for row in cursor.fetchall()]
-        
-        return jsonify(instances), 200
-        
-    except Exception as e:
-        logger.error(f"Error fetching master instances: {e}", exc_info=True)
-        return jsonify({'error': 'Failed to fetch instances'}), 500
-
-
-@sensor_master_api_bp.route('/sensor-master/instances', methods=['POST'])
-def create_master_instance():
-    """Create a new master control instance"""
-    try:
-        data = request.get_json()
-        
-        if not data or 'instance_name' not in data:
-            return jsonify({'error': 'instance_name is required'}), 400
-        
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT INTO SensorMasterControl
-            (instance_name, description, api_endpoint, api_key, is_enabled,
-             priority, status, max_sensors, allowed_sensor_types)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            data['instance_name'],
-            data.get('description', ''),
-            data.get('api_endpoint', ''),
-            data.get('api_key', ''),
-            data.get('is_enabled', False),
-            data.get('priority', 100),
-            'inactive',
-            data.get('max_sensors', 0),
-            data.get('allowed_sensor_types', '')
-        ))
-        
-        instance_id = cursor.lastrowid
-        conn.commit()
-        
-        return jsonify({
-            'message': 'Master instance created successfully',
-            'instance_id': instance_id
-        }), 201
-        
-    except sqlite3.IntegrityError:
-        return jsonify({'error': 'Instance name already exists'}), 409
-    except Exception as e:
-        logger.error(f"Error creating master instance: {e}", exc_info=True)
-        return jsonify({'error': 'Failed to create instance'}), 500
-
-
-@sensor_master_api_bp.route('/sensor-master/instances/<int:instance_id>', methods=['PATCH'])
-def update_master_instance(instance_id):
-    """Update a master control instance"""
-    try:
-        data = request.get_json()
-        
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        # Build update query dynamically
-        update_fields = []
-        values = []
-        
-        allowed_fields = ['instance_name', 'description', 'api_endpoint', 'api_key',
-                         'is_enabled', 'priority', 'status', 'max_sensors', 
-                         'allowed_sensor_types']
-        
-        for field in allowed_fields:
-            if field in data:
-                update_fields.append(f"{field} = ?")
-                values.append(data[field])
-        
-        if not update_fields:
-            return jsonify({'error': 'No fields to update'}), 400
-        
-        values.append(datetime.now(timezone.utc).isoformat())
-        values.append(instance_id)
-        
-        cursor.execute(f'''
-            UPDATE SensorMasterControl
-            SET {', '.join(update_fields)}, updated_at = ?
-            WHERE id = ?
-        ''', values)
-        
-        if cursor.rowcount == 0:
-            return jsonify({'error': 'Instance not found'}), 404
-        
-        # Update heartbeat if enabling
-        if data.get('is_enabled'):
-            cursor.execute('''
-                UPDATE SensorMasterControl
-                SET last_heartbeat = ?, status = 'active'
-                WHERE id = ?
-            ''', (datetime.now(timezone.utc).isoformat(), instance_id))
-        
-        conn.commit()
-        
-        return jsonify({'message': 'Instance updated successfully'}), 200
-        
-    except Exception as e:
-        logger.error(f"Error updating master instance: {e}", exc_info=True)
-        return jsonify({'error': 'Failed to update instance'}), 500
-
-
-@sensor_master_api_bp.route('/sensor-master/instances/<int:instance_id>', methods=['DELETE'])
-def delete_master_instance(instance_id):
-    """Delete a master control instance"""
-    try:
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        cursor.execute('DELETE FROM SensorMasterControl WHERE id = ?', (instance_id,))
-        
-        if cursor.rowcount == 0:
-            return jsonify({'error': 'Instance not found'}), 404
-        
-        conn.commit()
-        
-        return jsonify({'message': 'Instance deleted successfully'}), 200
-        
-    except Exception as e:
-        logger.error(f"Error deleting master instance: {e}", exc_info=True)
-        return jsonify({'error': 'Failed to delete instance'}), 500
-
-
 @sensor_master_api_bp.route('/sensor-master/sensors', methods=['GET'])
 def get_registered_sensors():
     """Get all registered sensors"""
@@ -578,27 +397,18 @@ def get_registered_sensors():
         
         # Optional filters
         status_filter = request.args.get('status')
-        master_filter = request.args.get('master_id')
         
         query = '''
-            SELECT sr.*,
-                   smc.instance_name as master_name,
-                   smc.status as master_status
-            FROM SensorRegistration sr
-            LEFT JOIN SensorMasterControl smc ON sr.assigned_master_id = smc.id
+            SELECT * FROM SensorRegistration
             WHERE 1=1
         '''
         params = []
         
         if status_filter:
-            query += ' AND sr.status = ?'
+            query += ' AND status = ?'
             params.append(status_filter)
         
-        if master_filter:
-            query += ' AND sr.assigned_master_id = ?'
-            params.append(int(master_filter))
-        
-        query += ' ORDER BY sr.last_check_in DESC'
+        query += ' ORDER BY last_check_in DESC'
         
         cursor.execute(query, params)
         sensors = []
@@ -608,7 +418,7 @@ def get_registered_sensors():
             if sensor['capabilities']:
                 sensor['capabilities'] = json.loads(sensor['capabilities'])
             
-            # Get active script for this sensor
+            # Get active script for this sensor (what SHOULD be running)
             cursor.execute('''
                 SELECT id, description, script_version, script_type, created_at, last_executed
                 FROM SensorScripts
@@ -619,16 +429,33 @@ def get_registered_sensors():
             
             script_row = cursor.fetchone()
             if script_row:
-                sensor['current_script'] = {
+                assigned_version = script_row[2]
+                running_version = sensor.get('current_script_version')
+                
+                # Determine script status
+                script_status = 'unknown'
+                if running_version:
+                    if running_version == assigned_version:
+                        script_status = 'running'  # Sensor is running the correct version
+                    else:
+                        script_status = 'outdated'  # Sensor is running old version
+                else:
+                    script_status = 'pending'  # Sensor hasn't reported version yet
+                
+                sensor['assigned_script'] = {
                     'id': script_row[0],
                     'name': script_row[1] or 'Unnamed Script',
-                    'version': script_row[2],
+                    'version': assigned_version,
                     'language': script_row[3],
                     'uploaded_at': script_row[4],
-                    'last_executed': script_row[5]
+                    'last_executed': script_row[5],
+                    'status': script_status
                 }
             else:
-                sensor['current_script'] = None
+                sensor['assigned_script'] = None
+            
+            # Add running script info (what sensor reports it's actually running)
+            sensor['running_script_version'] = sensor.get('current_script_version')
             
             sensors.append(sensor)
         
@@ -710,24 +537,12 @@ def get_sensor_configs():
         conn = get_db()
         cursor = conn.cursor()
         
-        master_filter = request.args.get('master_id')
-        
         query = '''
-            SELECT smc.*,
-                   m.instance_name as master_name
-            FROM SensorMasterConfig smc
-            JOIN SensorMasterControl m ON smc.master_id = m.id
-            WHERE 1=1
+            SELECT * FROM SensorMasterConfig
+            ORDER BY priority ASC, created_at DESC
         '''
-        params = []
         
-        if master_filter:
-            query += ' AND smc.master_id = ?'
-            params.append(int(master_filter))
-        
-        query += ' ORDER BY smc.priority ASC, smc.created_at DESC'
-        
-        cursor.execute(query, params)
+        cursor.execute(query)
         configs = []
         
         for row in cursor.fetchall():
@@ -748,10 +563,14 @@ def create_sensor_config():
     try:
         data = request.get_json()
         
-        required = ['master_id', 'config_name', 'config_data']
+        required = ['config_name', 'config_data']
         for field in required:
             if field not in data:
                 return jsonify({'error': f'{field} is required'}), 400
+        
+        # Must specify either sensor_id or sensor_type
+        if not data.get('sensor_id') and not data.get('sensor_type'):
+            return jsonify({'error': 'Must specify either sensor_id or sensor_type'}), 400
         
         conn = get_db()
         cursor = conn.cursor()
@@ -760,11 +579,10 @@ def create_sensor_config():
         
         cursor.execute('''
             INSERT INTO SensorMasterConfig
-            (master_id, sensor_id, sensor_type, config_name, config_data,
+            (sensor_id, sensor_type, config_name, config_data,
              config_version, is_active, priority, description)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
-            data['master_id'],
             data.get('sensor_id'),
             data.get('sensor_type'),
             data['config_name'],
@@ -964,10 +782,9 @@ def get_sensor_script(sensor_id):
         
         # Get sensor info and check if it has a script
         cursor.execute('''
-            SELECT sr.*, smc.instance_name
-            FROM SensorRegistration sr
-            LEFT JOIN SensorMasterControl smc ON sr.assigned_master_id = smc.id
-            WHERE sr.sensor_id = ?
+            SELECT *
+            FROM SensorRegistration
+            WHERE sensor_id = ?
         ''', (sensor_id,))
         
         sensor = cursor.fetchone()
@@ -1003,6 +820,74 @@ def get_sensor_script(sensor_id):
     except Exception as e:
         logger.error(f"Error fetching sensor script: {e}", exc_info=True)
         return jsonify({'error': 'Failed to fetch script'}), 500
+
+
+@sensor_master_api_bp.route('/sensor-master/scripts/assign', methods=['POST'])
+def assign_script_to_sensor():
+    """
+    Assign (copy) a script from one sensor to another
+    
+    Expected payload:
+    {
+        "source_script_id": 123,
+        "target_sensor_id": "esp32_002"
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        if not data or 'source_script_id' not in data or 'target_sensor_id' not in data:
+            return jsonify({'error': 'source_script_id and target_sensor_id are required'}), 400
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Verify target sensor exists
+        cursor.execute('SELECT id FROM SensorRegistration WHERE sensor_id = ?',
+                      (data['target_sensor_id'],))
+        if not cursor.fetchone():
+            return jsonify({'error': 'Target sensor not registered'}), 404
+        
+        # Get source script
+        cursor.execute('SELECT * FROM SensorScripts WHERE id = ?', (data['source_script_id'],))
+        source_script = cursor.fetchone()
+        if not source_script:
+            return jsonify({'error': 'Source script not found'}), 404
+        
+        # Deactivate previous scripts for target sensor
+        cursor.execute('''
+            UPDATE SensorScripts
+            SET is_active = 0
+            WHERE sensor_id = ?
+        ''', (data['target_sensor_id'],))
+        
+        # Copy script to target sensor
+        cursor.execute('''
+            INSERT INTO SensorScripts
+            (sensor_id, script_content, script_version, script_type, description, is_active)
+            VALUES (?, ?, ?, ?, ?, 1)
+        ''', (
+            data['target_sensor_id'],
+            source_script['script_content'],
+            source_script['script_version'],
+            source_script['script_type'],
+            source_script['description']
+        ))
+        
+        new_script_id = cursor.lastrowid
+        conn.commit()
+        
+        logger.info(f"Script {data['source_script_id']} assigned to sensor {data['target_sensor_id']} as script {new_script_id}")
+        
+        return jsonify({
+            'message': 'Script assigned successfully',
+            'new_script_id': new_script_id,
+            'target_sensor_id': data['target_sensor_id']
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Error assigning script: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to assign script'}), 500
 
 
 @sensor_master_api_bp.route('/sensor-master/script', methods=['POST'])

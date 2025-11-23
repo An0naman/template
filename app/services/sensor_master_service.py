@@ -4,7 +4,9 @@ Sensor Master Control Service
 ==============================
 
 This service provides business logic for the Sensor Master Control system,
-including configuration management, sensor assignment, and priority handling.
+including configuration management, sensor registration, and command queueing.
+
+Simplified architecture: No master instances - sensors connect directly to this instance.
 """
 
 import json
@@ -31,13 +33,12 @@ class SensorMasterService:
     
     def get_sensor_configuration(self, sensor_id: str) -> Optional[Dict]:
         """
-        Get the complete configuration for a sensor, including master control
-        settings and fallback to local configuration.
+        Get the complete configuration for a sensor.
         
         Priority order:
-        1. Sensor-specific configuration from master control
-        2. Sensor-type configuration from master control
-        3. Local/default configuration
+        1. Sensor-specific configuration
+        2. Sensor-type configuration
+        3. Local/default configuration (fallback)
         
         Args:
             sensor_id: Unique identifier for the sensor
@@ -48,11 +49,8 @@ class SensorMasterService:
         try:
             # Get sensor registration info
             self.cursor.execute('''
-                SELECT sr.*, smc.is_enabled as master_enabled,
-                       smc.instance_name as master_name
-                FROM SensorRegistration sr
-                LEFT JOIN SensorMasterControl smc ON sr.assigned_master_id = smc.id
-                WHERE sr.sensor_id = ?
+                SELECT * FROM SensorRegistration
+                WHERE sensor_id = ?
             ''', (sensor_id,))
             
             sensor = self.cursor.fetchone()
@@ -61,24 +59,14 @@ class SensorMasterService:
                 logger.warning(f"Sensor {sensor_id} not registered")
                 return None
             
-            # If no master is enabled, use fallback mode
-            if not sensor['master_enabled']:
-                return self._get_fallback_config(sensor_id, sensor['sensor_type'])
-            
             # Try to get sensor-specific configuration
-            config = self._get_master_config(
-                sensor['assigned_master_id'],
-                sensor_id=sensor_id
-            )
+            config = self._get_config(sensor_id=sensor_id)
             
             if config:
                 return config
             
             # Try to get sensor-type configuration
-            config = self._get_master_config(
-                sensor['assigned_master_id'],
-                sensor_type=sensor['sensor_type']
-            )
+            config = self._get_config(sensor_type=sensor['sensor_type'])
             
             if config:
                 return config
@@ -90,13 +78,11 @@ class SensorMasterService:
             logger.error(f"Error getting sensor configuration: {e}", exc_info=True)
             return None
     
-    def _get_master_config(self, master_id: int, sensor_id: str = None, 
-                          sensor_type: str = None) -> Optional[Dict]:
+    def _get_config(self, sensor_id: str = None, sensor_type: str = None) -> Optional[Dict]:
         """
-        Get configuration from master control
+        Get configuration from database
         
         Args:
-            master_id: Master control instance ID
             sensor_id: Specific sensor ID (optional)
             sensor_type: Sensor type (optional)
             
@@ -106,9 +92,9 @@ class SensorMasterService:
         query = '''
             SELECT config_data, config_version, config_name, priority
             FROM SensorMasterConfig
-            WHERE master_id = ? AND is_active = 1
+            WHERE is_active = 1
         '''
-        params = [master_id]
+        params = []
         
         if sensor_id:
             query += ' AND sensor_id = ?'
@@ -127,7 +113,7 @@ class SensorMasterService:
         if result:
             config_data = json.loads(result['config_data'])
             config_data['_meta'] = {
-                'source': 'master_control',
+                'source': 'sensor_master',
                 'config_name': result['config_name'],
                 'config_version': result['config_version'],
                 'priority': result['priority']
@@ -197,18 +183,18 @@ class SensorMasterService:
         
         return [dict(row) for row in self.cursor.fetchall()]
     
-    def create_configuration_template(self, master_id: int, template_name: str,
+    def create_configuration_template(self, template_name: str,
                                      sensor_type: str = None, sensor_id: str = None,
-                                     config_data: Dict = None) -> int:
+                                     config_data: Dict = None, priority: int = 100) -> int:
         """
         Create a configuration template for sensors
         
         Args:
-            master_id: Master control instance ID
             template_name: Name of the configuration template
             sensor_type: Apply to all sensors of this type (optional)
             sensor_id: Apply to specific sensor (optional)
             config_data: Configuration data dictionary
+            priority: Priority (lower = higher priority, default 100)
             
         Returns:
             Configuration ID
@@ -221,12 +207,12 @@ class SensorMasterService:
         
         self.cursor.execute('''
             INSERT INTO SensorMasterConfig
-            (master_id, sensor_id, sensor_type, config_name, config_data,
-             config_version, is_active, created_at, updated_at)
+            (sensor_id, sensor_type, config_name, config_data,
+             config_version, is_active, priority, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
-            master_id, sensor_id, sensor_type, template_name,
-            config_json, 1, True, timestamp, timestamp
+            sensor_id, sensor_type, template_name,
+            config_json, 1, True, priority, timestamp, timestamp
         ))
         
         return self.cursor.lastrowid
@@ -267,37 +253,10 @@ class SensorMasterService:
         
         return base_config
     
-    def assign_sensor_to_master(self, sensor_id: str, master_id: int) -> bool:
-        """
-        Assign a sensor to a specific master control instance
-        
-        Args:
-            sensor_id: Sensor identifier
-            master_id: Master control instance ID
-            
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            self.cursor.execute('''
-                UPDATE SensorRegistration
-                SET assigned_master_id = ?, updated_at = ?
-                WHERE sensor_id = ?
-            ''', (master_id, datetime.now(timezone.utc).isoformat(), sensor_id))
-            
-            return self.cursor.rowcount > 0
-            
-        except Exception as e:
-            logger.error(f"Error assigning sensor to master: {e}")
-            return False
-    
-    def get_sensor_status_summary(self, master_id: int = None) -> Dict:
+    def get_sensor_status_summary(self) -> Dict:
         """
         Get summary of sensor status
         
-        Args:
-            master_id: Filter by master control instance (optional)
-            
         Returns:
             Dictionary with status summary
         """
@@ -311,13 +270,8 @@ class SensorMasterService:
                     THEN 1 ELSE 0 END) as active_recently
             FROM SensorRegistration
         '''
-        params = []
         
-        if master_id:
-            query += ' WHERE assigned_master_id = ?'
-            params.append(master_id)
-        
-        self.cursor.execute(query, params)
+        self.cursor.execute(query)
         result = self.cursor.fetchone()
         
         return dict(result) if result else {}

@@ -188,6 +188,7 @@ unsigned long pollingInterval = 60000;  // milliseconds
 unsigned long lastCheckIn = 0;
 unsigned long lastDataSend = 0;
 unsigned long lastMasterRetry = 0;
+unsigned long lastScriptCheck = 0;      // For script update checks
 
 Preferences preferences;
 
@@ -216,12 +217,25 @@ void setup() {{
   // Load any saved configuration
   loadSavedConfiguration();
   
+  // Load saved script if available
+  String savedScript = preferences.getString("current_script", "");
+  if (savedScript.length() > 0) {{
+    String scriptVersion = preferences.getString("script_version", "unknown");
+    int scriptId = preferences.getInt("script_id", -1);
+    Serial.println("[STARTUP] 📜 Found saved script:");
+    Serial.println("  Version: " + scriptVersion);
+    Serial.println("  Script ID: " + String(scriptId));
+  }}
+  
   // Attempt to register with master control
   Serial.println("\\n[STARTUP] Attempting to connect to master control...");
   if (registerWithMaster()) {{
     currentMode = MODE_ONLINE;
     Serial.println("[STARTUP] Master control connected - Running in ONLINE mode");
     getConfigFromMaster();
+    
+    // Check for script updates immediately after connecting
+    checkForScriptUpdates();
   }} else {{
     currentMode = MODE_OFFLINE;
     Serial.println("[STARTUP] Master control unavailable - Running in OFFLINE mode");
@@ -281,6 +295,12 @@ void loop() {{
       
       // Check for configuration updates
       getConfigFromMaster();
+      
+      // Check for script updates (every 30 seconds)
+      if (currentTime - lastScriptCheck >= 30000) {{
+        checkForScriptUpdates();
+        lastScriptCheck = currentTime;
+      }}
       
     }} else {{
       Serial.println("[ONLINE] Heartbeat failed - master may be unavailable");
@@ -722,6 +742,192 @@ void loadSavedConfiguration() {{
   if (savedInterval > 0) {{
     Serial.println("[CONFIG] Found saved interval: " + String(savedInterval/1000) + "s");
   }}
+}}
+
+// ============================================================================
+// SECTION 5: JSON SCRIPT INTERPRETER
+// ============================================================================
+// Executes JSON command scripts downloaded from master control
+// ============================================================================
+
+void executeLocalScript(String jsonScript) {{
+  Serial.println("[SCRIPT] 🚀 Executing JSON script...");
+  
+  if (jsonScript.length() == 0) {{
+    Serial.println("[SCRIPT] ⚠️ No script content to execute");
+    return;
+  }}
+  
+  // Parse JSON
+  StaticJsonDocument<2048> doc;
+  DeserializationError error = deserializeJson(doc, jsonScript);
+  
+  if (error) {{
+    Serial.println("[SCRIPT] ❌ Failed to parse JSON: " + String(error.c_str()));
+    return;
+  }}
+  
+  // Get script metadata
+  String scriptName = doc["name"] | "Unnamed Script";
+  String version = doc["version"] | "unknown";
+  
+  Serial.println("[SCRIPT] Name: " + scriptName);
+  Serial.println("[SCRIPT] Version: " + version);
+  
+  // Get actions array
+  JsonArray actions = doc["actions"];
+  if (!actions) {{
+    Serial.println("[SCRIPT] ⚠️ No actions found in script");
+    return;
+  }}
+  
+  Serial.println("[SCRIPT] Executing " + String(actions.size()) + " action(s)...");
+  
+  // Execute each action
+  for (JsonObject action : actions) {{
+    String type = action["type"] | "";
+    
+    if (type == "gpio_write") {{
+      // GPIO Write: Set digital pin HIGH or LOW
+      int pin = action["pin"] | 2;
+      String value = action["value"] | "LOW";
+      
+      pinMode(pin, OUTPUT);
+      digitalWrite(pin, value == "HIGH" ? HIGH : LOW);
+      Serial.println("  ✓ GPIO Write: Pin " + String(pin) + " = " + value);
+      
+    }} else if (type == "gpio_read") {{
+      // GPIO Read: Read digital pin state
+      int pin = action["pin"] | 15;
+      pinMode(pin, INPUT);
+      int value = digitalRead(pin);
+      Serial.println("  ✓ GPIO Read: Pin " + String(pin) + " = " + String(value));
+      
+    }} else if (type == "analog_read") {{
+      // Analog Read: Read ADC value (0-4095 on ESP32)
+      int pin = action["pin"] | 34;
+      int value = analogRead(pin);
+      Serial.println("  ✓ Analog Read: Pin " + String(pin) + " = " + String(value));
+      
+    }} else if (type == "read_temperature") {{
+      // Read Temperature: Read from sensor
+      SensorData data = readSensorData();
+      Serial.println("  ✓ Temperature: " + String(data.temperature) + "°C");
+      
+    }} else if (type == "set_relay") {{
+      // Set Relay: Control relay state
+      bool state = action["state"] | false;
+      // Implement your relay control here
+      Serial.println("  ✓ Relay: " + String(state ? "ON" : "OFF"));
+      
+    }} else if (type == "delay") {{
+      // Delay: Wait for specified milliseconds
+      int ms = action["ms"] | 1000;
+      Serial.println("  ⏱️ Delay: " + String(ms) + "ms");
+      delay(ms);
+      
+    }} else if (type == "log") {{
+      // Log: Print message to serial
+      String message = action["message"] | "Log message";
+      Serial.println("  📝 Log: " + message);
+      
+    }} else {{
+      Serial.println("  ⚠️ Unknown action type: " + type);
+    }}
+  }}
+  
+  Serial.println("[SCRIPT] ✅ Script execution complete\\n");
+}}
+
+bool checkForScriptUpdates() {{
+  if (String(MASTER_CONTROL_URL).length() == 0) return false;
+  
+  HTTPClient http;
+  String url = String(MASTER_CONTROL_URL) + "/api/sensor-master/script/" + String(SENSOR_ID);
+  
+  Serial.println("[SCRIPT] Checking for script updates...");
+  http.begin(url);
+  int httpCode = http.GET();
+  
+  if (httpCode == 200) {{
+    String response = http.getString();
+    StaticJsonDocument<4096> doc;
+    DeserializationError error = deserializeJson(doc, response);
+    
+    if (!error && doc["script_available"]) {{
+      String newScript = doc["script"] | "";
+      String scriptVersion = doc["version"] | "unknown";
+      int scriptId = doc["script_id"] | -1;
+      
+      Serial.println("[SCRIPT] 📥 New script available:");
+      Serial.println("  Version: " + scriptVersion);
+      Serial.println("  Script ID: " + String(scriptId));
+      
+      // Save to preferences for persistence
+      preferences.putString("current_script", newScript);
+      preferences.putString("script_version", scriptVersion);
+      preferences.putInt("script_id", scriptId);
+      
+      // Report version to master
+      reportRunningVersion(scriptVersion, scriptId);
+      
+      Serial.println("[SCRIPT] ✅ Script downloaded and saved\\n");
+      
+      // Execute immediately
+      executeLocalScript(newScript);
+      
+      http.end();
+      return true;
+    }}
+  }}
+  
+  http.end();
+  return false;
+}}
+
+void reportRunningVersion(String version, int scriptId) {{
+  if (String(MASTER_CONTROL_URL).length() == 0) return;
+  
+  HTTPClient http;
+  String url = String(MASTER_CONTROL_URL) + "/api/sensor-master/report-version";
+  
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+  
+  StaticJsonDocument<256> doc;
+  doc["sensor_id"] = SENSOR_ID;
+  doc["version"] = version;
+  if (scriptId > 0) doc["script_id"] = scriptId;
+  
+  String payload;
+  serializeJson(doc, payload);
+  
+  int httpCode = http.POST(payload);
+  if (httpCode == 200) {{
+    Serial.println("[VERSION] ✅ Reported version to master: " + version);
+  }}
+  
+  http.end();
+}}
+
+void reportScriptExecution(int scriptId) {{
+  if (String(MASTER_CONTROL_URL).length() == 0) return;
+  
+  HTTPClient http;
+  String url = String(MASTER_CONTROL_URL) + "/api/sensor-master/script-executed";
+  
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+  
+  StaticJsonDocument<256> doc;
+  doc["sensor_id"] = SENSOR_ID;
+  if (scriptId > 0) doc["script_id"] = scriptId;
+  
+  String payload;
+  serializeJson(doc, payload);
+  
+  http.POST(payload);
+  http.end();
 }}
 '''
     

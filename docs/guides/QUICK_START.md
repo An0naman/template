@@ -83,43 +83,23 @@ Create configuration templates to control your sensor's behavior:
 
 3. Click **"Upload Script"**
 
-#### Example Script (LED Blink Pattern):
-```cpp
-// SOS Morse Code Pattern
-void executeScript() {
-    const int LED_PIN = 2;
-    
-    // S (3 short)
-    for(int i = 0; i < 3; i++) {
-        digitalWrite(LED_PIN, HIGH);
-        delay(200);
-        digitalWrite(LED_PIN, LOW);
-        delay(200);
-    }
-    
-    delay(400);
-    
-    // O (3 long)
-    for(int i = 0; i < 3; i++) {
-        digitalWrite(LED_PIN, HIGH);
-        delay(600);
-        digitalWrite(LED_PIN, LOW);
-        delay(200);
-    }
-    
-    delay(400);
-    
-    // S (3 short)
-    for(int i = 0; i < 3; i++) {
-        digitalWrite(LED_PIN, HIGH);
-        delay(200);
-        digitalWrite(LED_PIN, LOW);
-        delay(200);
-    }
-    
-    delay(2000);
+#### Example Script (JSON Commands - LED Pattern):
+```json
+{
+  "name": "LED Blink Test",
+  "version": "1.0.0",
+  "description": "Simple LED blink pattern",
+  "actions": [
+    {"type": "gpio_write", "pin": 2, "value": "HIGH"},
+    {"type": "delay", "ms": 1000},
+    {"type": "gpio_write", "pin": 2, "value": "LOW"},
+    {"type": "delay", "ms": 1000},
+    {"type": "log", "message": "Blink complete"}
+  ]
 }
 ```
+
+**Why JSON?** The ESP32 can't compile C++ code at runtime. Instead, it interprets JSON commands that trigger pre-defined actions.
 
 #### What Happens Next:
 1. Your ESP32 checks for script updates every **30 seconds**
@@ -198,31 +178,31 @@ The page **auto-refreshes** data every 30 seconds, so you'll see:
 
 ### Scenario: Change LED Pattern Without Re-flashing
 
-1. **Write New Pattern**
-   ```cpp
-   void executeScript() {
-       // Breathing effect
-       for(int i = 0; i < 255; i++) {
-           analogWrite(LED_PIN, i);
-           delay(5);
-       }
-       for(int i = 255; i >= 0; i--) {
-           analogWrite(LED_PIN, i);
-           delay(5);
-       }
+1. **Create JSON Command Script**
+   ```json
+   {
+     "name": "Temperature Monitor",
+     "version": "1.0.0",
+     "actions": [
+       {"type": "read_temperature"},
+       {"type": "set_relay", "state": true},
+       {"type": "delay", "ms": 5000},
+       {"type": "set_relay", "state": false},
+       {"type": "log", "message": "Cycle complete"}
+     ]
    }
    ```
 
 2. **Upload Script**
    - Click "Upload Script"
    - Select your sensor
-   - Paste the breathing effect code
-   - Set as active
+   - Paste the JSON script
+   - Set version and description
    - Upload
 
 3. **Watch It Work**
-   - Wait 30 seconds
-   - LED pattern changes to breathing effect
+   - Wait 30 seconds for ESP32 to check for updates
+   - Script downloads and executes automatically
    - No USB connection needed!
    - No re-flashing required!
 
@@ -282,15 +262,14 @@ curl http://localhost:5001/api/sensor-master/config/esp32_fermentation_001
 
 ### Upload Script via API
 ```bash
-curl -X POST http://localhost:5001/api/sensor-master/upload-script \
+curl -X POST http://localhost:5001/api/sensor-master/script \
   -H "Content-Type: application/json" \
   -d '{
     "sensor_id": "esp32_fermentation_001",
-    "name": "Test Script",
-    "code": "void executeScript() { digitalWrite(2, HIGH); delay(1000); digitalWrite(2, LOW); }",
-    "language": "arduino",
-    "version": "1.0.0",
-    "is_active": true
+    "script_content": "{\"actions\":[{\"type\":\"gpio_write\",\"pin\":2,\"value\":\"HIGH\"},{\"type\":\"delay\",\"ms\":1000},{\"type\":\"gpio_write\",\"pin\":2,\"value\":\"LOW\"}]}",
+    "script_version": "1.0.0",
+    "script_type": "json",
+    "description": "LED blink test"
   }'
 ```
 

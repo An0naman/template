@@ -94,153 +94,89 @@ Navigate to: `http://localhost:5001/sensor-master-control`
 
 ## Example Scripts
 
+**Important:** ESP32 devices cannot compile C++ code at runtime. Instead, upload **JSON command scripts** that the ESP32 interpreter executes.
+
 ### Example 1: Simple LED Blink Pattern
 
-```cpp
-// Triple blink pattern
-void executeLocalScript() {
-    unsigned long currentTime = millis();
-    
-    // Fast triple blink, then pause
-    if (currentTime - lastBlinkTime < 150) {
-        digitalWrite(LED_PIN, HIGH);
-    } else if (currentTime - lastBlinkTime < 300) {
-        digitalWrite(LED_PIN, LOW);
-    } else if (currentTime - lastBlinkTime < 450) {
-        digitalWrite(LED_PIN, HIGH);
-    } else if (currentTime - lastBlinkTime < 600) {
-        digitalWrite(LED_PIN, LOW);
-    } else if (currentTime - lastBlinkTime < 750) {
-        digitalWrite(LED_PIN, HIGH);
-    } else if (currentTime - lastBlinkTime < 900) {
-        digitalWrite(LED_PIN, LOW);
-    } else if (currentTime - lastBlinkTime >= 2000) {
-        lastBlinkTime = currentTime;
-    }
+```json
+{
+  "name": "LED Blink Pattern",
+  "version": "1.0.0",
+  "description": "Blinks LED on pin 2",
+  "actions": [
+    {"type": "gpio_write", "pin": 2, "value": "HIGH"},
+    {"type": "delay", "ms": 1000},
+    {"type": "gpio_write", "pin": 2, "value": "LOW"},
+    {"type": "delay", "ms": 1000},
+    {"type": "log", "message": "Blink cycle complete"}
+  ]
 }
 ```
 
-### Example 2: SOS Pattern
+### Example 2: SOS Morse Code Pattern
 
-```cpp
-// SOS Morse code pattern
-void executeLocalScript() {
-    static int step = 0;
-    unsigned long currentTime = millis();
+```json
+{
+  "name": "SOS Pattern",
+  "version": "1.0.0",
+  "description": "SOS morse code on LED (... --- ...)",
+  "actions": [
+    {"type": "log", "message": "Starting SOS pattern"},
+    {"type": "gpio_write", "pin": 2, "value": "HIGH"}, {"type": "delay", "ms": 200},
+    {"type": "gpio_write", "pin": 2, "value": "LOW"}, {"type": "delay", "ms": 200},
+    {"type": "gpio_write", "pin": 2, "value": "HIGH"}, {"type": "delay", "ms": 200},
+    {"type": "gpio_write", "pin": 2, "value": "LOW"}, {"type": "delay", "ms": 200},
+    {"type": "gpio_write", "pin": 2, "value": "HIGH"}, {"type": "delay", "ms": 200},
+    {"type": "gpio_write", "pin": 2, "value": "LOW"}, {"type": "delay", "ms": 600},
     
-    // S = ... (short-short-short)
-    // O = --- (long-long-long)
-    // S = ... (short-short-short)
+    {"type": "gpio_write", "pin": 2, "value": "HIGH"}, {"type": "delay", "ms": 600},
+    {"type": "gpio_write", "pin": 2, "value": "LOW"}, {"type": "delay", "ms": 200},
+    {"type": "gpio_write", "pin": 2, "value": "HIGH"}, {"type": "delay", "ms": 600},
+    {"type": "gpio_write", "pin": 2, "value": "LOW"}, {"type": "delay", "ms": 200},
+    {"type": "gpio_write", "pin": 2, "value": "HIGH"}, {"type": "delay", "ms": 600},
+    {"type": "gpio_write", "pin": 2, "value": "LOW"}, {"type": "delay", "ms": 600},
     
-    const int SHORT = 200;
-    const int LONG = 600;
-    const int PAUSE = 200;
-    const int LETTER_PAUSE = 600;
-    
-    switch(step) {
-        case 0: case 2: case 4: // S dots
-            digitalWrite(LED_PIN, HIGH);
-            if (currentTime - lastBlinkTime >= SHORT) {
-                lastBlinkTime = currentTime;
-                step++;
-            }
-            break;
-        case 1: case 3: case 5:
-            digitalWrite(LED_PIN, LOW);
-            if (currentTime - lastBlinkTime >= PAUSE) {
-                lastBlinkTime = currentTime;
-                step++;
-            }
-            break;
-        case 6: // Letter pause after S
-            if (currentTime - lastBlinkTime >= LETTER_PAUSE) {
-                lastBlinkTime = currentTime;
-                step++;
-            }
-            break;
-        case 7: case 9: case 11: // O dashes
-            digitalWrite(LED_PIN, HIGH);
-            if (currentTime - lastBlinkTime >= LONG) {
-                lastBlinkTime = currentTime;
-                step++;
-            }
-            break;
-        case 8: case 10: case 12:
-            digitalWrite(LED_PIN, LOW);
-            if (currentTime - lastBlinkTime >= PAUSE) {
-                lastBlinkTime = currentTime;
-                step++;
-            }
-            break;
-        case 13: // Letter pause after O
-            if (currentTime - lastBlinkTime >= LETTER_PAUSE) {
-                lastBlinkTime = currentTime;
-                step++;
-            }
-            break;
-        case 14: case 16: case 18: // S dots again
-            digitalWrite(LED_PIN, HIGH);
-            if (currentTime - lastBlinkTime >= SHORT) {
-                lastBlinkTime = currentTime;
-                step++;
-            }
-            break;
-        case 15: case 17: case 19:
-            digitalWrite(LED_PIN, LOW);
-            if (currentTime - lastBlinkTime >= PAUSE) {
-                lastBlinkTime = currentTime;
-                step++;
-            }
-            break;
-        case 20: // Long pause before repeat
-            if (currentTime - lastBlinkTime >= 2000) {
-                lastBlinkTime = currentTime;
-                step = 0; // Restart
-            }
-            break;
-    }
+    {"type": "gpio_write", "pin": 2, "value": "HIGH"}, {"type": "delay", "ms": 200},
+    {"type": "gpio_write", "pin": 2, "value": "LOW"}, {"type": "delay", "ms": 200},
+    {"type": "gpio_write", "pin": 2, "value": "HIGH"}, {"type": "delay", "ms": 200},
+    {"type": "gpio_write", "pin": 2, "value": "LOW"}, {"type": "delay", "ms": 200},
+    {"type": "gpio_write", "pin": 2, "value": "HIGH"}, {"type": "delay", "ms": 200},
+    {"type": "gpio_write", "pin": 2, "value": "LOW"}, {"type": "delay", "ms": 2000}
+  ]
 }
 ```
 
-### Example 3: Breathing LED Effect
+### Example 3: Temperature Reading & Relay Control
 
-```cpp
-// Smooth breathing effect
-void executeLocalScript() {
-    static int brightness = 0;
-    static int fadeAmount = 5;
-    
-    brightness += fadeAmount;
-    
-    if (brightness <= 0 || brightness >= 255) {
-        fadeAmount = -fadeAmount;
-    }
-    
-    analogWrite(LED_PIN, brightness);
-    delay(30);
+```json
+{
+  "name": "Temperature Monitor",
+  "version": "1.0.0",
+  "description": "Read temperature and control relay",
+  "actions": [
+    {"type": "read_temperature"},
+    {"type": "log", "message": "Temperature check complete"},
+    {"type": "set_relay", "state": true},
+    {"type": "delay", "ms": 5000},
+    {"type": "set_relay", "state": false},
+    {"type": "log", "message": "Relay cycle complete"}
+  ]
 }
 ```
 
-### Example 4: Temperature-Based Alert
+### Example 4: GPIO Reading & Analog Input
 
-```cpp
-// Rapid blink when temperature is high
-void executeLocalScript() {
-    SensorData data = readSensorData();
-    
-    if (data.temperature > 30.0) {
-        // Rapid blink = alert
-        digitalWrite(LED_PIN, !digitalRead(LED_PIN));
-        delay(100);
-    } else if (data.temperature > 25.0) {
-        // Medium blink = warning
-        digitalWrite(LED_PIN, !digitalRead(LED_PIN));
-        delay(500);
-    } else {
-        // Slow blink = normal
-        digitalWrite(LED_PIN, !digitalRead(LED_PIN));
-        delay(1000);
-    }
+```json
+{
+  "name": "Multi-Sensor Read",
+  "version": "1.0.0",
+  "description": "Read digital and analog inputs",
+  "actions": [
+    {"type": "gpio_read", "pin": 15},
+    {"type": "analog_read", "pin": 34},
+    {"type": "read_temperature"},
+    {"type": "log", "message": "Sensor scan complete"}
+  ]
 }
 ```
 
@@ -302,10 +238,10 @@ Content-Type: application/json
 
 {
     "sensor_id": "esp32_fermentation_001",
-    "script_content": "void executeLocalScript() { ... }",
+    "script_content": "{\"actions\": [{\"type\": \"gpio_write\", \"pin\": 2, \"value\": \"HIGH\"}]}",
     "script_version": "1.0.0",
-    "script_type": "arduino",
-    "description": "LED blink pattern"
+    "script_type": "json",
+    "description": "LED control via JSON commands"
 }
 ```
 
@@ -316,9 +252,9 @@ GET /api/sensor-master/script/{sensor_id}
 Response:
 {
     "script_available": true,
-    "script": "void executeLocalScript() { ... }",
+    "script": "{\"actions\": [...]}",
     "version": "1.0.0",
-    "type": "arduino",
+    "type": "json",
     "updated_at": "2025-11-22 01:30:00"
 }
 ```
@@ -344,13 +280,13 @@ Response: [
 
 ### Test with cURL
 
-#### 1. Upload a script
+#### 1. Upload a JSON command script
 ```bash
 curl -X POST http://localhost:5001/api/sensor-master/script \
   -H "Content-Type: application/json" \
   -d '{
     "sensor_id": "esp32_fermentation_001",
-    "script_content": "void executeLocalScript() { digitalWrite(2, HIGH); delay(100); digitalWrite(2, LOW); delay(900); }",
+    "script_content": "{\"actions\":[{\"type\":\"gpio_write\",\"pin\":2,\"value\":\"HIGH\"},{\"type\":\"delay\",\"ms\":1000},{\"type\":\"gpio_write\",\"pin\":2,\"value\":\"LOW\"}]}",
     "script_version": "1.0.0",
     "script_type": "arduino",
     "description": "Quick blink test"

@@ -4,15 +4,16 @@ Migration: Add Sensor Master Control Tables
 ==========================================
 
 Created: 2025-11-21
+Updated: 2025-11-23 - Simplified to remove Master Control Instances
+
 Description: Creates tables for Sensor Master Control functionality that allows
-             sensors (like ESP32s) to "phone home" and receive configuration instructions
-             from a designated master control instance.
+             sensors (like ESP32s) to "phone home" and receive configuration instructions.
 
 Tables:
 -------
-1. SensorMasterControl - Stores master control instance configurations
-2. SensorRegistration - Tracks registered sensors and their assignments
-3. SensorMasterConfig - Stores configuration templates for different sensor types
+1. SensorRegistration - Tracks registered sensors
+2. SensorMasterConfig - Stores configuration templates for different sensor types
+3. SensorCommandQueue - Queues commands for sensors
 
 Usage:
 ------
@@ -59,25 +60,6 @@ def migration_already_applied(cursor) -> bool:
 def apply_migration(cursor):
     """Apply the actual migration changes."""
     
-    logger.info("Creating SensorMasterControl table...")
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS SensorMasterControl (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            instance_name TEXT NOT NULL UNIQUE,
-            description TEXT,
-            api_endpoint TEXT,
-            api_key TEXT,
-            is_enabled BOOLEAN DEFAULT 0,
-            priority INTEGER DEFAULT 100,
-            last_heartbeat TIMESTAMP,
-            status TEXT DEFAULT 'inactive',
-            max_sensors INTEGER DEFAULT 0,
-            allowed_sensor_types TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
     logger.info("Creating SensorRegistration table...")
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS SensorRegistration (
@@ -87,8 +69,9 @@ def apply_migration(cursor):
             sensor_type TEXT NOT NULL,
             hardware_info TEXT,
             firmware_version TEXT,
-            assigned_master_id INTEGER,
             config_hash TEXT,
+            current_script_id INTEGER,
+            current_script_version TEXT,
             last_check_in TIMESTAMP,
             last_config_update TIMESTAMP,
             status TEXT DEFAULT 'pending',
@@ -97,8 +80,7 @@ def apply_migration(cursor):
             capabilities TEXT,
             registration_source TEXT DEFAULT 'auto',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (assigned_master_id) REFERENCES SensorMasterControl(id) ON DELETE SET NULL
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
@@ -106,7 +88,6 @@ def apply_migration(cursor):
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS SensorMasterConfig (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            master_id INTEGER NOT NULL,
             sensor_id TEXT,
             sensor_type TEXT,
             config_name TEXT NOT NULL,
@@ -117,7 +98,6 @@ def apply_migration(cursor):
             description TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (master_id) REFERENCES SensorMasterControl(id) ON DELETE CASCADE,
             FOREIGN KEY (sensor_id) REFERENCES SensorRegistration(sensor_id) ON DELETE CASCADE
         )
     ''')
@@ -149,11 +129,6 @@ def apply_migration(cursor):
     ''')
     
     cursor.execute('''
-        CREATE INDEX IF NOT EXISTS idx_sensor_registration_assigned_master 
-        ON SensorRegistration(assigned_master_id)
-    ''')
-    
-    cursor.execute('''
         CREATE INDEX IF NOT EXISTS idx_sensor_registration_status 
         ON SensorRegistration(status)
     ''')
@@ -164,8 +139,8 @@ def apply_migration(cursor):
     ''')
     
     cursor.execute('''
-        CREATE INDEX IF NOT EXISTS idx_sensor_master_config_master 
-        ON SensorMasterConfig(master_id)
+        CREATE INDEX IF NOT EXISTS idx_sensor_master_config_type 
+        ON SensorMasterConfig(sensor_type)
     ''')
     
     cursor.execute('''
@@ -178,19 +153,6 @@ def apply_migration(cursor):
         ON SensorCommandQueue(status)
     ''')
     
-    logger.info("Creating default master control configuration...")
-    cursor.execute('''
-        INSERT OR IGNORE INTO SensorMasterControl 
-        (instance_name, description, is_enabled, status, priority)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (
-        'Local Master',
-        'Default local master control instance',
-        0,  # Disabled by default
-        'inactive',
-        1  # Highest priority
-    ))
-    
     logger.info("Sensor Master Control tables created successfully")
 
 
@@ -201,16 +163,14 @@ def rollback_migration(cursor):
     
     cursor.execute('DROP INDEX IF EXISTS idx_sensor_command_queue_status')
     cursor.execute('DROP INDEX IF EXISTS idx_sensor_command_queue_sensor')
-    cursor.execute('DROP INDEX IF EXISTS idx_sensor_master_config_master')
+    cursor.execute('DROP INDEX IF EXISTS idx_sensor_master_config_type')
     cursor.execute('DROP INDEX IF EXISTS idx_sensor_master_config_sensor')
     cursor.execute('DROP INDEX IF EXISTS idx_sensor_registration_status')
-    cursor.execute('DROP INDEX IF EXISTS idx_sensor_registration_assigned_master')
     cursor.execute('DROP INDEX IF EXISTS idx_sensor_registration_sensor_id')
     
     cursor.execute('DROP TABLE IF EXISTS SensorCommandQueue')
     cursor.execute('DROP TABLE IF EXISTS SensorMasterConfig')
     cursor.execute('DROP TABLE IF EXISTS SensorRegistration')
-    cursor.execute('DROP TABLE IF EXISTS SensorMasterControl')
     
     logger.info("Sensor Master Control migration rolled back")
 

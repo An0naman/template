@@ -2,7 +2,9 @@
 
 ## Overview
 
-The Sensor Master Control system enables centralized management and configuration of IoT sensors (like ESP32 devices) across multiple Docker instances of your application framework. Sensors can "phone home" to a designated master control instance to receive their configuration instructions dynamically, rather than relying solely on hardcoded firmware settings.
+The Sensor Master Control system enables centralized management and configuration of IoT sensors (like ESP32 devices). Sensors can "phone home" to your application to receive their configuration instructions dynamically, rather than relying solely on hardcoded firmware settings.
+
+**Simplified Architecture**: Sensors connect directly to your application instance - no complex master instance management needed.
 
 ## Architecture
 
@@ -19,38 +21,25 @@ The Sensor Master Control system enables centralized management and configuratio
 │         │ 1. Register       │ 1. Register       │ 1. Register │
 │         │ 2. Get Config     │ 2. Get Config     │ 2. Get Config│
 │         │ 3. Heartbeat      │ 3. Heartbeat      │ 3. Heartbeat│
+│         │ 4. Send Data      │ 4. Send Data      │ 4. Send Data│
 │         └───────────────────┴───────────────────┘              │
 │                             │                                   │
 │                             ▼                                   │
 │         ┌─────────────────────────────────────┐                │
-│         │   Docker Instance A (Port 5000)     │                │
+│         │   Your Application (Port 5000)      │                │
 │         │   ┌─────────────────────────────┐   │                │
-│         │   │  Master Control (ENABLED)   │   │                │
+│         │   │  Sensor Master Control      │   │                │
 │         │   │  - Manages sensor configs   │   │                │
-│         │   │  - Assigns sensors          │   │                │
-│         │   │  - Tracks status            │   │                │
+│         │   │  - Tracks sensor status     │   │                │
+│         │   │  - Receives sensor data     │   │                │
+│         │   │  - Queues commands          │   │                │
 │         │   └─────────────────────────────┘   │                │
 │         │                                       │                │
-│         │   Provides instructions:             │                │
-│         │   - Where to send data               │                │
+│         │   Provides:                           │                │
+│         │   - Configuration templates          │                │
 │         │   - Polling intervals                │                │
 │         │   - Sensor mappings                  │                │
-│         │   - Commands to execute              │                │
-│         └─────────────────────────────────────┘                │
-│                             │                                   │
-│                             │ 4. Send Data                      │
-│                             ▼                                   │
-│         ┌─────────────────────────────────────┐                │
-│         │   Docker Instance B (Port 5001)     │                │
-│         │   - Receives sensor data            │                │
-│         │   - Stores to database              │                │
-│         │   - Links to entries                │                │
-│         └─────────────────────────────────────┘                │
-│                                                                 │
-│         ┌─────────────────────────────────────┐                │
-│         │   Docker Instance C (Port 5002)     │                │
-│         │   - Another data collector          │                │
-│         │   - Independent instance            │                │
+│         │   - Dynamic script updates           │                │
 │         └─────────────────────────────────────┘                │
 │                                                                 │
 └──────────────────────────────────────────────────────────────┘
@@ -58,14 +47,11 @@ The Sensor Master Control system enables centralized management and configuratio
 
 ## Key Concepts
 
-### Master Control Instance
-A Docker instance with the "Master Control" module enabled acts as the central configuration server for sensors. You can have multiple master instances with different priorities.
-
 ### Sensor Registration
 When a sensor boots up (or periodically), it:
-1. Sends a registration request to the master control
-2. Receives an assignment to a master instance
-3. Gets information about available configuration
+1. Sends a registration request to your application
+2. Receives confirmation and configuration availability
+3. Retrieves its configuration settings
 
 ### Configuration Priority
 Configuration is applied in this order:
@@ -78,30 +64,24 @@ Each configuration has a hash that allows sensors to detect when their configura
 
 ## Database Schema
 
-### SensorMasterControl
-Stores master control instance configurations:
-- `instance_name` - Friendly name for the instance
-- `is_enabled` - Whether this master is active
-- `priority` - Lower numbers = higher priority
-- `api_endpoint` - External URL for sensors to reach this instance
-- `allowed_sensor_types` - Comma-separated list of allowed sensor types
-
 ### SensorRegistration
 Tracks all registered sensors:
 - `sensor_id` - Unique identifier for the sensor
 - `sensor_type` - Type of sensor (e.g., `esp32_fermentation`)
-- `assigned_master_id` - Which master control instance manages this sensor
 - `last_check_in` - Last time sensor contacted the system
 - `status` - Current status (`online`, `offline`, `pending`)
 - `config_hash` - Hash of current configuration
+- `ip_address`, `mac_address` - Network information
+- `capabilities` - JSON array of sensor capabilities
 
 ### SensorMasterConfig
 Stores configuration templates:
-- `master_id` - Which master instance owns this config
 - `sensor_id` - Apply to specific sensor (NULL for type-based)
 - `sensor_type` - Apply to all sensors of this type
+- `config_name` - Friendly name for the configuration
 - `config_data` - JSON configuration
-- `priority` - Configuration priority
+- `priority` - Configuration priority (lower = higher priority)
+- `is_active` - Whether this configuration is active
 
 ### SensorCommandQueue
 Queue commands for sensors:
@@ -109,15 +89,16 @@ Queue commands for sensors:
 - `command_type` - Type of command (`update_config`, `restart`, etc.)
 - `command_data` - Command payload
 - `status` - Command status (`pending`, `delivered`, `completed`)
+- `priority` - Command priority
+- `expires_at` - When the command expires
 
 ## Setup Guide
 
-### 1. Enable Master Control
+### 1. Enable Sensor Master Control
 
-1. Navigate to **Sensor Master Control** page in your app
-2. Click **New Master Instance**
-3. Configure:
-   - **Instance Name**: e.g., "Production Master"
+1. Navigate to **Settings** in your app
+2. Enable **Sensor Master Control** toggle
+3. Navigate to **Sensor Master Control** page
    - **Description**: Purpose of this master
    - **API Endpoint**: External URL (e.g., `http://192.168.1.100:5000`)
    - **Priority**: 1 for primary master
