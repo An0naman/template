@@ -287,7 +287,6 @@ class GitService:
                             has_invalid_refs = True
                             # Try to manually delete the ref file
                             try:
-                                import os
                                 ref_path = os.path.join(local_path, '.git', 'refs', 'heads', ref_name.replace('refs/heads/', ''))
                                 if os.path.exists(ref_path):
                                     os.remove(ref_path)
