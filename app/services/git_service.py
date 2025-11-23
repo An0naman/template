@@ -262,10 +262,32 @@ class GitService:
                             auth_url = url
                         origin.set_url(auth_url)
                     
+                    # Clean up any invalid refs before pulling
+                    try:
+                        for ref in list(repo.refs):
+                            # Check for invalid ref names
+                            ref_name = ref.name
+                            if ref_name.startswith('.') or '/.' in ref_name or ref_name.endswith('.'):
+                                logger.warning(f"Removing invalid ref: {ref_name}")
+                                try:
+                                    ref.delete(repo, ref)
+                                except Exception as ref_error:
+                                    logger.warning(f"Could not delete invalid ref {ref_name}: {ref_error}")
+                    except Exception as ref_check_error:
+                        logger.warning(f"Error checking refs: {ref_check_error}")
+                    
                     origin.pull()
                     logger.info(f"Pulled latest changes for repo {repo_id}")
                 except Exception as e:
                     logger.warning(f"Could not pull latest changes: {e}")
+                    # If pull fails due to invalid refs, try fetch instead
+                    if 'Invalid reference' in str(e) or 'refs/heads/' in str(e):
+                        try:
+                            logger.info(f"Attempting fetch instead of pull due to ref error")
+                            origin.fetch()
+                            logger.info(f"Fetched latest changes for repo {repo_id}")
+                        except Exception as fetch_error:
+                            logger.warning(f"Fetch also failed: {fetch_error}")
                     
             except InvalidGitRepositoryError:
                 # Path exists but is not a valid git repo, remove and re-clone
