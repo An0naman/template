@@ -718,6 +718,71 @@
     </div>
 </div>
 
+<!-- Logic Builder Modal -->
+<div class="modal fade" id="logicBuilderModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Logic Builder - <span id="logicBuilderSensorName"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs mb-3" id="logicBuilderTabs" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active" id="visual-tab" data-bs-toggle="tab" data-bs-target="#visual-pane" type="button" onclick="syncJsonToVisual()">Visual Builder</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" id="json-tab" data-bs-toggle="tab" data-bs-target="#json-pane" type="button" onclick="syncVisualToJson()">JSON Editor</button>
+                    </li>
+                </ul>
+                
+                <div class="tab-content">
+                    <!-- Visual Builder Pane -->
+                    <div class="tab-pane fade show active" id="visual-pane">
+                        <div class="row">
+                            <div class="col-md-3 border-end">
+                                <h6>Toolbox</h6>
+                                <div class="d-grid gap-2 mb-3">
+                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('read')"><i class="fas fa-eye"></i> Read Sensor</button>
+                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('write')"><i class="fas fa-pen"></i> Set Pin</button>
+                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('delay')"><i class="fas fa-clock"></i> Delay (Non-blocking)</button>
+                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('if')"><i class="fas fa-code-branch"></i> If Condition</button>
+                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('loop')"><i class="fas fa-sync"></i> Loop</button>
+                                </div>
+                                <hr>
+                                <h6>Sensor Capabilities</h6>
+                                <div id="sensorCapabilitiesList" class="small text-muted overflow-auto" style="max-height: 300px;">
+                                    <!-- Populated via JS -->
+                                </div>
+                            </div>
+                            <div class="col-md-9">
+                                <div class="alert alert-info py-1 px-2 mb-2 small">
+                                    <i class="fas fa-info-circle"></i> Drag and drop is not supported yet. Use Up/Down buttons to reorder.
+                                </div>
+                                <div id="logicCanvas" class="p-3 bg-light border rounded" style="min-height: 400px;">
+                                    <!-- Blocks go here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- JSON Editor Pane -->
+                    <div class="tab-pane fade" id="json-pane">
+                        <textarea id="logicJsonEditor" class="form-control font-monospace" rows="20"></textarea>
+                        <div class="mt-2 text-end">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="formatJson()">Format JSON</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="saveLogicBuilder()">Save Logic</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 let sensors = [];
@@ -1081,11 +1146,15 @@ function renderSensors() {
                             <td>${sensor.last_check_in ? new Date(sensor.last_check_in).toLocaleString() : 'Never'}</td>
                             <td>
                                 <button class="btn btn-sm btn-outline-primary" 
-                                        onclick="viewSensorDetails('${sensor.sensor_id}')">
+                                        onclick="viewSensorDetails('${sensor.sensor_id}')" title="View Details">
                                     <i class="fas fa-eye"></i>
                                 </button>
+                                <button class="btn btn-sm btn-outline-info" 
+                                        onclick="openLogicBuilder('${sensor.sensor_id}')" title="Logic Builder">
+                                    <i class="fas fa-project-diagram"></i>
+                                </button>
                                 <button class="btn btn-sm btn-outline-danger" 
-                                        onclick="deleteSensor('${sensor.sensor_id}')">
+                                        onclick="deleteSensor('${sensor.sensor_id}')" title="Delete Sensor">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </td>
@@ -1737,6 +1806,408 @@ function viewScript(scriptId) {
     document.getElementById('viewScriptContent').textContent = script.script_content;
     
     new bootstrap.Modal(document.getElementById('viewScriptModal')).show();
+}
+
+/* Logic Builder Code */
+
+let currentLogicSensorId = null;
+let currentLogicData = { loop: [] };
+let currentSensorCapabilities = null;
+
+function openLogicBuilder(sensorId) {
+    currentLogicSensorId = sensorId;
+    const sensor = sensors.find(s => s.sensor_id === sensorId);
+    
+    if (!sensor) {
+        showAlert('Sensor not found', 'error');
+        return;
+    }
+    
+    document.getElementById('logicBuilderSensorName').textContent = sensor.sensor_name || sensor.sensor_id;
+    
+    // Parse capabilities
+    try {
+        currentSensorCapabilities = typeof sensor.capabilities === 'string' 
+            ? JSON.parse(sensor.capabilities) 
+            : (sensor.capabilities || {});
+    } catch (e) {
+        console.error('Error parsing capabilities:', e);
+        currentSensorCapabilities = {};
+    }
+    
+    renderCapabilitiesList();
+    
+    // Load existing logic (from assigned script or config)
+    // For now, we'll try to fetch the config for this sensor
+    fetch(`/api/sensor-master/config/${sensorId}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.config_data) {
+                try {
+                    const config = typeof data.config_data === 'string' ? JSON.parse(data.config_data) : data.config_data;
+                    // Check if it has logic structure
+                    if (config.loop || config.logic) {
+                        currentLogicData = config.loop ? config : { loop: config.logic || [] };
+                    } else {
+                        // It might be a raw config, wrap it or start fresh
+                        currentLogicData = { loop: [], raw_config: config };
+                    }
+                } catch (e) {
+                    console.error('Error parsing config:', e);
+                    currentLogicData = { loop: [] };
+                }
+            } else {
+                currentLogicData = { loop: [] };
+            }
+            
+            // Initialize editors
+            document.getElementById('logicJsonEditor').value = JSON.stringify(currentLogicData, null, 2);
+            renderLogicCanvas();
+            
+            new bootstrap.Modal(document.getElementById('logicBuilderModal')).show();
+        })
+        .catch(err => {
+            console.error('Error loading config:', err);
+            showAlert('Failed to load sensor configuration', 'error');
+        });
+}
+
+function renderCapabilitiesList() {
+    const container = document.getElementById('sensorCapabilitiesList');
+    if (!currentSensorCapabilities || Object.keys(currentSensorCapabilities).length === 0) {
+        container.innerHTML = '<p class="text-muted">No capabilities reported.</p>';
+        return;
+    }
+    
+    let html = '';
+    
+    // Pins
+    if (currentSensorCapabilities.pins) {
+        html += '<strong>Pins:</strong><ul class="list-unstyled ps-2">';
+        currentSensorCapabilities.pins.forEach(pin => {
+            html += `<li><span class="badge bg-secondary">${pin.pin}</span> ${pin.name || 'Pin ' + pin.pin} (${pin.type})</li>`;
+        });
+        html += '</ul>';
+    }
+    
+    // Sensors/Data
+    if (currentSensorCapabilities.sensors) {
+        html += '<strong>Sensors:</strong><ul class="list-unstyled ps-2">';
+        currentSensorCapabilities.sensors.forEach(s => {
+            html += `<li><i class="fas fa-microchip"></i> ${s.name} (${s.type})</li>`;
+        });
+        html += '</ul>';
+    }
+    
+    container.innerHTML = html;
+}
+
+function renderLogicCanvas() {
+    const canvas = document.getElementById('logicCanvas');
+    canvas.innerHTML = '';
+    
+    if (!currentLogicData.loop || currentLogicData.loop.length === 0) {
+        canvas.innerHTML = '<div class="text-center text-muted py-5">Empty Logic Loop. Add blocks from the toolbox.</div>';
+        return;
+    }
+    
+    renderBlocks(currentLogicData.loop, canvas);
+}
+
+function renderBlocks(blocks, container, parentPath = []) {
+    blocks.forEach((block, index) => {
+        const blockPath = [...parentPath, index];
+        const blockEl = document.createElement('div');
+        blockEl.className = 'card mb-2 shadow-sm';
+        blockEl.style.borderLeft = '4px solid var(--bs-primary)';
+        
+        let content = '';
+        let headerColor = 'bg-light';
+        let icon = 'fa-cube';
+        
+        // Determine block type and content
+        if (block.type === 'read') {
+            icon = 'fa-eye';
+            blockEl.style.borderLeftColor = '#17a2b8'; // Info
+            content = `
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto"><label>Read Pin/Sensor:</label></div>
+                    <div class="col"><input type="text" class="form-control form-control-sm" value="${block.pin || block.sensor || ''}" onchange="updateBlockValue('${blockPath.join(',')}', 'pin', this.value)" placeholder="Pin # or Name"></div>
+                    <div class="col-auto"><label>Save to Var:</label></div>
+                    <div class="col"><input type="text" class="form-control form-control-sm" value="${block.var || ''}" onchange="updateBlockValue('${blockPath.join(',')}', 'var', this.value)" placeholder="Variable Name"></div>
+                </div>
+            `;
+        } else if (block.type === 'write') {
+            icon = 'fa-pen';
+            blockEl.style.borderLeftColor = '#ffc107'; // Warning
+            content = `
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto"><label>Set Pin:</label></div>
+                    <div class="col"><input type="text" class="form-control form-control-sm" value="${block.pin || ''}" onchange="updateBlockValue('${blockPath.join(',')}', 'pin', this.value)" placeholder="Pin #"></div>
+                    <div class="col-auto"><label>Value:</label></div>
+                    <div class="col"><input type="text" class="form-control form-control-sm" value="${block.value || ''}" onchange="updateBlockValue('${blockPath.join(',')}', 'value', this.value)" placeholder="HIGH/LOW/PWM"></div>
+                </div>
+            `;
+        } else if (block.type === 'delay') {
+            icon = 'fa-clock';
+            blockEl.style.borderLeftColor = '#6c757d'; // Secondary
+            content = `
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto"><label>Wait (ms):</label></div>
+                    <div class="col"><input type="number" class="form-control form-control-sm" value="${block.ms || 1000}" onchange="updateBlockValue('${blockPath.join(',')}', 'ms', parseInt(this.value))"></div>
+                    <div class="col-auto"><small class="text-muted">Non-blocking</small></div>
+                </div>
+            `;
+        } else if (block.type === 'if') {
+            icon = 'fa-code-branch';
+            blockEl.style.borderLeftColor = '#fd7e14'; // Orange
+            content = `
+                <div class="mb-2">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">Condition</span>
+                        <input type="text" class="form-control" value="${block.condition || ''}" onchange="updateBlockValue('${blockPath.join(',')}', 'condition', this.value)" placeholder="e.g. temp > 25">
+                    </div>
+                </div>
+                <div class="ms-3 border-start ps-2">
+                    <div class="small text-muted mb-1">Then:</div>
+                    <div id="container-then-${blockPath.join('-')}" class="min-h-50"></div>
+                    <button class="btn btn-sm btn-outline-secondary mt-1" onclick="addLogicBlock('read', '${blockPath.join(',')}.then')"><i class="fas fa-plus"></i> Add Action</button>
+                </div>
+                <div class="ms-3 border-start ps-2 mt-2">
+                    <div class="small text-muted mb-1">Else:</div>
+                    <div id="container-else-${blockPath.join('-')}" class="min-h-50"></div>
+                    <button class="btn btn-sm btn-outline-secondary mt-1" onclick="addLogicBlock('read', '${blockPath.join(',')}.else')"><i class="fas fa-plus"></i> Add Action</button>
+                </div>
+            `;
+        }
+        
+        blockEl.innerHTML = `
+            <div class="card-header py-1 px-2 ${headerColor} d-flex justify-content-between align-items-center">
+                <span class="small fw-bold"><i class="fas ${icon}"></i> ${block.type.toUpperCase()}</span>
+                <div>
+                    <button class="btn btn-xs btn-link text-muted p-0 me-1" onclick="moveBlock('${blockPath.join(',')}', -1)"><i class="fas fa-arrow-up"></i></button>
+                    <button class="btn btn-xs btn-link text-muted p-0 me-1" onclick="moveBlock('${blockPath.join(',')}', 1)"><i class="fas fa-arrow-down"></i></button>
+                    <button class="btn btn-xs btn-link text-danger p-0" onclick="deleteBlock('${blockPath.join(',')}')"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <div class="card-body py-2 px-2">
+                ${content}
+            </div>
+        `;
+        
+        container.appendChild(blockEl);
+        
+        // Recursively render children for IF blocks
+        if (block.type === 'if') {
+            if (block.then) {
+                renderBlocks(block.then, document.getElementById(`container-then-${blockPath.join('-')}`), [...blockPath, 'then']);
+            }
+            if (block.else) {
+                renderBlocks(block.else, document.getElementById(`container-else-${blockPath.join('-')}`), [...blockPath, 'else']);
+            }
+        }
+    });
+}
+
+function getBlockArray(pathStr) {
+    if (!pathStr) return currentLogicData.loop;
+    
+    const parts = pathStr.split('.');
+    let current = currentLogicData.loop;
+    
+    // Navigate to the parent array
+    // Path format: "0.then.1" -> index 0, property 'then', index 1
+    // We want the array containing the last index
+    
+    // If path is just "0", we want the root array
+    if (parts.length === 1) return currentLogicData.loop;
+    
+    // If path is "0.then", we want the 'then' array of item 0
+    // But wait, my path logic in renderBlocks passes indices as part of path
+    // renderBlocks(..., [...blockPath, 'then']) -> [0, 'then']
+    // So pathStr "0,then" (joined by comma in calls)
+    
+    // Let's fix the path parsing. The path is comma separated indices and keys.
+    const path = pathStr.split(',');
+    
+    // We want the array that contains the item at the end of the path
+    // If path is [0], array is root
+    // If path is [0, 'then', 1], array is root[0].then
+    
+    for (let i = 0; i < path.length - 1; i++) {
+        const key = path[i];
+        // If key is a number, it's an index
+        if (!isNaN(key)) {
+            current = current[parseInt(key)];
+        } else {
+            // It's a property like 'then' or 'else'
+            if (!current[key]) current[key] = [];
+            current = current[key];
+        }
+    }
+    
+    return current;
+}
+
+function addLogicBlock(type, parentPathStr) {
+    const newBlock = { type: type };
+    if (type === 'if') {
+        newBlock.then = [];
+        newBlock.else = [];
+    }
+    
+    let targetArray;
+    if (parentPathStr) {
+        // If parentPathStr is provided (e.g. "0,then"), we want to push to that array
+        // My getBlockArray logic gets the array containing the last element
+        // But here parentPathStr points TO the array we want to add to
+        
+        const path = parentPathStr.split(',');
+        let current = currentLogicData.loop;
+        
+        for (let i = 0; i < path.length; i++) {
+            const key = path[i];
+            if (!isNaN(key)) {
+                current = current[parseInt(key)];
+            } else {
+                if (!current[key]) current[key] = [];
+                current = current[key];
+            }
+        }
+        targetArray = current;
+    } else {
+        targetArray = currentLogicData.loop;
+    }
+    
+    targetArray.push(newBlock);
+    renderLogicCanvas();
+    syncVisualToJson();
+}
+
+function deleteBlock(pathStr) {
+    const path = pathStr.split(',');
+    const index = parseInt(path[path.length - 1]);
+    
+    // Get the array containing this item
+    let current = currentLogicData.loop;
+    for (let i = 0; i < path.length - 1; i++) {
+        const key = path[i];
+        if (!isNaN(key)) {
+            current = current[parseInt(key)];
+        } else {
+            current = current[key];
+        }
+    }
+    
+    current.splice(index, 1);
+    renderLogicCanvas();
+    syncVisualToJson();
+}
+
+function moveBlock(pathStr, direction) {
+    const path = pathStr.split(',');
+    const index = parseInt(path[path.length - 1]);
+    
+    // Get the array containing this item
+    let current = currentLogicData.loop;
+    for (let i = 0; i < path.length - 1; i++) {
+        const key = path[i];
+        if (!isNaN(key)) {
+            current = current[parseInt(key)];
+        } else {
+            current = current[key];
+        }
+    }
+    
+    const newIndex = index + direction;
+    if (newIndex >= 0 && newIndex < current.length) {
+        const item = current.splice(index, 1)[0];
+        current.splice(newIndex, 0, item);
+        renderLogicCanvas();
+        syncVisualToJson();
+    }
+}
+
+function updateBlockValue(pathStr, field, value) {
+    const path = pathStr.split(',');
+    
+    // Get the item
+    let current = currentLogicData.loop;
+    for (let i = 0; i < path.length; i++) {
+        const key = path[i];
+        if (!isNaN(key)) {
+            current = current[parseInt(key)];
+        } else {
+            current = current[key];
+        }
+    }
+    
+    current[field] = value;
+    syncVisualToJson();
+}
+
+function syncVisualToJson() {
+    document.getElementById('logicJsonEditor').value = JSON.stringify(currentLogicData, null, 2);
+}
+
+function syncJsonToVisual() {
+    try {
+        const json = document.getElementById('logicJsonEditor').value;
+        currentLogicData = JSON.parse(json);
+        renderLogicCanvas();
+    } catch (e) {
+        showAlert('Invalid JSON', 'error');
+    }
+}
+
+function formatJson() {
+    try {
+        const json = document.getElementById('logicJsonEditor').value;
+        const obj = JSON.parse(json);
+        document.getElementById('logicJsonEditor').value = JSON.stringify(obj, null, 2);
+    } catch (e) {
+        showAlert('Invalid JSON', 'error');
+    }
+}
+
+async function saveLogicBuilder() {
+    // Ensure we have the latest JSON
+    syncJsonToVisual(); // Actually we want to trust the active tab, but let's assume they are synced
+    // If JSON tab is active, we should parse it first
+    if (document.getElementById('json-tab').classList.contains('active')) {
+        try {
+            currentLogicData = JSON.parse(document.getElementById('logicJsonEditor').value);
+        } catch (e) {
+            showAlert('Invalid JSON in editor', 'error');
+            return;
+        }
+    }
+    
+    try {
+        const response = await fetch('/api/sensor-master/configs', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                sensor_id: currentLogicSensorId,
+                config_name: `Logic for ${currentLogicSensorId}`,
+                config_data: currentLogicData,
+                is_active: true
+            })
+        });
+        
+        if (response.ok) {
+            showAlert('Logic saved successfully', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('logicBuilderModal')).hide();
+        } else {
+            const data = await response.json();
+            throw new Error(data.error || 'Failed to save logic');
+        }
+    } catch (error) {
+        console.error('Error saving logic:', error);
+        showAlert('Failed to save logic: ' + error.message, 'danger');
+    }
 }
 </script>
 </body>
