@@ -402,7 +402,15 @@ class GitService:
                     logger.warning(f"Could not get commits for branch {branch}: {e}")
                     commits_iter = repo.iter_commits(max_count=limit)
             else:
-                commits_iter = repo.iter_commits(max_count=limit)
+                try:
+                    commits_iter = repo.iter_commits(max_count=limit)
+                except Exception as e:
+                    # If iter_commits fails due to invalid refs, return empty list
+                    # The repository will be cleaned up on next access
+                    if 'Invalid reference' in str(e) or 'cannot start with a period' in str(e):
+                        logger.error(f"Repository has invalid refs, returning empty commit list: {e}")
+                        return []
+                    raise
             
             commits = []
             for commit in commits_iter:
