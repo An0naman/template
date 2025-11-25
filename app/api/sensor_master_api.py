@@ -1532,3 +1532,27 @@ def get_sensor_telemetry(sensor_id):
         return jsonify({'error': 'Failed to get telemetry'}), 500
 
 
+@sensor_master_api_bp.route('/sensor-master/library-scripts/<int:script_id>', methods=['DELETE'])
+def delete_library_script(script_id):
+    """Delete a script from the library"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Check if script exists
+        cursor.execute('SELECT id FROM ScriptLibrary WHERE id = ?', (script_id,))
+        if not cursor.fetchone():
+            return jsonify({'error': 'Script not found'}), 404
+            
+        cursor.execute('DELETE FROM ScriptLibrary WHERE id = ?', (script_id,))
+        conn.commit()
+        
+        logger.info(f"Library script deleted: {script_id}")
+        
+        return jsonify({'message': 'Script deleted successfully'}), 200
+        
+    except Exception as e:
+        logger.error(f"Error deleting library script: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to delete library script'}), 500
+
+
