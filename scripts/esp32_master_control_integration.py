@@ -27,6 +27,7 @@ ARDUINO_EXAMPLE = '''
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include <WebServer.h>
 
 // Configuration
 const char* WIFI_SSID = "YourWiFiSSID";
@@ -35,12 +36,26 @@ const char* MASTER_CONTROL_URL = "http://192.168.1.100:5000";  // Your master co
 const char* SENSOR_ID = "esp32_fermentation_001";  // Unique sensor ID
 const char* SENSOR_TYPE = "esp32_fermentation";
 
+// Web Server for Discovery
+WebServer server(80);
+
 // State
 bool masterControlActive = false;
 String dataEndpoint = "";
 int pollingInterval = 60;  // seconds
 unsigned long lastCheckIn = 0;
 unsigned long lastDataSend = 0;
+
+void handleRoot() {
+  StaticJsonDocument<200> doc;
+  doc["name"] = "ESP32 Sensor";
+  doc["id"] = SENSOR_ID;
+  doc["type"] = SENSOR_TYPE;
+  
+  String response;
+  serializeJson(doc, response);
+  server.send(200, "application/json", response);
+}
 
 void setup() {
   Serial.begin(115200);
@@ -52,6 +67,11 @@ void setup() {
     Serial.print(".");
   }
   Serial.println("\\nWiFi connected");
+  
+  // Initialize Web Server for Discovery
+  server.on("/", handleRoot);
+  server.on("/api", handleRoot);
+  server.begin();
   
   // Initialize sensor hardware
   initializeSensors();
@@ -69,6 +89,7 @@ void setup() {
 }
 
 void loop() {
+  server.handleClient();
   unsigned long currentTime = millis();
   
   // Read sensors

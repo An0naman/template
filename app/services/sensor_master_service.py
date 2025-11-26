@@ -89,37 +89,7 @@ class SensorMasterService:
         Returns:
             Configuration dictionary or None
         """
-        query = '''
-            SELECT config_data, config_version, config_name, priority
-            FROM SensorMasterConfig
-            WHERE is_active = 1
-        '''
-        params = []
-        
-        if sensor_id:
-            query += ' AND sensor_id = ?'
-            params.append(sensor_id)
-        elif sensor_type:
-            query += ' AND sensor_type = ? AND sensor_id IS NULL'
-            params.append(sensor_type)
-        else:
-            return None
-        
-        query += ' ORDER BY priority ASC LIMIT 1'
-        
-        self.cursor.execute(query, params)
-        result = self.cursor.fetchone()
-        
-        if result:
-            config_data = json.loads(result['config_data'])
-            config_data['_meta'] = {
-                'source': 'sensor_master',
-                'config_name': result['config_name'],
-                'config_version': result['config_version'],
-                'priority': result['priority']
-            }
-            return config_data
-        
+        # SensorMasterConfig table has been removed
         return None
     
     def _get_fallback_config(self, sensor_id: str, sensor_type: str) -> Dict:
@@ -199,23 +169,9 @@ class SensorMasterService:
         Returns:
             Configuration ID
         """
-        if not config_data:
-            config_data = self._get_default_config_template(sensor_type)
-        
-        config_json = json.dumps(config_data, indent=2)
-        timestamp = datetime.now(timezone.utc).isoformat()
-        
-        self.cursor.execute('''
-            INSERT INTO SensorMasterConfig
-            (sensor_id, sensor_type, config_name, config_data,
-             config_version, is_active, priority, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            sensor_id, sensor_type, template_name,
-            config_json, 1, True, priority, timestamp, timestamp
-        ))
-        
-        return self.cursor.lastrowid
+        # SensorMasterConfig table has been removed
+        logger.warning("create_configuration_template called but SensorMasterConfig table is removed")
+        return -1
     
     def _get_default_config_template(self, sensor_type: str) -> Dict:
         """Get default configuration template based on sensor type"""

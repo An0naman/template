@@ -147,13 +147,19 @@ def register_sensor():
             logger.info(f"Registered new sensor: {sensor_id}")
         
         # Check if there's a configuration available
-        cursor.execute('''
-            SELECT COUNT(*) FROM SensorMasterConfig
-            WHERE (sensor_id = ? OR sensor_type = ?)
-            AND is_active = 1
-        ''', (sensor_id, sensor_type))
+        # SensorMasterConfig table has been removed, so we check if a script is assigned
+        # or if we have a new way to store config. For now, we'll assume no config
+        # unless we implement a new config storage.
         
-        has_config = cursor.fetchone()[0] > 0
+        # Check if a script is assigned (this might be what we want to check now)
+        cursor.execute('SELECT current_script_id FROM SensorRegistration WHERE sensor_id = ?', (sensor_id,))
+        row = cursor.fetchone()
+        has_script = row and row['current_script_id'] is not None
+        
+        # For now, we'll set has_config to False to prevent 500 errors until
+        # the new configuration system is fully implemented.
+        # If we want to trigger OTA, we might use a different flag.
+        has_config = False 
         
         conn.commit()
         
@@ -208,18 +214,9 @@ def get_sensor_config(sensor_id):
             }), 404
         
         # Get configuration (sensor-specific first, then type-specific)
-        cursor.execute('''
-            SELECT config_data, config_version, config_name
-            FROM SensorMasterConfig
-            WHERE (sensor_id = ? OR (sensor_id IS NULL AND sensor_type = ?))
-            AND is_active = 1
-            ORDER BY 
-                CASE WHEN sensor_id IS NOT NULL THEN 1 ELSE 2 END,
-                priority ASC
-            LIMIT 1
-        ''', (sensor_id, sensor['sensor_type']))
-        
-        config_row = cursor.fetchone()
+        # SensorMasterConfig table has been removed.
+        # We return no config for now.
+        config_row = None
         
         if not config_row:
             return jsonify({
@@ -637,23 +634,8 @@ def delete_sensor(sensor_id):
 def get_sensor_configs():
     """Get all sensor configurations"""
     try:
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        query = '''
-            SELECT * FROM SensorMasterConfig
-            ORDER BY priority ASC, created_at DESC
-        '''
-        
-        cursor.execute(query)
-        configs = []
-        
-        for row in cursor.fetchall():
-            config = dict(row)
-            config['config_data'] = json.loads(config['config_data'])
-            configs.append(config)
-        
-        return jsonify(configs), 200
+        # SensorMasterConfig table has been removed
+        return jsonify([]), 200
         
     except Exception as e:
         logger.error(f"Error fetching configs: {e}", exc_info=True)
@@ -678,31 +660,8 @@ def create_sensor_config():
         conn = get_db()
         cursor = conn.cursor()
         
-        config_data_str = json.dumps(data['config_data'])
-        
-        cursor.execute('''
-            INSERT INTO SensorMasterConfig
-            (sensor_id, sensor_type, config_name, config_data,
-             config_version, is_active, priority, description)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            data.get('sensor_id'),
-            data.get('sensor_type'),
-            data['config_name'],
-            config_data_str,
-            data.get('config_version', 1),
-            data.get('is_active', True),
-            data.get('priority', 100),
-            data.get('description', '')
-        ))
-        
-        config_id = cursor.lastrowid
-        conn.commit()
-        
-        return jsonify({
-            'message': 'Configuration created successfully',
-            'config_id': config_id
-        }), 201
+        # SensorMasterConfig table has been removed
+        return jsonify({'error': 'Configuration management is deprecated. Please use Script Library.'}), 410
         
     except Exception as e:
         logger.error(f"Error creating config: {e}", exc_info=True)
@@ -713,44 +672,8 @@ def create_sensor_config():
 def update_sensor_config(config_id):
     """Update a sensor configuration"""
     try:
-        data = request.get_json()
-        
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        update_fields = []
-        values = []
-        
-        allowed_fields = ['config_name', 'config_data', 'config_version',
-                         'is_active', 'priority', 'description', 'sensor_id', 'sensor_type']
-        
-        for field in allowed_fields:
-            if field in data:
-                if field == 'config_data':
-                    update_fields.append(f"{field} = ?")
-                    values.append(json.dumps(data[field]))
-                else:
-                    update_fields.append(f"{field} = ?")
-                    values.append(data[field])
-        
-        if not update_fields:
-            return jsonify({'error': 'No fields to update'}), 400
-        
-        values.append(datetime.now(timezone.utc).isoformat())
-        values.append(config_id)
-        
-        cursor.execute(f'''
-            UPDATE SensorMasterConfig
-            SET {', '.join(update_fields)}, updated_at = ?
-            WHERE id = ?
-        ''', values)
-        
-        if cursor.rowcount == 0:
-            return jsonify({'error': 'Configuration not found'}), 404
-        
-        conn.commit()
-        
-        return jsonify({'message': 'Configuration updated successfully'}), 200
+        # SensorMasterConfig table has been removed
+        return jsonify({'error': 'Configuration management is deprecated. Please use Script Library.'}), 410
         
     except Exception as e:
         logger.error(f"Error updating config: {e}", exc_info=True)
@@ -761,17 +684,8 @@ def update_sensor_config(config_id):
 def delete_sensor_config(config_id):
     """Delete a sensor configuration"""
     try:
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        cursor.execute('DELETE FROM SensorMasterConfig WHERE id = ?', (config_id,))
-        
-        if cursor.rowcount == 0:
-            return jsonify({'error': 'Configuration not found'}), 404
-        
-        conn.commit()
-        
-        return jsonify({'message': 'Configuration deleted successfully'}), 200
+        # SensorMasterConfig table has been removed
+        return jsonify({'error': 'Configuration management is deprecated. Please use Script Library.'}), 410
         
     except Exception as e:
         logger.error(f"Error deleting config: {e}", exc_info=True)

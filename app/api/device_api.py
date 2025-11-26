@@ -89,8 +89,8 @@ def scan_for_esp32_device(ip):
             data = response.json()
             
             # Extract device identifiers
-            device_name = data.get('device_name', '')
-            device_id = data.get('device_id', '')
+            device_name = data.get('device_name') or data.get('name', '')
+            device_id = data.get('device_id') or data.get('id', '')
             
             # Check if this looks like our ESP32 device based on naming convention
             # Look for common ESP32/fermentation controller naming patterns
@@ -99,12 +99,13 @@ def scan_for_esp32_device(ip):
             ]
             
             # Check if device_name or device_id contains any of our patterns
-            device_text = f"{device_name} {device_id}".lower()
+            # OR if the device explicitly reports a type we know
+            device_text = f"{device_name} {device_id} {data.get('type', '')}".lower()
             is_target_device = any(pattern in device_text for pattern in name_patterns)
             
             # Also check if it has the basic structure we expect (but don't require sensor to be working)
             has_basic_structure = (
-                'device_id' in data or 'device_name' in data
+                'device_id' in data or 'device_name' in data or 'id' in data or 'name' in data
             )
             
             if is_target_device and has_basic_structure:
@@ -126,8 +127,9 @@ def scan_for_esp32_device(ip):
                     device_type = 'iot_device'
                 
                 # Use fallback names if not provided
-                final_device_name = device_name or f'Device at {ip}'
-                final_device_id = device_id or f'device_{ip.replace(".", "_")}'
+                # Handle both 'device_name' (old) and 'name' (new firmware)
+                final_device_name = device_name or data.get('name') or f'Device at {ip}'
+                final_device_id = device_id or data.get('id') or f'device_{ip.replace(".", "_")}'
                 
                 logger.info(f"Found {device_type} device at {ip}: {final_device_name} (ID: {final_device_id})")
                 

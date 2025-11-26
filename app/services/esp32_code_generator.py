@@ -154,6 +154,10 @@ class ESP32CodeGenerator:
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <Preferences.h>
+#include <WebServer.h>
+
+// Web Server for Discovery
+WebServer server(80);
 
 // ============================================================================
 // CONFIGURATION - Modify these values for your setup
@@ -193,6 +197,26 @@ unsigned long lastScriptCheck = 0;      // For script update checks
 Preferences preferences;
 
 // ============================================================================
+// WEB SERVER HANDLERS (FOR DISCOVERY)
+// ============================================================================
+
+void handleRoot() {{
+  StaticJsonDocument<200> doc;
+  doc["name"] = SENSOR_NAME;
+  doc["id"] = SENSOR_ID;
+  doc["type"] = SENSOR_TYPE;
+  doc["uptime"] = millis() / 1000;
+  
+  String response;
+  serializeJson(doc, response);
+  server.send(200, "application/json", response);
+}}
+
+void handleApi() {{
+  handleRoot(); // Same response for /api
+}}
+
+// ============================================================================
 // SETUP - INITIALIZATION
 // ============================================================================
 
@@ -210,6 +234,12 @@ void setup() {{
   
   // Connect to WiFi
   connectToWiFi();
+  
+  // Initialize Web Server for Discovery
+  server.on("/", handleRoot);
+  server.on("/api", handleApi);
+  server.begin();
+  Serial.println("[WEB] Discovery server started on port 80");
   
   // Initialize sensor hardware
   initializeSensors();
@@ -250,6 +280,9 @@ void setup() {{
 // ============================================================================
 
 void loop() {{
+  // Handle web server requests
+  server.handleClient();
+
   unsigned long currentTime = millis();
   
   // Read sensor data
