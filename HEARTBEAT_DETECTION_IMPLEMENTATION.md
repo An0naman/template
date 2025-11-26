@@ -15,7 +15,7 @@ Implemented automatic offline detection for sensors in the Sensor Master Control
 - **Purpose**: Calculates sensor online/offline status based on last heartbeat
 - **Logic**:
   - Returns `'pending'` if sensor has never checked in
-  - Returns `'online'` if last check-in was within timeout period (default: 5 minutes)
+  - Returns `'online'` if last check-in was within timeout period (default: 10 minutes)
   - Returns `'offline'` if last check-in exceeds timeout period
 - **Features**:
   - Handles multiple datetime formats (ISO, SQLite)
@@ -69,14 +69,14 @@ The timeout period is configurable in two places:
 
 **Backend (API):**
 ```python
-# Default: 2 minutes
-calculate_sensor_status(last_check_in, timeout_minutes=2)
+# Default: 10 minutes
+calculate_sensor_status(last_check_in, timeout_minutes=10)
 ```
 
 **Frontend (JavaScript):**
 ```javascript
-// Default: 2 minutes (120,000 milliseconds)
-const HEARTBEAT_TIMEOUT_MS = 2 * 60 * 1000;
+// Default: 10 minutes (600,000 milliseconds)
+const HEARTBEAT_TIMEOUT_MS = 10 * 60 * 1000;
 ```
 
 To change the timeout, update both values consistently.

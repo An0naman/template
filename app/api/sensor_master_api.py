@@ -161,7 +161,7 @@ def register_sensor():
             'status': 'registered',
             'has_config': has_config,
             'message': 'Sensor registered successfully',
-            'check_in_interval': 300,  # Check back every 5 minutes
+            'check_in_interval': 60,  # Check back every 1 minute
             'config_endpoint': f'/api/sensor-master/config/{sensor_id}'
         }), 200
         
@@ -275,7 +275,7 @@ def get_sensor_config(sensor_id):
             'config_version': config_row['config_version'],
             'config': config_data,
             'commands': commands,
-            'check_in_interval': 300
+            'check_in_interval': 60
         }
         
         return jsonify(response), 200
@@ -400,13 +400,13 @@ def sensor_heartbeat():
         return jsonify({'error': 'Failed to process heartbeat'}), 500
 
 
-def calculate_sensor_status(last_check_in, timeout_minutes=2):
+def calculate_sensor_status(last_check_in, timeout_minutes=10):
     """
     Calculate sensor online/offline status based on last heartbeat
     
     Args:
         last_check_in: ISO timestamp string or None
-        timeout_minutes: Number of minutes before considering sensor offline (default: 2)
+        timeout_minutes: Number of minutes before considering sensor offline (default: 10)
     
     Returns:
         'online', 'offline', or 'pending'

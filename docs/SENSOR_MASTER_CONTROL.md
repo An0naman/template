@@ -210,7 +210,7 @@ POST /api/sensor-master/register
   "assigned_master": "Production Master",
   "master_id": 1,
   "has_config": true,
-  "check_in_interval": 300,
+  "check_in_interval": 60,
   "config_endpoint": "/api/sensor-master/config/esp32_fermentation_001"
 }
 ```
@@ -234,7 +234,7 @@ GET /api/sensor-master/config/{sensor_id}
     "sensor_mappings": [...]
   },
   "commands": [],
-  "check_in_interval": 300
+  "check_in_interval": 60
 }
 ```
 

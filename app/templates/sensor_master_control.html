@@ -953,7 +953,7 @@ async function refreshData() {
 
 function updateSensorStatusIndicators() {
     // Check each sensor's last_check_in and update visual indicators
-    const HEARTBEAT_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes in milliseconds
+    const HEARTBEAT_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
     const now = new Date();
     
     sensors.forEach(sensor => {
