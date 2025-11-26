@@ -17,6 +17,7 @@
 #include <ArduinoJson.h>
 #include <Preferences.h>
 #include <WebServer.h>
+#include <ESPmDNS.h>
 
 // ============================================================================
 // CONFIGURATION - CUSTOMIZE THESE VALUES
@@ -27,7 +28,9 @@ const char* WIFI_SSID = "SkyNet Mesh";
 const char* WIFI_PASSWORD = "TQ7@aecA&^eAmG)";
 
 // Master Control Configuration
-const char* MASTER_CONTROL_URL = "http://192.168.68.107:5001";  // Your Flask app URL
+String masterUrl = "http://192.168.68.110:5001";  // Default/Fallback URL
+const char* MDNS_SERVICE_NAME = "sensor-master";  // Hostname to look for (sensor-master.local)
+const int MASTER_PORT = 5001;
 const char* SENSOR_ID = "esp32_fermentation_001";
 const char* SENSOR_NAME = "Fermentation Chamber 1";
 const char* SENSOR_TYPE = "esp32_fermentation";
@@ -101,6 +104,7 @@ WebServer server(80);
 
 // WiFi and Connection
 void connectToWiFi();
+bool discoverMaster();
 
 // Offline Mode Functions
 void useOfflineConfiguration();
@@ -162,6 +166,11 @@ void setup() {
     
     // Connect to WiFi
     connectToWiFi();
+    
+    // Try to discover master via mDNS
+    if (WiFi.status() == WL_CONNECTED) {
+        discoverMaster();
+    }
     
     // Start Web Server for discovery
     if (WiFi.status() == WL_CONNECTED) {
@@ -270,6 +279,10 @@ void loop() {
         lastConnectionAttempt = currentTime;
         
         Serial.println("\n🔄 Retrying master control connection...");
+        
+        // Try to discover master if we don't have a good connection
+        discoverMaster();
+        
         if (registerWithMaster()) {
             currentMode = MODE_ONLINE;
             Serial.println("✅ Switched to ONLINE MODE");
@@ -360,7 +373,7 @@ bool registerWithMaster() {
     }
     
     HTTPClient http;
-    String url = String(MASTER_CONTROL_URL) + "/api/sensor-master/register";
+    String url = masterUrl + "/api/sensor-master/register";
     http.begin(url);
     http.addHeader("Content-Type", "application/json");
     
@@ -409,7 +422,7 @@ bool getConfigFromMaster() {
     }
     
     HTTPClient http;
-    String url = String(MASTER_CONTROL_URL) + "/api/sensor-master/config/" + String(SENSOR_ID);
+    String url = masterUrl + "/api/sensor-master/config/" + String(SENSOR_ID);
     http.begin(url);
     
     int httpCode = http.GET();
@@ -463,7 +476,7 @@ bool sendHeartbeat() {
     }
     
     HTTPClient http;
-    String url = String(MASTER_CONTROL_URL) + "/api/sensor-master/heartbeat";
+    String url = masterUrl + "/api/sensor-master/heartbeat";
     http.begin(url);
     http.addHeader("Content-Type", "application/json");
     
@@ -559,7 +572,7 @@ void reportScriptExecution() {
     }
     
     HTTPClient http;
-    String url = String(MASTER_CONTROL_URL) + "/api/sensor-master/script-executed";
+    String url = masterUrl + "/api/sensor-master/script-executed";
     http.begin(url);
     http.addHeader("Content-Type", "application/json");
     
@@ -588,7 +601,7 @@ void reportRunningVersion(String version, int scriptId = -1) {
     }
     
     HTTPClient http;
-    String url = String(MASTER_CONTROL_URL) + "/api/sensor-master/report-version";
+    String url = masterUrl + "/api/sensor-master/report-version";
     http.begin(url);
     http.addHeader("Content-Type", "application/json");
     
@@ -621,7 +634,7 @@ void checkForScriptUpdates() {
     }
     
     HTTPClient http;
-    String url = String(MASTER_CONTROL_URL) + "/api/sensor-master/script/" + String(SENSOR_ID);
+    String url = masterUrl + "/api/sensor-master/script/" + String(SENSOR_ID);
     http.begin(url);
     
     Serial.println("\n[SCRIPT] Checking for updates...");
@@ -1055,7 +1068,7 @@ void reportCommandResult(int commandId, String result, String message) {
     }
     
     HTTPClient http;
-    String url = String(MASTER_CONTROL_URL) + "/api/sensor-master/heartbeat";
+    String url = masterUrl + "/api/sensor-master/heartbeat";
     http.begin(url);
     http.addHeader("Content-Type", "application/json");
     
@@ -1139,6 +1152,49 @@ void setTargetTemperature(float targetTemp) {
 // ============================================================================
 // SECTION 4: UTILITY FUNCTIONS
 // ============================================================================
+
+bool discoverMaster() {
+    Serial.println("🔍 Looking for Master Control via mDNS...");
+    
+    if (!MDNS.begin(SENSOR_ID)) {
+        Serial.println("  ❌ Error setting up mDNS responder!");
+        return false;
+    }
+    
+    Serial.println("  mDNS responder started. Searching for service: " + String(MDNS_SERVICE_NAME));
+    
+    // Query for the service
+    // We look for _http._tcp
+    int n = MDNS.queryService("http", "tcp");
+    
+    if (n == 0) {
+        Serial.println("  ⚠️ No services found");
+        return false;
+    }
+    
+    Serial.println("  ✅ Found " + String(n) + " service(s)");
+    
+    for (int i = 0; i < n; ++i) {
+        String hostname = MDNS.hostname(i);
+        String serviceName = MDNS.txt(i, "type"); // We added 'type' property in Python
+        
+        Serial.println("  " + String(i + 1) + ": " + hostname + " (" + MDNS.IP(i).toString() + ":" + String(MDNS.port(i)) + ")");
+        
+        // Check if this is our master
+        // In Python we set server name as "sensor-master.local."
+        // MDNS.hostname(i) usually returns just "sensor-master"
+        if (hostname.startsWith(MDNS_SERVICE_NAME) || serviceName == "sensor-master") {
+            String ip = MDNS.IP(i).toString();
+            int port = MDNS.port(i);
+            
+            masterUrl = "http://" + ip + ":" + String(port);
+            Serial.println("  🎯 Master Control found! URL updated to: " + masterUrl);
+            return true;
+        }
+    }
+    
+    return false;
+}
 
 void connectToWiFi() {
     Serial.println("📡 Connecting to WiFi...");

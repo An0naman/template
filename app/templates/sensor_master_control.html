@@ -671,11 +671,15 @@
                             <div class="col-md-3 border-end">
                                 <h6>Toolbox</h6>
                                 <div class="d-grid gap-2 mb-3">
-                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('read')"><i class="fas fa-eye"></i> Read Sensor</button>
-                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('write')"><i class="fas fa-pen"></i> Set Pin</button>
-                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('delay')"><i class="fas fa-clock"></i> Delay (Non-blocking)</button>
-                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('if')"><i class="fas fa-code-branch"></i> If Condition</button>
-                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('loop')"><i class="fas fa-sync"></i> Loop</button>
+                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('gpio_write')"><i class="fas fa-bolt"></i> GPIO Write</button>
+                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('gpio_read')"><i class="fas fa-eye"></i> GPIO Read</button>
+                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('pwm_write')"><i class="fas fa-wave-square"></i> PWM Write</button>
+                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('analog_write')"><i class="fas fa-bezier-curve"></i> DAC Write</button>
+                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('analog_read')"><i class="fas fa-chart-bar"></i> Analog Read</button>
+                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('read_temperature')"><i class="fas fa-thermometer-half"></i> Read Temperature</button>
+                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('set_relay')"><i class="fas fa-toggle-on"></i> Set Relay</button>
+                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('delay')"><i class="fas fa-clock"></i> Delay</button>
+                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('log')"><i class="fas fa-comment-alt"></i> Log Message</button>
                                 </div>
                                 <hr>
                                 <h6>Sensor Capabilities</h6>
@@ -1887,7 +1891,7 @@ function viewScript(scriptId) {
 /* Logic Builder Code */
 
 let currentLogicSensorId = null;
-let currentLogicData = { loop: [] };
+let currentLogicData = { actions: [] };
 let currentSensorCapabilities = null;
 
 function openLogicBuilder(sensorId) {
@@ -1913,27 +1917,41 @@ function openLogicBuilder(sensorId) {
     
     renderCapabilitiesList();
     
-    // Load existing logic (from assigned script or config)
-    // For now, we'll try to fetch the config for this sensor
-    fetch(`/api/sensor-master/config/${sensorId}`)
+    // Load existing logic (from assigned script)
+    fetch(`/api/sensor-master/script/${sensorId}`)
         .then(res => res.json())
         .then(data => {
-            if (data && data.config_data) {
+            if (data && data.script_available && data.script) {
                 try {
-                    const config = typeof data.config_data === 'string' ? JSON.parse(data.config_data) : data.config_data;
-                    // Check if it has logic structure
-                    if (config.loop || config.logic) {
-                        currentLogicData = config.loop ? config : { loop: config.logic || [] };
+                    let scriptContent = data.script;
+                    // If it's a string that looks like JSON, parse it
+                    if (typeof scriptContent === 'string' && scriptContent.trim().startsWith('{')) {
+                        const parsed = JSON.parse(scriptContent);
+                        // Check if it has actions structure
+                        if (parsed.actions) {
+                            currentLogicData = parsed;
+                        } else if (parsed.commands) {
+                            // Convert old commands format to actions
+                            currentLogicData = { 
+                                name: parsed.name || `Logic for ${sensorId}`,
+                                version: parsed.version || '1.0.0',
+                                actions: parsed.commands 
+                            };
+                        } else {
+                            // Unknown JSON structure, start fresh but keep raw
+                            currentLogicData = { actions: [], raw_script: parsed };
+                        }
                     } else {
-                        // It might be a raw config, wrap it or start fresh
-                        currentLogicData = { loop: [], raw_config: config };
+                        // Not JSON (maybe C++ or Python), start fresh
+                        currentLogicData = { actions: [] };
+                        console.log('Current script is not JSON logic');
                     }
                 } catch (e) {
-                    console.error('Error parsing config:', e);
-                    currentLogicData = { loop: [] };
+                    console.error('Error parsing script:', e);
+                    currentLogicData = { actions: [] };
                 }
             } else {
-                currentLogicData = { loop: [] };
+                currentLogicData = { actions: [] };
             }
             
             // Initialize editors
@@ -1943,8 +1961,11 @@ function openLogicBuilder(sensorId) {
             new bootstrap.Modal(document.getElementById('logicBuilderModal')).show();
         })
         .catch(err => {
-            console.error('Error loading config:', err);
-            showAlert('Failed to load sensor configuration', 'error');
+            console.error('Error loading script:', err);
+            // Don't block opening the modal on error
+            currentLogicData = { actions: [] };
+            renderLogicCanvas();
+            new bootstrap.Modal(document.getElementById('logicBuilderModal')).show();
         });
 }
 
@@ -1982,12 +2003,12 @@ function renderLogicCanvas() {
     const canvas = document.getElementById('logicCanvas');
     canvas.innerHTML = '';
     
-    if (!currentLogicData.loop || currentLogicData.loop.length === 0) {
-        canvas.innerHTML = '<div class="text-center text-muted py-5">Empty Logic Loop. Add blocks from the toolbox.</div>';
+    if (!currentLogicData.actions || currentLogicData.actions.length === 0) {
+        canvas.innerHTML = '<div class="text-center text-muted py-5">Empty Logic. Add blocks from the toolbox.</div>';
         return;
     }
     
-    renderBlocks(currentLogicData.loop, canvas);
+    renderBlocks(currentLogicData.actions, canvas);
 }
 
 function renderBlocks(blocks, container, parentPath = []) {
@@ -2002,26 +2023,90 @@ function renderBlocks(blocks, container, parentPath = []) {
         let icon = 'fa-cube';
         
         // Determine block type and content
-        if (block.type === 'read') {
+        if (block.type === 'gpio_read') {
             icon = 'fa-eye';
             blockEl.style.borderLeftColor = '#17a2b8'; // Info
             content = `
                 <div class="row g-2 align-items-center">
-                    <div class="col-auto"><label>Read Pin/Sensor:</label></div>
-                    <div class="col"><input type="text" class="form-control form-control-sm" value="${block.pin || block.sensor || ''}" onchange="updateBlockValue('${blockPath.join(',')}', 'pin', this.value)" placeholder="Pin # or Name"></div>
-                    <div class="col-auto"><label>Save to Var:</label></div>
-                    <div class="col"><input type="text" class="form-control form-control-sm" value="${block.var || ''}" onchange="updateBlockValue('${blockPath.join(',')}', 'var', this.value)" placeholder="Variable Name"></div>
+                    <div class="col-auto"><label>Pin:</label></div>
+                    <div class="col"><input type="number" class="form-control form-control-sm" value="${block.pin || 2}" onchange="updateBlockValue('${blockPath.join(',')}', 'pin', parseInt(this.value))"></div>
+                    <div class="col-auto"><label>Mode:</label></div>
+                    <div class="col">
+                        <select class="form-select form-select-sm" onchange="updateBlockValue('${blockPath.join(',')}', 'mode', this.value)">
+                            <option value="INPUT" ${block.mode === 'INPUT' ? 'selected' : ''}>INPUT</option>
+                            <option value="INPUT_PULLUP" ${block.mode === 'INPUT_PULLUP' ? 'selected' : ''}>INPUT_PULLUP</option>
+                            <option value="INPUT_PULLDOWN" ${block.mode === 'INPUT_PULLDOWN' ? 'selected' : ''}>INPUT_PULLDOWN</option>
+                        </select>
+                    </div>
                 </div>
             `;
-        } else if (block.type === 'write') {
-            icon = 'fa-pen';
+        } else if (block.type === 'gpio_write') {
+            icon = 'fa-bolt';
             blockEl.style.borderLeftColor = '#ffc107'; // Warning
             content = `
                 <div class="row g-2 align-items-center">
-                    <div class="col-auto"><label>Set Pin:</label></div>
-                    <div class="col"><input type="text" class="form-control form-control-sm" value="${block.pin || ''}" onchange="updateBlockValue('${blockPath.join(',')}', 'pin', this.value)" placeholder="Pin #"></div>
+                    <div class="col-auto"><label>Pin:</label></div>
+                    <div class="col"><input type="number" class="form-control form-control-sm" value="${block.pin || 2}" onchange="updateBlockValue('${blockPath.join(',')}', 'pin', parseInt(this.value))"></div>
                     <div class="col-auto"><label>Value:</label></div>
-                    <div class="col"><input type="text" class="form-control form-control-sm" value="${block.value || ''}" onchange="updateBlockValue('${blockPath.join(',')}', 'value', this.value)" placeholder="HIGH/LOW/PWM"></div>
+                    <div class="col">
+                        <select class="form-select form-select-sm" onchange="updateBlockValue('${blockPath.join(',')}', 'value', this.value)">
+                            <option value="HIGH" ${block.value === 'HIGH' ? 'selected' : ''}>HIGH</option>
+                            <option value="LOW" ${block.value === 'LOW' ? 'selected' : ''}>LOW</option>
+                        </select>
+                    </div>
+                </div>
+            `;
+        } else if (block.type === 'pwm_write') {
+            icon = 'fa-wave-square';
+            blockEl.style.borderLeftColor = '#6610f2'; // Purple
+            content = `
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto"><label>Pin:</label></div>
+                    <div class="col"><input type="number" class="form-control form-control-sm" value="${block.pin || 2}" onchange="updateBlockValue('${blockPath.join(',')}', 'pin', parseInt(this.value))"></div>
+                    <div class="col-auto"><label>Duty (0-255):</label></div>
+                    <div class="col"><input type="number" class="form-control form-control-sm" value="${block.duty || 128}" onchange="updateBlockValue('${blockPath.join(',')}', 'duty', parseInt(this.value))"></div>
+                </div>
+                <div class="row g-2 align-items-center mt-1">
+                    <div class="col-auto"><label>Freq (Hz):</label></div>
+                    <div class="col"><input type="number" class="form-control form-control-sm" value="${block.freq || 5000}" onchange="updateBlockValue('${blockPath.join(',')}', 'freq', parseInt(this.value))"></div>
+                </div>
+            `;
+        } else if (block.type === 'analog_write') {
+            icon = 'fa-bezier-curve';
+            blockEl.style.borderLeftColor = '#d63384'; // Pink
+            content = `
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto"><label>Pin (25/26):</label></div>
+                    <div class="col"><input type="number" class="form-control form-control-sm" value="${block.pin || 25}" onchange="updateBlockValue('${blockPath.join(',')}', 'pin', parseInt(this.value))"></div>
+                    <div class="col-auto"><label>Value (0-255):</label></div>
+                    <div class="col"><input type="number" class="form-control form-control-sm" value="${block.value || 128}" onchange="updateBlockValue('${blockPath.join(',')}', 'value', parseInt(this.value))"></div>
+                </div>
+            `;
+        } else if (block.type === 'analog_read') {
+            icon = 'fa-chart-bar';
+            blockEl.style.borderLeftColor = '#20c997'; // Teal
+            content = `
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto"><label>Pin:</label></div>
+                    <div class="col"><input type="number" class="form-control form-control-sm" value="${block.pin || 34}" onchange="updateBlockValue('${blockPath.join(',')}', 'pin', parseInt(this.value))"></div>
+                </div>
+            `;
+        } else if (block.type === 'read_temperature') {
+            icon = 'fa-thermometer-half';
+            blockEl.style.borderLeftColor = '#e74a3b'; // Red
+            content = `<div class="small text-muted">Reads temperature from configured sensor</div>`;
+        } else if (block.type === 'set_relay') {
+            icon = 'fa-toggle-on';
+            blockEl.style.borderLeftColor = '#4e73df'; // Blue
+            content = `
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto"><label>State:</label></div>
+                    <div class="col">
+                        <select class="form-select form-select-sm" onchange="updateBlockValue('${blockPath.join(',')}', 'state', this.value === 'true')">
+                            <option value="true" ${block.state === true ? 'selected' : ''}>ON</option>
+                            <option value="false" ${block.state === false ? 'selected' : ''}>OFF</option>
+                        </select>
+                    </div>
                 </div>
             `;
         } else if (block.type === 'delay') {
@@ -2034,25 +2119,13 @@ function renderBlocks(blocks, container, parentPath = []) {
                     <div class="col-auto"><small class="text-muted">Non-blocking</small></div>
                 </div>
             `;
-        } else if (block.type === 'if') {
-            icon = 'fa-code-branch';
-            blockEl.style.borderLeftColor = '#fd7e14'; // Orange
+        } else if (block.type === 'log') {
+            icon = 'fa-comment-alt';
+            blockEl.style.borderLeftColor = '#858796'; // Gray
             content = `
-                <div class="mb-2">
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text">Condition</span>
-                        <input type="text" class="form-control" value="${block.condition || ''}" onchange="updateBlockValue('${blockPath.join(',')}', 'condition', this.value)" placeholder="e.g. temp > 25">
-                    </div>
-                </div>
-                <div class="ms-3 border-start ps-2">
-                    <div class="small text-muted mb-1">Then:</div>
-                    <div id="container-then-${blockPath.join('-')}" class="min-h-50"></div>
-                    <button class="btn btn-sm btn-outline-secondary mt-1" onclick="addLogicBlock('read', '${blockPath.join(',')}.then')"><i class="fas fa-plus"></i> Add Action</button>
-                </div>
-                <div class="ms-3 border-start ps-2 mt-2">
-                    <div class="small text-muted mb-1">Else:</div>
-                    <div id="container-else-${blockPath.join('-')}" class="min-h-50"></div>
-                    <button class="btn btn-sm btn-outline-secondary mt-1" onclick="addLogicBlock('read', '${blockPath.join(',')}.else')"><i class="fas fa-plus"></i> Add Action</button>
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto"><label>Message:</label></div>
+                    <div class="col"><input type="text" class="form-control form-control-sm" value="${block.message || ''}" onchange="updateBlockValue('${blockPath.join(',')}', 'message', this.value)" placeholder="Log message"></div>
                 </div>
             `;
         }
@@ -2072,31 +2145,21 @@ function renderBlocks(blocks, container, parentPath = []) {
         `;
         
         container.appendChild(blockEl);
-        
-        // Recursively render children for IF blocks
-        if (block.type === 'if') {
-            if (block.then) {
-                renderBlocks(block.then, document.getElementById(`container-then-${blockPath.join('-')}`), [...blockPath, 'then']);
-            }
-            if (block.else) {
-                renderBlocks(block.else, document.getElementById(`container-else-${blockPath.join('-')}`), [...blockPath, 'else']);
-            }
-        }
     });
 }
 
 function getBlockArray(pathStr) {
-    if (!pathStr) return currentLogicData.loop;
+    if (!pathStr) return currentLogicData.actions;
     
     const parts = pathStr.split('.');
-    let current = currentLogicData.loop;
+    let current = currentLogicData.actions;
     
     // Navigate to the parent array
     // Path format: "0.then.1" -> index 0, property 'then', index 1
     // We want the array containing the last index
     
     // If path is just "0", we want the root array
-    if (parts.length === 1) return currentLogicData.loop;
+    if (parts.length === 1) return currentLogicData.actions;
     
     // If path is "0.then", we want the 'then' array of item 0
     // But wait, my path logic in renderBlocks passes indices as part of path
@@ -2127,10 +2190,6 @@ function getBlockArray(pathStr) {
 
 function addLogicBlock(type, parentPathStr) {
     const newBlock = { type: type };
-    if (type === 'if') {
-        newBlock.then = [];
-        newBlock.else = [];
-    }
     
     let targetArray;
     if (parentPathStr) {
@@ -2139,7 +2198,7 @@ function addLogicBlock(type, parentPathStr) {
         // But here parentPathStr points TO the array we want to add to
         
         const path = parentPathStr.split(',');
-        let current = currentLogicData.loop;
+        let current = currentLogicData.actions;
         
         for (let i = 0; i < path.length; i++) {
             const key = path[i];
@@ -2152,7 +2211,7 @@ function addLogicBlock(type, parentPathStr) {
         }
         targetArray = current;
     } else {
-        targetArray = currentLogicData.loop;
+        targetArray = currentLogicData.actions;
     }
     
     targetArray.push(newBlock);
@@ -2165,7 +2224,7 @@ function deleteBlock(pathStr) {
     const index = parseInt(path[path.length - 1]);
     
     // Get the array containing this item
-    let current = currentLogicData.loop;
+    let current = currentLogicData.actions;
     for (let i = 0; i < path.length - 1; i++) {
         const key = path[i];
         if (!isNaN(key)) {
@@ -2185,7 +2244,7 @@ function moveBlock(pathStr, direction) {
     const index = parseInt(path[path.length - 1]);
     
     // Get the array containing this item
-    let current = currentLogicData.loop;
+    let current = currentLogicData.actions;
     for (let i = 0; i < path.length - 1; i++) {
         const key = path[i];
         if (!isNaN(key)) {
@@ -2208,7 +2267,7 @@ function updateBlockValue(pathStr, field, value) {
     const path = pathStr.split(',');
     
     // Get the item
-    let current = currentLogicData.loop;
+    let current = currentLogicData.actions;
     for (let i = 0; i < path.length; i++) {
         const key = path[i];
         if (!isNaN(key)) {
@@ -2248,7 +2307,8 @@ function formatJson() {
 
 async function saveLogicBuilder() {
     // Ensure we have the latest JSON
-    syncJsonToVisual(); // Actually we want to trust the active tab, but let's assume they are synced
+    syncJsonToVisual(); 
+    
     // If JSON tab is active, we should parse it first
     if (document.getElementById('json-tab').classList.contains('active')) {
         try {
@@ -2259,23 +2319,29 @@ async function saveLogicBuilder() {
         }
     }
     
+    // Add metadata if missing
+    if (!currentLogicData.name) currentLogicData.name = `Logic for ${currentLogicSensorId}`;
+    if (!currentLogicData.version) currentLogicData.version = "1.0.0";
+    
     try {
-        const response = await fetch('/api/sensor-master/configs', {
+        const response = await fetch('/api/sensor-master/script', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 sensor_id: currentLogicSensorId,
-                config_name: `Logic for ${currentLogicSensorId}`,
-                config_data: currentLogicData,
-                is_active: true
+                script_content: JSON.stringify(currentLogicData),
+                script_version: currentLogicData.version,
+                script_type: 'json',
+                description: 'Generated by Logic Builder'
             })
         });
         
         if (response.ok) {
-            showAlert('Logic saved successfully', 'success');
+            showAlert('Logic saved and assigned to sensor successfully', 'success');
             bootstrap.Modal.getInstance(document.getElementById('logicBuilderModal')).hide();
+            refreshData();
         } else {
             const data = await response.json();
             throw new Error(data.error || 'Failed to save logic');

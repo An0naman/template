@@ -3,7 +3,7 @@
 # This makes apps accessible via VPN (e.g., from your phone)
 
 TAILSCALE_IP="100.84.208.29"
-LOCAL_IP="192.168.68.107"
+LOCAL_IP="192.168.68.110"
 APPS_DIR="/home/an0naman/apps"
 
 echo "======================================"

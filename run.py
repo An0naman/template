@@ -28,6 +28,22 @@ if __name__ == '__main__':
         logging.info("Database initialized.")
 
     logging.info("Starting Flask application...")
-    app.run(debug=app.config.get('DEBUG', True),
-            host=app.config.get('HOST', '0.0.0.0'),
-            port=app.config.get('PORT', 5001))
+    
+    # Start mDNS Service Announcement
+    try:
+        from app.utils.discovery import ServiceAnnouncer
+        announcer = ServiceAnnouncer(port=app.config.get('PORT', 5001))
+        announcer.start()
+    except ImportError:
+        logging.warning("zeroconf not installed. mDNS service discovery disabled.")
+    except Exception as e:
+        logging.error(f"Error starting mDNS: {e}")
+
+    try:
+        app.run(debug=app.config.get('DEBUG', True),
+                host=app.config.get('HOST', '0.0.0.0'),
+                port=app.config.get('PORT', 5001))
+    finally:
+        # Clean up mDNS on exit
+        if 'announcer' in locals():
+            announcer.stop()
