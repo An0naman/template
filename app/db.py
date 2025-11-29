@@ -491,6 +491,23 @@ def init_db():
             );
         ''')
         
+        # Create SensorLogs Table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS SensorLogs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sensor_id TEXT NOT NULL,
+                message TEXT NOT NULL,
+                log_level TEXT DEFAULT 'info',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        ''')
+        
+        # Create index for SensorLogs
+        try:
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_sensor_logs_sensor_id_created_at ON SensorLogs(sensor_id, created_at DESC)')
+        except Exception as e:
+            pass
+        
         # Create indexes for performance
         try:
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_shared_sensor_data_type_time ON SharedSensorData(sensor_type, recorded_at)')

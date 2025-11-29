@@ -42,7 +42,8 @@ if __name__ == '__main__':
     try:
         app.run(debug=app.config.get('DEBUG', True),
                 host=app.config.get('HOST', '0.0.0.0'),
-                port=app.config.get('PORT', 5001))
+                port=app.config.get('PORT', 5001),
+                threaded=True)
     finally:
         # Clean up mDNS on exit
         if 'announcer' in locals():

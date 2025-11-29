@@ -672,6 +672,28 @@ void processCommands(JsonArray commands) {{
   }}
 }}
 
+void sendRemoteLog(String message, String level) {{
+  if (currentMode != MODE_ONLINE || String(MASTER_CONTROL_URL).length() == 0) return;
+  
+  HTTPClient http;
+  String url = String(MASTER_CONTROL_URL) + "/api/sensor-master/logs";
+  
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+  http.setTimeout(1000); // Short timeout
+  
+  StaticJsonDocument<256> doc;
+  doc["sensor_id"] = SENSOR_ID;
+  doc["message"] = message;
+  doc["level"] = level;
+  
+  String payload;
+  serializeJson(doc, payload);
+  
+  http.POST(payload);
+  http.end();
+}}
+
 // ============================================================================
 // SECTION 3: HARDWARE & SENSOR FUNCTIONS
 // ============================================================================
@@ -863,6 +885,7 @@ void executeLocalScript(String jsonScript) {{
       // Log: Print message to serial
       String message = action["message"] | "Log message";
       Serial.println("  📝 Log: " + message);
+      sendRemoteLog(message, "info");
       
     }} else {{
       Serial.println("  ⚠️ Unknown action type: " + type);

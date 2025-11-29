@@ -1470,3 +1470,78 @@ def delete_library_script(script_id):
         return jsonify({'error': 'Failed to delete library script'}), 500
 
 
+@sensor_master_api_bp.route('/sensor-master/logs', methods=['POST'])
+def report_sensor_log():
+    """
+    Report a log message from a sensor
+    
+    Expected payload:
+    {
+        "sensor_id": "esp32_001",
+        "message": "Log message content",
+        "level": "info" (optional)
+    }
+    """
+    try:
+        data = request.get_json()
+        logger.info(f"Received log request from sensor: {data}")
+        
+        if not data or 'sensor_id' not in data or 'message' not in data:
+            return jsonify({'error': 'sensor_id and message are required'}), 400
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO SensorLogs (sensor_id, message, log_level, timestamp)
+            VALUES (?, ?, ?, ?)
+        ''', (
+            data['sensor_id'],
+            data['message'],
+            data.get('level', 'info'),
+            datetime.now(timezone.utc).isoformat()
+        ))
+        
+        conn.commit()
+        
+        return jsonify({'message': 'Log saved'}), 201
+        
+    except Exception as e:
+        logger.error(f"Error saving sensor log: {e}", exc_info=True)
+        return jsonify({'error': f'Failed to save log: {str(e)}'}), 500
+
+
+@sensor_master_api_bp.route('/sensor-master/logs/<sensor_id>', methods=['GET'])
+def get_sensor_logs(sensor_id):
+    """
+    Get logs for a sensor
+    
+    Query params:
+    - limit: Number of records to return (default: 100)
+    """
+    try:
+        limit = request.args.get('limit', 100, type=int)
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT message, log_level, created_at
+            FROM SensorLogs
+            WHERE sensor_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+        ''', (sensor_id, limit))
+        
+        logs = [dict(row) for row in cursor.fetchall()]
+        
+        return jsonify({
+            'sensor_id': sensor_id,
+            'logs': logs
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error fetching sensor logs: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to fetch logs'}), 500
+
+

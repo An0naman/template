@@ -18,6 +18,7 @@
 #include <Preferences.h>
 #include <WebServer.h>
 #include <ESPmDNS.h>
+#include "WebSerial.h"
 
 // ============================================================================
 // CONFIGURATION - CUSTOMIZE THESE VALUES
@@ -35,6 +36,19 @@ const char* SENSOR_ID = "esp32_fermentation_001";
 const char* SENSOR_NAME = "Fermentation Chamber 1";
 const char* SENSOR_TYPE = "esp32_fermentation";
 const char* FIRMWARE_VERSION = "1.0.0";
+
+// Default Firmware Script (Fallback)
+const char* DEFAULT_FIRMWARE_SCRIPT = R"({
+    "name": "Firmware Default Blink",
+    "version": "1.0.0",
+    "actions": [
+        {"type": "gpio_write", "pin": 2, "value": "HIGH"},
+        {"type": "delay", "ms": 1000},
+        {"type": "gpio_write", "pin": 2, "value": "LOW"},
+        {"type": "delay", "ms": 1000},
+        {"type": "log", "message": "Default firmware script running"}
+    ]
+})";
 
 // Timing Configuration
 unsigned long pollingInterval = 60000;        // Default: 60 seconds
@@ -97,6 +111,7 @@ Preferences preferences;
 
 // Web Server for discovery
 WebServer server(80);
+WebSerialClass WebSerial;
 
 // ============================================================================
 // FUNCTION DECLARATIONS
@@ -139,13 +154,13 @@ void setup() {
     Serial.begin(115200);
     delay(1000);
     
-    Serial.println("\n\n");
-    Serial.println("========================================");
-    Serial.println("ESP32 Sensor Master Control");
-    Serial.println("========================================");
-    Serial.println("Sensor ID: " + String(SENSOR_ID));
-    Serial.println("Firmware: v" + String(FIRMWARE_VERSION));
-    Serial.println("========================================\n");
+    WebSerial.println("\n\n");
+    WebSerial.println("========================================");
+    WebSerial.println("ESP32 Sensor Master Control");
+    WebSerial.println("========================================");
+    WebSerial.println("Sensor ID: " + String(SENSOR_ID));
+    WebSerial.println("Firmware: v" + String(FIRMWARE_VERSION));
+    WebSerial.println("========================================\n");
     
     // Initialize hardware
     initializeSensors();
@@ -159,10 +174,18 @@ void setup() {
     currentScriptId = preferences.getInt("script_id", -1);
     
     if (currentScript.length() > 0) {
-        Serial.println("📜 Loaded saved script:");
-        Serial.println("  Version: " + currentScriptVersion);
-        Serial.println("  Script ID: " + String(currentScriptId));
+        WebSerial.println("📜 Loaded saved script:");
+        WebSerial.println("  Version: " + currentScriptVersion);
+        WebSerial.println("  Script ID: " + String(currentScriptId));
+    } else {
+        WebSerial.println("ℹ️ No saved script found, using firmware default");
+        currentScript = DEFAULT_FIRMWARE_SCRIPT;
+        currentScriptVersion = "1.0.0 (Default)";
+        currentScriptId = -1;
     }
+    
+    // Force script execution check immediately in loop
+    lastScriptExecution = millis() - pollingInterval;
     
     // Connect to WiFi
     connectToWiFi();
@@ -175,23 +198,147 @@ void setup() {
     // Start Web Server for discovery
     if (WiFi.status() == WL_CONNECTED) {
         server.on("/", HTTP_GET, []() {
-            String json = "{\"name\":\"" + String(SENSOR_NAME) + "\", \"id\":\"" + String(SENSOR_ID) + "\", \"type\":\"" + String(SENSOR_TYPE) + "\"}";
-            server.send(200, "application/json", json);
+            String html = "<!DOCTYPE html><html><head>";
+            html += "<title>" + String(SENSOR_NAME) + " - ESP32</title>";
+            html += "<meta charset='UTF-8'>";
+            html += "<meta name='viewport' content='width=device-width, initial-scale=1.0'>";
+            html += "<style>";
+            html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }";
+            html += ".container { max-width: 1000px; margin: 0 auto; background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); overflow: hidden; }";
+            html += ".header { background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%); color: white; padding: 30px; text-align: center; }";
+            html += ".header h1 { margin: 0; font-size: 2.5em; font-weight: 300; }";
+            html += ".header h2 { margin: 10px 0 0 0; font-size: 1.2em; opacity: 0.8; font-weight: normal; }";
+            html += ".content { padding: 30px; }";
+            html += ".sensor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin: 20px 0; }";
+            html += ".sensor-card { background: #f8f9fa; padding: 20px; border-radius: 10px; border: 1px solid #e9ecef; transition: transform 0.2s; }";
+            html += ".sensor-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }";
+            html += ".sensor-value { font-size: 2.5em; font-weight: bold; color: #2d3748; margin: 10px 0; }";
+            html += ".sensor-label { color: #718096; font-size: 1em; margin-bottom: 5px; display: flex; align-items: center; }";
+            html += ".sensor-icon { font-size: 1.5em; margin-right: 10px; }";
+            html += ".status { padding: 15px; margin: 20px 0; border-radius: 8px; display: flex; align-items: center; }";
+            html += ".status.good { background-color: #d4edda; color: #155724; border-left: 4px solid #28a745; }";
+            html += ".status.warning { background-color: #fff3cd; color: #856404; border-left: 4px solid #ffc107; }";
+            html += ".status.error { background-color: #f8d7da; color: #721c24; border-left: 4px solid #dc3545; }";
+            html += ".info-section { margin: 30px 0; padding: 25px; background: #f8f9fa; border-radius: 10px; border: 1px solid #e9ecef; }";
+            html += ".info-section h3 { margin-top: 0; color: #2d3748; }";
+            html += ".info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }";
+            html += ".info-item { padding: 10px 0; border-bottom: 1px solid #e9ecef; }";
+            html += ".info-item:last-child { border-bottom: none; }";
+            html += ".info-label { font-weight: 600; color: #4a5568; }";
+            html += ".info-value { color: #2d3748; margin-top: 5px; }";
+            html += ".button-group { display: flex; gap: 15px; margin: 20px 0; flex-wrap: wrap; }";
+            html += ".btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 1em; text-decoration: none; display: inline-flex; align-items: center; transition: all 0.2s; }";
+            html += ".btn-primary { background: #4a5568; color: white; }";
+            html += ".btn-primary:hover { background: #2d3748; }";
+            html += ".btn-secondary { background: #e2e8f0; color: #4a5568; }";
+            html += ".btn-secondary:hover { background: #cbd5e0; }";
+            html += "@media (max-width: 768px) { .button-group { flex-direction: column; } .sensor-grid { grid-template-columns: 1fr; } }";
+            html += "</style>";
+            html += "</head><body>";
+            
+            html += "<div class='container'>";
+            html += "<div class='header'>";
+            html += "<h1>" + String(SENSOR_NAME) + "</h1>";
+            html += "<h2>ESP32 Sensor Node</h2>";
+            html += "</div>";
+            
+            html += "<div class='content'>";
+            
+            // Status
+            String statusClass = (currentMode == MODE_ONLINE) ? "good" : "warning";
+            String statusIcon = (currentMode == MODE_ONLINE) ? "✅" : "⚠️";
+            String statusText = (currentMode == MODE_ONLINE) ? "Online (Connected to Master)" : "Offline (Standalone)";
+            
+            html += "<div class='status " + statusClass + "'>";
+            html += "<span style='font-size: 1.5em; margin-right: 10px;'>" + statusIcon + "</span>";
+            html += "<span><strong>Status:</strong> " + statusText + "</span>";
+            html += "</div>";
+            
+            // Sensor Data
+            SensorData data = readSensorData();
+            
+            html += "<div class='sensor-grid'>";
+            html += "<div class='sensor-card'>";
+            html += "<div class='sensor-label'><span class='sensor-icon'>🌡️</span>Temperature</div>";
+            html += "<div class='sensor-value'>" + String(data.temperature, 1) + "°C</div>";
+            html += "</div>";
+            
+            html += "<div class='sensor-card'>";
+            html += "<div class='sensor-label'><span class='sensor-icon'>🔌</span>Relay State</div>";
+            html += "<div class='sensor-value'>" + String(data.relayState ? "ON" : "OFF") + "</div>";
+            html += "</div>";
+            
+            html += "<div class='sensor-card'>";
+            html += "<div class='sensor-label'><span class='sensor-icon'>⏱️</span>Uptime</div>";
+            html += "<div class='sensor-value' style='font-size: 1.5em;'>" + String(millis() / 1000) + "s</div>";
+            html += "</div>";
+            html += "</div>";
+            
+            // Serial Monitor
+            html += "<div class='info-section'>";
+            html += "<h3>🖥️ Serial Monitor</h3>";
+            html += "<div id='serialMonitor' style='background: #1a202c; color: #48bb78; padding: 15px; border-radius: 5px; font-family: monospace; height: 300px; overflow-y: auto; font-size: 0.9em; white-space: pre-wrap;'>Connecting...</div>";
+            html += "<div class='button-group' style='margin-top: 10px;'>";
+            html += "<button class='btn btn-secondary' onclick='clearSerial()'>🗑️ Clear</button>";
+            html += "<button class='btn btn-secondary' onclick='toggleAutoScroll()' id='autoScrollBtn'>⬇️ Auto-scroll: ON</button>";
+            html += "</div>";
+            html += "</div>";
+
+            // Device Info
+            html += "<div class='info-section'>";
+            html += "<h3>📊 Device Information</h3>";
+            html += "<div class='info-grid'>";
+            html += "<div class='info-item'><div class='info-label'>Device ID</div><div class='info-value'>" + String(SENSOR_ID) + "</div></div>";
+            html += "<div class='info-item'><div class='info-label'>Type</div><div class='info-value'>" + String(SENSOR_TYPE) + "</div></div>";
+            html += "<div class='info-item'><div class='info-label'>IP Address</div><div class='info-value'>" + WiFi.localIP().toString() + "</div></div>";
+            html += "<div class='info-item'><div class='info-label'>Master URL</div><div class='info-value'>" + masterUrl + "</div></div>";
+            html += "<div class='info-item'><div class='info-label'>Firmware</div><div class='info-value'>" + String(FIRMWARE_VERSION) + "</div></div>";
+            html += "</div>";
+            html += "</div>";
+            
+            html += "</div></div>";
+            
+            // Scripts
+            html += "<script>";
+            html += "let autoScroll = true;";
+            html += "function toggleAutoScroll() { autoScroll = !autoScroll; document.getElementById('autoScrollBtn').innerText = '⬇️ Auto-scroll: ' + (autoScroll ? 'ON' : 'OFF'); }";
+            html += "function clearSerial() { document.getElementById('serialMonitor').innerHTML = ''; }";
+            html += "async function updateSerial() {";
+            html += "  try {";
+            html += "    const response = await fetch('/api/serial');";
+            html += "    const logs = await response.json();";
+            html += "    const monitor = document.getElementById('serialMonitor');";
+            html += "    monitor.innerHTML = logs.join('<br>');";
+            html += "    if (autoScroll) monitor.scrollTop = monitor.scrollHeight;";
+            html += "  } catch (e) { console.error('Serial update failed', e); }";
+            html += "}";
+            html += "setInterval(updateSerial, 2000);";
+            html += "</script>";
+            html += "</body></html>";
+            
+            server.send(200, "text/html", html);
         });
+        
         server.on("/api", HTTP_GET, []() {
             String json = "{\"name\":\"" + String(SENSOR_NAME) + "\", \"id\":\"" + String(SENSOR_ID) + "\", \"type\":\"" + String(SENSOR_TYPE) + "\"}";
             server.send(200, "application/json", json);
         });
+        
+        server.on("/api/serial", HTTP_GET, []() {
+            server.send(200, "application/json", WebSerial.getLogsJson());
+        });
+        
         server.begin();
-        Serial.println("🌐 Web Server started for discovery");
+        WebSerial.println("🌐 Web Server started for discovery");
     }
     
     // Try to register with master control
     if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("\n🌐 Attempting to register with master control...");
+        WebSerial.println("\n🌐 Attempting to register with master control...");
         if (registerWithMaster()) {
             currentMode = MODE_ONLINE;
-            Serial.println("✅ ONLINE MODE - Connected to master control");
+            WebSerial.println("✅ ONLINE MODE - Connected to master control");
+            sendRemoteLog("Device online: " + String(SENSOR_ID), "system");
             
             // Get initial configuration
             getConfigFromMaster();
@@ -200,16 +347,17 @@ void setup() {
             checkForScriptUpdates();
         } else {
             currentMode = MODE_OFFLINE;
-            Serial.println("⚠️ OFFLINE MODE - Master control unavailable");
+            WebSerial.println("⚠️ OFFLINE MODE - Master control unavailable");
             useOfflineConfiguration();
         }
     } else {
         currentMode = MODE_OFFLINE;
-        Serial.println("⚠️ OFFLINE MODE - No WiFi connection");
+        WebSerial.println("⚠️ OFFLINE MODE - No WiFi connection");
         useOfflineConfiguration();
     }
     
     Serial.println("\n🚀 System ready!\n");
+    WebSerial.println("System ready!");
 }
 
 // ============================================================================
@@ -224,7 +372,7 @@ void loop() {
     
     // Check WiFi connection
     if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("❌ WiFi disconnected! Attempting to reconnect...");
+        WebSerial.println("❌ WiFi disconnected! Attempting to reconnect...");
         connectToWiFi();
     }
     
@@ -237,7 +385,7 @@ void loop() {
         // Send data based on operating mode
         if (currentMode == MODE_ONLINE) {
             if (!sendDataToMaster(data)) {
-                Serial.println("⚠️ Failed to send data to master, switching to OFFLINE MODE");
+                WebSerial.println("⚠️ Failed to send data to master, switching to OFFLINE MODE");
                 currentMode = MODE_OFFLINE;
                 useOfflineConfiguration();
             }
@@ -251,7 +399,7 @@ void loop() {
         lastHeartbeat = currentTime;
         
         if (!sendHeartbeat()) {
-            Serial.println("⚠️ Heartbeat failed, switching to OFFLINE MODE");
+            WebSerial.println("⚠️ Heartbeat failed, switching to OFFLINE MODE");
             currentMode = MODE_OFFLINE;
             useOfflineConfiguration();
         }
@@ -278,18 +426,29 @@ void loop() {
     if (currentMode == MODE_OFFLINE && currentTime - lastConnectionAttempt >= offlineRetryInterval) {
         lastConnectionAttempt = currentTime;
         
-        Serial.println("\n🔄 Retrying master control connection...");
+        WebSerial.println("\n🔄 Retrying master control connection...");
         
         // Try to discover master if we don't have a good connection
-        discoverMaster();
-        
-        if (registerWithMaster()) {
-            currentMode = MODE_ONLINE;
-            Serial.println("✅ Switched to ONLINE MODE");
-            getConfigFromMaster();
-            checkForScriptUpdates();
+        // Note: This might block for a second or two
+        if (discoverMaster()) {
+             if (registerWithMaster()) {
+                currentMode = MODE_ONLINE;
+                WebSerial.println("✅ Switched to ONLINE MODE");
+                sendRemoteLog("Device reconnected: " + String(SENSOR_ID), "system");
+                getConfigFromMaster();
+                checkForScriptUpdates();
+            }
         } else {
-            Serial.println("⚠️ Still in OFFLINE MODE");
+            // If discovery fails, try direct registration if URL is known
+            if (masterUrl.length() > 0 && registerWithMaster()) {
+                currentMode = MODE_ONLINE;
+                WebSerial.println("✅ Switched to ONLINE MODE (Direct Connect)");
+                sendRemoteLog("Device reconnected (Direct): " + String(SENSOR_ID), "system");
+                getConfigFromMaster();
+                checkForScriptUpdates();
+            } else {
+                WebSerial.println("⚠️ Still in OFFLINE MODE");
+            }
         }
     }
     
@@ -302,20 +461,32 @@ void loop() {
 // CUSTOMIZE THIS SECTION FOR YOUR OFFLINE BEHAVIOR
 
 void useOfflineConfiguration() {
-    Serial.println("\n📋 Using offline configuration");
+    WebSerial.println("\n📋 Using offline configuration");
     
     // Load saved configuration from preferences
     pollingInterval = preferences.getULong("pollingInterval", 60000);
+    
+    // Safety check: Ensure polling interval is at least 5 seconds
+    if (pollingInterval < 5000) {
+        WebSerial.println("  ⚠️ Invalid polling interval (" + String(pollingInterval) + "ms), resetting to 60s");
+        pollingInterval = 60000;
+    }
+
     dataEndpoint = preferences.getString("dataEndpoint", "");
     
-    Serial.println("  Polling Interval: " + String(pollingInterval / 1000) + "s");
-    Serial.println("  Data Endpoint: " + (dataEndpoint.length() > 0 ? dataEndpoint : "None"));
+    // Safety check: Ensure data endpoint is valid
+    if (dataEndpoint == "null") {
+        dataEndpoint = "";
+    }
+    
+    WebSerial.println("  Polling Interval: " + String(pollingInterval / 1000) + "s");
+    WebSerial.println("  Data Endpoint: " + (dataEndpoint.length() > 0 ? dataEndpoint : "None"));
 }
 
 void handleDataOffline(SensorData data) {
-    Serial.println("\n📊 Handling data in OFFLINE MODE");
-    Serial.println("  Temperature: " + String(data.temperature) + "°C");
-    Serial.println("  Relay State: " + String(data.relayState ? "ON" : "OFF"));
+    WebSerial.println("\n📊 Handling data in OFFLINE MODE");
+    WebSerial.println("  Temperature: " + String(data.temperature) + "°C");
+    WebSerial.println("  Relay State: " + String(data.relayState ? "ON" : "OFF"));
     
     // ⚠️ CUSTOMIZE HERE: Choose your offline data handling strategy
     
@@ -328,11 +499,11 @@ void handleDataOffline(SensorData data) {
     }
     
     // Option 3: Just display locally
-    Serial.println("  💾 Data logged locally");
+    WebSerial.println("  💾 Data logged locally");
 }
 
 bool sendDataToFallbackEndpoint(SensorData data) {
-    if (WiFi.status() != WL_CONNECTED || dataEndpoint.length() == 0) {
+    if (WiFi.status() != WL_CONNECTED || dataEndpoint.length() == 0 || dataEndpoint == "null") {
         return false;
     }
     
@@ -354,11 +525,11 @@ bool sendDataToFallbackEndpoint(SensorData data) {
     http.end();
     
     if (httpCode == 200) {
-        Serial.println("  ✅ Data sent to fallback endpoint");
+        WebSerial.println("  ✅ Data sent to fallback endpoint");
         return true;
     }
     
-    Serial.println("  ❌ Failed to send to fallback endpoint");
+    WebSerial.println("  ❌ Failed to send to fallback endpoint");
     return false;
 }
 
@@ -394,7 +565,7 @@ bool registerWithMaster() {
     String jsonString;
     serializeJson(doc, jsonString);
     
-    Serial.println("  Sending registration to: " + url);
+    WebSerial.println("  Sending registration to: " + url);
     int httpCode = http.POST(jsonString);
     
     if (httpCode == 200) {
@@ -403,15 +574,15 @@ bool registerWithMaster() {
         deserializeJson(responseDoc, response);
         
         String status = responseDoc["status"];
-        Serial.println("  ✅ Registration successful!");
-        Serial.println("  Status: " + status);
-        Serial.println("  Assigned Master: " + String(responseDoc["assigned_master"].as<const char*>()));
+        WebSerial.println("  ✅ Registration successful!");
+        WebSerial.println("  Status: " + status);
+        WebSerial.println("  Assigned Master: " + String(responseDoc["assigned_master"].as<const char*>()));
         
         http.end();
         return true;
     }
     
-    Serial.println("  ❌ Registration failed (HTTP " + String(httpCode) + ")");
+    WebSerial.println("  ❌ Registration failed (HTTP " + String(httpCode) + ")");
     http.end();
     return false;
 }
@@ -437,8 +608,18 @@ bool getConfigFromMaster() {
             configHash = doc["config_hash"].as<String>();
             
             JsonObject config = doc["config"];
-            pollingInterval = config["polling_interval"].as<unsigned long>() * 1000;
+            unsigned long newPollingInterval = config["polling_interval"].as<unsigned long>() * 1000;
+            
+            // Safety check: Ensure polling interval is at least 5 seconds
+            if (newPollingInterval < 5000) {
+                newPollingInterval = 60000;
+            }
+            pollingInterval = newPollingInterval;
+
             dataEndpoint = config["data_endpoint"].as<String>();
+            if (dataEndpoint == "null") {
+                dataEndpoint = "";
+            }
             
             // Save configuration to preferences
             preferences.putULong("pollingInterval", pollingInterval);
@@ -447,10 +628,10 @@ bool getConfigFromMaster() {
             
             hasReceivedConfig = true;
             
-            Serial.println("\n📥 Configuration received from master:");
-            Serial.println("  Polling Interval: " + String(pollingInterval / 1000) + "s");
-            Serial.println("  Data Endpoint: " + dataEndpoint);
-            Serial.println("  Config Hash: " + configHash);
+            WebSerial.println("\n📥 Configuration received from master:");
+            WebSerial.println("  Polling Interval: " + String(pollingInterval / 1000) + "s");
+            WebSerial.println("  Data Endpoint: " + dataEndpoint);
+            WebSerial.println("  Config Hash: " + configHash);
             
             // Process any pending commands
             if (doc["commands"].is<JsonArray>()) {
@@ -465,7 +646,7 @@ bool getConfigFromMaster() {
         }
     }
     
-    Serial.println("  ⚠️ No configuration available from master");
+    WebSerial.println("  ⚠️ No configuration available from master");
     http.end();
     return false;
 }
@@ -499,11 +680,11 @@ bool sendHeartbeat() {
         JsonDocument responseDoc;
         deserializeJson(responseDoc, response);
         
-        Serial.println("\n💓 Heartbeat sent successfully");
+        WebSerial.println("\n💓 Heartbeat sent successfully");
         
         // Check for configuration updates
         if (responseDoc["config_updated"]) {
-            Serial.println("  🔄 Configuration updated, fetching new config...");
+            WebSerial.println("  🔄 Configuration updated, fetching new config...");
             getConfigFromMaster();
         }
         
@@ -519,13 +700,13 @@ bool sendHeartbeat() {
         return true;
     }
     
-    Serial.println("  ❌ Heartbeat failed (HTTP " + String(httpCode) + ")");
+    WebSerial.println("  ❌ Heartbeat failed (HTTP " + String(httpCode) + ")");
     http.end();
     return false;
 }
 
 bool sendDataToMaster(SensorData data) {
-    if (WiFi.status() != WL_CONNECTED || dataEndpoint.length() == 0) {
+    if (WiFi.status() != WL_CONNECTED || dataEndpoint.length() == 0 || dataEndpoint == "null") {
         return false;
     }
     
@@ -546,16 +727,45 @@ bool sendDataToMaster(SensorData data) {
     int httpCode = http.POST(jsonString);
     
     if (httpCode == 200 || httpCode == 201) {
-        Serial.println("\n📤 Data sent to master:");
-        Serial.println("  Temperature: " + String(data.temperature) + "°C");
-        Serial.println("  Relay State: " + String(data.relayState ? "ON" : "OFF"));
+        WebSerial.println("\n📤 Data sent to master:");
+        WebSerial.println("  Temperature: " + String(data.temperature) + "°C");
+        WebSerial.println("  Relay State: " + String(data.relayState ? "ON" : "OFF"));
         http.end();
         return true;
     }
     
-    Serial.println("  ❌ Failed to send data (HTTP " + String(httpCode) + ")");
+    WebSerial.println("  ❌ Failed to send data (HTTP " + String(httpCode) + ")");
     http.end();
     return false;
+}
+
+void sendRemoteLog(String message, String level = "info") {
+    if (currentMode != MODE_ONLINE || WiFi.status() != WL_CONNECTED) {
+        return;
+    }
+    
+    HTTPClient http;
+    String url = masterUrl + "/api/sensor-master/logs";
+    http.begin(url);
+    http.addHeader("Content-Type", "application/json");
+    
+    JsonDocument doc;
+    doc["sensor_id"] = SENSOR_ID;
+    doc["message"] = message;
+    doc["level"] = level;
+    
+    String payload;
+    serializeJson(doc, payload);
+    
+    // Use a short timeout for logs to avoid blocking
+    http.setTimeout(1000);
+    
+    int httpCode = http.POST(payload);
+    // We don't print success to avoid recursive logging if we were logging about network
+    if (httpCode != 200 && httpCode != 201) {
+        WebSerial.println("  ❌ Failed to send remote log (HTTP " + String(httpCode) + ")");
+    }
+    http.end();
 }
 
 // ============================================================================
@@ -584,9 +794,9 @@ void reportScriptExecution() {
     
     int httpCode = http.POST(payload);
     if (httpCode == 200) {
-        Serial.println("[SCRIPT] ✅ Execution reported to master");
+        WebSerial.println("[SCRIPT] ✅ Execution reported to master");
     } else {
-        Serial.println("[SCRIPT] ❌ Failed to report execution (HTTP " + String(httpCode) + ")");
+        WebSerial.println("[SCRIPT] ❌ Failed to report execution (HTTP " + String(httpCode) + ")");
     }
     http.end();
 }
@@ -617,9 +827,9 @@ void reportRunningVersion(String version, int scriptId = -1) {
     
     int httpCode = http.POST(payload);
     if (httpCode == 200) {
-        Serial.println("[VERSION] ✅ Reported version " + version + " to master");
+        WebSerial.println("[VERSION] ✅ Reported version " + version + " to master");
     } else {
-        Serial.println("[VERSION] ❌ Failed to report version (HTTP " + String(httpCode) + ")");
+        WebSerial.println("[VERSION] ❌ Failed to report version (HTTP " + String(httpCode) + ")");
     }
     http.end();
 }
@@ -637,7 +847,7 @@ void checkForScriptUpdates() {
     String url = masterUrl + "/api/sensor-master/script/" + String(SENSOR_ID);
     http.begin(url);
     
-    Serial.println("\n[SCRIPT] Checking for updates...");
+    WebSerial.println("\n[SCRIPT] Checking for updates...");
     int httpCode = http.GET();
     
     if (httpCode == 200) {
@@ -646,7 +856,7 @@ void checkForScriptUpdates() {
         DeserializationError error = deserializeJson(doc, response);
         
         if (error) {
-            Serial.println("[SCRIPT] ❌ Failed to parse response");
+            WebSerial.println("[SCRIPT] ❌ Failed to parse response");
             http.end();
             return;
         }
@@ -658,17 +868,17 @@ void checkForScriptUpdates() {
             int scriptId = doc["id"] | -1;
             String scriptName = doc["name"] | "Unnamed Script";
             
-            Serial.println("[SCRIPT] 📥 New script available:");
-            Serial.println("  Name: " + scriptName);
-            Serial.println("  Version: " + scriptVersion);
-            Serial.println("  Script ID: " + String(scriptId));
-            Serial.println("  Script content received (first 200 chars): " + scriptContent.substring(0, min(200, (int)scriptContent.length())));
+            WebSerial.println("[SCRIPT] 📥 New script available:");
+            WebSerial.println("  Name: " + scriptName);
+            WebSerial.println("  Version: " + scriptVersion);
+            WebSerial.println("  Script ID: " + String(scriptId));
+            WebSerial.println("  Script content received (first 200 chars): " + scriptContent.substring(0, min(200, (int)scriptContent.length())));
             
             // Check if the script field is a JSON object (not a string)
             if (doc["script"].is<JsonObject>()) {
-                Serial.println("  ⚠️ Script is a JSON object, converting to string");
+                WebSerial.println("  ⚠️ Script is a JSON object, converting to string");
                 serializeJson(doc["script"], scriptContent);
-                Serial.println("  Converted script: " + scriptContent);
+                WebSerial.println("  Converted script: " + scriptContent);
             }
             
             // If script content is a stringified JSON, try to parse it to get the actual name/version
@@ -681,15 +891,18 @@ void checkForScriptUpdates() {
                     String innerVersion = innerDoc["version"] | "";
                     if (innerName.length() > 0) {
                         scriptName = innerName;
-                        Serial.println("  ✅ Found script name in content: " + scriptName);
+                        WebSerial.println("  ✅ Found script name in content: " + scriptName);
                     }
                     if (innerVersion.length() > 0 && scriptVersion == "1.0.0") {
                         scriptVersion = innerVersion;
-                        Serial.println("  ✅ Found version in content: " + scriptVersion);
+                        WebSerial.println("  ✅ Found version in content: " + scriptVersion);
                     }
                 }
             }
             
+            // Check if script has changed
+            bool scriptChanged = (scriptContent != currentScript);
+
             // Save script to preferences
             preferences.putString("current_script", scriptContent);
             preferences.putString("script_version", scriptVersion);
@@ -700,26 +913,24 @@ void checkForScriptUpdates() {
             currentScriptVersion = scriptVersion;
             currentScriptId = scriptId;
             
-            // Reset execution state for the new script
-            scriptRunning = false;
-            currentCommandIndex = 0;
-            waitingForDelay = false;
-            commandDelay = 0;
-            
-            // Trigger immediate execution
-            executeLocalScript();
-            
             // Report the version we just downloaded
             reportRunningVersion(scriptVersion, scriptId);
             
-            Serial.println("[SCRIPT] ✅ Script updated and version reported");
+            WebSerial.println("[SCRIPT] ✅ Script updated and version reported");
+            
+            // Execute immediately
+            if (scriptChanged) {
+                WebSerial.println("[SCRIPT] 🔄 Script changed, restarting execution...");
+                scriptRunning = false;
+            }
+            executeLocalScript();
         } else {
-            Serial.println("[SCRIPT] ℹ️ No script assigned");
+            WebSerial.println("[SCRIPT] ℹ️ No script assigned");
         }
     } else if (httpCode == 404) {
-        Serial.println("[SCRIPT] ℹ️ No script available for this sensor");
+        WebSerial.println("[SCRIPT] ℹ️ No script available for this sensor");
     } else {
-        Serial.println("[SCRIPT] ❌ Failed to check for updates (HTTP " + String(httpCode) + ")");
+        WebSerial.println("[SCRIPT] ❌ Failed to check for updates (HTTP " + String(httpCode) + ")");
     }
     
     http.end();
@@ -747,14 +958,7 @@ void runJsonScriptContinuously() {
     }
     
     if (commandArray.isNull() || commandArray.size() == 0) {
-        scriptRunning = false;
         return; // No commands to execute
-    }
-    
-    // Safety check: ensure index is within bounds
-    if (currentCommandIndex >= commandArray.size()) {
-        currentCommandIndex = 0;
-        waitingForDelay = false;
     }
     
     // If we're waiting for a delay, check if it's time to continue
@@ -787,16 +991,11 @@ void runJsonScriptContinuously() {
             int pin = cmd["pin"] | 2;
             String valueStr = cmd["value"] | "";
             bool state = false;
-            
-            // Handle various ways to specify high/true
-            if (valueStr == "HIGH" || valueStr == "high" || valueStr == "1" || valueStr == "true") {
-                state = true;
-            } else if (cmd["value"].is<bool>() && cmd["value"].as<bool>()) {
+            if (valueStr == "HIGH" || valueStr == "high" || valueStr == "1") {
                 state = true;
             } else if (cmd["state"].is<bool>()) {
                 state = cmd["state"] | false;
             }
-            
             pinMode(pin, OUTPUT);
             digitalWrite(pin, state ? HIGH : LOW);
             
@@ -818,7 +1017,7 @@ void runJsonScriptContinuously() {
             }
             
             int value = digitalRead(pin);
-            Serial.println("[SCRIPT] GPIO" + String(pin) + " read: " + String(value) + " (mode: " + mode + ")");
+            WebSerial.println("[SCRIPT] GPIO" + String(pin) + " read: " + String(value) + " (mode: " + mode + ")");
             
             currentCommandIndex++;
             if (currentCommandIndex >= commandArray.size()) {
@@ -827,7 +1026,7 @@ void runJsonScriptContinuously() {
         } else if (action == "analog_read") {
             int pin = cmd["pin"] | 34;
             int value = analogRead(pin);
-            Serial.println("[SCRIPT] Analog pin " + String(pin) + ": " + String(value));
+            WebSerial.println("[SCRIPT] Analog pin " + String(pin) + ": " + String(value));
             
             currentCommandIndex++;
             if (currentCommandIndex >= commandArray.size()) {
@@ -844,7 +1043,7 @@ void runJsonScriptContinuously() {
             ledcAttachPin(pin, channel);
             ledcWrite(channel, dutyCycle);
             
-            Serial.println("[SCRIPT] PWM on GPIO" + String(pin) + ": " + String(dutyCycle) + " @ " + String(frequency) + "Hz");
+            WebSerial.println("[SCRIPT] PWM on GPIO" + String(pin) + ": " + String(dutyCycle) + " @ " + String(frequency) + "Hz");
             
             currentCommandIndex++;
             if (currentCommandIndex >= commandArray.size()) {
@@ -857,9 +1056,9 @@ void runJsonScriptContinuously() {
             
             if (pin == 25 || pin == 26) {
                 dacWrite(pin, value);
-                Serial.println("[SCRIPT] DAC on GPIO" + String(pin) + ": " + String(value));
+                WebSerial.println("[SCRIPT] DAC on GPIO" + String(pin) + ": " + String(value));
             } else {
-                Serial.println("[SCRIPT] ERROR: DAC only available on GPIO 25 or 26");
+                WebSerial.println("[SCRIPT] ERROR: DAC only available on GPIO 25 or 26");
             }
             
             currentCommandIndex++;
@@ -868,7 +1067,7 @@ void runJsonScriptContinuously() {
             }
         } else if (action == "read_temperature") {
             SensorData data = readSensorData();
-            Serial.println("[SCRIPT] Temperature: " + String(data.temperature) + "°C");
+            WebSerial.println("[SCRIPT] Temperature: " + String(data.temperature) + "°C");
             
             currentCommandIndex++;
             if (currentCommandIndex >= commandArray.size()) {
@@ -884,7 +1083,8 @@ void runJsonScriptContinuously() {
             }
         } else if (action == "log") {
             String message = cmd["message"] | "Log message";
-            Serial.println("[SCRIPT] LOG: " + message);
+            WebSerial.println("[SCRIPT] LOG: " + message);
+            sendRemoteLog(message);
             
             currentCommandIndex++;
             if (currentCommandIndex >= commandArray.size()) {
@@ -909,10 +1109,10 @@ void executeLocalScript() {
         return; // No script to execute
     }
     
-    Serial.println("\n[SCRIPT] 🚀 Executing script...");
-    Serial.println("  Version: " + currentScriptVersion);
-    Serial.println("  Script ID: " + String(currentScriptId));
-    Serial.println("  Script content: " + currentScript);
+    WebSerial.println("\n[SCRIPT] 🚀 Executing script...");
+    WebSerial.println("  Version: " + currentScriptVersion);
+    WebSerial.println("  Script ID: " + String(currentScriptId));
+    WebSerial.println("  Script content: " + currentScript);
     
     // ⚠️ CUSTOMIZE HERE: Add your script execution logic
     // This is where you would parse and execute the script content
@@ -922,7 +1122,7 @@ void executeLocalScript() {
     // You might use a scripting engine or parse JSON commands
     JsonDocument scriptDoc;
     DeserializationError error = deserializeJson(scriptDoc, currentScript);
-    Serial.println("  JSON parse error: " + String(error.c_str()));
+    WebSerial.println("  JSON parse error: " + String(error.c_str()));
     
     // Try both "actions" (new format) and "commands" (old format)
     JsonArray commandArray;
@@ -935,24 +1135,24 @@ void executeLocalScript() {
     if (!commandArray.isNull() && commandArray.size() > 0) {
         // Start continuous JSON script execution
         if (!scriptRunning) {
-            Serial.println("  Starting continuous JSON script execution with " + String(commandArray.size()) + " command(s)");
+            WebSerial.println("  Starting continuous JSON script execution with " + String(commandArray.size()) + " command(s)");
             scriptRunning = true;
             currentCommandIndex = 0;
             waitingForDelay = false;
             commandDelay = 0;
             reportScriptExecution();
         } else {
-            Serial.println("  Script already running continuously");
+            WebSerial.println("  Script already running continuously");
         }
         return; // Don't execute LED pattern code
     } else {
         // If script is not JSON, look for LED control patterns
-        Serial.println("  Executing custom script logic");
+        WebSerial.println("  Executing custom script logic");
         
         // Check if script contains LED blink code
         if (currentScript.indexOf("LED") >= 0 || currentScript.indexOf("digitalWrite") >= 0) {
             if (!scriptRunning) {
-                Serial.println("  ✅ Starting continuous LED control script");
+                WebSerial.println("  ✅ Starting continuous LED control script");
                 
                 // Parse delay values from script
                 int onDelayIdx = currentScript.indexOf("digitalWrite(LED_PIN, HIGH);");
@@ -980,8 +1180,8 @@ void executeLocalScript() {
                     }
                 }
                 
-                Serial.println("  LED ON duration: " + String(scriptLedOnDuration) + "ms");
-                Serial.println("  LED OFF duration: " + String(scriptLedOffDuration) + "ms");
+                WebSerial.println("  LED ON duration: " + String(scriptLedOnDuration) + "ms");
+                WebSerial.println("  LED OFF duration: " + String(scriptLedOffDuration) + "ms");
                 
                 const int LED_PIN = 2;
                 pinMode(LED_PIN, OUTPUT);
@@ -990,37 +1190,37 @@ void executeLocalScript() {
                 scriptLedState = false;
                 
                 // Report execution to master only when script starts
-                Serial.println("[SCRIPT] ✅ Script started (continuous mode)");
+                WebSerial.println("[SCRIPT] ✅ Script started (continuous mode)");
                 reportScriptExecution();
             } else {
-                Serial.println("  Script already running continuously");
+                WebSerial.println("  Script already running continuously");
             }
             // Script now runs continuously in loop()
         } else {
             // Generic script - just log it
-            Serial.println("  Script content: " + currentScript.substring(0, 100) + "...");
-            Serial.println("  ⚠️ No executable pattern recognized");
-            Serial.println("[SCRIPT] ✅ Execution completed");
+            WebSerial.println("  Script content: " + currentScript.substring(0, 100) + "...");
+            WebSerial.println("  ⚠️ No executable pattern recognized");
+            WebSerial.println("[SCRIPT] ✅ Execution completed");
             reportScriptExecution();
         }
         return; // Don't report again for continuous scripts
     }
     
     // For JSON scripts, report after execution
-    Serial.println("[SCRIPT] ✅ Execution completed");
+    WebSerial.println("[SCRIPT] ✅ Execution completed");
     reportScriptExecution();
 }
 
 void processCommands(JsonArray commands) {
-    Serial.println("\n📨 Processing " + String(commands.size()) + " command(s)");
+    WebSerial.println("\n📨 Processing " + String(commands.size()) + " command(s)");
     
     for (JsonVariant v : commands) {
         JsonObject cmd = v.as<JsonObject>();
         String commandType = cmd["command_type"];
         int commandId = cmd["id"];
         
-        Serial.println("  Command ID: " + String(commandId));
-        Serial.println("  Type: " + commandType);
+        WebSerial.println("  Command ID: " + String(commandId));
+        WebSerial.println("  Type: " + commandType);
         
         String result = "success";
         String message = "";
@@ -1028,7 +1228,7 @@ void processCommands(JsonArray commands) {
         // Execute command based on type
         if (commandType == "restart") {
             message = "Restarting device...";
-            Serial.println("  🔄 " + message);
+            WebSerial.println("  🔄 " + message);
             // Report result before restarting
             reportCommandResult(commandId, result, message);
             delay(1000);
@@ -1036,25 +1236,25 @@ void processCommands(JsonArray commands) {
             
         } else if (commandType == "update_config") {
             message = "Fetching new configuration";
-            Serial.println("  ⚙️ " + message);
+            WebSerial.println("  ⚙️ " + message);
             getConfigFromMaster();
             
         } else if (commandType == "set_temperature") {
             float targetTemp = cmd["parameters"]["target_temperature"];
             message = "Target temperature set to " + String(targetTemp) + "°C";
-            Serial.println("  🌡️ " + message);
+            WebSerial.println("  🌡️ " + message);
             setTargetTemperature(targetTemp);
             
         } else if (commandType == "relay_control") {
             bool relayState = cmd["parameters"]["state"];
             message = "Relay turned " + String(relayState ? "ON" : "OFF");
-            Serial.println("  🔌 " + message);
+            WebSerial.println("  🔌 " + message);
             digitalWrite(RELAY_PIN, relayState ? HIGH : LOW);
             
         } else {
             result = "error";
             message = "Unknown command type: " + commandType;
-            Serial.println("  ❌ " + message);
+            WebSerial.println("  ❌ " + message);
         }
         
         // Report command execution result
@@ -1095,7 +1295,7 @@ void reportCommandResult(int commandId, String result, String message) {
 // CUSTOMIZE THIS SECTION FOR YOUR HARDWARE
 
 void initializeSensors() {
-    Serial.println("🔧 Initializing hardware...");
+    WebSerial.println("🔧 Initializing hardware...");
     
     // Configure pins
     pinMode(STATUS_LED_PIN, OUTPUT);
@@ -1106,7 +1306,7 @@ void initializeSensors() {
     digitalWrite(STATUS_LED_PIN, LOW);
     digitalWrite(RELAY_PIN, LOW);
     
-    Serial.println("  ✅ Hardware initialized");
+    WebSerial.println("  ✅ Hardware initialized");
 }
 
 SensorData readSensorData() {
@@ -1154,31 +1354,31 @@ void setTargetTemperature(float targetTemp) {
 // ============================================================================
 
 bool discoverMaster() {
-    Serial.println("🔍 Looking for Master Control via mDNS...");
+    WebSerial.println("🔍 Looking for Master Control via mDNS...");
     
     if (!MDNS.begin(SENSOR_ID)) {
-        Serial.println("  ❌ Error setting up mDNS responder!");
+        WebSerial.println("  ❌ Error setting up mDNS responder!");
         return false;
     }
     
-    Serial.println("  mDNS responder started. Searching for service: " + String(MDNS_SERVICE_NAME));
+    WebSerial.println("  mDNS responder started. Searching for service: " + String(MDNS_SERVICE_NAME));
     
     // Query for the service
     // We look for _http._tcp
     int n = MDNS.queryService("http", "tcp");
     
     if (n == 0) {
-        Serial.println("  ⚠️ No services found");
+        WebSerial.println("  ⚠️ No services found");
         return false;
     }
     
-    Serial.println("  ✅ Found " + String(n) + " service(s)");
+    WebSerial.println("  ✅ Found " + String(n) + " service(s)");
     
     for (int i = 0; i < n; ++i) {
         String hostname = MDNS.hostname(i);
         String serviceName = MDNS.txt(i, "type"); // We added 'type' property in Python
         
-        Serial.println("  " + String(i + 1) + ": " + hostname + " (" + MDNS.IP(i).toString() + ":" + String(MDNS.port(i)) + ")");
+        WebSerial.println("  " + String(i + 1) + ": " + hostname + " (" + MDNS.IP(i).toString() + ":" + String(MDNS.port(i)) + ")");
         
         // Check if this is our master
         // In Python we set server name as "sensor-master.local."
@@ -1188,7 +1388,7 @@ bool discoverMaster() {
             int port = MDNS.port(i);
             
             masterUrl = "http://" + ip + ":" + String(port);
-            Serial.println("  🎯 Master Control found! URL updated to: " + masterUrl);
+            WebSerial.println("  🎯 Master Control found! URL updated to: " + masterUrl);
             return true;
         }
     }
@@ -1197,8 +1397,8 @@ bool discoverMaster() {
 }
 
 void connectToWiFi() {
-    Serial.println("📡 Connecting to WiFi...");
-    Serial.println("  SSID: " + String(WIFI_SSID));
+    WebSerial.println("📡 Connecting to WiFi...");
+    WebSerial.println("  SSID: " + String(WIFI_SSID));
     
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -1213,10 +1413,10 @@ void connectToWiFi() {
     Serial.println();
     
     if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("  ✅ WiFi connected!");
-        Serial.println("  IP Address: " + WiFi.localIP().toString());
-        Serial.println("  Signal Strength: " + String(WiFi.RSSI()) + " dBm");
+        WebSerial.println("  ✅ WiFi connected!");
+        WebSerial.println("  IP Address: " + WiFi.localIP().toString());
+        WebSerial.println("  Signal Strength: " + String(WiFi.RSSI()) + " dBm");
     } else {
-        Serial.println("  ❌ WiFi connection failed!");
+        WebSerial.println("  ❌ WiFi connection failed!");
     }
 }
