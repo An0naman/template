@@ -19,6 +19,7 @@
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include "WebSerial.h"
+#include <vector>
 
 // ============================================================================
 // CONFIGURATION - CUSTOMIZE THESE VALUES
@@ -53,7 +54,7 @@ const char* DEFAULT_FIRMWARE_SCRIPT = R"({
 // Timing Configuration
 unsigned long pollingInterval = 60000;        // Default: 60 seconds
 unsigned long heartbeatInterval = 300000;     // Default: 5 minutes
-unsigned long offlineRetryInterval = 60000;   // Default: 1 minute (retry connection faster)
+unsigned long offlineRetryInterval = 10000;   // Default: 10 seconds (retry connection faster)
 
 // Hardware Configuration
 #define TEMP_SENSOR_PIN 34        // Analog pin for temperature sensor
@@ -93,8 +94,16 @@ bool scriptLedState = false;
 unsigned long scriptLedOnDuration = 2000;  // Default 2 seconds
 unsigned long scriptLedOffDuration = 2000; // Default 2 seconds
 
+// Active script document (global to avoid re-parsing)
+JsonDocument activeScriptDoc;
+
 // JSON script execution state
-int currentCommandIndex = 0;
+struct ScriptContext {
+    JsonArray commands;
+    int index;
+};
+std::vector<ScriptContext> scriptStack;
+
 unsigned long commandStartTime = 0;
 unsigned long commandDelay = 0;
 bool waitingForDelay = false;
@@ -131,6 +140,7 @@ bool registerWithMaster();
 bool getConfigFromMaster();
 bool sendHeartbeat();
 bool sendDataToMaster(SensorData data);
+void sendRemoteLog(String message, String level = "info");
 void processCommands(JsonArray commands);
 void reportCommandResult(int commandId, String result, String message);
 
@@ -139,7 +149,6 @@ void reportScriptExecution();
 void reportRunningVersion(String version, int scriptId);
 void checkForScriptUpdates();
 void executeLocalScript();
-void runJsonScriptContinuously();
 
 // Hardware Functions
 void initializeSensors();
@@ -159,7 +168,7 @@ void setup() {
     WebSerial.println("ESP32 Sensor Master Control");
     WebSerial.println("========================================");
     WebSerial.println("Sensor ID: " + String(SENSOR_ID));
-    WebSerial.println("Firmware: v" + String(FIRMWARE_VERSION));
+    WebSerial.println("Firmware: v" + String(FIRMWARE_VERSION) + " (Built: " + __DATE__ + " " + __TIME__ + ")");
     WebSerial.println("========================================\n");
     
     // Initialize hardware
@@ -417,9 +426,24 @@ void loop() {
         executeLocalScript();
     }
     
-    // Continuously run JSON script commands (non-blocking)
+    // Handle legacy LED blinking if script is running in continuous mode
     if (scriptRunning) {
-        runJsonScriptContinuously();
+        unsigned long currentMillis = millis();
+        if (scriptLedState) {
+            // LED is ON, check if we need to turn it OFF
+            if (currentMillis - scriptLedTimer >= scriptLedOnDuration) {
+                scriptLedState = false;
+                scriptLedTimer = currentMillis;
+                digitalWrite(2, LOW); 
+            }
+        } else {
+            // LED is OFF, check if we need to turn it ON
+            if (currentMillis - scriptLedTimer >= scriptLedOffDuration) {
+                scriptLedState = true;
+                scriptLedTimer = currentMillis;
+                digitalWrite(2, HIGH); 
+            }
+        }
     }
     
     // OFFLINE MODE: Retry connection to master
@@ -739,7 +763,7 @@ bool sendDataToMaster(SensorData data) {
     return false;
 }
 
-void sendRemoteLog(String message, String level = "info") {
+void sendRemoteLog(String message, String level) {
     if (currentMode != MODE_ONLINE || WiFi.status() != WL_CONNECTED) {
         return;
     }
@@ -757,8 +781,8 @@ void sendRemoteLog(String message, String level = "info") {
     String payload;
     serializeJson(doc, payload);
     
-    // Use a short timeout for logs to avoid blocking
-    http.setTimeout(1000);
+    // Use a longer timeout to ensure delivery even if server is busy
+    http.setTimeout(5000);
     
     int httpCode = http.POST(payload);
     // We don't print success to avoid recursive logging if we were logging about network
@@ -771,6 +795,114 @@ void sendRemoteLog(String message, String level = "info") {
 // ============================================================================
 // SECTION 2.1: SCRIPT MANAGEMENT & REPORTING
 // ============================================================================
+
+// Forward declarations
+float resolveValue(String key);
+bool evaluateCondition(String left, String op, String right);
+void executeActions(JsonArray actions);
+
+float resolveValue(String key) {
+    // Check if it's a number
+    if (key.length() == 0) return 0;
+    if (isdigit(key[0]) || key[0] == '-') return key.toFloat();
+    
+    // Check for sensor variables
+    if (key == "sensor.temp") {
+        return readSensorData().temperature;
+    } else if (key == "sensor.relay") {
+        return readSensorData().relayState ? 1.0 : 0.0;
+    }
+    
+    // Check for GPIO (format: gpio.12)
+    if (key.startsWith("gpio.")) {
+        int pin = key.substring(5).toInt();
+        pinMode(pin, INPUT);
+        return digitalRead(pin);
+    }
+    
+    return 0; // Default
+}
+
+bool evaluateCondition(String leftStr, String op, String rightStr) {
+    float left = resolveValue(leftStr);
+    float right = resolveValue(rightStr);
+    
+    if (op == "==") return left == right;
+    if (op == "!=") return left != right;
+    if (op == ">") return left > right;
+    if (op == "<") return left < right;
+    if (op == ">=") return left >= right;
+    if (op == "<=") return left <= right;
+    
+    return false;
+}
+
+void executeActions(JsonArray actions) {
+    for (JsonObject action : actions) {
+        String type = action["type"] | "";
+        
+        if (type == "if") {
+            JsonObject condition = action["condition"];
+            String left = condition["left"] | "0";
+            String op = condition["operator"] | "==";
+            String right = condition["right"] | "0";
+            
+            bool result = evaluateCondition(left, op, right);
+            String logMsg = "❓ IF " + left + " " + op + " " + right + " (" + String(resolveValue(left)) + " vs " + String(resolveValue(right)) + ") -> " + String(result ? "TRUE" : "FALSE");
+            WebSerial.println(logMsg);
+            Serial.println(logMsg);
+            
+            if (result) {
+                if (action.containsKey("then")) {
+                    WebSerial.println("  ➡️ Executing THEN block");
+                    executeActions(action["then"]);
+                }
+            } else {
+                if (action.containsKey("else")) {
+                    WebSerial.println("  ➡️ Executing ELSE block");
+                    executeActions(action["else"]);
+                }
+            }
+            
+        } else if (type == "delay") {
+            int ms = action["ms"] | 1000;
+            WebSerial.println("⏱️ Delay: " + String(ms) + "ms");
+            delay(ms);
+            
+        } else if (type == "gpio_write") {
+            int pin = action["pin"] | 2;
+            String value = action["value"] | "LOW";
+            pinMode(pin, OUTPUT);
+            digitalWrite(pin, value == "HIGH" ? HIGH : LOW);
+            WebSerial.println("✓ GPIO Write: Pin " + String(pin) + " = " + value);
+            
+        } else if (type == "gpio_read") {
+            int pin = action["pin"] | 2;
+            pinMode(pin, INPUT);
+            int val = digitalRead(pin);
+            WebSerial.println("✓ GPIO Read: Pin " + String(pin) + " = " + String(val));
+
+        } else if (type == "log") {
+            String message = action["message"] | "Log message";
+            if (action.containsKey("value")) {
+                String valKey = action["value"];
+                float val = resolveValue(valKey);
+                message += " [" + valKey + "=" + String(val) + "]";
+            }
+            WebSerial.println("📝 Log: " + message);
+            sendRemoteLog(message);
+            
+        } else if (type == "set_relay") {
+            bool state = action["state"] | false;
+            digitalWrite(RELAY_PIN, state ? HIGH : LOW);
+            WebSerial.println("✓ Relay: " + String(state ? "ON" : "OFF"));
+            
+        } else if (type == "read_temperature") {
+            SensorData data = readSensorData();
+            WebSerial.println("✓ Temperature: " + String(data.temperature) + "°C");
+        }
+    }
+}
 
 /**
  * Report to master that we just executed a script
@@ -937,170 +1069,6 @@ void checkForScriptUpdates() {
 }
 
 /**
- * Run JSON script commands continuously (non-blocking)
- * Called from main loop when scriptRunning is true
- */
-void runJsonScriptContinuously() {
-    // Parse the current script
-    JsonDocument scriptDoc;
-    DeserializationError error = deserializeJson(scriptDoc, currentScript);
-    
-    if (error) {
-        return; // Can't parse, skip
-    }
-    
-    // Get the commands/actions array
-    JsonArray commandArray;
-    if (scriptDoc["actions"].is<JsonArray>()) {
-        commandArray = scriptDoc["actions"];
-    } else if (scriptDoc["commands"].is<JsonArray>()) {
-        commandArray = scriptDoc["commands"];
-    }
-    
-    if (commandArray.isNull() || commandArray.size() == 0) {
-        return; // No commands to execute
-    }
-    
-    // If we're waiting for a delay, check if it's time to continue
-    if (waitingForDelay) {
-        if (millis() - commandStartTime >= commandDelay) {
-            waitingForDelay = false;
-            currentCommandIndex++;
-            
-            // Loop back to start when we reach the end
-            if (currentCommandIndex >= commandArray.size()) {
-                currentCommandIndex = 0;
-            }
-        } else {
-            return; // Still waiting
-        }
-    }
-    
-    // Execute the current command
-    if (currentCommandIndex < commandArray.size()) {
-        JsonObject cmd = commandArray[currentCommandIndex].as<JsonObject>();
-        String action = cmd["type"] | cmd["action"] | "";
-        
-        if (action == "delay") {
-            // Start non-blocking delay
-            int delayMs = cmd["ms"] | cmd["duration"] | 1000;
-            commandDelay = delayMs;
-            commandStartTime = millis();
-            waitingForDelay = true;
-        } else if (action == "gpio_write") {
-            int pin = cmd["pin"] | 2;
-            String valueStr = cmd["value"] | "";
-            bool state = false;
-            if (valueStr == "HIGH" || valueStr == "high" || valueStr == "1") {
-                state = true;
-            } else if (cmd["state"].is<bool>()) {
-                state = cmd["state"] | false;
-            }
-            pinMode(pin, OUTPUT);
-            digitalWrite(pin, state ? HIGH : LOW);
-            
-            currentCommandIndex++;
-            if (currentCommandIndex >= commandArray.size()) {
-                currentCommandIndex = 0;
-            }
-        } else if (action == "gpio_read") {
-            int pin = cmd["pin"] | 2;
-            String mode = cmd["mode"] | "INPUT";
-            
-            // Set pin mode with pullup/pulldown support
-            if (mode == "INPUT_PULLUP") {
-                pinMode(pin, INPUT_PULLUP);
-            } else if (mode == "INPUT_PULLDOWN") {
-                pinMode(pin, INPUT_PULLDOWN);
-            } else {
-                pinMode(pin, INPUT);
-            }
-            
-            int value = digitalRead(pin);
-            WebSerial.println("[SCRIPT] GPIO" + String(pin) + " read: " + String(value) + " (mode: " + mode + ")");
-            
-            currentCommandIndex++;
-            if (currentCommandIndex >= commandArray.size()) {
-                currentCommandIndex = 0;
-            }
-        } else if (action == "analog_read") {
-            int pin = cmd["pin"] | 34;
-            int value = analogRead(pin);
-            WebSerial.println("[SCRIPT] Analog pin " + String(pin) + ": " + String(value));
-            
-            currentCommandIndex++;
-            if (currentCommandIndex >= commandArray.size()) {
-                currentCommandIndex = 0;
-            }
-        } else if (action == "pwm_write") {
-            int pin = cmd["pin"] | 2;
-            int dutyCycle = cmd["duty"] | 128;  // 0-255
-            int frequency = cmd["freq"] | 5000;  // Hz
-            int channel = cmd["channel"] | 0;    // PWM channel 0-15
-            
-            // Configure PWM channel
-            ledcSetup(channel, frequency, 8);  // 8-bit resolution
-            ledcAttachPin(pin, channel);
-            ledcWrite(channel, dutyCycle);
-            
-            WebSerial.println("[SCRIPT] PWM on GPIO" + String(pin) + ": " + String(dutyCycle) + " @ " + String(frequency) + "Hz");
-            
-            currentCommandIndex++;
-            if (currentCommandIndex >= commandArray.size()) {
-                currentCommandIndex = 0;
-            }
-        } else if (action == "analog_write") {
-            // DAC output (only GPIO 25 and 26 on ESP32)
-            int pin = cmd["pin"] | 25;
-            int value = cmd["value"] | 128;  // 0-255
-            
-            if (pin == 25 || pin == 26) {
-                dacWrite(pin, value);
-                WebSerial.println("[SCRIPT] DAC on GPIO" + String(pin) + ": " + String(value));
-            } else {
-                WebSerial.println("[SCRIPT] ERROR: DAC only available on GPIO 25 or 26");
-            }
-            
-            currentCommandIndex++;
-            if (currentCommandIndex >= commandArray.size()) {
-                currentCommandIndex = 0;
-            }
-        } else if (action == "read_temperature") {
-            SensorData data = readSensorData();
-            WebSerial.println("[SCRIPT] Temperature: " + String(data.temperature) + "°C");
-            
-            currentCommandIndex++;
-            if (currentCommandIndex >= commandArray.size()) {
-                currentCommandIndex = 0;
-            }
-        } else if (action == "set_relay") {
-            bool state = cmd["state"] | false;
-            digitalWrite(RELAY_PIN, state ? HIGH : LOW);
-            
-            currentCommandIndex++;
-            if (currentCommandIndex >= commandArray.size()) {
-                currentCommandIndex = 0;
-            }
-        } else if (action == "log") {
-            String message = cmd["message"] | "Log message";
-            WebSerial.println("[SCRIPT] LOG: " + message);
-            sendRemoteLog(message);
-            
-            currentCommandIndex++;
-            if (currentCommandIndex >= commandArray.size()) {
-                currentCommandIndex = 0;
-            }
-        } else {
-            // Unknown command, skip it
-            currentCommandIndex++;
-            if (currentCommandIndex >= commandArray.size()) {
-                currentCommandIndex = 0;
-            }
-        }
-    }
-}
-
-/**
  * Execute the locally stored script
  * Reports execution to master after running
  */
@@ -1112,103 +1080,83 @@ void executeLocalScript() {
     WebSerial.println("\n[SCRIPT] 🚀 Executing script...");
     WebSerial.println("  Version: " + currentScriptVersion);
     WebSerial.println("  Script ID: " + String(currentScriptId));
-    WebSerial.println("  Script content: " + currentScript);
     
-    // ⚠️ CUSTOMIZE HERE: Add your script execution logic
-    // This is where you would parse and execute the script content
-    // For example, if the script contains commands or logic for your sensor
+    // Parse script into global document
+    activeScriptDoc.clear();
+    DeserializationError error = deserializeJson(activeScriptDoc, currentScript);
     
-    // Example: Parse script for simple commands
-    // You might use a scripting engine or parse JSON commands
-    JsonDocument scriptDoc;
-    DeserializationError error = deserializeJson(scriptDoc, currentScript);
-    WebSerial.println("  JSON parse error: " + String(error.c_str()));
+    if (error) {
+        WebSerial.println("  ❌ JSON parse error: " + String(error.c_str()));
+        return;
+    }
     
     // Try both "actions" (new format) and "commands" (old format)
     JsonArray commandArray;
-    if (!error && scriptDoc["actions"].is<JsonArray>()) {
-        commandArray = scriptDoc["actions"];
-    } else if (!error && scriptDoc["commands"].is<JsonArray>()) {
-        commandArray = scriptDoc["commands"];
+    if (activeScriptDoc["actions"].is<JsonArray>()) {
+        commandArray = activeScriptDoc["actions"];
+    } else if (activeScriptDoc["commands"].is<JsonArray>()) {
+        commandArray = activeScriptDoc["commands"];
     }
     
     if (!commandArray.isNull() && commandArray.size() > 0) {
-        // Start continuous JSON script execution
-        if (!scriptRunning) {
-            WebSerial.println("  Starting continuous JSON script execution with " + String(commandArray.size()) + " command(s)");
-            scriptRunning = true;
-            currentCommandIndex = 0;
-            waitingForDelay = false;
-            commandDelay = 0;
-            reportScriptExecution();
-        } else {
-            WebSerial.println("  Script already running continuously");
-        }
-        return; // Don't execute LED pattern code
-    } else {
-        // If script is not JSON, look for LED control patterns
-        WebSerial.println("  Executing custom script logic");
-        
-        // Check if script contains LED blink code
-        if (currentScript.indexOf("LED") >= 0 || currentScript.indexOf("digitalWrite") >= 0) {
-            if (!scriptRunning) {
-                WebSerial.println("  ✅ Starting continuous LED control script");
-                
-                // Parse delay values from script
-                int onDelayIdx = currentScript.indexOf("digitalWrite(LED_PIN, HIGH);");
-                int offDelayIdx = currentScript.indexOf("digitalWrite(LED_PIN, LOW);");
-                
-                // Extract ON duration
-                if (onDelayIdx >= 0) {
-                    int delayStart = currentScript.indexOf("delay(", onDelayIdx);
-                    if (delayStart >= 0) {
-                        delayStart += 6; // Skip "delay("
-                        int delayEnd = currentScript.indexOf(")", delayStart);
-                        String delayStr = currentScript.substring(delayStart, delayEnd);
-                        scriptLedOnDuration = delayStr.toInt();
-                    }
-                }
-                
-                // Extract OFF duration
-                if (offDelayIdx >= 0) {
-                    int delayStart = currentScript.indexOf("delay(", offDelayIdx);
-                    if (delayStart >= 0) {
-                        delayStart += 6; // Skip "delay("
-                        int delayEnd = currentScript.indexOf(")", delayStart);
-                        String delayStr = currentScript.substring(delayStart, delayEnd);
-                        scriptLedOffDuration = delayStr.toInt();
-                    }
-                }
-                
-                WebSerial.println("  LED ON duration: " + String(scriptLedOnDuration) + "ms");
-                WebSerial.println("  LED OFF duration: " + String(scriptLedOffDuration) + "ms");
-                
-                const int LED_PIN = 2;
-                pinMode(LED_PIN, OUTPUT);
-                scriptRunning = true;
-                scriptLedTimer = millis();
-                scriptLedState = false;
-                
-                // Report execution to master only when script starts
-                WebSerial.println("[SCRIPT] ✅ Script started (continuous mode)");
-                reportScriptExecution();
-            } else {
-                WebSerial.println("  Script already running continuously");
-            }
-            // Script now runs continuously in loop()
-        } else {
-            // Generic script - just log it
-            WebSerial.println("  Script content: " + currentScript.substring(0, 100) + "...");
-            WebSerial.println("  ⚠️ No executable pattern recognized");
-            WebSerial.println("[SCRIPT] ✅ Execution completed");
-            reportScriptExecution();
-        }
-        return; // Don't report again for continuous scripts
-    }
+        // Execute using the new recursive engine
+        WebSerial.println("  Executing " + String(commandArray.size()) + " action(s)...");
+        executeActions(commandArray);
+        WebSerial.println("[SCRIPT] ✅ Execution completed");
+        reportScriptExecution();
+        return;
+    } 
     
-    // For JSON scripts, report after execution
-    WebSerial.println("[SCRIPT] ✅ Execution completed");
-    reportScriptExecution();
+    // Legacy LED blink pattern support
+    WebSerial.println("  ⚠️ No JSON actions found, checking for legacy patterns...");
+    
+    // Check if script contains LED blink code
+    if (currentScript.indexOf("LED") >= 0 || currentScript.indexOf("digitalWrite") >= 0) {
+        if (!scriptRunning) {
+            WebSerial.println("  ✅ Starting continuous LED control script");
+            
+            // Parse delay values from script
+            int onDelayIdx = currentScript.indexOf("digitalWrite(LED_PIN, HIGH);");
+            int offDelayIdx = currentScript.indexOf("digitalWrite(LED_PIN, LOW);");
+            
+            // Extract ON duration
+            if (onDelayIdx >= 0) {
+                int delayStart = currentScript.indexOf("delay(", onDelayIdx);
+                if (delayStart >= 0) {
+                    delayStart += 6; // Skip "delay("
+                    int delayEnd = currentScript.indexOf(")", delayStart);
+                    String delayStr = currentScript.substring(delayStart, delayEnd);
+                    scriptLedOnDuration = delayStr.toInt();
+                }
+            }
+            
+            // Extract OFF duration
+            if (offDelayIdx >= 0) {
+                int delayStart = currentScript.indexOf("delay(", offDelayIdx);
+                if (delayStart >= 0) {
+                    delayStart += 6; // Skip "delay("
+                    int delayEnd = currentScript.indexOf(")", delayStart);
+                    String delayStr = currentScript.substring(delayStart, delayEnd);
+                    scriptLedOffDuration = delayStr.toInt();
+                }
+            }
+            
+            WebSerial.println("  LED ON duration: " + String(scriptLedOnDuration) + "ms");
+            WebSerial.println("  LED OFF duration: " + String(scriptLedOffDuration) + "ms");
+            
+            const int LED_PIN = 2;
+            pinMode(LED_PIN, OUTPUT);
+            scriptRunning = true;
+            scriptLedTimer = millis();
+            scriptLedState = false;
+            
+            // Report execution to master only when script starts
+            WebSerial.println("[SCRIPT] ✅ Script started (continuous mode)");
+            reportScriptExecution();
+        }
+    } else {
+        WebSerial.println("  ⚠️ No executable pattern recognized");
+    }
 }
 
 void processCommands(JsonArray commands) {

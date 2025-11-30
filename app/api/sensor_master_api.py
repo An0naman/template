@@ -1484,7 +1484,7 @@ def report_sensor_log():
     """
     try:
         data = request.get_json()
-        logger.info(f"Received log request from sensor: {data}")
+        # logger.info(f"Received log request from sensor: {data}") # Reduce noise
         
         if not data or 'sensor_id' not in data or 'message' not in data:
             return jsonify({'error': 'sensor_id and message are required'}), 400
@@ -1492,6 +1492,8 @@ def report_sensor_log():
         conn = get_db()
         cursor = conn.cursor()
         
+        # Use default CURRENT_TIMESTAMP for created_at, but we must provide timestamp because it is NOT NULL
+        now_iso = datetime.now(timezone.utc).isoformat()
         cursor.execute('''
             INSERT INTO SensorLogs (sensor_id, message, log_level, timestamp)
             VALUES (?, ?, ?, ?)
@@ -1499,7 +1501,7 @@ def report_sensor_log():
             data['sensor_id'],
             data['message'],
             data.get('level', 'info'),
-            datetime.now(timezone.utc).isoformat()
+            now_iso
         ))
         
         conn.commit()
@@ -1518,22 +1520,38 @@ def get_sensor_logs(sensor_id):
     
     Query params:
     - limit: Number of records to return (default: 100)
+    - min_id: Only return logs with ID greater than this value
     """
     try:
         limit = request.args.get('limit', 100, type=int)
+        min_id = request.args.get('min_id', 0, type=int)
         
         conn = get_db()
         cursor = conn.cursor()
         
-        cursor.execute('''
-            SELECT message, log_level, created_at
+        query = '''
+            SELECT id, message, log_level, created_at
             FROM SensorLogs
             WHERE sensor_id = ?
-            ORDER BY created_at DESC
-            LIMIT ?
-        ''', (sensor_id, limit))
+        '''
+        params = [sensor_id]
         
-        logs = [dict(row) for row in cursor.fetchall()]
+        if min_id > 0:
+            query += ' AND id > ?'
+            params.append(min_id)
+            
+        query += ' ORDER BY created_at DESC LIMIT ?'
+        params.append(limit)
+        
+        cursor.execute(query, params)
+        
+        logs = []
+        for row in cursor.fetchall():
+            log = dict(row)
+            # Ensure timestamp is treated as UTC if it lacks timezone info (e.g. from CURRENT_TIMESTAMP)
+            if log['created_at'] and not ('+' in log['created_at'] or 'Z' in log['created_at']):
+                 log['created_at'] += 'Z'
+            logs.append(log)
         
         return jsonify({
             'sensor_id': sensor_id,

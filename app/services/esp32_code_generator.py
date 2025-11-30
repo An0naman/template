@@ -805,44 +805,73 @@ void loadSavedConfiguration() {{
 // Executes JSON command scripts downloaded from master control
 // ============================================================================
 
-void executeLocalScript(String jsonScript) {{
-  Serial.println("[SCRIPT] 🚀 Executing JSON script...");
+// Forward declarations
+void executeActions(JsonArray actions);
+
+float resolveValue(String key) {{
+  // Check if it's a number
+  if (key.length() == 0) return 0;
+  if (isdigit(key[0]) || key[0] == '-') return key.toFloat();
   
-  if (jsonScript.length() == 0) {{
-    Serial.println("[SCRIPT] ⚠️ No script content to execute");
-    return;
+  // Check for sensor variables
+  if (key == "sensor.temp") {{
+    return readSensorData().temperature;
+  }} else if (key == "sensor.target") {{
+    return readSensorData().targetTemp;
+  }} else if (key == "sensor.relay") {{
+    return readSensorData().relayState ? 1.0 : 0.0;
   }}
   
-  // Parse JSON
-  StaticJsonDocument<2048> doc;
-  DeserializationError error = deserializeJson(doc, jsonScript);
-  
-  if (error) {{
-    Serial.println("[SCRIPT] ❌ Failed to parse JSON: " + String(error.c_str()));
-    return;
+  // Check for GPIO (format: gpio.12)
+  if (key.startsWith("gpio.")) {{
+    int pin = key.substring(5).toInt();
+    pinMode(pin, INPUT);
+    return digitalRead(pin);
   }}
   
-  // Get script metadata
-  String scriptName = doc["name"] | "Unnamed Script";
-  String version = doc["version"] | "unknown";
+  return 0; // Default
+}}
+
+bool evaluateCondition(String leftStr, String op, String rightStr) {{
+  float left = resolveValue(leftStr);
+  float right = resolveValue(rightStr);
   
-  Serial.println("[SCRIPT] Name: " + scriptName);
-  Serial.println("[SCRIPT] Version: " + version);
+  if (op == "==") return left == right;
+  if (op == "!=") return left != right;
+  if (op == ">") return left > right;
+  if (op == "<") return left < right;
+  if (op == ">=") return left >= right;
+  if (op == "<=") return left <= right;
   
-  // Get actions array
-  JsonArray actions = doc["actions"];
-  if (!actions) {{
-    Serial.println("[SCRIPT] ⚠️ No actions found in script");
-    return;
-  }}
-  
-  Serial.println("[SCRIPT] Executing " + String(actions.size()) + " action(s)...");
-  
-  // Execute each action
+  return false;
+}}
+
+void executeActions(JsonArray actions) {{
   for (JsonObject action : actions) {{
     String type = action["type"] | "";
     
-    if (type == "gpio_write") {{
+    if (type == "if") {{
+      JsonObject condition = action["condition"];
+      String left = condition["left"] | "0";
+      String op = condition["operator"] | "==";
+      String right = condition["right"] | "0";
+      
+      bool result = evaluateCondition(left, op, right);
+      Serial.println("  ❓ IF " + left + " " + op + " " + right + " (" + String(resolveValue(left)) + " vs " + String(resolveValue(right)) + ") -> " + String(result ? "TRUE" : "FALSE"));
+      
+      if (result) {{
+        if (action.containsKey("then")) {{
+            Serial.println("  ➡️ Executing THEN block");
+            executeActions(action["then"]);
+        }}
+      }} else {{
+        if (action.containsKey("else")) {{
+            Serial.println("  ➡️ Executing ELSE block");
+            executeActions(action["else"]);
+        }}
+      }}
+      
+    }} else if (type == "gpio_write") {{
       // GPIO Write: Set digital pin HIGH or LOW
       int pin = action["pin"] | 2;
       String value = action["value"] | "LOW";
@@ -884,6 +913,13 @@ void executeLocalScript(String jsonScript) {{
     }} else if (type == "log") {{
       // Log: Print message to serial
       String message = action["message"] | "Log message";
+      // Check if there is a value to append
+      if (action.containsKey("value")) {{
+         String valKey = action["value"];
+         float val = resolveValue(valKey);
+         message += " [" + valKey + "=" + String(val) + "]";
+      }}
+      
       Serial.println("  📝 Log: " + message);
       sendRemoteLog(message, "info");
       
@@ -891,6 +927,43 @@ void executeLocalScript(String jsonScript) {{
       Serial.println("  ⚠️ Unknown action type: " + type);
     }}
   }}
+}}
+
+void executeLocalScript(String jsonScript) {{
+  Serial.println("[SCRIPT] 🚀 Executing JSON script...");
+  
+  if (jsonScript.length() == 0) {{
+    Serial.println("[SCRIPT] ⚠️ No script content to execute");
+    return;
+  }}
+  
+  // Parse JSON
+  StaticJsonDocument<4096> doc;
+  DeserializationError error = deserializeJson(doc, jsonScript);
+  
+  if (error) {{
+    Serial.println("[SCRIPT] ❌ Failed to parse JSON: " + String(error.c_str()));
+    return;
+  }}
+  
+  // Get script metadata
+  String scriptName = doc["name"] | "Unnamed Script";
+  String version = doc["version"] | "unknown";
+  
+  Serial.println("[SCRIPT] Name: " + scriptName);
+  Serial.println("[SCRIPT] Version: " + version);
+  
+  // Get actions array
+  JsonArray actions = doc["actions"];
+  if (!actions) {{
+    Serial.println("[SCRIPT] ⚠️ No actions found in script");
+    return;
+  }}
+  
+  Serial.println("[SCRIPT] Executing " + String(actions.size()) + " action(s)...");
+  
+  // Execute actions recursively
+  executeActions(actions);
   
   Serial.println("[SCRIPT] ✅ Script execution complete\\n");
 }}

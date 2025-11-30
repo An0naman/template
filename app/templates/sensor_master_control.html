@@ -85,7 +85,7 @@
         margin: 0;
         white-space: pre-wrap;
         word-wrap: break-word;
-        color: var(--theme-text, var(--bs-body-color));
+        color: var(--theme-text, var,--bs-body-color);
         font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
         font-size: 0.875rem;
     }
@@ -680,6 +680,7 @@
                                     <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('set_relay')"><i class="fas fa-toggle-on"></i> Set Relay</button>
                                     <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('delay')"><i class="fas fa-clock"></i> Delay</button>
                                     <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('log')"><i class="fas fa-comment-alt"></i> Log Message</button>
+                                    <button class="btn btn-outline-warning btn-sm text-start" onclick="addLogicBlock('if')"><i class="fas fa-code-branch"></i> If Condition</button>
                                 </div>
                                 <hr>
                                 <h6>Sensor Capabilities</h6>
@@ -689,7 +690,7 @@
                             </div>
                             <div class="col-md-9">
                                 <div class="alert alert-info py-1 px-2 mb-2 small">
-                                    <i class="fas fa-info-circle"></i> Drag and drop is not supported yet. Use Up/Down buttons to reorder.
+                                    <i class="fas fa-info-circle"></i> Drag and drop blocks to reorder, or use the Up/Down buttons.
                                 </div>
                                 <div id="logicCanvas" class="p-3 bg-light border rounded" style="min-height: 400px;">
                                     <!-- Blocks go here -->
@@ -720,13 +721,23 @@
     <div class="modal-dialog modal-xl modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-chart-line me-2"></i>Sensor Serial Plotter: <span id="plotterSensorId"></span></h5>
+                <h5 class="modal-title"><i class="fas fa-terminal me-2"></i>Sensor Serial Monitor: <span id="plotterSensorId"></span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <h6 class="mb-0">Live Logs</h6>
                     <div>
+                        <div class="form-check form-switch d-inline-block me-3">
+                            <input class="form-check-input" type="checkbox" id="autoScrollToggle" checked>
+                            <label class="form-check-label" for="autoScrollToggle">Auto-scroll</label>
+                        </div>
+                        <button class="btn btn-outline-info btn-sm me-2" onclick="resetPlotterHistory()" id="plotterHistoryBtn" style="display: none;">
+                            <i class="fas fa-history"></i> History
+                        </button>
+                        <button class="btn btn-outline-warning btn-sm me-2" onclick="sendTestLog()">
+                            <i class="fas fa-bug"></i> Test Log
+                        </button>
                         <button class="btn btn-outline-secondary btn-sm me-2" onclick="togglePlotterPause()" id="plotterPauseBtn">
                             <i class="fas fa-pause"></i> Pause
                         </button>
@@ -737,21 +748,8 @@
                 </div>
 
                 <!-- Logs Section (Predominate) -->
-                <div id="plotterLogs" class="bg-dark text-light p-3 border rounded mb-3 font-monospace" style="height: 50vh; overflow-y: auto; font-size: 0.9rem;">
+                <div id="plotterLogs" class="bg-dark text-light p-3 border rounded mb-0 font-monospace" style="height: 70vh; overflow-y: auto; font-size: 0.9rem;">
                     <div class="text-white-50">Waiting for logs...</div>
-                </div>
-                
-                <div class="row">
-                    <div class="col-md-8">
-                        <h6>Sensor Data Plot</h6>
-                        <div class="chart-container" style="position: relative; height: 200px; width: 100%;">
-                            <canvas id="sensorPlotterCanvas"></canvas>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <h6>Latest Data Packet</h6>
-                        <pre id="plotterLatestData" class="bg-light p-3 border rounded mb-0" style="height: 200px; overflow-y: auto; font-size: 0.85rem;">Waiting for data...</pre>
-                    </div>
                 </div>
             </div>
         </div>
@@ -820,42 +818,53 @@ let sensors = [];
 
 // --- Sensor Plotter Logic ---
 let plotterSensorId = null;
-let plotterChart = null;
 let plotterInterval = null;
 let isPlotterPaused = false;
-const MAX_PLOT_POINTS = 100;
+let lastLogId = 0;
 
-function openSensorPlotter(sensorId) {
+async function openSensorPlotter(sensorId) {
     plotterSensorId = sensorId;
     document.getElementById('plotterSensorId').textContent = sensorId;
-    document.getElementById('plotterLatestData').textContent = 'Waiting for data...';
-    document.getElementById('plotterLogs').innerHTML = '<div class="text-white-50">Waiting for logs...</div>';
     
     // Reset state
     isPlotterPaused = false;
-    updatePauseButton();
-    
-    // Initialize chart if needed
-    if (!plotterChart) {
-        initPlotterChart();
-    } else {
-        // Clear existing data
-        plotterChart.data.datasets = [];
-        plotterChart.update();
-    }
     
     // Show modal
     const modal = new bootstrap.Modal(document.getElementById('sensorPlotterModal'));
     modal.show();
     
+    const logsContainer = document.getElementById('plotterLogs');
+    const historyBtn = document.getElementById('plotterHistoryBtn');
+    
+    logsContainer.innerHTML = '<div class="text-white-50 p-2">Connecting...</div>';
+    
+    // Initialize lastLogId to the current latest ID to avoid showing history
+    try {
+        const response = await fetch(`/api/sensor-master/logs/${plotterSensorId}?limit=1`);
+        if (response.ok) {
+            const data = await response.json();
+            if (data.logs && data.logs.length > 0) {
+                lastLogId = data.logs[0].id; // Logs are ordered DESC, so first is latest
+                if (historyBtn) historyBtn.style.display = 'inline-block';
+            } else {
+                lastLogId = 0;
+                if (historyBtn) historyBtn.style.display = 'none';
+            }
+        }
+    } catch (e) {
+        console.error("Error initializing plotter:", e);
+        lastLogId = 0;
+        if (historyBtn) historyBtn.style.display = 'none';
+    }
+    
+    logsContainer.innerHTML = '<div class="text-white-50 p-2"><i>Connected. Listening for new logs...</i></div>';
+    updatePauseButton();
+    
     // Start polling
-    fetchPlotterData();
-    fetchPlotterLogs();
     if (plotterInterval) clearInterval(plotterInterval);
     plotterInterval = setInterval(() => {
-        fetchPlotterData();
         fetchPlotterLogs();
-    }, 3000);
+    }, 2000); // Poll every 2 seconds
     
     // Handle modal close to stop polling
     document.getElementById('sensorPlotterModal').addEventListener('hidden.bs.modal', function () {
@@ -866,167 +875,78 @@ function openSensorPlotter(sensorId) {
     }, { once: true });
 }
 
-function initPlotterChart() {
-    const ctx = document.getElementById('sensorPlotterCanvas').getContext('2d');
-    plotterChart = new Chart(ctx, {
-        type: 'line',
-        data: { datasets: [] },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: {
-                    type: 'time',
-                    time: {
-                        displayFormats: { second: 'HH:mm:ss' },
-                        tooltipFormat: 'HH:mm:ss.SSS'
-                    },
-                    title: { display: true, text: 'Time' },
-                    grid: { display: false }
-                },
-                y: {
-                    title: { display: true, text: 'Value' },
-                    grid: { borderDash: [2, 2] }
-                }
-            },
-            animation: false,
-            interaction: {
-                mode: 'nearest',
-                axis: 'x',
-                intersect: false
-            },
-            plugins: {
-                legend: { position: 'top' },
-                tooltip: { mode: 'index', intersect: false }
-            }
-        }
-    });
-}
-
-async function fetchPlotterData() {
-    if (isPlotterPaused || !plotterSensorId) return;
-
-    try {
-        const response = await fetch(`/api/sensor-master/telemetry/${plotterSensorId}?limit=${MAX_PLOT_POINTS}`);
-        if (!response.ok) return; // Silently fail or log
-        
-        const data = await response.json();
-
-        if (data.telemetry && data.telemetry.length > 0) {
-            updatePlotterChart(data.telemetry);
-            document.getElementById('plotterLatestData').textContent = JSON.stringify(data.telemetry[0].data, null, 2);
-        }
-    } catch (error) {
-        console.error('Error fetching plotter data:', error);
-    }
+function resetPlotterHistory() {
+    lastLogId = 0;
+    document.getElementById('plotterLogs').innerHTML = '<div class="text-white-50 p-2">Fetching history...</div>';
+    document.getElementById('plotterHistoryBtn').style.display = 'none';
+    fetchPlotterLogs();
 }
 
 async function fetchPlotterLogs() {
     if (isPlotterPaused || !plotterSensorId) return;
 
     try {
-        const response = await fetch(`/api/sensor-master/logs/${plotterSensorId}?limit=50`);
+        // Fetch logs newer than lastLogId
+        // If lastLogId is 0, we fetch the latest 50 logs (default limit)
+        // If lastLogId > 0 (because we cleared or have seen logs), we fetch only newer ones
+        const url = `/api/sensor-master/logs/${plotterSensorId}?min_id=${lastLogId}&limit=50`;
+        const response = await fetch(url);
         if (!response.ok) return;
         
         const data = await response.json();
         
         if (data.logs && data.logs.length > 0) {
+            // Update lastLogId to the max ID received
+            const maxId = Math.max(...data.logs.map(l => l.id));
+            if (maxId > lastLogId) {
+                lastLogId = maxId;
+            }
+            
             updatePlotterLogs(data.logs);
-        } else {
-            document.getElementById('plotterLogs').innerHTML = '<div class="text-white-50">No logs available</div>';
+        } else if (lastLogId === 0) {
+            // Only show "No logs" if we haven't received any logs yet AND we haven't cleared anything
+            document.getElementById('plotterLogs').innerHTML = '<div class="text-white-50 p-2">No logs available</div>';
         }
     } catch (error) {
         console.error('Error fetching plotter logs:', error);
     }
 }
 
-function updatePlotterChart(telemetryData) {
-    // Reverse to have oldest first for plotting
-    const sortedData = [...telemetryData].reverse();
-    
-    // Identify all unique keys in the data metrics
-    const keys = new Set();
-    sortedData.forEach(item => {
-        if (item.data && typeof item.data === 'object') {
-            Object.keys(item.data).forEach(key => {
-                if (typeof item.data[key] === 'number') {
-                    keys.add(key);
-                }
-            });
-        }
-    });
-
-    // Remove datasets that are no longer present
-    plotterChart.data.datasets = plotterChart.data.datasets.filter(d => keys.has(d.label));
-
-    // Create datasets if they don't exist
-    keys.forEach((key, index) => {
-        let dataset = plotterChart.data.datasets.find(d => d.label === key);
-        if (!dataset) {
-            const color = getPlotterColor(index);
-            dataset = {
-                label: key,
-                data: [],
-                borderColor: color,
-                backgroundColor: color,
-                borderWidth: 2,
-                pointRadius: 0,
-                pointHoverRadius: 4,
-                tension: 0.2,
-                fill: false
-            };
-            plotterChart.data.datasets.push(dataset);
-        }
-    });
-
-    // Update data for each dataset
-    plotterChart.data.datasets.forEach(dataset => {
-        dataset.data = sortedData.map(item => ({
-            x: item.timestamp,
-            y: item.data[dataset.label]
-        })).filter(p => p.y !== undefined);
-    });
-
-    plotterChart.update('none');
-}
-
 function updatePlotterLogs(logs) {
     const container = document.getElementById('plotterLogs');
     
-    // Check if user is near bottom (within 50px) before updating content
-    // This prevents the view from jumping if the user has scrolled up to read history
-    const isAtBottom = (container.scrollHeight - container.scrollTop - container.clientHeight) < 50;
-
-    // Reverse logs to show oldest first (chronological order)
-    // The API returns newest first (DESC), but for a log viewer we want Top=Oldest, Bottom=Newest
-    const chronologicalLogs = [...logs].reverse();
+    // Check if the container ONLY contains a placeholder message
+    // We check if there are any log entries (divs with border-bottom)
+    // If not, we can safely clear whatever is there (placeholders)
+    if (!container.querySelector('div.border-bottom')) {
+        container.innerHTML = '';
+    }
+    
+    // Sort logs by ID ascending (oldest first) so we append them in order
+    const sortedLogs = [...logs].sort((a, b) => a.id - b.id);
     
     // Format logs
-    const html = chronologicalLogs.map(log => {
+    const html = sortedLogs.map(log => {
+        // Convert UTC timestamp to local time
         const time = new Date(log.created_at).toLocaleTimeString();
         let colorClass = 'text-light';
         if (log.log_level === 'error') colorClass = 'text-danger';
         else if (log.log_level === 'warning') colorClass = 'text-warning';
+        else if (log.log_level === 'debug') colorClass = 'text-secondary';
         
-        return `<div class="mb-1 border-bottom border-secondary border-opacity-25 pb-1"><span class="text-white-50" style="font-size: 0.8em; margin-right: 8px;">[${time}]</span><span class="${colorClass}">${log.message}</span></div>`;
+        return `<div class="mb-1 border-bottom border-secondary border-opacity-25 pb-1 font-monospace">
+            <span class="text-white-50" style="font-size: 0.8em; margin-right: 8px;">[${time}]</span>
+            <span class="${colorClass}">${log.message}</span>
+        </div>`;
     }).join('');
     
-    container.innerHTML = html;
+    container.insertAdjacentHTML('beforeend', html);
     
-    // Auto-scroll to bottom ONLY if:
-    // 1. Plotter is not paused
-    // 2. User was already at the bottom (or it's the first load)
-    if (!isPlotterPaused && isAtBottom) {
+    // Auto-scroll if enabled
+    const autoScroll = document.getElementById('autoScrollToggle').checked;
+    if (autoScroll) {
         container.scrollTop = container.scrollHeight;
     }
-}
-
-function getPlotterColor(index) {
-    const colors = [
-        '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b',
-        '#858796', '#5a5c69', '#6f42c1', '#fd7e14', '#20c997'
-    ];
-    return colors[index % colors.length];
 }
 
 function togglePlotterPause() {
@@ -1048,11 +968,40 @@ function updatePauseButton() {
 }
 
 function clearPlotterData() {
-    if(confirm('Clear chart?')) {
-        if (plotterChart) {
-            plotterChart.data.datasets.forEach(ds => ds.data = []);
-            plotterChart.update();
+    // Clear the UI
+    document.getElementById('plotterLogs').innerHTML = '<div class="text-white-50 p-2"><i>Logs cleared. Listening for new entries...</i></div>';
+    
+    // Show history button since we now have hidden history
+    const historyBtn = document.getElementById('plotterHistoryBtn');
+    if (historyBtn) historyBtn.style.display = 'inline-block';
+}
+
+async function sendTestLog() {
+    if (!plotterSensorId) return;
+    
+    try {
+        const response = await fetch('/api/sensor-master/logs', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                sensor_id: plotterSensorId,
+                message: 'Test log message from console',
+                level: 'info'
+            })
+        });
+        
+        if (response.ok) {
+            // Don't need to do anything, the poller will pick it up
+            console.log('Test log sent');
+        } else {
+            console.error('Failed to send test log');
+            showAlert('Failed to send test log', 'danger');
         }
+    } catch (error) {
+        console.error('Error sending test log:', error);
+        showAlert('Error sending test log: ' + error.message, 'danger');
     }
 }
 
@@ -2080,9 +2029,22 @@ function renderLogicCanvas() {
 function renderBlocks(blocks, container, parentPath = []) {
     blocks.forEach((block, index) => {
         const blockPath = [...parentPath, index];
+        const blockPathStr = blockPath.join(',');
         const blockEl = document.createElement('div');
-        blockEl.className = 'card mb-2 shadow-sm';
+        blockEl.className = 'card mb-2 shadow-sm logic-block';
         blockEl.style.borderLeft = '4px solid var(--bs-primary)';
+        
+        // Drag and Drop attributes
+        blockEl.setAttribute('draggable', 'true');
+        blockEl.setAttribute('data-path', blockPathStr);
+        
+        // Event listeners
+        blockEl.addEventListener('dragstart', handleDragStart);
+        blockEl.addEventListener('dragover', handleDragOver);
+        blockEl.addEventListener('drop', handleDrop);
+        blockEl.addEventListener('dragenter', handleDragEnter);
+        blockEl.addEventListener('dragleave', handleDragLeave);
+        blockEl.addEventListener('dragend', handleDragEnd);
         
         let content = '';
         let headerColor = 'bg-light';
@@ -2193,6 +2155,80 @@ function renderBlocks(blocks, container, parentPath = []) {
                     <div class="col-auto"><label>Message:</label></div>
                     <div class="col"><input type="text" class="form-control form-control-sm" value="${block.message || ''}" onchange="updateBlockValue('${blockPath.join(',')}', 'message', this.value)" placeholder="Log message"></div>
                 </div>
+                <div class="row g-2 align-items-center mt-1">
+                    <div class="col-auto"><label>Value (Opt):</label></div>
+                    <div class="col"><input type="text" class="form-control form-control-sm" value="${block.value || ''}" onchange="updateBlockValue('${blockPath.join(',')}', 'value', this.value)" placeholder="Sensor/Variable"></div>
+                </div>
+            `;
+        } else if (block.type === 'if') {
+            icon = 'fa-code-branch';
+            blockEl.style.borderLeftColor = '#fd7e14'; // Orange
+            
+            const thenContainerId = `then-${blockPathStr.replace(/,/g, '-')}`;
+            const elseContainerId = `else-${blockPathStr.replace(/,/g, '-')}`;
+            
+            // Helper to generate add button
+            const getAddBtn = (path) => `
+                <div class="dropdown d-inline-block float-end">
+                    <button class="btn btn-xs btn-outline-secondary py-0" type="button" data-bs-toggle="dropdown" title="Add step inside">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <ul class="dropdown-menu shadow">
+                        <li><h6 class="dropdown-header">Add Step</h6></li>
+                        <li><button class="dropdown-item small" onclick="addLogicBlock('gpio_write', '${path}')"><i class="fas fa-bolt fa-fw"></i> GPIO Write</button></li>
+                        <li><button class="dropdown-item small" onclick="addLogicBlock('delay', '${path}')"><i class="fas fa-clock fa-fw"></i> Delay</button></li>
+                        <li><button class="dropdown-item small" onclick="addLogicBlock('log', '${path}')"><i class="fas fa-comment-alt fa-fw"></i> Log</button></li>
+                        <li><button class="dropdown-item small" onclick="addLogicBlock('if', '${path}')"><i class="fas fa-code-branch fa-fw"></i> If...</button></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><button class="dropdown-item small" onclick="addLogicBlock('set_relay', '${path}')"><i class="fas fa-toggle-on fa-fw"></i> Relay</button></li>
+                        <li><button class="dropdown-item small" onclick="addLogicBlock('read_temperature', '${path}')"><i class="fas fa-thermometer-half fa-fw"></i> Temp</button></li>
+                    </ul>
+                </div>
+            `;
+            
+            content = `
+                <div class="row g-2 align-items-center mb-2">
+                    <div class="col-auto"><label>If:</label></div>
+                    <div class="col">
+                        <input type="text" class="form-control form-control-sm" placeholder="Sensor/Var" 
+                            value="${block.condition?.left || ''}" 
+                            onchange="updateBlockValue('${blockPathStr}', 'condition.left', this.value)">
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select form-select-sm" 
+                            onchange="updateBlockValue('${blockPathStr}', 'condition.operator', this.value)">
+                            <option value="==" ${block.condition?.operator === '==' ? 'selected' : ''}>==</option>
+                            <option value="!=" ${block.condition?.operator === '!=' ? 'selected' : ''}>!=</option>
+                            <option value=">" ${block.condition?.operator === '>' ? 'selected' : ''}>&gt;</option>
+                            <option value="<" ${block.condition?.operator === '<' ? 'selected' : ''}>&lt;</option>
+                            <option value=">=" ${block.condition?.operator === '>=' ? 'selected' : ''}>&gt;=</option>
+                            <option value="<=" ${block.condition?.operator === '<=' ? 'selected' : ''}>&lt;=</option>
+                        </select>
+                    </div>
+                    <div class="col">
+                        <input type="text" class="form-control form-control-sm" placeholder="Value" 
+                            value="${block.condition?.right || ''}" 
+                            onchange="updateBlockValue('${blockPathStr}', 'condition.right', this.value)">
+                    </div>
+                </div>
+                
+                <div class="border rounded p-2 bg-white mb-2">
+                    <h6 class="small text-muted mb-2">Then ${getAddBtn(blockPathStr + ',then')}</h6>
+                    <div id="${thenContainerId}" class="logic-container" style="min-height: 50px; border: 1px dashed #ccc;" 
+                         data-path="${blockPathStr},then"
+                         ondragover="handleDragOver(event)" ondrop="handleContainerDrop(event)">
+                        <!-- Nested blocks rendered here -->
+                    </div>
+                </div>
+                
+                <div class="border rounded p-2 bg-white">
+                    <h6 class="small text-muted mb-2">Else ${getAddBtn(blockPathStr + ',else')}</h6>
+                    <div id="${elseContainerId}" class="logic-container" style="min-height: 50px; border: 1px dashed #ccc;" 
+                         data-path="${blockPathStr},else"
+                         ondragover="handleDragOver(event)" ondrop="handleContainerDrop(event)">
+                         <!-- Nested blocks rendered here -->
+                    </div>
+                </div>
             `;
         }
         
@@ -2211,6 +2247,19 @@ function renderBlocks(blocks, container, parentPath = []) {
         `;
         
         container.appendChild(blockEl);
+        
+        // Post-processing for IF blocks to render children
+        if (block.type === 'if') {
+            const thenContainer = blockEl.querySelector(`[data-path="${blockPathStr},then"]`);
+            if (block.then) {
+                renderBlocks(block.then, thenContainer, [...blockPath, 'then']);
+            }
+            
+            const elseContainer = blockEl.querySelector(`[data-path="${blockPathStr},else"]`);
+            if (block.else) {
+                renderBlocks(block.else, elseContainer, [...blockPath, 'else']);
+            }
+        }
     });
 }
 
@@ -2329,12 +2378,68 @@ function moveBlock(pathStr, direction) {
     }
 }
 
+function moveBlockTo(fromPathStr, toPathStr) {
+    const fromPath = fromPathStr.split(',');
+    const toPath = toPathStr.split(',');
+    
+    const fromIndex = parseInt(fromPath[fromPath.length - 1]);
+    const toIndex = parseInt(toPath[toPath.length - 1]);
+    
+    // Get source array
+    let sourceArray = currentLogicData.actions;
+    for (let i = 0; i < fromPath.length - 1; i++) {
+        const key = fromPath[i];
+        if (!isNaN(key)) {
+            sourceArray = sourceArray[parseInt(key)];
+        } else {
+            sourceArray = sourceArray[key];
+        }
+    }
+    
+    // Get target array
+    let targetArray = currentLogicData.actions;
+    for (let i = 0; i < toPath.length - 1; i++) {
+        const key = toPath[i];
+        if (!isNaN(key)) {
+            targetArray = targetArray[parseInt(key)];
+        } else {
+            targetArray = targetArray[key];
+        }
+    }
+    
+    // Check if we are moving within the same array
+    const fromParentPath = fromPath.slice(0, -1).join(',');
+    const toParentPath = toPath.slice(0, -1).join(',');
+    
+    if (fromParentPath === toParentPath) {
+        // Moving within same array
+        // If moving down, we need to adjust index because removal shifts subsequent items
+        // But splice handles this if we remove first?
+        // Example: [A, B, C, D]. Move A (0) to C (2).
+        // Remove A: [B, C, D]. Insert at 2: [B, C, A, D]. Correct.
+        
+        // Example: [A, B, C, D]. Move C (2) to A (0).
+        // Remove C: [A, B, D]. Insert at 0: [C, A, B, D]. Correct.
+        
+        const item = sourceArray.splice(fromIndex, 1)[0];
+        sourceArray.splice(toIndex, 0, item);
+    } else {
+        // Moving between arrays
+        const item = sourceArray.splice(fromIndex, 1)[0];
+        targetArray.splice(toIndex, 0, item);
+    }
+    
+    renderLogicCanvas();
+    syncVisualToJson();
+}
+
 function updateBlockValue(pathStr, field, value) {
     const path = pathStr.split(',');
+    const index = parseInt(path[path.length - 1]);
     
-    // Get the item
+    // Get the array containing this item
     let current = currentLogicData.actions;
-    for (let i = 0; i < path.length; i++) {
+    for (let i = 0; i < path.length - 1; i++) {
         const key = path[i];
         if (!isNaN(key)) {
             current = current[parseInt(key)];
@@ -2343,7 +2448,21 @@ function updateBlockValue(pathStr, field, value) {
         }
     }
     
-    current[field] = value;
+    const item = current[index];
+    
+    // Handle nested fields (e.g. "condition.left")
+    if (field.includes('.')) {
+        const parts = field.split('.');
+        let obj = item;
+        for (let i = 0; i < parts.length - 1; i++) {
+            if (!obj[parts[i]]) obj[parts[i]] = {};
+            obj = obj[parts[i]];
+        }
+        obj[parts[parts.length - 1]] = value;
+    } else {
+        item[field] = value;
+    }
+    
     syncVisualToJson();
 }
 
@@ -2354,62 +2473,75 @@ function syncVisualToJson() {
 function syncJsonToVisual() {
     try {
         const json = document.getElementById('logicJsonEditor').value;
-        currentLogicData = JSON.parse(json);
-        renderLogicCanvas();
+        if (json.trim()) {
+            currentLogicData = JSON.parse(json);
+            renderLogicCanvas();
+        }
     } catch (e) {
-        showAlert('Invalid JSON', 'error');
+        console.error('Invalid JSON', e);
+        showAlert('Invalid JSON in editor', 'warning');
     }
 }
 
 function formatJson() {
     try {
         const json = document.getElementById('logicJsonEditor').value;
-        const obj = JSON.parse(json);
-        document.getElementById('logicJsonEditor').value = JSON.stringify(obj, null, 2);
+        const parsed = JSON.parse(json);
+        document.getElementById('logicJsonEditor').value = JSON.stringify(parsed, null, 2);
     } catch (e) {
-        showAlert('Invalid JSON', 'error');
+        // Ignore
     }
 }
 
 async function saveLogicBuilder() {
-    // Ensure we have the latest JSON
-    syncJsonToVisual(); 
-    
-    // If JSON tab is active, we should parse it first
-    if (document.getElementById('json-tab').classList.contains('active')) {
-        try {
-            currentLogicData = JSON.parse(document.getElementById('logicJsonEditor').value);
-        } catch (e) {
-            showAlert('Invalid JSON in editor', 'error');
-            return;
-        }
-    }
-    
-    // Add metadata if missing
-    if (!currentLogicData.name) currentLogicData.name = `Logic for ${currentLogicSensorId}`;
-    if (!currentLogicData.version) currentLogicData.version = "1.0.0";
+    if (!currentLogicSensorId) return;
     
     try {
-        const response = await fetch('/api/sensor-master/script', {
+        // Ensure we have the latest data from whichever tab is active
+        // If JSON tab is active, we should parse it.
+        // But syncJsonToVisual does that.
+        
+        // If the user edited JSON but didn't switch tabs, we need to grab it.
+        const jsonEditor = document.getElementById('logicJsonEditor');
+        if (jsonEditor.offsetParent !== null) { // Visible
+             try {
+                currentLogicData = JSON.parse(jsonEditor.value);
+             } catch(e) {
+                 showAlert('Invalid JSON. Please fix before saving.', 'danger');
+                 return;
+             }
+        }
+        
+        const scriptContent = JSON.stringify(currentLogicData, null, 2);
+        
+        // Save as a new library script and assign it
+        const response = await fetch('/api/sensor-master/library-script', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                sensor_id: currentLogicSensorId,
-                script_content: JSON.stringify(currentLogicData),
-                script_version: currentLogicData.version,
+                name: currentLogicData.name || `Logic for ${currentLogicSensorId} (${new Date().toLocaleTimeString()})`,
+                script_content: scriptContent,
+                script_version: currentLogicData.version || '1.0.0',
                 script_type: 'json',
-                description: 'Generated by Logic Builder'
+                description: 'Generated by Logic Builder',
+                target_sensor_type: ''
             })
         });
         
+        const data = await response.json();
+        
         if (response.ok) {
-            showAlert('Logic saved and assigned to sensor successfully', 'success');
+            // Assign it
+            await assignScript(currentLogicSensorId, data.id);
+            
+            showAlert('Logic saved and applied successfully', 'success');
             bootstrap.Modal.getInstance(document.getElementById('logicBuilderModal')).hide();
-            refreshData();
+            
+            // Refresh scripts list
+            loadScripts();
         } else {
-            const data = await response.json();
             throw new Error(data.error || 'Failed to save logic');
         }
     } catch (error) {
@@ -2418,106 +2550,93 @@ async function saveLogicBuilder() {
     }
 }
 
-function showAddDeviceModal() {
-    document.getElementById('addDeviceForm').reset();
-    document.getElementById('scanResults').innerHTML = '<div class="text-center text-muted py-4"><small>Click Scan to find devices on your network.</small></div>';
-    new bootstrap.Modal(document.getElementById('addDeviceModal')).show();
+// --- Drag and Drop Handlers ---
+let draggedItemPath = null;
+
+function handleDragStart(e) {
+    draggedItemPath = this.getAttribute('data-path');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', draggedItemPath);
+    this.classList.add('opacity-50');
 }
 
-async function scanForDevices() {
-    const btn = document.getElementById('scanBtn');
-    const results = document.getElementById('scanResults');
+function handleDragOver(e) {
+    if (e.preventDefault) {
+        e.preventDefault();
+    }
+    e.dataTransfer.dropEffect = 'move';
+    return false;
+}
+
+function handleDragEnter(e) {
+    this.classList.add('border-primary');
+    this.classList.add('border-2');
+}
+
+function handleDragLeave(e) {
+    this.classList.remove('border-primary');
+    this.classList.remove('border-2');
+}
+
+function handleDrop(e) {
+    if (e.stopPropagation) {
+        e.stopPropagation();
+    }
     
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scanning...';
-    results.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted">Scanning network... This may take a minute.</p></div>';
+    const targetPath = this.getAttribute('data-path');
     
-    try {
-        const response = await fetch('/api/devices/scan', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({}) // Use default network range
-        });
-        
-        if (!response.ok) throw new Error('Scan failed');
-        
-        const data = await response.json();
-        const devices = data.discovered_devices || [];
-        
-        if (devices.length === 0) {
-            results.innerHTML = '<div class="alert alert-warning">No devices found. Note: Devices running Master Control firmware may not be discoverable via scan.</div>';
-        } else {
-            results.innerHTML = '';
-            devices.forEach(device => {
-                const item = document.createElement('button');
-                item.className = 'list-group-item list-group-item-action';
-                item.onclick = (e) => {
-                    e.preventDefault();
-                    selectDiscoveredDevice(device);
-                };
-                item.innerHTML = `
-                    <div class="d-flex w-100 justify-content-between">
-                        <h6 class="mb-1">${device.device_name || 'Unknown Device'}</h6>
-                        <small>${device.ip}</small>
-                    </div>
-                    <p class="mb-1 small text-muted">ID: ${device.device_id || 'N/A'}</p>
-                    <small class="text-primary">Click to use</small>
-                `;
-                results.appendChild(item);
-            });
-        }
-    } catch (error) {
-        console.error('Scan error:', error);
-        results.innerHTML = `<div class="alert alert-danger">Scan failed: ${error.message}</div>`;
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-search"></i> Scan';
+    // Don't do anything if dropping on itself
+    if (draggedItemPath === targetPath) {
+        return false;
     }
+    
+    moveBlockTo(draggedItemPath, targetPath);
+    
+    return false;
 }
 
-function selectDiscoveredDevice(device) {
-    if (device.device_id) document.getElementById('newSensorId').value = device.device_id;
-    if (device.device_name) document.getElementById('newSensorName').value = device.device_name;
-    if (device.device_type) document.getElementById('newSensorType').value = device.device_type;
-    if (device.ip) document.getElementById('newSensorIp').value = device.ip;
+function handleDragEnd(e) {
+    this.classList.remove('opacity-50');
+    
+    // Clean up any remaining visual classes on all blocks
+    document.querySelectorAll('.logic-block').forEach(el => {
+        el.classList.remove('border-primary');
+        el.classList.remove('border-2');
+    });
 }
 
-async function registerDevice() {
-    const sensorId = document.getElementById('newSensorId').value;
-    if (!sensorId) {
-        alert('Sensor ID is required');
-        return;
+// New handler for dropping into containers (like 'then' and 'else' blocks)
+function handleContainerDrop(e) {
+    if (e.stopPropagation) e.stopPropagation();
+    
+    const targetPathStr = this.getAttribute('data-path'); // e.g. "0,then"
+    
+    // Don't allow dropping a parent into its own child
+    if (targetPathStr.startsWith(draggedItemPath)) {
+        return false;
     }
-
-    const payload = {
-        sensor_id: sensorId,
-        sensor_name: document.getElementById('newSensorName').value,
-        sensor_type: document.getElementById('newSensorType').value,
-        ip_address: document.getElementById('newSensorIp').value,
-        status: 'pending' // Initial status
-    };
-
-    try {
-        const response = await fetch('/api/sensor-master/register', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (response.ok) {
-            bootstrap.Modal.getInstance(document.getElementById('addDeviceModal')).hide();
-            showAlert('Device registered successfully', 'success');
-            refreshData();
+    
+    // Get the target array to find its length
+    const path = targetPathStr.split(',');
+    let targetArray = currentLogicData.actions;
+    
+    // Navigate to the array
+    for (let i = 0; i < path.length; i++) {
+        const key = path[i];
+        if (!isNaN(key)) {
+            targetArray = targetArray[parseInt(key)];
         } else {
-            const data = await response.json();
-            alert('Error: ' + (data.error || 'Failed to register device'));
+            if (!targetArray[key]) targetArray[key] = [];
+            targetArray = targetArray[key];
         }
-    } catch (error) {
-        console.error('Error registering device:', error);
-        alert('Error registering device: ' + error.message);
     }
+    
+    const newIndex = targetArray.length;
+    const newPath = targetPathStr + ',' + newIndex;
+    
+    moveBlockTo(draggedItemPath, newPath);
+    
+    return false;
 }
 </script>
 </body>
