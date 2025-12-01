@@ -134,7 +134,7 @@ bool registerWithMaster() {
   doc["sensor_name"] = "Fermentation Chamber 1";
   doc["sensor_type"] = SENSOR_TYPE;
   doc["hardware_info"] = "ESP32-WROOM-32";
-  doc["firmware_version"] = "1.0.0";
+  doc["firmware_version"] = "1.1.0";
   doc["ip_address"] = WiFi.localIP().toString();
   doc["mac_address"] = WiFi.macAddress();
   
@@ -376,7 +376,7 @@ def register_with_master():
         "sensor_name": "Fermentation Chamber 1",
         "sensor_type": SENSOR_TYPE,
         "hardware_info": "ESP32",
-        "firmware_version": "1.0.0",
+        "firmware_version": "1.1.0",
         "capabilities": ["temperature", "relay_control"]
     }
     

@@ -512,6 +512,7 @@
                     <div class="col-md-3">
                         <label class="form-label">Script Type</label>
                         <select class="form-select" id="scriptType">
+                            <option value="json">JSON Logic</option>
                             <option value="arduino">Arduino C++</option>
                             <option value="micropython">MicroPython</option>
                             <option value="snippet">Code Snippet</option>
@@ -655,6 +656,45 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+                <!-- Load from Library Section -->
+                <div class="row mb-3 align-items-center bg-light p-2 rounded mx-0 border">
+                    <div class="col-auto">
+                        <label class="fw-bold mb-0"><i class="fas fa-book"></i> Load from Library:</label>
+                    </div>
+                    <div class="col">
+                        <select class="form-select form-select-sm" id="logicLibrarySelect" onchange="loadLogicFromLibrary(this.value)">
+                            <option value="">-- Select a script to load --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Name</label>
+                        <input type="text" class="form-control" id="logicName" placeholder="Script Name">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Version</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="logicVersion" placeholder="1.0.0">
+                            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">Bump</button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="#" onclick="bumpVersion('major')">Major (+1.0.0)</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="bumpVersion('minor')">Minor (+0.1.0)</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="bumpVersion('patch')">Patch (+0.0.1)</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label">Type</label>
+                        <input type="text" class="form-control" id="logicType" placeholder="json" value="json" readonly>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Description</label>
+                        <input type="text" class="form-control" id="logicDescription" placeholder="Description">
+                    </div>
+                </div>
+
                 <ul class="nav nav-tabs mb-3" id="logicBuilderTabs" role="tablist">
                     <li class="nav-item">
                         <button class="nav-link active" id="visual-tab" data-bs-toggle="tab" data-bs-target="#visual-pane" type="button" onclick="syncJsonToVisual()">Visual Builder</button>
@@ -684,8 +724,13 @@
                                 </div>
                                 <hr>
                                 <h6>Sensor Capabilities</h6>
-                                <div id="sensorCapabilitiesList" class="small text-muted overflow-auto" style="max-height: 300px;">
+                                <div id="sensorCapabilitiesList" class="small text-muted overflow-auto" style="max-height: 200px;">
                                     <!-- Populated via JS -->
+                                </div>
+                                <hr>
+                                <h6>Defined Variables</h6>
+                                <div id="availableVariablesList" class="small text-muted overflow-auto" style="max-height: 200px;">
+                                    <p class="text-muted">No variables defined.</p>
                                 </div>
                             </div>
                             <div class="col-md-9">
@@ -1909,6 +1954,8 @@ let currentLogicSensorId = null;
 let currentLogicData = { actions: [] };
 let currentSensorCapabilities = null;
 
+const SYSTEM_VARIABLES = ['millis', 'wifi_rssi', 'free_heap', 'uptime', 'sensor_id', 'current_time'];
+
 function openLogicBuilder(sensorId) {
     currentLogicSensorId = sensorId;
     const sensor = sensors.find(s => s.sensor_id === sensorId);
@@ -1932,56 +1979,149 @@ function openLogicBuilder(sensorId) {
     
     renderCapabilitiesList();
     
-    // Load existing logic (from assigned script)
-    fetch(`/api/sensor-master/script/${sensorId}`)
-        .then(res => res.json())
-        .then(data => {
-            if (data && data.script_available && data.script) {
-                try {
-                    let scriptContent = data.script;
-                    // If it's a string that looks like JSON, parse it
-                    if (typeof scriptContent === 'string' && scriptContent.trim().startsWith('{')) {
-                        const parsed = JSON.parse(scriptContent);
-                        // Check if it has actions structure
-                        if (parsed.actions) {
-                            currentLogicData = parsed;
-                        } else if (parsed.commands) {
-                            // Convert old commands format to actions
-                            currentLogicData = { 
-                                name: parsed.name || `Logic for ${sensorId}`,
-                                version: parsed.version || '1.0.0',
-                                actions: parsed.commands 
-                            };
-                        } else {
-                            // Unknown JSON structure, start fresh but keep raw
-                            currentLogicData = { actions: [], raw_script: parsed };
-                        }
-                    } else {
-                        // Not JSON (maybe C++ or Python), start fresh
-                        currentLogicData = { actions: [] };
-                        console.log('Current script is not JSON logic');
-                    }
-                } catch (e) {
-                    console.error('Error parsing script:', e);
-                    currentLogicData = { actions: [] };
-                }
-            } else {
-                currentLogicData = { actions: [] };
-            }
-            
-            // Initialize editors
-            document.getElementById('logicJsonEditor').value = JSON.stringify(currentLogicData, null, 2);
-            renderLogicCanvas();
-            
-            new bootstrap.Modal(document.getElementById('logicBuilderModal')).show();
-        })
-        .catch(err => {
-            console.error('Error loading script:', err);
-            // Don't block opening the modal on error
-            currentLogicData = { actions: [] };
-            renderLogicCanvas();
-            new bootstrap.Modal(document.getElementById('logicBuilderModal')).show();
-        });
+    // Initialize with BLANK data
+    currentLogicData = { 
+        name: '', 
+        version: '1.0.0', 
+        description: '', 
+        actions: [] 
+    };
+    
+    // Reset UI fields
+    document.getElementById('logicName').value = '';
+    document.getElementById('logicVersion').value = '1.0.0';
+    document.getElementById('logicDescription').value = '';
+    document.getElementById('logicLibrarySelect').value = '';
+    
+    // Populate library dropdown
+    populateLibraryDropdown();
+    
+    // Initialize editors
+    document.getElementById('logicJsonEditor').value = JSON.stringify(currentLogicData, null, 2);
+    renderLogicCanvas();
+    renderVariablesList();
+    
+    new bootstrap.Modal(document.getElementById('logicBuilderModal')).show();
+}
+
+function renderVariablesList() {
+    const container = document.getElementById('availableVariablesList');
+    if (!container) return;
+    
+    if (!SYSTEM_VARIABLES || SYSTEM_VARIABLES.length === 0) {
+        container.innerHTML = '<p class="text-muted">No variables defined.</p>';
+        return;
+    }
+    
+    let html = '<ul class="list-unstyled ps-2">';
+    SYSTEM_VARIABLES.forEach(v => {
+        html += `<li><code class="text-primary">${v}</code> <span class="text-muted small">(System)</span></li>`;
+    });
+    html += '</ul>';
+    
+    container.innerHTML = html;
+}
+
+function populateLibraryDropdown() {
+    const select = document.getElementById('logicLibrarySelect');
+    // Keep first option
+    select.innerHTML = '<option value="">-- Select a script to load --</option>';
+    
+    // Filter for JSON scripts only
+    const jsonScripts = scripts.filter(s => s.script_type === 'json' || s.script_type === 'snippet');
+    
+    jsonScripts.forEach(s => {
+        const option = document.createElement('option');
+        option.value = s.id;
+        option.textContent = `${s.name} (v${s.script_version})`;
+        select.appendChild(option);
+    });
+}
+
+function loadLogicFromLibrary(scriptId) {
+    if (!scriptId) return;
+    
+    const script = scripts.find(s => s.id == scriptId);
+    if (!script) return;
+    
+    try {
+        let content = script.script_content;
+        let parsed;
+        
+        if (typeof content === 'string') {
+            parsed = JSON.parse(content);
+        } else {
+            parsed = content;
+        }
+        
+        // Update current logic data
+        currentLogicData = parsed;
+        
+        // Ensure actions array exists
+        if (!currentLogicData.actions && currentLogicData.commands) {
+            currentLogicData.actions = currentLogicData.commands;
+        }
+        if (!currentLogicData.actions) {
+            currentLogicData.actions = [];
+        }
+        
+        // Normalize data to ensure defaults are present
+        normalizeLogicData(currentLogicData.actions);
+        
+        // Update UI fields
+        document.getElementById('logicName').value = script.name;
+        document.getElementById('logicVersion').value = script.script_version;
+        document.getElementById('logicDescription').value = script.description || '';
+        
+        // Auto-increment version (Patch by default)
+        bumpVersion('patch');
+        
+        // Update editors
+        document.getElementById('logicJsonEditor').value = JSON.stringify(currentLogicData, null, 2);
+        renderLogicCanvas();
+        
+        showAlert(`Loaded "${script.name}"`, 'success');
+        
+    } catch (e) {
+        console.error('Error loading script:', e);
+        showAlert('Failed to parse script content', 'danger');
+    }
+}
+
+function bumpVersion(type) {
+    const versionInput = document.getElementById('logicVersion');
+    let currentVer = versionInput.value || '0.0.0';
+    
+    // Simple semantic versioning regex
+    const parts = currentVer.split('.').map(p => parseInt(p));
+    
+    if (parts.length !== 3 || parts.some(isNaN)) {
+        // If invalid format, reset to 1.0.0
+        versionInput.value = '1.0.0';
+        if (currentLogicData) currentLogicData.version = '1.0.0';
+        return;
+    }
+    
+    let [major, minor, patch] = parts;
+    
+    if (type === 'major') {
+        major++;
+        minor = 0;
+        patch = 0;
+    } else if (type === 'minor') {
+        minor++;
+        patch = 0;
+    } else { // patch
+        patch++;
+    }
+    
+    const newVer = `${major}.${minor}.${patch}`;
+    versionInput.value = newVer;
+    
+    // Update internal data
+    if (currentLogicData) {
+        currentLogicData.version = newVer;
+    }
 }
 
 function renderCapabilitiesList() {
@@ -1991,22 +2131,23 @@ function renderCapabilitiesList() {
         return;
     }
     
-    let html = '';
+    let html = '<div class="alert alert-light p-1 mb-2 small">Use these <strong>Aliases</strong> in IF conditions (e.g. <code>temp > 25</code>)</div>';
     
     // Pins
     if (currentSensorCapabilities.pins) {
-        html += '<strong>Pins:</strong><ul class="list-unstyled ps-2">';
+        html += '<strong>Pins (Alias):</strong><ul class="list-unstyled ps-2">';
         currentSensorCapabilities.pins.forEach(pin => {
-            html += `<li><span class="badge bg-secondary">${pin.pin}</span> ${pin.name || 'Pin ' + pin.pin} (${pin.type})</li>`;
+            const alias = pin.name || `Pin ${pin.pin}`;
+            html += `<li><span class="badge bg-secondary">${pin.pin}</span> <code class="text-primary">${alias}</code> <span class="text-muted small">(${pin.type})</span></li>`;
         });
         html += '</ul>';
     }
     
     // Sensors/Data
     if (currentSensorCapabilities.sensors) {
-        html += '<strong>Sensors:</strong><ul class="list-unstyled ps-2">';
+        html += '<strong>Sensors (Alias):</strong><ul class="list-unstyled ps-2">';
         currentSensorCapabilities.sensors.forEach(s => {
-            html += `<li><i class="fas fa-microchip"></i> ${s.name} (${s.type})</li>`;
+            html += `<li><i class="fas fa-microchip"></i> <code class="text-primary">${s.name}</code> <span class="text-muted small">(${s.type})</span></li>`;
         });
         html += '</ul>';
     }
@@ -2014,472 +2155,182 @@ function renderCapabilitiesList() {
     container.innerHTML = html;
 }
 
-function renderLogicCanvas() {
-    const canvas = document.getElementById('logicCanvas');
-    canvas.innerHTML = '';
+function normalizeLogicData(actions) {
+    if (!actions) return;
     
-    if (!currentLogicData.actions || currentLogicData.actions.length === 0) {
-        canvas.innerHTML = '<div class="text-center text-muted py-5">Empty Logic. Add blocks from the toolbox.</div>';
-        return;
-    }
-    
-    renderBlocks(currentLogicData.actions, canvas);
-}
-
-function renderBlocks(blocks, container, parentPath = []) {
-    blocks.forEach((block, index) => {
-        const blockPath = [...parentPath, index];
-        const blockPathStr = blockPath.join(',');
-        const blockEl = document.createElement('div');
-        blockEl.className = 'card mb-2 shadow-sm logic-block';
-        blockEl.style.borderLeft = '4px solid var(--bs-primary)';
-        
-        // Drag and Drop attributes
-        blockEl.setAttribute('draggable', 'true');
-        blockEl.setAttribute('data-path', blockPathStr);
-        
-        // Event listeners
-        blockEl.addEventListener('dragstart', handleDragStart);
-        blockEl.addEventListener('dragover', handleDragOver);
-        blockEl.addEventListener('drop', handleDrop);
-        blockEl.addEventListener('dragenter', handleDragEnter);
-        blockEl.addEventListener('dragleave', handleDragLeave);
-        blockEl.addEventListener('dragend', handleDragEnd);
-        
-        let content = '';
-        let headerColor = 'bg-light';
-        let icon = 'fa-cube';
-        
-        // Determine block type and content
+    actions.forEach(block => {
+        // Apply defaults based on type
         if (block.type === 'gpio_read') {
-            icon = 'fa-eye';
-            blockEl.style.borderLeftColor = '#17a2b8'; // Info
-            content = `
-                <div class="row g-2 align-items-center">
-                    <div class="col-auto"><label>Pin:</label></div>
-                    <div class="col"><input type="number" class="form-control form-control-sm" value="${block.pin || 2}" onchange="updateBlockValue('${blockPath.join(',')}', 'pin', parseInt(this.value))"></div>
-                    <div class="col-auto"><label>Mode:</label></div>
-                    <div class="col">
-                        <select class="form-select form-select-sm" onchange="updateBlockValue('${blockPath.join(',')}', 'mode', this.value)">
-                            <option value="INPUT" ${block.mode === 'INPUT' ? 'selected' : ''}>INPUT</option>
-                            <option value="INPUT_PULLUP" ${block.mode === 'INPUT_PULLUP' ? 'selected' : ''}>INPUT_PULLUP</option>
-                            <option value="INPUT_PULLDOWN" ${block.mode === 'INPUT_PULLDOWN' ? 'selected' : ''}>INPUT_PULLDOWN</option>
-                        </select>
-                    </div>
-                </div>
-            `;
+            if (block.pin === undefined) block.pin = 2;
+            if (block.mode === undefined) block.mode = 'INPUT';
+            if (block.alias === undefined) block.alias = '';
         } else if (block.type === 'gpio_write') {
-            icon = 'fa-bolt';
-            blockEl.style.borderLeftColor = '#ffc107'; // Warning
-            content = `
-                <div class="row g-2 align-items-center">
-                    <div class="col-auto"><label>Pin:</label></div>
-                    <div class="col"><input type="number" class="form-control form-control-sm" value="${block.pin || 2}" onchange="updateBlockValue('${blockPath.join(',')}', 'pin', parseInt(this.value))"></div>
-                    <div class="col-auto"><label>Value:</label></div>
-                    <div class="col">
-                        <select class="form-select form-select-sm" onchange="updateBlockValue('${blockPath.join(',')}', 'value', this.value)">
-                            <option value="HIGH" ${block.value === 'HIGH' ? 'selected' : ''}>HIGH</option>
-                            <option value="LOW" ${block.value === 'LOW' ? 'selected' : ''}>LOW</option>
-                        </select>
-                    </div>
-                </div>
-            `;
+            if (block.pin === undefined) block.pin = 2;
+            if (block.value === undefined) block.value = 'HIGH';
+            if (block.alias === undefined) block.alias = '';
         } else if (block.type === 'pwm_write') {
-            icon = 'fa-wave-square';
-            blockEl.style.borderLeftColor = '#6610f2'; // Purple
-            content = `
-                <div class="row g-2 align-items-center">
-                    <div class="col-auto"><label>Pin:</label></div>
-                    <div class="col"><input type="number" class="form-control form-control-sm" value="${block.pin || 2}" onchange="updateBlockValue('${blockPath.join(',')}', 'pin', parseInt(this.value))"></div>
-                    <div class="col-auto"><label>Duty (0-255):</label></div>
-                    <div class="col"><input type="number" class="form-control form-control-sm" value="${block.duty || 128}" onchange="updateBlockValue('${blockPath.join(',')}', 'duty', parseInt(this.value))"></div>
-                </div>
-                <div class="row g-2 align-items-center mt-1">
-                    <div class="col-auto"><label>Freq (Hz):</label></div>
-                    <div class="col"><input type="number" class="form-control form-control-sm" value="${block.freq || 5000}" onchange="updateBlockValue('${blockPath.join(',')}', 'freq', parseInt(this.value))"></div>
-                </div>
-            `;
+            if (block.pin === undefined) block.pin = 2;
+            if (block.duty === undefined) block.duty = 128;
+            if (block.freq === undefined) block.freq = 5000;
+            if (block.alias === undefined) block.alias = '';
         } else if (block.type === 'analog_write') {
-            icon = 'fa-bezier-curve';
-            blockEl.style.borderLeftColor = '#d63384'; // Pink
-            content = `
-                <div class="row g-2 align-items-center">
-                    <div class="col-auto"><label>Pin (25/26):</label></div>
-                    <div class="col"><input type="number" class="form-control form-control-sm" value="${block.pin || 25}" onchange="updateBlockValue('${blockPath.join(',')}', 'pin', parseInt(this.value))"></div>
-                    <div class="col-auto"><label>Value (0-255):</label></div>
-                    <div class="col"><input type="number" class="form-control form-control-sm" value="${block.value || 128}" onchange="updateBlockValue('${blockPath.join(',')}', 'value', parseInt(this.value))"></div>
-                </div>
-            `;
+            if (block.pin === undefined) block.pin = 25;
+            if (block.value === undefined) block.value = 128;
+            if (block.alias === undefined) block.alias = '';
         } else if (block.type === 'analog_read') {
-            icon = 'fa-chart-bar';
-            blockEl.style.borderLeftColor = '#20c997'; // Teal
-            content = `
-                <div class="row g-2 align-items-center">
-                    <div class="col-auto"><label>Pin:</label></div>
-                    <div class="col"><input type="number" class="form-control form-control-sm" value="${block.pin || 34}" onchange="updateBlockValue('${blockPath.join(',')}', 'pin', parseInt(this.value))"></div>
-                </div>
-            `;
+            if (block.pin === undefined) block.pin = 34;
+            if (block.alias === undefined) block.alias = '';
         } else if (block.type === 'read_temperature') {
-            icon = 'fa-thermometer-half';
-            blockEl.style.borderLeftColor = '#e74a3b'; // Red
-            content = `<div class="small text-muted">Reads temperature from configured sensor</div>`;
+            if (block.alias === undefined) block.alias = '';
         } else if (block.type === 'set_relay') {
-            icon = 'fa-toggle-on';
-            blockEl.style.borderLeftColor = '#4e73df'; // Blue
-            content = `
-                <div class="row g-2 align-items-center">
-                    <div class="col-auto"><label>State:</label></div>
-                    <div class="col">
-                        <select class="form-select form-select-sm" onchange="updateBlockValue('${blockPath.join(',')}', 'state', this.value === 'true')">
-                            <option value="true" ${block.state === true ? 'selected' : ''}>ON</option>
-                            <option value="false" ${block.state === false ? 'selected' : ''}>OFF</option>
-                        </select>
-                    </div>
-                </div>
-            `;
+            if (block.state === undefined) block.state = true;
+            if (block.alias === undefined) block.alias = '';
         } else if (block.type === 'delay') {
-            icon = 'fa-clock';
-            blockEl.style.borderLeftColor = '#6c757d'; // Secondary
-            content = `
-                <div class="row g-2 align-items-center">
-                    <div class="col-auto"><label>Wait (ms):</label></div>
-                    <div class="col"><input type="number" class="form-control form-control-sm" value="${block.ms || 1000}" onchange="updateBlockValue('${blockPath.join(',')}', 'ms', parseInt(this.value))"></div>
-                    <div class="col-auto"><small class="text-muted">Non-blocking</small></div>
-                </div>
-            `;
+            if (block.ms === undefined) block.ms = 1000;
         } else if (block.type === 'log') {
-            icon = 'fa-comment-alt';
-            blockEl.style.borderLeftColor = '#858796'; // Gray
-            content = `
-                <div class="row g-2 align-items-center">
-                    <div class="col-auto"><label>Message:</label></div>
-                    <div class="col"><input type="text" class="form-control form-control-sm" value="${block.message || ''}" onchange="updateBlockValue('${blockPath.join(',')}', 'message', this.value)" placeholder="Log message"></div>
-                </div>
-                <div class="row g-2 align-items-center mt-1">
-                    <div class="col-auto"><label>Value (Opt):</label></div>
-                    <div class="col"><input type="text" class="form-control form-control-sm" value="${block.value || ''}" onchange="updateBlockValue('${blockPath.join(',')}', 'value', this.value)" placeholder="Sensor/Variable"></div>
-                </div>
-            `;
+            if (block.message === undefined) block.message = '';
         } else if (block.type === 'if') {
-            icon = 'fa-code-branch';
-            blockEl.style.borderLeftColor = '#fd7e14'; // Orange
+            if (!block.condition) block.condition = { left: '', operator: '==', right: '' };
             
-            const thenContainerId = `then-${blockPathStr.replace(/,/g, '-')}`;
-            const elseContainerId = `else-${blockPathStr.replace(/,/g, '-')}`;
+            // Ensure all properties exist even if condition object exists
+            if (block.condition.left === undefined) block.condition.left = '';
+            if (block.condition.operator === undefined) block.condition.operator = '==';
+            if (block.condition.right === undefined) block.condition.right = '';
+
+            if (!block.then) block.then = [];
+            if (!block.else) block.else = [];
             
-            // Helper to generate add button
-            const getAddBtn = (path) => `
-                <div class="dropdown d-inline-block float-end">
-                    <button class="btn btn-xs btn-outline-secondary py-0" type="button" data-bs-toggle="dropdown" title="Add step inside">
-                        <i class="fas fa-plus"></i>
-                    </button>
-                    <ul class="dropdown-menu shadow">
-                        <li><h6 class="dropdown-header">Add Step</h6></li>
-                        <li><button class="dropdown-item small" onclick="addLogicBlock('gpio_write', '${path}')"><i class="fas fa-bolt fa-fw"></i> GPIO Write</button></li>
-                        <li><button class="dropdown-item small" onclick="addLogicBlock('delay', '${path}')"><i class="fas fa-clock fa-fw"></i> Delay</button></li>
-                        <li><button class="dropdown-item small" onclick="addLogicBlock('log', '${path}')"><i class="fas fa-comment-alt fa-fw"></i> Log</button></li>
-                        <li><button class="dropdown-item small" onclick="addLogicBlock('if', '${path}')"><i class="fas fa-code-branch fa-fw"></i> If...</button></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><button class="dropdown-item small" onclick="addLogicBlock('set_relay', '${path}')"><i class="fas fa-toggle-on fa-fw"></i> Relay</button></li>
-                        <li><button class="dropdown-item small" onclick="addLogicBlock('read_temperature', '${path}')"><i class="fas fa-thermometer-half fa-fw"></i> Temp</button></li>
-                    </ul>
-                </div>
-            `;
-            
-            content = `
-                <div class="row g-2 align-items-center mb-2">
-                    <div class="col-auto"><label>If:</label></div>
-                    <div class="col">
-                        <input type="text" class="form-control form-control-sm" placeholder="Sensor/Var" 
-                            value="${block.condition?.left || ''}" 
-                            onchange="updateBlockValue('${blockPathStr}', 'condition.left', this.value)">
-                    </div>
-                    <div class="col-auto">
-                        <select class="form-select form-select-sm" 
-                            onchange="updateBlockValue('${blockPathStr}', 'condition.operator', this.value)">
-                            <option value="==" ${block.condition?.operator === '==' ? 'selected' : ''}>==</option>
-                            <option value="!=" ${block.condition?.operator === '!=' ? 'selected' : ''}>!=</option>
-                            <option value=">" ${block.condition?.operator === '>' ? 'selected' : ''}>&gt;</option>
-                            <option value="<" ${block.condition?.operator === '<' ? 'selected' : ''}>&lt;</option>
-                            <option value=">=" ${block.condition?.operator === '>=' ? 'selected' : ''}>&gt;=</option>
-                            <option value="<=" ${block.condition?.operator === '<=' ? 'selected' : ''}>&lt;=</option>
-                        </select>
-                    </div>
-                    <div class="col">
-                        <input type="text" class="form-control form-control-sm" placeholder="Value" 
-                            value="${block.condition?.right || ''}" 
-                            onchange="updateBlockValue('${blockPathStr}', 'condition.right', this.value)">
-                    </div>
-                </div>
-                
-                <div class="border rounded p-2 bg-white mb-2">
-                    <h6 class="small text-muted mb-2">Then ${getAddBtn(blockPathStr + ',then')}</h6>
-                    <div id="${thenContainerId}" class="logic-container" style="min-height: 50px; border: 1px dashed #ccc;" 
-                         data-path="${blockPathStr},then"
-                         ondragover="handleDragOver(event)" ondrop="handleContainerDrop(event)">
-                        <!-- Nested blocks rendered here -->
-                    </div>
-                </div>
-                
-                <div class="border rounded p-2 bg-white">
-                    <h6 class="small text-muted mb-2">Else ${getAddBtn(blockPathStr + ',else')}</h6>
-                    <div id="${elseContainerId}" class="logic-container" style="min-height: 50px; border: 1px dashed #ccc;" 
-                         data-path="${blockPathStr},else"
-                         ondragover="handleDragOver(event)" ondrop="handleContainerDrop(event)">
-                         <!-- Nested blocks rendered here -->
-                    </div>
-                </div>
-            `;
-        }
-        
-        blockEl.innerHTML = `
-            <div class="card-header py-1 px-2 ${headerColor} d-flex justify-content-between align-items-center">
-                <span class="small fw-bold"><i class="fas ${icon}"></i> ${block.type.toUpperCase()}</span>
-                <div>
-                    <button class="btn btn-xs btn-link text-muted p-0 me-1" onclick="moveBlock('${blockPath.join(',')}', -1)"><i class="fas fa-arrow-up"></i></button>
-                    <button class="btn btn-xs btn-link text-muted p-0 me-1" onclick="moveBlock('${blockPath.join(',')}', 1)"><i class="fas fa-arrow-down"></i></button>
-                    <button class="btn btn-xs btn-link text-danger p-0" onclick="deleteBlock('${blockPath.join(',')}')"><i class="fas fa-times"></i></button>
-                </div>
-            </div>
-            <div class="card-body py-2 px-2">
-                ${content}
-            </div>
-        `;
-        
-        container.appendChild(blockEl);
-        
-        // Post-processing for IF blocks to render children
-        if (block.type === 'if') {
-            const thenContainer = blockEl.querySelector(`[data-path="${blockPathStr},then"]`);
-            if (block.then) {
-                renderBlocks(block.then, thenContainer, [...blockPath, 'then']);
-            }
-            
-            const elseContainer = blockEl.querySelector(`[data-path="${blockPathStr},else"]`);
-            if (block.else) {
-                renderBlocks(block.else, elseContainer, [...blockPath, 'else']);
-            }
+            // Recursive calls
+            normalizeLogicData(block.then);
+            normalizeLogicData(block.else);
         }
     });
 }
 
-function getBlockArray(pathStr) {
-    if (!pathStr) return currentLogicData.actions;
+function collectUserAliases(actions) {
+    let aliases = [];
+    if (!actions) return aliases;
     
-    const parts = pathStr.split(',');
-    let current = currentLogicData.actions;
-    
-    // Navigate to the parent array
-    // Path format: "0.then.1" -> index 0, property 'then', index 1
-    // We want the array containing the last index
-    
-    // If path is just "0", we want the root array
-    if (parts.length === 1) return currentLogicData.actions;
-    
-    // If path is "0.then", we want the 'then' array of item 0
-    // But wait, my path logic in renderBlocks passes indices as part of path
-    // renderBlocks(..., [...blockPath, 'then']) -> [0, 'then']
-    // So pathStr "0,then" (joined by comma in calls)
-    
-    // Let's fix the path parsing. The path is comma separated indices and keys.
-    const path = pathStr.split(',');
-    
-    // We want the array that contains the item at the end of the path
-    // If path is [0], array is root
-    // If path is [0, 'then', 1], array is root[0].then
-    
-    for (let i = 0; i < path.length - 1; i++) {
-        const key = path[i];
-        // If key is a number, it's an index
-        if (!isNaN(key)) {
-            current = current[parseInt(key)];
-        } else {
-            // It's a property like 'then' or 'else'
-            if (!current[key]) current[key] = [];
-            current = current[key];
+    actions.forEach(block => {
+        if (block.alias && block.alias.trim() !== '') {
+            aliases.push({ name: block.alias, type: block.type });
         }
-    }
-    
-    return current;
+        if (block.then) aliases = aliases.concat(collectUserAliases(block.then));
+        if (block.else) aliases = aliases.concat(collectUserAliases(block.else));
+    });
+    return aliases;
 }
 
-function addLogicBlock(type, parentPathStr) {
-    const newBlock = { type: type };
+function getGlobalPinAliases(actions) {
+    let map = {};
+    if (!actions) return map;
     
-    let targetArray;
-    if (parentPathStr) {
-        // If parentPathStr is provided (e.g. "0,then"), we want to push to that array
-        // My getBlockArray logic gets the array containing the last element
-        // But here parentPathStr points TO the array we want to add to
-        
-        const path = parentPathStr.split(',');
-        let current = currentLogicData.actions;
-        
-        for (let i = 0; i < path.length; i++) {
-            const key = path[i];
-            if (!isNaN(key)) {
-                current = current[parseInt(key)];
-            } else {
-                if (!current[key]) current[key] = [];
-                current = current[key];
+    actions.forEach(block => {
+        if (block.pin !== undefined && block.alias && block.alias.trim() !== '') {
+            // Only set if not already set (first one wins)
+            if (!map[block.pin]) {
+                map[block.pin] = block.alias;
             }
         }
-        targetArray = current;
-    } else {
-        targetArray = currentLogicData.actions;
-    }
-    
-    targetArray.push(newBlock);
-    renderLogicCanvas();
-    syncVisualToJson();
+        // Recurse
+        if (block.then) {
+            const subMap = getGlobalPinAliases(block.then);
+            Object.keys(subMap).forEach(pin => {
+                if (!map[pin]) map[pin] = subMap[pin];
+            });
+        }
+        if (block.else) {
+            const subMap = getGlobalPinAliases(block.else);
+            Object.keys(subMap).forEach(pin => {
+                if (!map[pin]) map[pin] = subMap[pin];
+            });
+        }
+    });
+    return map;
 }
 
-function deleteBlock(pathStr) {
-    const path = pathStr.split(',');
-    const index = parseInt(path[path.length - 1]);
-    
-    // Get the array containing this item
-    let current = currentLogicData.actions;
-    for (let i = 0; i < path.length - 1; i++) {
-        const key = path[i];
-        if (!isNaN(key)) {
-            current = current[parseInt(key)];
-        } else {
-            current = current[key];
-        }
+// Logic Builder Implementation
+
+// Navigation stack for drilling down into nested blocks (IF/ELSE)
+let logicViewStack = []; // Array of { array: [], name: "Main" }
+
+function getCurrentLogicArray() {
+    if (logicViewStack.length === 0) {
+        if (!currentLogicData.actions) currentLogicData.actions = [];
+        return currentLogicData.actions;
     }
-    
-    current.splice(index, 1);
-    renderLogicCanvas();
-    syncVisualToJson();
+    return logicViewStack[logicViewStack.length - 1].array;
 }
 
-function moveBlock(pathStr, direction) {
-    const path = pathStr.split(',');
-    const index = parseInt(path[path.length - 1]);
-    
-    // Get the array containing this item
-    let current = currentLogicData.actions;
-    for (let i = 0; i < path.length - 1; i++) {
-        const key = path[i];
-        if (!isNaN(key)) {
-            current = current[parseInt(key)];
-        } else {
-            current = current[key];
-        }
+function pushLogicView(array, name) {
+    logicViewStack.push({ array: array, name: name });
+    renderLogicCanvas();
+}
+
+function popLogicView() {
+    if (logicViewStack.length > 0) {
+        logicViewStack.pop();
+        renderLogicCanvas();
     }
-    
-    const newIndex = index + direction;
-    if (newIndex >= 0 && newIndex < current.length) {
-        const item = current.splice(index, 1)[0];
-        current.splice(newIndex, 0, item);
+}
+
+function resetLogicView() {
+    logicViewStack = [];
+    renderLogicCanvas();
+}
+
+function addLogicBlock(type) {
+    try {
+        const newBlock = { type: type };
+        // Apply defaults immediately to fix "Empty JSON" bug
+        normalizeLogicData([newBlock]);
+        
+        const targetArray = getCurrentLogicArray();
+        targetArray.push(newBlock);
+        
         renderLogicCanvas();
         syncVisualToJson();
+    } catch (e) {
+        console.error("Error adding block:", e);
+        showAlert("Failed to add block: " + e.message, "danger");
     }
-}
-
-function moveBlockTo(fromPathStr, toPathStr) {
-    const fromPath = fromPathStr.split(',');
-    const toPath = toPathStr.split(',');
-    
-    const fromIndex = parseInt(fromPath[fromPath.length - 1]);
-    const toIndex = parseInt(toPath[toPath.length - 1]);
-    
-    // Get source array
-    let sourceArray = currentLogicData.actions;
-    for (let i = 0; i < fromPath.length - 1; i++) {
-        const key = fromPath[i];
-        if (!isNaN(key)) {
-            sourceArray = sourceArray[parseInt(key)];
-        } else {
-            sourceArray = sourceArray[key];
-        }
-    }
-    
-    // Get target array
-    let targetArray = currentLogicData.actions;
-    for (let i = 0; i < toPath.length - 1; i++) {
-        const key = toPath[i];
-        if (!isNaN(key)) {
-            targetArray = targetArray[parseInt(key)];
-        } else {
-            targetArray = targetArray[key];
-        }
-    }
-    
-    // Check if we are moving within the same array
-    const fromParentPath = fromPath.slice(0, -1).join(',');
-    const toParentPath = toPath.slice(0, -1).join(',');
-    
-    if (fromParentPath === toParentPath) {
-        // Moving within same array
-        // If moving down, we need to adjust index because removal shifts subsequent items
-        // But splice handles this if we remove first?
-        // Example: [A, B, C, D]. Move A (0) to C (2).
-        // Remove A: [B, C, D]. Insert at 2: [B, C, A, D]. Correct.
-        
-        // Example: [A, B, C, D]. Move C (2) to A (0).
-        // Remove C: [A, B, D]. Insert at 0: [C, A, B, D]. Correct.
-        
-        const item = sourceArray.splice(fromIndex, 1)[0];
-        sourceArray.splice(toIndex, 0, item);
-    } else {
-        // Moving between arrays
-        const item = sourceArray.splice(fromIndex, 1)[0];
-        targetArray.splice(toIndex, 0, item);
-    }
-    
-    renderLogicCanvas();
-    syncVisualToJson();
-}
-
-function updateBlockValue(pathStr, field, value) {
-    const path = pathStr.split(',');
-    const index = parseInt(path[path.length - 1]);
-    
-    // Get the array containing this item
-    let current = currentLogicData.actions;
-    for (let i = 0; i < path.length - 1; i++) {
-        const key = path[i];
-        if (!isNaN(key)) {
-            current = current[parseInt(key)];
-        } else {
-            current = current[key];
-        }
-    }
-    
-    const item = current[index];
-    
-    // Handle nested fields (e.g. "condition.left")
-    if (field.includes('.')) {
-        const parts = field.split('.');
-        let obj = item;
-        for (let i = 0; i < parts.length - 1; i++) {
-            if (!obj[parts[i]]) obj[parts[i]] = {};
-            obj = obj[parts[i]];
-        }
-        obj[parts[parts.length - 1]] = value;
-    } else {
-        item[field] = value;
-    }
-    
-    syncVisualToJson();
-}
-
-function syncVisualToJson() {
-    document.getElementById('logicJsonEditor').value = JSON.stringify(currentLogicData, null, 2);
 }
 
 function syncJsonToVisual() {
     try {
         const json = document.getElementById('logicJsonEditor').value;
         if (json.trim()) {
-            currentLogicData = JSON.parse(json);
-            renderLogicCanvas();
+            const parsed = JSON.parse(json);
+            // Preserve metadata if present, or just update actions
+            if (parsed.actions) {
+                currentLogicData = parsed;
+            } else if (Array.isArray(parsed)) {
+                currentLogicData.actions = parsed;
+            } else {
+                // Assume it's the full object
+                currentLogicData = parsed;
+            }
+            
+            if (!currentLogicData.actions) currentLogicData.actions = [];
+            
+            // Normalize to ensure defaults
+            normalizeLogicData(currentLogicData.actions);
+            
+            // Reset view to root when syncing from JSON
+            resetLogicView();
         }
     } catch (e) {
-        console.error('Invalid JSON', e);
-        showAlert('Invalid JSON in editor', 'warning');
+        console.error("Sync error:", e);
+        showAlert("Invalid JSON format", "warning");
+    }
+}
+
+function syncVisualToJson() {
+    try {
+        const json = JSON.stringify(currentLogicData, null, 2);
+        document.getElementById('logicJsonEditor').value = json;
+    } catch (e) {
+        console.error("Error syncing visual to JSON:", e);
     }
 }
 
@@ -2489,154 +2340,349 @@ function formatJson() {
         const parsed = JSON.parse(json);
         document.getElementById('logicJsonEditor').value = JSON.stringify(parsed, null, 2);
     } catch (e) {
-        // Ignore
+        showAlert("Invalid JSON", "warning");
+    }
+}
+
+function renderLogicCanvas() {
+    try {
+        const container = document.getElementById('logicCanvas');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        // Add Datalist for Variables
+        let datalistHtml = '<datalist id="logicVariables">';
+        
+        // 1. Add System Variables
+        if (SYSTEM_VARIABLES) {
+            SYSTEM_VARIABLES.forEach(v => {
+                datalistHtml += `<option value="${v}">${v} (System)</option>`;
+            });
+        }
+        
+        // 2. Add Sensor Capabilities (Hardware Pins/Sensors)
+        if (currentSensorCapabilities) {
+            if (currentSensorCapabilities.pins) {
+                currentSensorCapabilities.pins.forEach(p => {
+                    if (p.name) datalistHtml += `<option value="${p.name}">${p.name} (Pin ${p.pin})</option>`;
+                    datalistHtml += `<option value="gpio.${p.pin}">Pin ${p.pin}</option>`;
+                });
+            }
+            if (currentSensorCapabilities.sensors) {
+                currentSensorCapabilities.sensors.forEach(s => {
+                    if (s.name) datalistHtml += `<option value="${s.name}">${s.name} (Sensor)</option>`;
+                });
+            }
+        }
+        
+        // 3. Add User-Defined Aliases from Logic
+        if (currentLogicData && currentLogicData.actions) {
+            const userAliases = collectUserAliases(currentLogicData.actions);
+            // Deduplicate
+            const uniqueAliases = [...new Set(userAliases.map(a => a.name))];
+            uniqueAliases.forEach(alias => {
+                datalistHtml += `<option value="${alias}">${alias} (Alias)</option>`;
+            });
+        }
+        
+        datalistHtml += '</datalist>';
+        container.insertAdjacentHTML('beforeend', datalistHtml);
+        
+        // Render Breadcrumbs
+        let breadcrumbHtml = '<nav aria-label="breadcrumb"><ol class="breadcrumb mb-2">';
+        breadcrumbHtml += `<li class="breadcrumb-item ${logicViewStack.length === 0 ? 'active' : ''}"><a href="#" onclick="resetLogicView(); return false;">Main</a></li>`;
+        
+        logicViewStack.forEach((view, index) => {
+            const isActive = index === logicViewStack.length - 1;
+            if (isActive) {
+                breadcrumbHtml += `<li class="breadcrumb-item active">${view.name}</li>`;
+            } else {
+                // We can't easily jump to middle of stack without complex logic, so just show name
+                // Or implement a jumpToView(index) function
+                breadcrumbHtml += `<li class="breadcrumb-item text-muted">${view.name}</li>`;
+            }
+        });
+        breadcrumbHtml += '</ol></nav>';
+        
+        if (logicViewStack.length > 0) {
+            breadcrumbHtml += `<div class="mb-2"><button class="btn btn-sm btn-outline-secondary" onclick="popLogicView()"><i class="fas fa-arrow-left"></i> Back</button></div>`;
+        }
+        
+        container.insertAdjacentHTML('beforeend', breadcrumbHtml);
+        
+        const currentArray = getCurrentLogicArray();
+        
+        // Calculate global aliases to lock inputs
+        // We need to scan the ENTIRE logic tree, not just the current view
+        const globalAliases = getGlobalPinAliases(currentLogicData.actions || []);
+
+        if (!currentArray || currentArray.length === 0) {
+            container.insertAdjacentHTML('beforeend', '<div class="text-center text-muted py-5">Drag blocks from the toolbox or click to add</div>');
+            return;
+        }
+        
+        currentArray.forEach((block, index) => {
+            const card = document.createElement('div');
+            card.className = 'card mb-2';
+            
+            let headerColor = 'bg-light';
+            let icon = 'fa-cube';
+            
+            if (block.type.includes('write')) headerColor = 'bg-primary bg-opacity-10';
+            if (block.type.includes('read')) headerColor = 'bg-info bg-opacity-10';
+            if (block.type === 'if') { headerColor = 'bg-warning bg-opacity-10'; icon = 'fa-code-branch'; }
+            if (block.type === 'delay') { headerColor = 'bg-secondary bg-opacity-10'; icon = 'fa-clock'; }
+            
+            let contentHtml = '';
+            
+            // Special handling for IF block
+            if (block.type === 'if') {
+                // Render Condition inputs
+                const cond = block.condition || { left: '', operator: '==', right: '' };
+                
+                contentHtml += `
+                    <div class="col-12 mb-2">
+                        <label class="form-label small fw-bold">Condition</label>
+                        <div class="input-group input-group-sm">
+                            <input type="text" class="form-control" placeholder="Left (e.g. temp)" value="${cond.left || ''}" 
+                                   list="logicVariables"
+                                   onchange="updateIfCondition(${index}, 'left', this.value)">
+                            <select class="form-select" style="max-width: 80px;" 
+                                    onchange="updateIfCondition(${index}, 'operator', this.value)">
+                                <option value="==" ${cond.operator === '==' ? 'selected' : ''}>==</option>
+                                <option value="!=" ${cond.operator === '!=' ? 'selected' : ''}>!=</option>
+                                <option value=">" ${cond.operator === '>' ? 'selected' : ''}>&gt;</option>
+                                <option value="<" ${cond.operator === '<' ? 'selected' : ''}>&lt;</option>
+                                <option value=">=" ${cond.operator === '>=' ? 'selected' : ''}>&gt;=</option>
+                                <option value="<=" ${cond.operator === '<=' ? 'selected' : ''}>&lt;=</option>
+                            </select>
+                            <input type="text" class="form-control" placeholder="Right (e.g. 25)" value="${cond.right || ''}" 
+                                   list="logicVariables"
+                                   onchange="updateIfCondition(${index}, 'right', this.value)">
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <button class="btn btn-sm btn-outline-success w-100" onclick="editBranch(${index}, 'then')">
+                            <i class="fas fa-check"></i> Edit THEN (${block.then ? block.then.length : 0})
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button class="btn btn-sm btn-outline-secondary w-100" onclick="editBranch(${index}, 'else')">
+                            <i class="fas fa-times"></i> Edit ELSE (${block.else ? block.else.length : 0})
+                        </button>
+                    </div>
+                `;
+            } else {
+                // Standard rendering for other blocks
+                Object.keys(block).forEach(key => {
+                    if (key === 'type') return;
+                    if (key === 'then' || key === 'else') return; 
+                    if (key === 'condition') return; // Handled above if type is 'if'
+                    
+                    const val = block[key];
+                    let inputType = 'text';
+                    if (typeof val === 'number') inputType = 'number';
+                    if (typeof val === 'boolean') inputType = 'checkbox';
+                    
+                    const checkedAttr = (inputType === 'checkbox' && val) ? 'checked' : '';
+                    const valueAttr = inputType !== 'checkbox' ? `value="${val}"` : '';
+                    
+                    // Highlight Alias field
+                    let labelClass = 'small mb-0';
+                    let disabledAttr = '';
+                    let displayValue = val;
+                    let extraHelp = '';
+
+                    if (key === 'alias') {
+                        labelClass = 'small mb-0 fw-bold text-primary';
+                        
+                        // Check if this pin is already aliased elsewhere
+                        // If block.pin exists and is in globalAliases, and the alias there is NOT this one (or even if it is this one, we might want to lock it if it's defined 'upstream'?)
+                        // Actually, simpler rule: If globalAliases[block.pin] exists, use THAT value and disable input.
+                        // BUT, we need to allow defining it the FIRST time.
+                        // The getGlobalPinAliases function returns the FIRST definition.
+                        // So if globalAliases[block.pin] == block.alias, then THIS is the definition (or a copy of it).
+                        // If globalAliases[block.pin] != block.alias (and globalAliases[block.pin] is set), then this block is using a pin that was aliased elsewhere.
+                        
+                        // Wait, if I am the one defining it, I should be able to edit it?
+                        // The requirement is: "If I use a Pin that already has an Alias, I should not be able to add one to it, it should be locked"
+                        // This implies if I add a NEW block for Pin 2, and Pin 2 is already aliased to "LED", this new block should auto-fill "LED" and lock it.
+                        
+                        if (block.pin !== undefined && globalAliases[block.pin]) {
+                            const existingAlias = globalAliases[block.pin];
+                            // If the current block's alias doesn't match the global one, we should probably force it to match visually?
+                            // Or just lock it if it's already set.
+                            
+                            // If this block IS the one defining it (i.e. it matches), we might still want to lock it if we want to enforce "define once"?
+                            // But usually you want to be able to edit the definition.
+                            // Let's assume: If this block's alias matches the global one, it MIGHT be the definition.
+                            // But how do we know if it's the *first* one?
+                            // We can't easily know order without complex logic.
+                            
+                            // Let's try this: If the alias is already set in the global map, show that alias.
+                            // If the current block's alias is EMPTY, auto-fill it? No, that changes data.
+                            // Just disable it if it's not the definition?
+                            
+                            // Refined Logic:
+                            // If globalAliases[block.pin] exists:
+                            //    If block.alias is empty or different, show the global alias and DISABLE input.
+                            //    If block.alias is SAME as global alias, ENABLE input (this is likely the definition).
+                            
+                            if (existingAlias && existingAlias !== block.alias) {
+                                // It's defined elsewhere. Lock this one.
+                                disabledAttr = 'disabled';
+                                displayValue = existingAlias + ' (Locked)';
+                                extraHelp = '<div class="form-text x-small text-muted">Inherited from Pin ' + block.pin + '</div>';
+                            } else if (existingAlias && existingAlias === block.alias) {
+                                // This matches the global definition. It is likely the definition source.
+                                // Allow editing.
+                                extraHelp = '<div class="form-text x-small text-success">Defining Alias for Pin ' + block.pin + '</div>';
+                            }
+                        }
+                    }
+                    
+                    // If we are modifying displayValue for locked alias, we need to handle it carefully
+                    // because the input value attribute is what's submitted/saved? 
+                    // No, onchange updates the JSON. If it's disabled, onchange won't fire.
+                    // So we just show the value.
+                    
+                    const finalValueAttr = inputType !== 'checkbox' ? `value="${displayValue}"` : '';
+
+                    contentHtml += `
+                        <div class="col-md-4 mb-2">
+                            <label class="form-label ${labelClass}">${key}</label>
+                            <input type="${inputType}" class="form-control form-control-sm" 
+                                   ${finalValueAttr} ${checkedAttr} ${disabledAttr}
+                                   onchange="updateBlockProperty(${index}, '${key}', this.value, '${inputType}', this.checked)">
+                            ${extraHelp}
+                        </div>
+                    `;
+                });
+            }
+            
+            card.innerHTML = `
+                <div class="card-header py-1 px-2 ${headerColor} d-flex justify-content-between align-items-center">
+                    <small class="fw-bold"><i class="fas ${icon}"></i> ${block.type}</small>
+                    <div>
+                        <button class="btn btn-xs btn-link text-muted" onclick="moveBlock(${index}, -1)"><i class="fas fa-arrow-up"></i></button>
+                        <button class="btn btn-xs btn-link text-muted" onclick="moveBlock(${index}, 1)"><i class="fas fa-arrow-down"></i></button>
+                        <button class="btn btn-xs btn-link text-danger" onclick="removeBlock(${index})"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
+                <div class="card-body p-2">
+                    <div class="row g-2">
+                        ${contentHtml}
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(card);
+        });
+    } catch (e) {
+        console.error("Error rendering canvas:", e);
+        const container = document.getElementById('logicCanvas');
+        if (container) container.innerHTML = '<div class="alert alert-danger">Error rendering blocks</div>';
+    }
+}
+
+function editBranch(index, branchName) {
+    const currentArray = getCurrentLogicArray();
+    const block = currentArray[index];
+    
+    if (!block[branchName]) block[branchName] = [];
+    
+    pushLogicView(block[branchName], `IF #${index + 1} ${branchName.toUpperCase()}`);
+}
+
+function updateIfCondition(index, field, value) {
+    const currentArray = getCurrentLogicArray();
+    const block = currentArray[index];
+    
+    if (!block.condition) block.condition = { left: '', operator: '==', right: '' };
+    block.condition[field] = value;
+    
+    syncVisualToJson();
+}
+
+function updateBlockProperty(index, key, value, type, checked) {
+    try {
+        if (type === 'number') value = parseFloat(value);
+        if (type === 'checkbox') value = checked;
+        
+        const currentArray = getCurrentLogicArray();
+        if (currentArray && currentArray[index]) {
+            currentArray[index][key] = value;
+            syncVisualToJson();
+            
+            // Re-render if pin or alias changes, to update locks/references
+            if (key === 'pin' || key === 'alias') {
+                // Small delay to allow UI to settle if needed, but immediate is usually better for sync
+                // However, re-rendering kills focus. 
+                // If key is 'alias', we are typing in the alias field. Re-rendering on every char is bad.
+                // But onchange only fires on blur/enter. So focus is already lost/moving.
+                renderLogicCanvas();
+            }
+        }
+    } catch (e) {
+        console.error("Error updating block property:", e);
+    }
+}
+
+function removeBlock(index) {
+    try {
+        const currentArray = getCurrentLogicArray();
+        if (currentArray) {
+            currentArray.splice(index, 1);
+            renderLogicCanvas();
+            syncVisualToJson();
+        }
+    } catch (e) {
+        console.error("Error removing block:", e);
+    }
+}
+
+function moveBlock(index, direction) {
+    try {
+        const currentArray = getCurrentLogicArray();
+        if (!currentArray) return;
+        
+        if (index + direction < 0 || index + direction >= currentArray.length) return;
+        
+        const temp = currentArray[index];
+        currentArray[index] = currentArray[index + direction];
+        currentArray[index + direction] = temp;
+        
+        renderLogicCanvas();
+        syncVisualToJson();
+    } catch (e) {
+        console.error("Error moving block:", e);
     }
 }
 
 async function saveLogicBuilder() {
-    if (!currentLogicSensorId) return;
-    
     try {
-        // Ensure we have the latest data from whichever tab is active
-        // If JSON tab is active, we should parse it.
-        // But syncJsonToVisual does that.
+        // Update metadata from inputs
+        currentLogicData.name = document.getElementById('logicName').value;
+        currentLogicData.version = document.getElementById('logicVersion').value;
+        currentLogicData.description = document.getElementById('logicDescription').value;
         
-        // If the user edited JSON but didn't switch tabs, we need to grab it.
-        const jsonEditor = document.getElementById('logicJsonEditor');
-        if (jsonEditor.offsetParent !== null) { // Visible
-             try {
-                currentLogicData = JSON.parse(jsonEditor.value);
-             } catch(e) {
-                 showAlert('Invalid JSON. Please fix before saving.', 'danger');
-                 return;
-             }
-        }
+        // Open Upload Modal with pre-filled data
+        document.getElementById('scriptName').value = currentLogicData.name;
+        document.getElementById('scriptVersion').value = currentLogicData.version;
+        document.getElementById('scriptDescription').value = currentLogicData.description;
+        document.getElementById('scriptType').value = 'json';
+        document.getElementById('scriptContent').value = JSON.stringify(currentLogicData, null, 2);
         
-        const scriptContent = JSON.stringify(currentLogicData, null, 2);
+        // Hide logic builder, show upload modal
+        const logicModal = bootstrap.Modal.getInstance(document.getElementById('logicBuilderModal'));
+        if (logicModal) logicModal.hide();
         
-        // Save as a new library script and assign it
-        const response = await fetch('/api/sensor-master/library-script', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: currentLogicData.name || `Logic for ${currentLogicSensorId} (${new Date().toLocaleTimeString()})`,
-                script_content: scriptContent,
-                script_version: currentLogicData.version || '1.0.0',
-                script_type: 'json',
-                description: 'Generated by Logic Builder',
-                target_sensor_type: ''
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            // Assign it
-            await assignScript(currentLogicSensorId, data.id);
-            
-            showAlert('Logic saved and applied successfully', 'success');
-            bootstrap.Modal.getInstance(document.getElementById('logicBuilderModal')).hide();
-            
-            // Refresh scripts list
-            loadScripts();
-        } else {
-            throw new Error(data.error || 'Failed to save logic');
-        }
-    } catch (error) {
-        console.error('Error saving logic:', error);
-        showAlert('Failed to save logic: ' + error.message, 'danger');
+        new bootstrap.Modal(document.getElementById('uploadScriptModal')).show();
+    } catch (e) {
+        console.error("Error saving logic:", e);
+        showAlert("Failed to prepare save: " + e.message, "danger");
     }
-}
-
-// --- Drag and Drop Handlers ---
-let draggedItemPath = null;
-
-function handleDragStart(e) {
-    draggedItemPath = this.getAttribute('data-path');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', draggedItemPath);
-    this.classList.add('opacity-50');
-}
-
-function handleDragOver(e) {
-    if (e.preventDefault) {
-        e.preventDefault();
-    }
-    e.dataTransfer.dropEffect = 'move';
-    return false;
-}
-
-function handleDragEnter(e) {
-    this.classList.add('border-primary');
-    this.classList.add('border-2');
-}
-
-function handleDragLeave(e) {
-    this.classList.remove('border-primary');
-    this.classList.remove('border-2');
-}
-
-function handleDrop(e) {
-    if (e.stopPropagation) {
-        e.stopPropagation();
-    }
-    
-    const targetPath = this.getAttribute('data-path');
-    
-    // Don't do anything if dropping on itself
-    if (draggedItemPath === targetPath) {
-        return false;
-    }
-    
-    moveBlockTo(draggedItemPath, targetPath);
-    
-    return false;
-}
-
-function handleDragEnd(e) {
-    this.classList.remove('opacity-50');
-    
-    // Clean up any remaining visual classes on all blocks
-    document.querySelectorAll('.logic-block').forEach(el => {
-        el.classList.remove('border-primary');
-        el.classList.remove('border-2');
-    });
-}
-
-// New handler for dropping into containers (like 'then' and 'else' blocks)
-function handleContainerDrop(e) {
-    if (e.stopPropagation) e.stopPropagation();
-    
-    const targetPathStr = this.getAttribute('data-path'); // e.g. "0,then"
-    
-    // Don't allow dropping a parent into its own child
-    if (targetPathStr.startsWith(draggedItemPath)) {
-        return false;
-    }
-    
-    // Get the target array to find its length
-    const path = targetPathStr.split(',');
-    let targetArray = currentLogicData.actions;
-    
-    // Navigate to the array
-    for (let i = 0; i < path.length; i++) {
-        const key = path[i];
-        if (!isNaN(key)) {
-            targetArray = targetArray[parseInt(key)];
-        } else {
-            if (!targetArray[key]) targetArray[key] = [];
-            targetArray = targetArray[key];
-        }
-    }
-    
-    const newIndex = targetArray.length;
-    const newPath = targetPathStr + ',' + newIndex;
-    
-    moveBlockTo(draggedItemPath, newPath);
-    
-    return false;
 }
 </script>
 </body>

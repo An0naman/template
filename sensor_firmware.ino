@@ -20,6 +20,8 @@
 #include <ESPmDNS.h>
 #include "WebSerial.h"
 #include <vector>
+#include <map>
+#include "time.h"
 
 // ============================================================================
 // CONFIGURATION - CUSTOMIZE THESE VALUES
@@ -29,6 +31,11 @@
 const char* WIFI_SSID = "SkyNet Mesh";
 const char* WIFI_PASSWORD = "TQ7@aecA&^eAmG)";
 
+// NTP Configuration
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = 0;
+const int   daylightOffset_sec = 3600;
+
 // Master Control Configuration
 String masterUrl = "http://192.168.68.110:5001";  // Default/Fallback URL
 const char* MDNS_SERVICE_NAME = "sensor-master";  // Hostname to look for (sensor-master.local)
@@ -36,12 +43,12 @@ const int MASTER_PORT = 5001;
 const char* SENSOR_ID = "esp32_fermentation_001";
 const char* SENSOR_NAME = "Fermentation Chamber 1";
 const char* SENSOR_TYPE = "esp32_fermentation";
-const char* FIRMWARE_VERSION = "1.0.0";
+const char* FIRMWARE_VERSION = "1.1.1";
 
 // Default Firmware Script (Fallback)
 const char* DEFAULT_FIRMWARE_SCRIPT = R"({
     "name": "Firmware Default Blink",
-    "version": "1.0.0",
+    "version": "0.0.0",
     "actions": [
         {"type": "gpio_write", "pin": 2, "value": "HIGH"},
         {"type": "delay", "ms": 1000},
@@ -52,7 +59,7 @@ const char* DEFAULT_FIRMWARE_SCRIPT = R"({
 })";
 
 // Timing Configuration
-unsigned long pollingInterval = 60000;        // Default: 60 seconds
+unsigned long pollingInterval = 5000;         // Default: 5 seconds for faster feedback
 unsigned long heartbeatInterval = 300000;     // Default: 5 minutes
 unsigned long offlineRetryInterval = 10000;   // Default: 10 seconds (retry connection faster)
 
@@ -95,14 +102,19 @@ unsigned long scriptLedOnDuration = 2000;  // Default 2 seconds
 unsigned long scriptLedOffDuration = 2000; // Default 2 seconds
 
 // Active script document (global to avoid re-parsing)
-JsonDocument activeScriptDoc;
+// JsonDocument activeScriptDoc; // Removed to prevent memory issues
 
 // JSON script execution state
-struct ScriptContext {
-    JsonArray commands;
-    int index;
-};
-std::vector<ScriptContext> scriptStack;
+// struct ScriptContext {
+//     JsonArray commands;
+//     int index;
+// };
+// std::vector<ScriptContext> scriptStack; // Removed
+
+// Alias mapping for script execution
+std::map<String, int> pinAliases;
+// Pin state tracking for reliable readback
+std::map<int, int> pinStates;
 
 unsigned long commandStartTime = 0;
 unsigned long commandDelay = 0;
@@ -149,6 +161,7 @@ void reportScriptExecution();
 void reportRunningVersion(String version, int scriptId);
 void checkForScriptUpdates();
 void executeLocalScript();
+void extractAliases(JsonArray actions);
 
 // Hardware Functions
 void initializeSensors();
@@ -199,6 +212,9 @@ void setup() {
     // Connect to WiFi
     connectToWiFi();
     
+    // Initialize time
+    configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+
     // Try to discover master via mDNS
     if (WiFi.status() == WL_CONNECTED) {
         discoverMaster();
@@ -224,7 +240,7 @@ void setup() {
             html += ".sensor-value { font-size: 2.5em; font-weight: bold; color: #2d3748; margin: 10px 0; }";
             html += ".sensor-label { color: #718096; font-size: 1em; margin-bottom: 5px; display: flex; align-items: center; }";
             html += ".sensor-icon { font-size: 1.5em; margin-right: 10px; }";
-            html += ".status { padding: 15px; margin: 20px 0; border-radius: 8px; display: flex; align-items: center; }";
+            html += ".status { padding: 15px, margin: 20px 0; border-radius: 8px; display: flex; align-items: center; }";
             html += ".status.good { background-color: #d4edda; color: #155724; border-left: 4px solid #28a745; }";
             html += ".status.warning { background-color: #fff3cd; color: #856404; border-left: 4px solid #ffc107; }";
             html += ".status.error { background-color: #f8d7da; color: #721c24; border-left: 4px solid #dc3545; }";
@@ -488,12 +504,12 @@ void useOfflineConfiguration() {
     WebSerial.println("\n📋 Using offline configuration");
     
     // Load saved configuration from preferences
-    pollingInterval = preferences.getULong("pollingInterval", 60000);
+    pollingInterval = preferences.getULong("pollingInterval", 5000);
     
-    // Safety check: Ensure polling interval is at least 5 seconds
-    if (pollingInterval < 5000) {
-        WebSerial.println("  ⚠️ Invalid polling interval (" + String(pollingInterval) + "ms), resetting to 60s");
-        pollingInterval = 60000;
+    // Safety check: Ensure polling interval is at least 1 second
+    if (pollingInterval < 1000) {
+        WebSerial.println("  ⚠️ Invalid polling interval (" + String(pollingInterval) + "ms), resetting to 5s");
+        pollingInterval = 5000;
     }
 
     dataEndpoint = preferences.getString("dataEndpoint", "");
@@ -531,8 +547,11 @@ bool sendDataToFallbackEndpoint(SensorData data) {
         return false;
     }
     
+    WiFiClient client;
+    client.setTimeout(2000);
     HTTPClient http;
-    http.begin(dataEndpoint);
+    http.setReuse(false);
+    http.begin(client, dataEndpoint);
     http.addHeader("Content-Type", "application/json");
     
     JsonDocument doc;
@@ -567,9 +586,11 @@ bool registerWithMaster() {
         return false;
     }
     
+    WiFiClient client;
+    client.setTimeout(3000);
     HTTPClient http;
     String url = masterUrl + "/api/sensor-master/register";
-    http.begin(url);
+    http.begin(client, url);
     http.addHeader("Content-Type", "application/json");
     
     // Build registration payload
@@ -616,9 +637,11 @@ bool getConfigFromMaster() {
         return false;
     }
     
+    WiFiClient client;
+    client.setTimeout(3000);
     HTTPClient http;
     String url = masterUrl + "/api/sensor-master/config/" + String(SENSOR_ID);
-    http.begin(url);
+    http.begin(client, url);
     
     int httpCode = http.GET();
     
@@ -680,9 +703,11 @@ bool sendHeartbeat() {
         return false;
     }
     
+    WiFiClient client;
+    client.setTimeout(3000);
     HTTPClient http;
     String url = masterUrl + "/api/sensor-master/heartbeat";
-    http.begin(url);
+    http.begin(client, url);
     http.addHeader("Content-Type", "application/json");
     
     JsonDocument doc;
@@ -734,8 +759,11 @@ bool sendDataToMaster(SensorData data) {
         return false;
     }
     
+    WiFiClient client;
+    client.setTimeout(2000);
     HTTPClient http;
-    http.begin(dataEndpoint);
+    http.setReuse(false);
+    http.begin(client, dataEndpoint);
     http.addHeader("Content-Type", "application/json");
     
     JsonDocument doc;
@@ -768,9 +796,11 @@ void sendRemoteLog(String message, String level) {
         return;
     }
     
+    WiFiClient client;
+    client.setTimeout(3000);
     HTTPClient http;
     String url = masterUrl + "/api/sensor-master/logs";
-    http.begin(url);
+    http.begin(client, url);
     http.addHeader("Content-Type", "application/json");
     
     JsonDocument doc;
@@ -800,8 +830,32 @@ void sendRemoteLog(String message, String level) {
 float resolveValue(String key);
 bool evaluateCondition(String left, String op, String right);
 void executeActions(JsonArray actions);
+void extractAliases(JsonArray actions);
+
+void extractAliases(JsonArray actions) {
+    for (JsonObject action : actions) {
+        if (action.containsKey("alias") && action.containsKey("pin")) {
+            String alias = action["alias"].as<String>();
+            int pin = action["pin"].as<int>();
+            if (alias.length() > 0) {
+                pinAliases[alias] = pin;
+            }
+        }
+        // Recurse
+        if (action.containsKey("then")) extractAliases(action["then"].as<JsonArray>());
+        if (action.containsKey("else")) extractAliases(action["else"].as<JsonArray>());
+    }
+}
 
 float resolveValue(String key) {
+    key.trim(); // Handle potential whitespace
+    
+    // Check for constants (case-insensitive)
+    if (key.equalsIgnoreCase("HIGH")) return 1.0;
+    if (key.equalsIgnoreCase("LOW")) return 0.0;
+    if (key.equalsIgnoreCase("true")) return 1.0;
+    if (key.equalsIgnoreCase("false")) return 0.0;
+
     // Check if it's a number
     if (key.length() == 0) return 0;
     if (isdigit(key[0]) || key[0] == '-') return key.toFloat();
@@ -811,13 +865,41 @@ float resolveValue(String key) {
         return readSensorData().temperature;
     } else if (key == "sensor.relay") {
         return readSensorData().relayState ? 1.0 : 0.0;
+    } else if (key == "current_time") {
+        // Returns time in HHMM format (e.g. 1430 for 14:30)
+        struct tm timeinfo;
+        if(!getLocalTime(&timeinfo)){
+            return -1.0;
+        }
+        return (timeinfo.tm_hour * 100) + timeinfo.tm_min;
     }
     
     // Check for GPIO (format: gpio.12)
     if (key.startsWith("gpio.")) {
         int pin = key.substring(5).toInt();
-        pinMode(pin, INPUT);
+        // pinMode(pin, INPUT); // Removed to prevent disrupting OUTPUT pins
         return digitalRead(pin);
+    }
+
+    // Check aliases
+    if (pinAliases.count(key)) {
+        int pin = pinAliases[key];
+        // Check if we have a tracked state for this pin
+        if (pinStates.count(pin)) {
+            int val = pinStates[pin];
+            WebSerial.println("🔍 DEBUG: Alias '" + key + "' (Pin " + String(pin) + ") read from TRACKER: " + String(val));
+            return (float)val;
+        }
+        // Fallback to reading the pin directly
+        WebSerial.println("⚠️ DEBUG: Alias '" + key + "' (Pin " + String(pin) + ") NOT in tracker, reading HARDWARE");
+        int val = digitalRead(pin);
+        WebSerial.println("🔍 DEBUG: Alias '" + key + "' (Pin " + String(pin) + ") read from HARDWARE: " + String(val));
+        return (float)val;
+    }
+    
+    // Debug unresolvable keys (ignore common defaults)
+    if (key != "0" && key != "") {
+        WebSerial.println("⚠️ DEBUG: resolveValue('" + key + "') failed to resolve, returning 0");
     }
     
     return 0; // Default
@@ -853,12 +935,12 @@ void executeActions(JsonArray actions) {
             Serial.println(logMsg);
             
             if (result) {
-                if (action.containsKey("then")) {
+                if (!action["then"].isNull()) {
                     WebSerial.println("  ➡️ Executing THEN block");
                     executeActions(action["then"]);
                 }
             } else {
-                if (action.containsKey("else")) {
+                if (!action["else"].isNull()) {
                     WebSerial.println("  ➡️ Executing ELSE block");
                     executeActions(action["else"]);
                 }
@@ -870,21 +952,53 @@ void executeActions(JsonArray actions) {
             delay(ms);
             
         } else if (type == "gpio_write") {
-            int pin = action["pin"] | 2;
-            String value = action["value"] | "LOW";
+            int pin = action["pin"].as<int>();
+            String value = action["value"].as<String>();
+            int pinVal = (value == "HIGH" ? HIGH : LOW);
+            
             pinMode(pin, OUTPUT);
-            digitalWrite(pin, value == "HIGH" ? HIGH : LOW);
+            digitalWrite(pin, pinVal);
+            
+            // Update tracked state
+            pinStates[pin] = pinVal;
+            WebSerial.println("🔍 DEBUG: Updated Pin " + String(pin) + " state to " + String(pinVal) + " (Value: " + value + ")");
+            
             WebSerial.println("✓ GPIO Write: Pin " + String(pin) + " = " + value);
             
         } else if (type == "gpio_read") {
-            int pin = action["pin"] | 2;
+            int pin = action["pin"].as<int>();
             pinMode(pin, INPUT);
             int val = digitalRead(pin);
+            
+            // Update tracked state
+            pinStates[pin] = val;
+            
             WebSerial.println("✓ GPIO Read: Pin " + String(pin) + " = " + String(val));
 
         } else if (type == "log") {
             String message = action["message"] | "Log message";
-            if (action.containsKey("value")) {
+            
+            // Support for {variable} syntax in message
+            int startIndex = message.indexOf("{");
+            while (startIndex >= 0) {
+                int endIndex = message.indexOf("}", startIndex);
+                if (endIndex > startIndex) {
+                    String key = message.substring(startIndex + 1, endIndex);
+                    float val = resolveValue(key);
+                    String valStr = String(val);
+                    // Clean up float formatting (remove .00)
+                    if (valStr.endsWith(".00")) valStr.remove(valStr.length() - 3);
+                    
+                    message = message.substring(0, startIndex) + valStr + message.substring(endIndex + 1);
+                    
+                    // Search for next placeholder
+                    startIndex = message.indexOf("{", startIndex + valStr.length());
+                } else {
+                    break;
+                }
+            }
+
+            if (!action["value"].isNull()) {
                 String valKey = action["value"];
                 float val = resolveValue(valKey);
                 message += " [" + valKey + "=" + String(val) + "]";
@@ -913,9 +1027,12 @@ void reportScriptExecution() {
         return;
     }
     
+    WiFiClient client;
+    client.setTimeout(2000);
     HTTPClient http;
+    http.setReuse(false);
     String url = masterUrl + "/api/sensor-master/script-executed";
-    http.begin(url);
+    http.begin(client, url);
     http.addHeader("Content-Type", "application/json");
     
     JsonDocument doc;
@@ -927,6 +1044,7 @@ void reportScriptExecution() {
     int httpCode = http.POST(payload);
     if (httpCode == 200) {
         WebSerial.println("[SCRIPT] ✅ Execution reported to master");
+        Serial.flush();
     } else {
         WebSerial.println("[SCRIPT] ❌ Failed to report execution (HTTP " + String(httpCode) + ")");
     }
@@ -942,9 +1060,11 @@ void reportRunningVersion(String version, int scriptId = -1) {
         return;
     }
     
+    WiFiClient client;
+    client.setTimeout(3000);
     HTTPClient http;
     String url = masterUrl + "/api/sensor-master/report-version";
-    http.begin(url);
+    http.begin(client, url);
     http.addHeader("Content-Type", "application/json");
     
     JsonDocument doc;
@@ -975,12 +1095,25 @@ void checkForScriptUpdates() {
         return;
     }
     
+    WebSerial.println("\n[SCRIPT] Checking for updates... (Heap: " + String(ESP.getFreeHeap()) + ")");
+    Serial.flush();
+    
+    WiFiClient client;
+    client.setTimeout(3000);
     HTTPClient http;
     String url = masterUrl + "/api/sensor-master/script/" + String(SENSOR_ID);
-    http.begin(url);
     
-    WebSerial.println("\n[SCRIPT] Checking for updates...");
+    // WebSerial.println("[SCRIPT] Connecting to: " + url);
+    
+    http.setReuse(false);
+    if (!http.begin(client, url)) {
+        WebSerial.println("[SCRIPT] ❌ Failed to begin HTTP connection");
+        return;
+    }
+    
+    // WebSerial.println("[SCRIPT] Sending GET request...");
     int httpCode = http.GET();
+    // WebSerial.println("[SCRIPT] GET finished, code: " + String(httpCode));
     
     if (httpCode == 200) {
         String response = http.getString();
@@ -1081,9 +1214,9 @@ void executeLocalScript() {
     WebSerial.println("  Version: " + currentScriptVersion);
     WebSerial.println("  Script ID: " + String(currentScriptId));
     
-    // Parse script into global document
-    activeScriptDoc.clear();
-    DeserializationError error = deserializeJson(activeScriptDoc, currentScript);
+    // Parse script into local document
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, currentScript);
     
     if (error) {
         WebSerial.println("  ❌ JSON parse error: " + String(error.c_str()));
@@ -1092,13 +1225,23 @@ void executeLocalScript() {
     
     // Try both "actions" (new format) and "commands" (old format)
     JsonArray commandArray;
-    if (activeScriptDoc["actions"].is<JsonArray>()) {
-        commandArray = activeScriptDoc["actions"];
-    } else if (activeScriptDoc["commands"].is<JsonArray>()) {
-        commandArray = activeScriptDoc["commands"];
+    if (doc["actions"].is<JsonArray>()) {
+        commandArray = doc["actions"];
+    } else if (doc["commands"].is<JsonArray>()) {
+        commandArray = doc["commands"];
     }
     
     if (!commandArray.isNull() && commandArray.size() > 0) {
+        // Build alias map first
+        pinAliases.clear();
+        pinStates.clear(); // Clear states at start of script to ensure fresh reads
+        extractAliases(commandArray);
+        
+        WebSerial.println("🔍 DEBUG: Extracted " + String(pinAliases.size()) + " aliases");
+        for(auto const& item : pinAliases) {
+             WebSerial.println("  Alias: '" + item.first + "' -> Pin " + String(item.second));
+        }
+        
         // Execute using the new recursive engine
         WebSerial.println("  Executing " + String(commandArray.size()) + " action(s)...");
         executeActions(commandArray);
@@ -1215,9 +1358,11 @@ void reportCommandResult(int commandId, String result, String message) {
         return;
     }
     
+    WiFiClient client;
+    client.setTimeout(3000);
     HTTPClient http;
     String url = masterUrl + "/api/sensor-master/heartbeat";
-    http.begin(url);
+    http.begin(client, url);
     http.addHeader("Content-Type", "application/json");
     
     JsonDocument doc;
@@ -1243,7 +1388,9 @@ void reportCommandResult(int commandId, String result, String message) {
 // CUSTOMIZE THIS SECTION FOR YOUR HARDWARE
 
 void initializeSensors() {
-    WebSerial.println("🔧 Initializing hardware...");
+    Serial.println("DEBUG: Entering initializeSensors"); Serial.flush();
+    // WebSerial.println("🔧 Initializing hardware...");
+    Serial.println("🔧 Initializing hardware..."); Serial.flush();
     
     // Configure pins
     pinMode(STATUS_LED_PIN, OUTPUT);
@@ -1254,7 +1401,8 @@ void initializeSensors() {
     digitalWrite(STATUS_LED_PIN, LOW);
     digitalWrite(RELAY_PIN, LOW);
     
-    WebSerial.println("  ✅ Hardware initialized");
+    // WebSerial.println("  ✅ Hardware initialized");
+    Serial.println("  ✅ Hardware initialized"); Serial.flush();
 }
 
 SensorData readSensorData() {
@@ -1275,6 +1423,13 @@ SensorData readSensorData() {
     digitalWrite(STATUS_LED_PIN, HIGH);
     delay(50);
     digitalWrite(STATUS_LED_PIN, LOW);
+    
+    // Serial Plotter Support
+    Serial.print("Temperature:");
+    Serial.print(data.temperature);
+    Serial.print(",");
+    Serial.print("Relay:");
+    Serial.println(data.relayState ? 100 : 0); // Scale relay for visibility
     
     return data;
 }

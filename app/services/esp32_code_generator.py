@@ -113,7 +113,7 @@ class ESP32CodeGenerator:
             "sensor_name": f"ESP32 Sensor",
             "master_url": "",
             "hardware_info": "ESP32-WROOM-32",
-            "firmware_version": "1.0.0"
+            "firmware_version": "1.1.0"
         }
     
     def _get_master_url(self) -> str:
@@ -155,6 +155,7 @@ class ESP32CodeGenerator:
 #include <ArduinoJson.h>
 #include <Preferences.h>
 #include <WebServer.h>
+#include "time.h"
 
 // Web Server for Discovery
 WebServer server(80);
@@ -169,6 +170,12 @@ const char* MASTER_CONTROL_URL = "{master_url}";
 const char* SENSOR_ID = "{sensor_id}";
 const char* SENSOR_TYPE = "{sensor_type}";
 const char* SENSOR_NAME = "{sensor_name}";
+const char* FIRMWARE_VERSION = "1.1.0";
+
+// NTP Configuration
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = 0;
+const int   daylightOffset_sec = 3600;
 
 // Timing configuration
 const unsigned long CHECK_IN_INTERVAL = 300000;     // 5 minutes
@@ -227,6 +234,7 @@ void setup() {{
   Serial.println("===========================================");
   Serial.println("Sensor ID: " + String(SENSOR_ID));
   Serial.println("Sensor Type: " + String(SENSOR_TYPE));
+  Serial.println("Firmware: v" + String(FIRMWARE_VERSION));
   Serial.println("===========================================\\n");
   
   // Initialize preferences (for persistent storage)
@@ -234,6 +242,9 @@ void setup() {{
   
   // Connect to WiFi
   connectToWiFi();
+  
+  // Initialize time
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
   
   // Initialize Web Server for Discovery
   server.on("/", handleRoot);
@@ -485,7 +496,7 @@ bool registerWithMaster() {{
   doc["sensor_name"] = SENSOR_NAME;
   doc["sensor_type"] = SENSOR_TYPE;
   doc["hardware_info"] = "ESP32-WROOM-32";
-  doc["firmware_version"] = "1.0.0";
+  doc["firmware_version"] = FIRMWARE_VERSION;
   doc["ip_address"] = WiFi.localIP().toString();
   doc["mac_address"] = WiFi.macAddress();
   
@@ -820,6 +831,12 @@ float resolveValue(String key) {{
     return readSensorData().targetTemp;
   }} else if (key == "sensor.relay") {{
     return readSensorData().relayState ? 1.0 : 0.0;
+  }} else if (key == "current_time") {{
+    struct tm timeinfo;
+    if(!getLocalTime(&timeinfo)){{
+        return -1.0;
+    }}
+    return (timeinfo.tm_hour * 100) + timeinfo.tm_min;
   }}
   
   // Check for GPIO (format: gpio.12)
@@ -913,6 +930,27 @@ void executeActions(JsonArray actions) {{
     }} else if (type == "log") {{
       // Log: Print message to serial
       String message = action["message"] | "Log message";
+      
+      // Support for {{variable}} syntax in message
+      int startIndex = message.indexOf("{{");
+      while (startIndex >= 0) {{
+          int endIndex = message.indexOf("}}", startIndex);
+          if (endIndex > startIndex) {{
+              String key = message.substring(startIndex + 1, endIndex);
+              float val = resolveValue(key);
+              String valStr = String(val);
+              // Clean up float formatting (remove .00)
+              if (valStr.endsWith(".00")) valStr.remove(valStr.length() - 3);
+              
+              message = message.substring(0, startIndex) + valStr + message.substring(endIndex + 1);
+              
+              // Search for next placeholder
+              startIndex = message.indexOf("{{", startIndex + valStr.length());
+          }} else {{
+              break;
+          }}
+      }}
+
       // Check if there is a value to append
       if (action.containsKey("value")) {{
          String valKey = action["value"];
