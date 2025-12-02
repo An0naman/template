@@ -11,34 +11,53 @@ class ServiceAnnouncer:
         self.zeroconf = None
         self.info = None
 
-    def get_local_ip(self):
-        """Try to determine the local IP address that is reachable from the network."""
+    def get_all_ips(self):
+        """Get all non-loopback IP addresses."""
+        ips = []
         try:
-            # This doesn't actually connect, but helps find the interface used for routing
+            # Method 1: Connect to internet (finds default route interface)
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
             ip = s.getsockname()[0]
             s.close()
-            return ip
+            if ip and not ip.startswith("127."):
+                ips.append(ip)
         except Exception:
-            return "127.0.0.1"
+            pass
+        
+        try:
+            # Method 2: Hostname resolution
+            hostname = socket.gethostname()
+            _, _, host_ips = socket.gethostbyname_ex(hostname)
+            for ip in host_ips:
+                if not ip.startswith("127.") and ip not in ips:
+                    ips.append(ip)
+        except Exception:
+            pass
+            
+        if not ips:
+            return ["127.0.0.1"]
+        return ips
 
     def start(self):
         try:
             self.zeroconf = Zeroconf()
-            local_ip = self.get_local_ip()
+            ips = self.get_all_ips()
             
             # Service type: _http._tcp.local.
             # Service name: sensor-master._http._tcp.local.
             service_type = "_http._tcp.local."
             service_name = f"{self.name}.{service_type}"
             
-            logger.info(f"Starting mDNS service announcement: {service_name} on {local_ip}:{self.port}")
+            logger.info(f"Starting mDNS service announcement: {service_name} on {ips}:{self.port}")
+            
+            # Convert IPs to bytes
+            addresses = [socket.inet_aton(ip) for ip in ips]
             
             self.info = ServiceInfo(
                 service_type,
                 service_name,
-                addresses=[socket.inet_aton(local_ip)],
+                addresses=addresses,
                 port=self.port,
                 properties={'version': '1.0.0', 'type': 'sensor-master'},
                 server=f"{self.name}.local.",

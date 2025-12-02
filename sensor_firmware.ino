@@ -1490,6 +1490,12 @@ bool discoverMaster() {
             String ip = MDNS.IP(i).toString();
             int port = MDNS.port(i);
             
+            // Validate IP address
+            if (ip == "0.0.0.0" || ip == "127.0.0.1") {
+                WebSerial.println("  ⚠️ Ignoring invalid discovered IP: " + ip);
+                continue;
+            }
+            
             masterUrl = "http://" + ip + ":" + String(port);
             WebSerial.println("  🎯 Master Control found! URL updated to: " + masterUrl);
             return true;
