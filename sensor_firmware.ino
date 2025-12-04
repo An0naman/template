@@ -649,6 +649,15 @@ bool registerWithMaster() {
         WebSerial.println("  Status: " + status);
         WebSerial.println("  Assigned Master: " + String(responseDoc["assigned_master"].as<const char*>()));
         
+        // Update polling interval if provided
+        if (responseDoc.containsKey("check_in_interval")) {
+            unsigned long newInterval = responseDoc["check_in_interval"].as<unsigned long>() * 1000;
+            if (newInterval >= 5000) {
+                pollingInterval = newInterval;
+                WebSerial.println("  ⏱️ Polling interval updated to: " + String(pollingInterval / 1000) + "s");
+            }
+        }
+        
         http.end();
         return true;
     }
@@ -681,13 +690,21 @@ bool getConfigFromMaster() {
             configHash = doc["config_hash"].as<String>();
             
             JsonObject config = doc["config"];
-            unsigned long newPollingInterval = config["polling_interval"].as<unsigned long>() * 1000;
             
-            // Safety check: Ensure polling interval is at least 5 seconds
-            if (newPollingInterval < 5000) {
-                newPollingInterval = 60000;
+            // Check for check_in_interval in the root response first (from API update)
+            if (doc.containsKey("check_in_interval")) {
+                unsigned long newInterval = doc["check_in_interval"].as<unsigned long>() * 1000;
+                if (newInterval >= 5000) {
+                    pollingInterval = newInterval;
+                }
+            } 
+            // Fallback to config object if not in root
+            else if (config.containsKey("polling_interval")) {
+                unsigned long newPollingInterval = config["polling_interval"].as<unsigned long>() * 1000;
+                if (newPollingInterval >= 5000) {
+                    pollingInterval = newPollingInterval;
+                }
             }
-            pollingInterval = newPollingInterval;
 
             dataEndpoint = config["data_endpoint"].as<String>();
             if (dataEndpoint == "null" || dataEndpoint.length() == 0) {
@@ -1059,6 +1076,30 @@ void executeActions(JsonArray actions) {
         } else if (type == "read_temperature") {
             SensorData data = readSensorData();
             WebSerial.println("✓ Temperature: " + String(data.temperature) + "°C");
+            
+        } else if (type == "hibernate") {
+            int duration = action["duration"] | 60;
+            String unit = action["unit"] | "seconds";
+            
+            unsigned long long multiplier = 1000000ULL; // Default microseconds for seconds
+            
+            if (unit == "minutes") {
+                multiplier *= 60;
+            } else if (unit == "hours") {
+                multiplier *= 3600;
+            }
+            
+            String msg = "💤 Entering deep sleep for " + String(duration) + " " + unit;
+            WebSerial.println(msg);
+            Serial.println(msg);
+            sendRemoteLog(msg, "system");
+            
+            // Give time for logs to send
+            delay(1000);
+            
+            // Configure deep sleep
+            esp_sleep_enable_timer_wakeup(duration * multiplier);
+            esp_deep_sleep_start();
         }
     }
 }
@@ -1444,7 +1485,20 @@ void initializeSensors() {
     
     // Initialize Dallas Temperature Sensor
     sensors.begin();
-    int deviceCount = sensors.getDeviceCount();
+    
+    // Retry logic for sensor detection
+    int retryCount = 0;
+    int deviceCount = 0;
+    while (deviceCount == 0 && retryCount < 5) {
+        deviceCount = sensors.getDeviceCount();
+        if (deviceCount == 0) {
+            Serial.println("⚠️ No sensors found, retrying...");
+            delay(250);
+            sensors.begin();
+            retryCount++;
+        }
+    }
+    
     Serial.print("DEBUG: Found ");
     Serial.print(deviceCount);
     Serial.println(" DS18B20 sensors on bus.");
@@ -1463,7 +1517,18 @@ SensorData readSensorData() {
     
     // Read temperature from Dallas sensor
     sensors.requestTemperatures(); 
-    data.temperature = sensors.getTempCByIndex(0);
+    float temp = sensors.getTempCByIndex(0);
+    
+    // Check for error and retry once
+    if (temp == -127.0 || temp == 85.0) {
+        Serial.println("⚠️ Invalid reading (" + String(temp) + "), retrying...");
+        sensors.begin(); // Re-init bus
+        delay(200);
+        sensors.requestTemperatures();
+        temp = sensors.getTempCByIndex(0);
+    }
+    
+    data.temperature = temp;
     
     // Read relay state
     data.relayState = digitalRead(RELAY_PIN);

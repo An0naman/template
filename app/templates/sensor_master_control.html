@@ -720,6 +720,7 @@
                                     <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('set_relay')"><i class="fas fa-toggle-on"></i> Set Relay</button>
                                     <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('delay')"><i class="fas fa-clock"></i> Delay</button>
                                     <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('log')"><i class="fas fa-comment-alt"></i> Log Message</button>
+                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('hibernate')"><i class="fas fa-bed"></i> Hibernate</button>
                                     <button class="btn btn-outline-warning btn-sm text-start" onclick="addLogicBlock('if')"><i class="fas fa-code-branch"></i> If Condition</button>
                                 </div>
                                 <hr>
@@ -796,6 +797,36 @@
                 <div id="plotterLogs" class="bg-dark text-light p-3 border rounded mb-0 font-monospace" style="height: 70vh; overflow-y: auto; font-size: 0.9rem;">
                     <div class="text-white-50">Waiting for logs...</div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Device Modal -->
+<div class="modal fade" id="editDeviceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Device Settings</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editDeviceForm">
+                    <input type="hidden" id="editSensorId">
+                    <div class="mb-3">
+                        <label class="form-label">Friendly Name</label>
+                        <input type="text" class="form-control" id="editSensorName">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Hibernation Duration (seconds)</label>
+                        <input type="number" class="form-control" id="editCheckInInterval" min="10">
+                        <div class="form-text">How often the device wakes up to check for commands and send data.</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveSensorSettings()">Save Changes</button>
             </div>
         </div>
     </div>
@@ -1047,6 +1078,45 @@ async function sendTestLog() {
     } catch (error) {
         console.error('Error sending test log:', error);
         showAlert('Error sending test log: ' + error.message, 'danger');
+    }
+}
+
+function editSensor(sensorId) {
+    const sensor = sensors.find(s => s.sensor_id === sensorId);
+    if (!sensor) return;
+    
+    document.getElementById('editSensorId').value = sensor.sensor_id;
+    document.getElementById('editSensorName').value = sensor.sensor_name || '';
+    document.getElementById('editCheckInInterval').value = sensor.check_in_interval || 60;
+    
+    new bootstrap.Modal(document.getElementById('editDeviceModal')).show();
+}
+
+async function saveSensorSettings() {
+    const sensorId = document.getElementById('editSensorId').value;
+    const name = document.getElementById('editSensorName').value;
+    const interval = parseInt(document.getElementById('editCheckInInterval').value);
+    
+    try {
+        const response = await fetch(`/api/sensor-master/sensors/${sensorId}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                sensor_name: name,
+                check_in_interval: interval
+            })
+        });
+        
+        if (!response.ok) throw new Error('Failed to update sensor');
+        
+        showAlert('Sensor settings updated successfully', 'success');
+        bootstrap.Modal.getInstance(document.getElementById('editDeviceModal')).hide();
+        await loadSensors();
+    } catch (error) {
+        console.error('Error updating sensor:', error);
+        showAlert('Failed to update sensor', 'danger');
     }
 }
 
@@ -1417,6 +1487,10 @@ function renderSensors() {
                                         onclick="viewSensorDetails('${sensor.sensor_id}')" title="View Details">
                                     <i class="fas fa-eye"></i>
                                 </button>
+                                <button class="btn btn-sm btn-outline-secondary" 
+                                        onclick="editSensor('${sensor.sensor_id}')" title="Edit Settings">
+                                    <i class="fas fa-cog"></i>
+                                </button>
                                 <button class="btn btn-sm btn-outline-info" 
                                         onclick="openLogicBuilder('${sensor.sensor_id}')" title="Logic Builder">
                                     <i class="fas fa-project-diagram"></i>
@@ -1512,6 +1586,9 @@ async function viewSensorDetails(sensorId) {
 
             <dt class="col-sm-3">Last Check-in:</dt>
             <dd class="col-sm-9">${sensor.last_check_in ? new Date(sensor.last_check_in).toLocaleString() : 'Never'}</dd>
+            
+            <dt class="col-sm-3">Hibernation:</dt>
+            <dd class="col-sm-9">${sensor.check_in_interval || 60} seconds</dd>
             
             <dt class="col-sm-3">Registered:</dt>
             <dd class="col-sm-9">${new Date(sensor.created_at).toLocaleString()}</dd>
@@ -2212,6 +2289,9 @@ function normalizeLogicData(actions) {
             if (block.alias === undefined) block.alias = '';
         } else if (block.type === 'delay') {
             if (block.ms === undefined) block.ms = 1000;
+        } else if (block.type === 'hibernate') {
+            if (block.duration === undefined) block.duration = 60;
+            if (block.unit === undefined) block.unit = 'seconds';
         } else if (block.type === 'log') {
             if (block.message === undefined) block.message = '';
         } else if (block.type === 'if') {
@@ -2458,6 +2538,7 @@ function renderLogicCanvas() {
             if (block.type.includes('read')) headerColor = 'bg-info bg-opacity-10';
             if (block.type === 'if') { headerColor = 'bg-warning bg-opacity-10'; icon = 'fa-code-branch'; }
             if (block.type === 'delay') { headerColor = 'bg-secondary bg-opacity-10'; icon = 'fa-clock'; }
+            if (block.type === 'hibernate') { headerColor = 'bg-dark bg-opacity-10'; icon = 'fa-bed'; }
             
             let contentHtml = '';
             
@@ -2506,6 +2587,23 @@ function renderLogicCanvas() {
                     if (key === 'condition') return; // Handled above if type is 'if'
                     
                     const val = block[key];
+                    
+                    // Special handling for 'unit' in hibernate block
+                    if (key === 'unit' && block.type === 'hibernate') {
+                         contentHtml += `
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label small mb-0">Unit</label>
+                                <select class="form-select form-select-sm" 
+                                        onchange="updateBlockProperty(${index}, '${key}', this.value, 'text', false)">
+                                    <option value="seconds" ${val === 'seconds' ? 'selected' : ''}>Seconds</option>
+                                    <option value="minutes" ${val === 'minutes' ? 'selected' : ''}>Minutes</option>
+                                    <option value="hours" ${val === 'hours' ? 'selected' : ''}>Hours</option>
+                                </select>
+                            </div>
+                         `;
+                         return;
+                    }
+                    
                     let inputType = 'text';
                     if (typeof val === 'number') inputType = 'number';
                     if (typeof val === 'boolean') inputType = 'checkbox';

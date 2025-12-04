@@ -154,6 +154,9 @@ bool registerWithMaster() {
     
     if (responseDoc["status"] == "registered") {
       masterControlActive = true;
+      if (responseDoc.containsKey("check_in_interval")) {
+        pollingInterval = responseDoc["check_in_interval"];
+      }
       Serial.println("Registered with master control: " + String(responseDoc["assigned_master"].as<String>()));
       http.end();
       return true;
@@ -179,6 +182,11 @@ bool getConfigFromMaster() {
     String response = http.getString();
     StaticJsonDocument<1024> doc;
     deserializeJson(doc, response);
+    
+    // Update polling interval if provided (even if config not available)
+    if (doc.containsKey("check_in_interval")) {
+      pollingInterval = doc["check_in_interval"];
+    }
     
     if (doc["config_available"]) {
       // Update configuration from master
@@ -387,6 +395,9 @@ def register_with_master():
             data = response.json()
             if data.get('status') == 'registered':
                 master_control_active = True
+                if 'check_in_interval' in data:
+                    global polling_interval
+                    polling_interval = data['check_in_interval']
                 print(f"Registered with master: {data.get('assigned_master')}")
                 response.close()
                 return True
@@ -413,6 +424,9 @@ def get_config_from_master():
         
         if response.status_code == 200:
             data = response.json()
+            
+            if 'check_in_interval' in data:
+                polling_interval = data['check_in_interval']
             
             if data.get('config_available'):
                 config = data.get('config', {})

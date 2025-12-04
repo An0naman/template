@@ -84,7 +84,7 @@ def register_sensor():
         
         # Check if sensor is already registered
         cursor.execute('''
-            SELECT id, status 
+            SELECT id, status, check_in_interval 
             FROM SensorRegistration 
             WHERE sensor_id = ?
         ''', (sensor_id,))
@@ -92,7 +92,10 @@ def register_sensor():
         existing = cursor.fetchone()
         timestamp = datetime.now(timezone.utc).isoformat()
         
+        check_in_interval = 60  # Default
+        
         if existing:
+            check_in_interval = existing['check_in_interval'] if existing['check_in_interval'] else 60
             # Update existing registration
             cursor.execute('''
                 UPDATE SensorRegistration
@@ -128,8 +131,8 @@ def register_sensor():
                 INSERT INTO SensorRegistration
                 (sensor_id, sensor_name, sensor_type, hardware_info, firmware_version,
                  ip_address, mac_address, capabilities,
-                 last_check_in, status, registration_source)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 last_check_in, status, registration_source, check_in_interval)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 sensor_id,
                 data.get('sensor_name', 'Unnamed Sensor'),
@@ -141,7 +144,8 @@ def register_sensor():
                 json.dumps(data.get('capabilities', [])),
                 timestamp,
                 'online',
-                'auto'
+                'auto',
+                60  # Default check_in_interval
             ))
             
             logger.info(f"Registered new sensor: {sensor_id}")
@@ -167,7 +171,7 @@ def register_sensor():
             'status': 'registered',
             'has_config': has_config,
             'message': 'Sensor registered successfully',
-            'check_in_interval': 60,  # Check back every 1 minute
+            'check_in_interval': check_in_interval,
             'config_endpoint': f'/api/sensor-master/config/{sensor_id}'
         }), 200
         
@@ -222,7 +226,8 @@ def get_sensor_config(sensor_id):
             return jsonify({
                 'config_available': False,
                 'message': 'No configuration defined for this sensor',
-                'fallback_mode': True
+                'fallback_mode': True,
+                'check_in_interval': sensor['check_in_interval'] if sensor['check_in_interval'] else 60
             }), 200
         
         # Parse configuration
@@ -272,7 +277,7 @@ def get_sensor_config(sensor_id):
             'config_version': config_row['config_version'],
             'config': config_data,
             'commands': commands,
-            'check_in_interval': 60
+            'check_in_interval': sensor['check_in_interval'] if sensor['check_in_interval'] else 60
         }
         
         return jsonify(response), 200
@@ -585,7 +590,7 @@ def update_sensor(sensor_id):
         update_fields = []
         values = []
         
-        allowed_fields = ['sensor_name', 'assigned_master_id', 'status']
+        allowed_fields = ['sensor_name', 'assigned_master_id', 'status', 'check_in_interval']
         
         for field in allowed_fields:
             if field in data:
