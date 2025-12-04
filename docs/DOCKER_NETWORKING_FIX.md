@@ -20,6 +20,8 @@ Run the setup script:
 sudo /home/an0naman/Documents/GitHub/template/scripts/setup-docker-networking.sh
 ```
 
+**Update:** The script now uses wildcard rules (`br-+` and `docker+`), so it automatically covers any new Docker networks created in the future without needing to re-run the script.
+
 ### Permanent Fix (Option 1: iptables-persistent)
 
 1. Install iptables-persistent:

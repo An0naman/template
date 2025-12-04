@@ -1327,6 +1327,8 @@ function renderSensors() {
                         <th>Name</th>
                         <th>Type</th>
                         <th>Status</th>
+                        <th>Temp</th>
+                        <th>Relay</th>
                         <th>Current Script</th>
                         <th>Running Version</th>
                         <th>Last Check-in</th>
@@ -1382,6 +1384,20 @@ function renderSensors() {
                             `;
                         }
                         
+                        // Format temperature
+                        let tempDisplay = '-';
+                        if (sensor.last_temperature !== undefined && sensor.last_temperature !== null) {
+                            tempDisplay = `<strong>${parseFloat(sensor.last_temperature).toFixed(1)}°C</strong>`;
+                        }
+                        
+                        // Format relay state
+                        let relayDisplay = '-';
+                        if (sensor.last_relay_state !== undefined && sensor.last_relay_state !== null) {
+                            relayDisplay = sensor.last_relay_state 
+                                ? '<span class="badge bg-success">ON</span>' 
+                                : '<span class="badge bg-danger">OFF</span>';
+                        }
+                        
                         return `
                         <tr class="sensor-list-item">
                             <td><code>${sensor.sensor_id}</code></td>
@@ -1391,6 +1407,8 @@ function renderSensors() {
                                 <i class="fas fa-circle sensor-status-${sensor.status}"></i>
                                 ${sensor.status}
                             </td>
+                            <td>${tempDisplay}</td>
+                            <td>${relayDisplay}</td>
                             <td>${scriptIndicator}</td>
                             <td>${versionIndicator}</td>
                             <td>${sensor.last_check_in ? new Date(sensor.last_check_in).toLocaleString() : 'Never'}</td>
@@ -1486,6 +1504,12 @@ async function viewSensorDetails(sensorId) {
             <dt class="col-sm-3">Master:</dt>
             <dd class="col-sm-9">${sensor.master_name || 'Unassigned'}</dd>
             
+            <dt class="col-sm-3">Temperature:</dt>
+            <dd class="col-sm-9">${sensor.last_temperature !== undefined && sensor.last_temperature !== null ? parseFloat(sensor.last_temperature).toFixed(1) + ' °C' : 'N/A'}</dd>
+
+            <dt class="col-sm-3">Relay State:</dt>
+            <dd class="col-sm-9">${sensor.last_relay_state !== undefined && sensor.last_relay_state !== null ? (sensor.last_relay_state ? '<span class="badge bg-success">ON</span>' : '<span class="badge bg-danger">OFF</span>') : 'N/A'}</dd>
+
             <dt class="col-sm-3">Last Check-in:</dt>
             <dd class="col-sm-9">${sensor.last_check_in ? new Date(sensor.last_check_in).toLocaleString() : 'Never'}</dd>
             
@@ -1954,7 +1978,7 @@ let currentLogicSensorId = null;
 let currentLogicData = { actions: [] };
 let currentSensorCapabilities = null;
 
-const SYSTEM_VARIABLES = ['millis', 'wifi_rssi', 'free_heap', 'uptime', 'sensor_id', 'current_time'];
+const SYSTEM_VARIABLES = ['millis', 'wifi_rssi', 'free_heap', 'uptime', 'sensor_id', 'current_time', 'sensor.temp', 'sensor.relay'];
 
 function openLogicBuilder(sensorId) {
     currentLogicSensorId = sensorId;
@@ -2181,6 +2205,7 @@ function normalizeLogicData(actions) {
             if (block.pin === undefined) block.pin = 34;
             if (block.alias === undefined) block.alias = '';
         } else if (block.type === 'read_temperature') {
+            if (block.pin === undefined) block.pin = 4;
             if (block.alias === undefined) block.alias = '';
         } else if (block.type === 'set_relay') {
             if (block.state === undefined) block.state = true;
@@ -2509,6 +2534,11 @@ function renderLogicCanvas() {
                         // The requirement is: "If I use a Pin that already has an Alias, I should not be able to add one to it, it should be locked"
                         // This implies if I add a NEW block for Pin 2, and Pin 2 is already aliased to "LED", this new block should auto-fill "LED" and lock it.
                         
+                        // Refined Logic:
+                        // If globalAliases[block.pin] exists:
+                        //    If block.alias is empty or different, show the global alias and DISABLE input.
+                        //    If block.alias is SAME as global alias, ENABLE input (this is likely the definition).
+                        
                         if (block.pin !== undefined && globalAliases[block.pin]) {
                             const existingAlias = globalAliases[block.pin];
                             // If the current block's alias doesn't match the global one, we should probably force it to match visually?
@@ -2516,7 +2546,7 @@ function renderLogicCanvas() {
                             
                             // If this block IS the one defining it (i.e. it matches), we might still want to lock it if we want to enforce "define once"?
                             // But usually you want to be able to edit the definition.
-                            // Let's assume: If this block's alias matches the global one, it MIGHT be the definition.
+                            // Let's assume: If the block's alias matches the global one, it MIGHT be the definition.
                             // But how do we know if it's the *first* one?
                             // We can't easily know order without complex logic.
                             
@@ -2682,6 +2712,138 @@ async function saveLogicBuilder() {
     } catch (e) {
         console.error("Error saving logic:", e);
         showAlert("Failed to prepare save: " + e.message, "danger");
+    }
+}
+
+// ============================================================================
+// ADD DEVICE FUNCTIONS
+// ============================================================================
+
+function showAddDeviceModal() {
+    // Reset form
+    document.getElementById('addDeviceForm').reset();
+    document.getElementById('scanResults').innerHTML = `
+        <div class="text-center text-muted py-4">
+            <small>Click Scan to find devices on your network.</small>
+        </div>
+    `;
+    
+    new bootstrap.Modal(document.getElementById('addDeviceModal')).show();
+}
+
+async function scanForDevices() {
+    const resultsContainer = document.getElementById('scanResults');
+    resultsContainer.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Scanning...</span>
+            </div>
+            <p class="mt-2 text-muted">Listening for device announcements...</p>
+            <small class="text-muted">Reboot your ESP32 device to trigger registration.</small>
+        </div>
+    `;
+    
+    // Since we don't have a true network scan capability from the browser/server yet,
+    // we will simulate a scan by checking for recently registered sensors that might be "pending"
+    // or just refreshing the list.
+    // In a real implementation, this might trigger a server-side mDNS discovery or similar.
+    
+    setTimeout(async () => {
+        try {
+            // For now, we'll just fetch all sensors and show them, 
+            // highlighting any that were added recently (e.g. last 5 minutes)
+            const response = await fetch('/api/sensor-master/sensors');
+            if (!response.ok) throw new Error('Scan failed');
+            
+            const allSensors = await response.json();
+            const recentSensors = allSensors.filter(s => {
+                const registeredAt = new Date(s.created_at);
+                const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+                return registeredAt > fiveMinutesAgo;
+            });
+            
+            if (recentSensors.length === 0) {
+                resultsContainer.innerHTML = `
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-search mb-2"></i>
+                        <p>No new devices found recently.</p>
+                        <small>Ensure your device is powered on and connected to WiFi.</small>
+                    </div>
+                `;
+            } else {
+                let html = '<div class="list-group">';
+                recentSensors.forEach(s => {
+                    html += `
+                        <button type="button" class="list-group-item list-group-item-action" 
+                                onclick="fillDeviceForm('${s.sensor_id}', '${s.sensor_name}', '${s.sensor_type}', '${s.ip_address}')">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">${s.sensor_id}</h6>
+                                <small class="text-success">Found</small>
+                            </div>
+                            <p class="mb-1 small">${s.sensor_name || 'Unnamed'}</p>
+                            <small class="text-muted">${s.ip_address || 'Unknown IP'}</small>
+                        </button>
+                    `;
+                });
+                html += '</div>';
+                resultsContainer.innerHTML = html;
+            }
+            
+        } catch (error) {
+            resultsContainer.innerHTML = `
+                <div class="alert alert-danger m-3">
+                    Scan failed: ${error.message}
+                </div>
+            `;
+        }
+    }, 2000);
+}
+
+function fillDeviceForm(id, name, type, ip) {
+    document.getElementById('newSensorId').value = id || '';
+    document.getElementById('newSensorName').value = name || '';
+    document.getElementById('newSensorType').value = type || '';
+    document.getElementById('newSensorIp').value = ip || '';
+}
+
+async function registerDevice() {
+    const sensorId = document.getElementById('newSensorId').value;
+    const name = document.getElementById('newSensorName').value;
+    const type = document.getElementById('newSensorType').value;
+    const ip = document.getElementById('newSensorIp').value;
+    
+    if (!sensorId) {
+        showAlert('Sensor ID is required', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/sensor-master/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                sensor_id: sensorId,
+                sensor_name: name,
+                sensor_type: type,
+                ip_address: ip,
+                capabilities: [] // Default empty capabilities for manual add
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showAlert('Device registered successfully', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('addDeviceModal')).hide();
+            refreshData();
+        } else {
+            throw new Error(data.error || 'Failed to register device');
+        }
+    } catch (error) {
+        console.error('Error registering device:', error);
+        showAlert('Failed to register device: ' + error.message, 'danger');
     }
 }
 </script>

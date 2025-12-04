@@ -329,6 +329,13 @@ def sensor_heartbeat():
         
         if 'current_script_id' in data:
             update_fields['current_script_id'] = data['current_script_id']
+            
+        # Extract metrics for direct display if available
+        metrics = data.get('metrics', {})
+        if 'temperature' in metrics:
+            update_fields['last_temperature'] = metrics['temperature']
+        if 'relay_state' in metrics:
+            update_fields['last_relay_state'] = metrics['relay_state']
         
         set_clause = ', '.join([f"{k} = ?" for k in update_fields.keys()])
         values = list(update_fields.values()) + [sensor_id]

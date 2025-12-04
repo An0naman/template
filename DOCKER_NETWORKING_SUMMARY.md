@@ -16,8 +16,8 @@
 
 #### Files Created:
 1. **`scripts/setup-docker-networking.sh`** - Automated setup script
-   - Configures iptables rules for all Docker bridges
-   - Handles current and future networks
+   - Configures iptables rules for all Docker bridges using wildcards (`br-+`, `docker+`)
+   - Handles current and future networks automatically
    - Idempotent (safe to run multiple times)
 
 2. **`scripts/docker-networking.service`** - Systemd service

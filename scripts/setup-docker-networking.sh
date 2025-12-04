@@ -17,22 +17,32 @@ if [ "$(cat /proc/sys/net/ipv4/ip_forward)" != "1" ]; then
 fi
 
 # Get all Docker bridge interfaces
-bridges=$(ip addr show | grep -E "^[0-9]+: (br-|docker)" | awk '{print $2}' | tr -d ':')
+# We use wildcards (br-+ and docker+) to handle current AND future networks
+# This avoids the need to re-run the script when new networks are created
 
 echo "Adding FORWARD rules for Docker bridges..."
-for bridge in $bridges; do
-    # Add INPUT rules (allow traffic into bridge)
-    if ! iptables -C FORWARD -i $bridge -j ACCEPT 2>/dev/null; then
-        iptables -I FORWARD 1 -i $bridge -j ACCEPT
-        echo "✓ Added INPUT rule for $bridge"
-    fi
-    
-    # Add OUTPUT rules (allow traffic out of bridge)
-    if ! iptables -C FORWARD -o $bridge -j ACCEPT 2>/dev/null; then
-        iptables -I FORWARD 1 -o $bridge -j ACCEPT
-        echo "✓ Added OUTPUT rule for $bridge"
-    fi
-done
+
+# Allow traffic from/to docker bridges (br-*)
+if ! iptables -C FORWARD -i br-+ -j ACCEPT 2>/dev/null; then
+    iptables -I FORWARD 1 -i br-+ -j ACCEPT
+    echo "✓ Added generic INPUT rule for br-+"
+fi
+
+if ! iptables -C FORWARD -o br-+ -j ACCEPT 2>/dev/null; then
+    iptables -I FORWARD 1 -o br-+ -j ACCEPT
+    echo "✓ Added generic OUTPUT rule for br-+"
+fi
+
+# Allow traffic from/to docker0 interface (docker+)
+if ! iptables -C FORWARD -i docker+ -j ACCEPT 2>/dev/null; then
+    iptables -I FORWARD 1 -i docker+ -j ACCEPT
+    echo "✓ Added generic INPUT rule for docker+"
+fi
+
+if ! iptables -C FORWARD -o docker+ -j ACCEPT 2>/dev/null; then
+    iptables -I FORWARD 1 -o docker+ -j ACCEPT
+    echo "✓ Added generic OUTPUT rule for docker+"
+fi
 
 echo "Adding MASQUERADE rules for Docker subnets..."
 # Add MASQUERADE rules for common Docker subnet ranges

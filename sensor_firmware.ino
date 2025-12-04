@@ -16,6 +16,8 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <Preferences.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include "WebSerial.h"
@@ -40,22 +42,37 @@ const int   daylightOffset_sec = 3600;
 String masterUrl = "http://192.168.68.110:5001";  // Default/Fallback URL
 const char* MDNS_SERVICE_NAME = "sensor-master";  // Hostname to look for (sensor-master.local)
 const int MASTER_PORT = 5001;
-const char* SENSOR_ID = "esp32_fermentation_001";
-const char* SENSOR_NAME = "Fermentation Chamber 1";
+const char* SENSOR_ID = "esp32_fermentation_002";
+const char* SENSOR_NAME = "Fermentation Chamber 2";
 const char* SENSOR_TYPE = "esp32_fermentation";
 const char* FIRMWARE_VERSION = "1.1.1";
 
 // Default Firmware Script (Fallback)
 const char* DEFAULT_FIRMWARE_SCRIPT = R"({
-    "name": "Firmware Default Blink",
-    "version": "0.0.0",
-    "actions": [
-        {"type": "gpio_write", "pin": 2, "value": "HIGH"},
-        {"type": "delay", "ms": 1000},
-        {"type": "gpio_write", "pin": 2, "value": "LOW"},
-        {"type": "delay", "ms": 1000},
-        {"type": "log", "message": "Default firmware script running"}
-    ]
+  "name": "TempRead",
+  "version": "1.0.0",
+  "description": "",
+  "actions": [
+    {
+      "type": "read_temperature",
+      "pin": 4,
+      "alias": "Temp"
+    },
+    {
+      "type": "log",
+      "message": "{Temp}"
+    },
+    {
+      "type": "gpio_write",
+      "pin": 2,
+      "value": "HIGH",
+      "alias": "Len"
+    },
+    {
+      "type": "delay",
+      "ms": 1000
+    }
+  ]
 })";
 
 // Timing Configuration
@@ -64,9 +81,12 @@ unsigned long heartbeatInterval = 300000;     // Default: 5 minutes
 unsigned long offlineRetryInterval = 10000;   // Default: 10 seconds (retry connection faster)
 
 // Hardware Configuration
-#define TEMP_SENSOR_PIN 34        // Analog pin for temperature sensor
+#define ONE_WIRE_BUS 4            // Pin for Dallas Temperature Sensor
 #define RELAY_PIN 25              // Digital pin for relay control
 #define STATUS_LED_PIN 2          // Built-in LED
+
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
 
 // ============================================================================
 // GLOBAL VARIABLES
@@ -113,6 +133,7 @@ unsigned long scriptLedOffDuration = 2000; // Default 2 seconds
 
 // Alias mapping for script execution
 std::map<String, int> pinAliases;
+std::map<String, String> aliasTypes;
 // Pin state tracking for reliable readback
 std::map<int, int> pinStates;
 
@@ -514,6 +535,11 @@ void useOfflineConfiguration() {
 
     dataEndpoint = preferences.getString("dataEndpoint", "");
     
+    // If we have a masterUrl but no dataEndpoint, default it
+    if ((dataEndpoint == "null" || dataEndpoint.length() == 0) && masterUrl.length() > 0) {
+         dataEndpoint = masterUrl + "/api/sensor-master/data";
+    }
+    
     // Safety check: Ensure data endpoint is valid
     if (dataEndpoint == "null") {
         dataEndpoint = "";
@@ -664,8 +690,9 @@ bool getConfigFromMaster() {
             pollingInterval = newPollingInterval;
 
             dataEndpoint = config["data_endpoint"].as<String>();
-            if (dataEndpoint == "null") {
-                dataEndpoint = "";
+            if (dataEndpoint == "null" || dataEndpoint.length() == 0) {
+                // Default to master data endpoint if none specified
+                dataEndpoint = masterUrl + "/api/sensor-master/data";
             }
             
             // Save configuration to preferences
@@ -718,6 +745,11 @@ bool sendHeartbeat() {
     metrics["uptime"] = millis() / 1000;
     metrics["free_memory"] = ESP.getFreeHeap();
     metrics["wifi_rssi"] = WiFi.RSSI();
+    
+    // Add sensor data to heartbeat
+    SensorData sensorData = readSensorData();
+    metrics["temperature"] = sensorData.temperature;
+    metrics["relay_state"] = sensorData.relayState;
     
     String jsonString;
     serializeJson(doc, jsonString);
@@ -837,8 +869,11 @@ void extractAliases(JsonArray actions) {
         if (action.containsKey("alias") && action.containsKey("pin")) {
             String alias = action["alias"].as<String>();
             int pin = action["pin"].as<int>();
+            String type = action["type"] | "";
+            
             if (alias.length() > 0) {
                 pinAliases[alias] = pin;
+                aliasTypes[alias] = type;
             }
         }
         // Recurse
@@ -884,6 +919,16 @@ float resolveValue(String key) {
     // Check aliases
     if (pinAliases.count(key)) {
         int pin = pinAliases[key];
+        String type = aliasTypes.count(key) ? aliasTypes[key] : "";
+
+        // Special handling for OneWire bus pin or read_temperature block - return actual temperature
+        if (pin == ONE_WIRE_BUS || type == "read_temperature") {
+            sensors.requestTemperatures();
+            float temp = sensors.getTempCByIndex(0);
+            WebSerial.println("🔍 DEBUG: Alias '" + key + "' resolved to Temperature: " + String(temp));
+            return temp;
+        }
+
         // Check if we have a tracked state for this pin
         if (pinStates.count(pin)) {
             int val = pinStates[pin];
@@ -1234,6 +1279,7 @@ void executeLocalScript() {
     if (!commandArray.isNull() && commandArray.size() > 0) {
         // Build alias map first
         pinAliases.clear();
+        aliasTypes.clear();
         pinStates.clear(); // Clear states at start of script to ensure fresh reads
         extractAliases(commandArray);
         
@@ -1395,7 +1441,14 @@ void initializeSensors() {
     // Configure pins
     pinMode(STATUS_LED_PIN, OUTPUT);
     pinMode(RELAY_PIN, OUTPUT);
-    pinMode(TEMP_SENSOR_PIN, INPUT);
+    
+    // Initialize Dallas Temperature Sensor
+    sensors.begin();
+    int deviceCount = sensors.getDeviceCount();
+    Serial.print("DEBUG: Found ");
+    Serial.print(deviceCount);
+    Serial.println(" DS18B20 sensors on bus.");
+    WebSerial.println("DEBUG: Found " + String(deviceCount) + " DS18B20 sensors on bus.");
     
     // Initial states
     digitalWrite(STATUS_LED_PIN, LOW);
@@ -1408,10 +1461,9 @@ void initializeSensors() {
 SensorData readSensorData() {
     SensorData data;
     
-    // Read temperature from analog sensor
-    // This is a simplified example - adjust for your actual sensor
-    int rawValue = analogRead(TEMP_SENSOR_PIN);
-    data.temperature = (rawValue / 4095.0) * 100.0;  // Convert to 0-100°C range
+    // Read temperature from Dallas sensor
+    sensors.requestTemperatures(); 
+    data.temperature = sensors.getTempCByIndex(0);
     
     // Read relay state
     data.relayState = digitalRead(RELAY_PIN);
@@ -1420,9 +1472,9 @@ SensorData readSensorData() {
     data.timestamp = millis();
     
     // Blink LED to show activity
-    digitalWrite(STATUS_LED_PIN, HIGH);
-    delay(50);
-    digitalWrite(STATUS_LED_PIN, LOW);
+    // digitalWrite(STATUS_LED_PIN, HIGH);
+    // delay(50);
+    // digitalWrite(STATUS_LED_PIN, LOW);
     
     // Serial Plotter Support
     Serial.print("Temperature:");
