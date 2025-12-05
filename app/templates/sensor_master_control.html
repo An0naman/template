@@ -1397,8 +1397,6 @@ function renderSensors() {
                         <th>Name</th>
                         <th>Type</th>
                         <th>Status</th>
-                        <th>Temp</th>
-                        <th>Relay</th>
                         <th>Current Script</th>
                         <th>Running Version</th>
                         <th>Last Check-in</th>
@@ -1454,20 +1452,6 @@ function renderSensors() {
                             `;
                         }
                         
-                        // Format temperature
-                        let tempDisplay = '-';
-                        if (sensor.last_temperature !== undefined && sensor.last_temperature !== null) {
-                            tempDisplay = `<strong>${parseFloat(sensor.last_temperature).toFixed(1)}°C</strong>`;
-                        }
-                        
-                        // Format relay state
-                        let relayDisplay = '-';
-                        if (sensor.last_relay_state !== undefined && sensor.last_relay_state !== null) {
-                            relayDisplay = sensor.last_relay_state 
-                                ? '<span class="badge bg-success">ON</span>' 
-                                : '<span class="badge bg-danger">OFF</span>';
-                        }
-                        
                         return `
                         <tr class="sensor-list-item">
                             <td><code>${sensor.sensor_id}</code></td>
@@ -1477,8 +1461,6 @@ function renderSensors() {
                                 <i class="fas fa-circle sensor-status-${sensor.status}"></i>
                                 ${sensor.status}
                             </td>
-                            <td>${tempDisplay}</td>
-                            <td>${relayDisplay}</td>
                             <td>${scriptIndicator}</td>
                             <td>${versionIndicator}</td>
                             <td>${sensor.last_check_in ? new Date(sensor.last_check_in).toLocaleString() : 'Never'}</td>
@@ -1486,10 +1468,6 @@ function renderSensors() {
                                 <button class="btn btn-sm btn-outline-primary" 
                                         onclick="viewSensorDetails('${sensor.sensor_id}')" title="View Details">
                                     <i class="fas fa-eye"></i>
-                                </button>
-                                <button class="btn btn-sm btn-outline-secondary" 
-                                        onclick="editSensor('${sensor.sensor_id}')" title="Edit Settings">
-                                    <i class="fas fa-cog"></i>
                                 </button>
                                 <button class="btn btn-sm btn-outline-info" 
                                         onclick="openLogicBuilder('${sensor.sensor_id}')" title="Logic Builder">
@@ -1830,9 +1808,6 @@ function renderScripts() {
                 <td>${script.target_sensor_type || '<span class="text-muted">Any</span>'}</td>
                 <td>${script.description || '-'}</td>
                 <td>
-                    <button class="btn btn-sm btn-primary" onclick="showAssignScriptModal(${script.id}, '${script.name}')">
-                        <i class="fas fa-link"></i> Assign
-                    </button>
                     <button class="btn btn-sm btn-outline-info" onclick="viewScript(${script.id})">
                         <i class="fas fa-eye"></i>
                     </button>
@@ -2598,6 +2573,21 @@ function renderLogicCanvas() {
                                     <option value="seconds" ${val === 'seconds' ? 'selected' : ''}>Seconds</option>
                                     <option value="minutes" ${val === 'minutes' ? 'selected' : ''}>Minutes</option>
                                     <option value="hours" ${val === 'hours' ? 'selected' : ''}>Hours</option>
+                                </select>
+                            </div>
+                         `;
+                         return;
+                    }
+
+                    // Special handling for 'value' in gpio_write block
+                    if (key === 'value' && block.type === 'gpio_write') {
+                         contentHtml += `
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label small mb-0">Value</label>
+                                <select class="form-select form-select-sm" 
+                                        onchange="updateBlockProperty(${index}, '${key}', this.value, 'text', false)">
+                                    <option value="HIGH" ${val === 'HIGH' ? 'selected' : ''}>HIGH</option>
+                                    <option value="LOW" ${val === 'LOW' ? 'selected' : ''}>LOW</option>
                                 </select>
                             </div>
                          `;

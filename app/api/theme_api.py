@@ -564,6 +564,21 @@ def generate_theme_css(settings=None):
             --theme-warning: {colors['warning']};
             --theme-info: {colors['info']};
             
+            /* Bootstrap Overrides */
+            --bs-primary: {colors['primary']};
+            --bs-secondary: {colors['secondary']};
+            --bs-success: {colors['success']};
+            --bs-info: {colors['info']};
+            --bs-warning: {colors['warning']};
+            --bs-danger: {colors['danger']};
+            
+            --bs-primary-rgb: {','.join(str(c) for c in _hex_to_rgb(colors['primary']))};
+            --bs-secondary-rgb: {','.join(str(c) for c in _hex_to_rgb(colors['secondary']))};
+            --bs-success-rgb: {','.join(str(c) for c in _hex_to_rgb(colors['success']))};
+            --bs-info-rgb: {','.join(str(c) for c in _hex_to_rgb(colors['info']))};
+            --bs-warning-rgb: {','.join(str(c) for c in _hex_to_rgb(colors['warning']))};
+            --bs-danger-rgb: {','.join(str(c) for c in _hex_to_rgb(colors['danger']))};
+            
             /* Primary text color for buttons */
             --theme-primary-text: white;
             
