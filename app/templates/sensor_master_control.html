@@ -1327,14 +1327,18 @@ async function loadSensors() {
     try {
         const statusFilter = document.getElementById('statusFilter').value;
         let url = '/api/sensor-master/sensors';
+        // Add cache buster to prevent browser caching of old data
+        url += `?t=${new Date().getTime()}`;
+        
         if (statusFilter) {
-            url += `?status=${statusFilter}`;
+            url += `&status=${statusFilter}`;
         }
         
         const response = await fetch(url);
         if (!response.ok) throw new Error('Failed to load sensors');
         
         sensors = await response.json();
+        console.log('Loaded sensors:', sensors); // Debug: Check if battery data is present
         renderSensors();
     } catch (error) {
         console.error('Error loading sensors:', error);
@@ -1364,6 +1368,7 @@ function renderSensors() {
                         <th>Name</th>
                         <th>Type</th>
                         <th>Status</th>
+                        <th>Battery Level</th>
                         <th>Current Script</th>
                         <th>Running Version</th>
                         <th>Last Check-in</th>
@@ -1441,6 +1446,20 @@ function renderSensors() {
                             <td data-label="Status">
                                 <i class="fas fa-circle sensor-status-${sensor.status}"></i>
                                 ${sensor.status}
+                            </td>
+                            <td data-label="Battery">
+                                ${sensor.last_battery_pct !== undefined && sensor.last_battery_pct !== null 
+                                    ? `<div class="progress" style="height: 20px; min-width: 80px;" title="${sensor.last_battery_voltage ? sensor.last_battery_voltage.toFixed(2) + 'V' : ''}">
+                                        <div class="progress-bar ${sensor.last_battery_pct < 20 ? 'bg-danger' : (sensor.last_battery_pct < 50 ? 'bg-warning' : 'bg-success')}" 
+                                             role="progressbar" 
+                                             style="width: ${sensor.last_battery_pct}%" 
+                                             aria-valuenow="${sensor.last_battery_pct}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                            <small>${sensor.last_battery_pct}%</small>
+                                        </div>
+                                       </div>`
+                                    : (sensor.last_battery_voltage ? `<small>${sensor.last_battery_voltage.toFixed(2)}V</small>` : '<span class="text-muted">-</span>')}
                             </td>
                             <td data-label="Current Script">${scriptIndicator}</td>
                             <td data-label="Running Version">${versionIndicator}</td>
@@ -1551,6 +1570,22 @@ async function viewSensorDetails(sensorId) {
 
             <dt class="col-sm-3">Relay State:</dt>
             <dd class="col-sm-9">${sensor.last_relay_state !== undefined && sensor.last_relay_state !== null ? (sensor.last_relay_state ? '<span class="badge bg-success">ON</span>' : '<span class="badge bg-danger">OFF</span>') : 'N/A'}</dd>
+
+            <dt class="col-sm-3">Battery:</dt>
+            <dd class="col-sm-9">
+                ${sensor.last_battery_pct !== undefined && sensor.last_battery_pct !== null 
+                    ? `<div class="progress" style="height: 20px; max-width: 200px;">
+                        <div class="progress-bar ${sensor.last_battery_pct < 20 ? 'bg-danger' : (sensor.last_battery_pct < 50 ? 'bg-warning' : 'bg-success')}" 
+                             role="progressbar" 
+                             style="width: ${sensor.last_battery_pct}%" 
+                             aria-valuenow="${sensor.last_battery_pct}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                            ${sensor.last_battery_pct}% (${sensor.last_battery_voltage ? sensor.last_battery_voltage.toFixed(2) + 'V' : ''})
+                        </div>
+                       </div>`
+                    : (sensor.last_battery_voltage ? sensor.last_battery_voltage.toFixed(2) + ' V' : 'N/A')}
+            </dd>
 
             <dt class="col-sm-3">Last Check-in:</dt>
             <dd class="col-sm-9">${sensor.last_check_in ? new Date(sensor.last_check_in).toLocaleString() : 'Never'}</dd>

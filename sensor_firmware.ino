@@ -787,6 +787,11 @@ bool sendHeartbeat() {
     SensorData sensorData = readSensorData();
     metrics["temperature"] = sensorData.temperature;
     metrics["relay_state"] = sensorData.relayState;
+
+    // Add dynamic global variables (battery, etc.) to heartbeat metrics
+    for (auto const& [key, val] : globalVariables) {
+        metrics[key] = val;
+    }
     
     String jsonString;
     serializeJson(doc, jsonString);
@@ -1091,7 +1096,15 @@ void executeActions(JsonArray actions) {
             String alias = action["alias"] | "battery";
             
             pinMode(pin, INPUT);
-            int raw = analogRead(pin);
+            
+            // Take multiple samples for averaging to reduce fluctuation
+            long sum = 0;
+            const int samples = 10;
+            for(int i=0; i<samples; i++) {
+                sum += analogRead(pin);
+                delay(10);
+            }
+            float raw = sum / (float)samples;
             
             // Voltage Divider Formula: Vout = Vin * (R2 / (R1 + R2))
             // Vin = Vout * ((R1 + R2) / R2)

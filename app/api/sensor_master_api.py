@@ -358,6 +358,16 @@ def sensor_heartbeat():
         if 'relay_state' in metrics:
             update_fields['last_relay_state'] = metrics['relay_state']
         
+        # Extract battery info if available (check both metrics and root data)
+        # Firmware sends dynamic variables in root of /api response, but heartbeat puts them in metrics
+        battery_pct = metrics.get('battery_pct') or data.get('battery_pct')
+        battery_voltage = metrics.get('battery') or data.get('battery')
+        
+        if battery_pct is not None:
+            update_fields['last_battery_pct'] = battery_pct
+        if battery_voltage is not None:
+            update_fields['last_battery_voltage'] = battery_voltage
+        
         set_clause = ', '.join([f"{k} = ?" for k in update_fields.keys()])
         values = list(update_fields.values()) + [sensor_id]
         
