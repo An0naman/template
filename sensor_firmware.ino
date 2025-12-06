@@ -632,6 +632,7 @@ bool registerWithMaster() {
     JsonArray capabilities = doc["capabilities"].to<JsonArray>();
     capabilities.add("temperature");
     capabilities.add("relay_control");
+    capabilities.add("analog_read");
     
     String jsonString;
     serializeJson(doc, jsonString);
@@ -933,6 +934,12 @@ float resolveValue(String key) {
         return digitalRead(pin);
     }
 
+    // Check for Analog (format: analog.34)
+    if (key.startsWith("analog.")) {
+        int pin = key.substring(7).toInt();
+        return analogRead(pin);
+    }
+
     // Check aliases
     if (pinAliases.count(key)) {
         int pin = pinAliases[key];
@@ -1036,6 +1043,15 @@ void executeActions(JsonArray actions) {
             pinStates[pin] = val;
             
             WebSerial.println("✓ GPIO Read: Pin " + String(pin) + " = " + String(val));
+
+        } else if (type == "analog_read") {
+            int pin = action["pin"].as<int>();
+            int val = analogRead(pin);
+            
+            // Update tracked state
+            pinStates[pin] = val;
+            
+            WebSerial.println("✓ Analog Read: Pin " + String(pin) + " = " + String(val));
 
         } else if (type == "log") {
             String message = action["message"] | "Log message";
