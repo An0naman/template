@@ -2586,9 +2586,9 @@ def upload_background():
         if file_ext not in allowed_extensions:
             return jsonify({'error': 'Invalid file type. Allowed: PNG, JPG, JPEG, WEBP, GIF'}), 400
         
-        # Use /app/uploads which is mounted as a volume for persistence
+        # Use configured upload folder (handles Docker persistence)
         # Create backgrounds subdirectory if it doesn't exist
-        upload_folder = '/app/uploads/backgrounds'
+        upload_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'backgrounds')
         os.makedirs(upload_folder, exist_ok=True)
         
         # Generate unique filename

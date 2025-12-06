@@ -145,7 +145,7 @@ def save_uploaded_file(file, note_id):
         filename = f"note_{note_id}_{original_filename}"
         
         # Ensure uploads directory exists
-        upload_dir = os.path.join(current_app.static_folder, 'uploads')
+        upload_dir = current_app.config['UPLOAD_FOLDER']
         if not os.path.exists(upload_dir):
             os.makedirs(upload_dir)
         
@@ -341,7 +341,13 @@ def delete_note(note_id):
         if note['file_paths']:
             file_paths = note['file_paths'].split(',')
             for file_path in file_paths:
-                full_path = os.path.join(current_app.static_folder, file_path)
+                # Adjust path for Docker volume if needed
+                if file_path.startswith('uploads/'):
+                    clean_path = file_path.replace('uploads/', '', 1)
+                    full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], clean_path)
+                else:
+                    full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], file_path)
+                
                 if os.path.exists(full_path):
                     os.remove(full_path)
                     logger.info(f"Deleted file: {full_path}")
@@ -556,7 +562,7 @@ def add_note_attachments(note_id):
         
         # Process uploaded files
         new_file_paths = []
-        upload_folder = os.path.join(current_app.static_folder, 'uploads')
+        upload_folder = current_app.config['UPLOAD_FOLDER']
         os.makedirs(upload_folder, exist_ok=True)
         
         for file in uploaded_files:
@@ -627,7 +633,12 @@ def delete_note_attachment(note_id, file_index):
         file_to_delete = current_files[file_index]
         
         # Remove the file from filesystem
-        file_path = os.path.join(current_app.static_folder, file_to_delete)
+        if file_to_delete.startswith('uploads/'):
+            clean_path = file_to_delete.replace('uploads/', '', 1)
+            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], clean_path)
+        else:
+            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], file_to_delete)
+            
         if os.path.exists(file_path):
             os.remove(file_path)
             logger.info(f"Deleted file: {file_path}")

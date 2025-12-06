@@ -837,8 +837,8 @@ def upload_project_logo():
             
         if file and allowed_file(file.filename):
             # Create uploads directory if it doesn't exist
-            # Use /app/uploads which is mounted as a volume for persistence
-            upload_dir = '/app/uploads'
+            # Use configured upload folder (handles Docker persistence)
+            upload_dir = current_app.config['UPLOAD_FOLDER']
             os.makedirs(upload_dir, exist_ok=True)
             
             # Use static filename with extension from uploaded file

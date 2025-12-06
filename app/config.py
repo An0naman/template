@@ -24,7 +24,12 @@ PORT = int(os.environ.get('PORT', 5001))
 DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
 
 # File upload configuration
-UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'app', 'static', 'uploads')
+# Use /app/uploads if it exists (Docker volume), otherwise fallback to local static folder
+if os.path.exists('/app/uploads'):
+    UPLOAD_FOLDER = '/app/uploads'
+else:
+    UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'app', 'static', 'uploads')
+
 MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB max file size
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
