@@ -822,6 +822,7 @@
                                     <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('pwm_write')"><i class="fas fa-wave-square"></i> PWM Write</button>
                                     <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('analog_write')"><i class="fas fa-bezier-curve"></i> DAC Write</button>
                                     <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('analog_read')"><i class="fas fa-chart-bar"></i> Analog Read</button>
+                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('read_battery')"><i class="fas fa-battery-half"></i> Read Battery</button>
                                     <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('read_temperature')"><i class="fas fa-thermometer-half"></i> Read Temperature</button>
                                     <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('set_relay')"><i class="fas fa-toggle-on"></i> Set Relay</button>
                                     <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('delay')"><i class="fas fa-clock"></i> Delay</button>
@@ -2021,7 +2022,9 @@ let currentLogicSensorId = null;
 let currentLogicData = { actions: [] };
 let currentSensorCapabilities = null;
 
-const SYSTEM_VARIABLES = ['millis', 'wifi_rssi', 'free_heap', 'uptime', 'sensor_id', 'current_time', 'sensor.temp', 'sensor.relay'];
+const SYSTEM_VARIABLES = [
+    'millis', 'wifi_rssi', 'free_heap', 'uptime', 'sensor_id', 'current_time', 'sensor.temp', 'sensor.relay', 'firmware_version'
+];
 
 function openLogicBuilder(sensorId) {
     currentLogicSensorId = sensorId;
@@ -2250,6 +2253,11 @@ function normalizeLogicData(actions) {
         } else if (block.type === 'read_temperature') {
             if (block.pin === undefined) block.pin = 4;
             if (block.alias === undefined) block.alias = '';
+        } else if (block.type === 'read_battery') {
+            if (block.pin === undefined) block.pin = 34;
+            if (block.r1 === undefined) block.r1 = 100000;
+            if (block.r2 === undefined) block.r2 = 100000;
+            if (block.alias === undefined) block.alias = 'battery';
         } else if (block.type === 'set_relay') {
             if (block.state === undefined) block.state = true;
             if (block.alias === undefined) block.alias = '';

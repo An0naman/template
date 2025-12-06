@@ -136,6 +136,8 @@ std::map<String, int> pinAliases;
 std::map<String, String> aliasTypes;
 // Pin state tracking for reliable readback
 std::map<int, int> pinStates;
+// Global variable storage for float values (e.g. battery voltage)
+std::map<String, float> globalVariables;
 
 unsigned long commandStartTime = 0;
 unsigned long commandDelay = 0;
@@ -366,7 +368,23 @@ void setup() {
         });
         
         server.on("/api", HTTP_GET, []() {
-            String json = "{\"name\":\"" + String(SENSOR_NAME) + "\", \"id\":\"" + String(SENSOR_ID) + "\", \"type\":\"" + String(SENSOR_TYPE) + "\"}";
+            JsonDocument doc;
+            doc["name"] = SENSOR_NAME;
+            doc["id"] = SENSOR_ID;
+            doc["type"] = SENSOR_TYPE;
+            
+            // Add current sensor data
+            SensorData data = readSensorData();
+            doc["temperature"] = data.temperature;
+            doc["relay_state"] = data.relayState;
+            
+            // Add dynamic global variables (battery, etc.)
+            for (auto const& [key, val] : globalVariables) {
+                doc[key] = val;
+            }
+            
+            String json;
+            serializeJson(doc, json);
             server.send(200, "application/json", json);
         });
         
@@ -633,6 +651,7 @@ bool registerWithMaster() {
     capabilities.add("temperature");
     capabilities.add("relay_control");
     capabilities.add("analog_read");
+    capabilities.add("read_battery");
     
     String jsonString;
     serializeJson(doc, jsonString);
@@ -822,6 +841,12 @@ bool sendDataToMaster(SensorData data) {
     doc["relay_state"] = data.relayState;
     doc["timestamp"] = data.timestamp;
     doc["mode"] = "online";
+    doc["firmware_version"] = FIRMWARE_VERSION;
+
+    // Add all dynamic global variables (e.g. battery, soil, etc.)
+    for (auto const& [key, val] : globalVariables) {
+        doc[key] = val;
+    }
     
     String jsonString;
     serializeJson(doc, jsonString);
@@ -940,6 +965,11 @@ float resolveValue(String key) {
         return analogRead(pin);
     }
 
+    // Check global variables (e.g. battery voltage)
+    if (globalVariables.count(key)) {
+        return globalVariables[key];
+    }
+
     // Check aliases
     if (pinAliases.count(key)) {
         int pin = pinAliases[key];
@@ -1052,6 +1082,38 @@ void executeActions(JsonArray actions) {
             pinStates[pin] = val;
             
             WebSerial.println("✓ Analog Read: Pin " + String(pin) + " = " + String(val));
+
+        } else if (type == "read_battery") {
+            int pin = action["pin"].as<int>();
+            float r1 = action["r1"] | 100000.0; // Top resistor (connected to Battery +)
+            float r2 = action["r2"] | 100000.0; // Bottom resistor (connected to GND)
+            float vref = action["vref"] | 3.3;  // Reference voltage (usually 3.3V for ESP32)
+            String alias = action["alias"] | "battery";
+            
+            pinMode(pin, INPUT);
+            int raw = analogRead(pin);
+            
+            // Voltage Divider Formula: Vout = Vin * (R2 / (R1 + R2))
+            // Vin = Vout * ((R1 + R2) / R2)
+            // Vout = (raw / 4095.0) * vref
+            
+            float voltage = (raw / 4095.0) * vref * ((r1 + r2) / r2);
+            
+            // Calculate Percentage (Linear approximation for LiPo 3.3V - 4.2V)
+            float minV = action["min_v"] | 3.3;
+            float maxV = action["max_v"] | 4.2;
+            int pct = (int)((voltage - minV) / (maxV - minV) * 100);
+            if (pct < 0) pct = 0;
+            if (pct > 100) pct = 100;
+
+            globalVariables[alias] = voltage;
+            globalVariables[alias + "_pct"] = (float)pct;
+            
+            WebSerial.println("✓ Battery: " + String(voltage) + "V (" + String(pct) + "%)");
+            
+            if (raw == 0) {
+                WebSerial.println("⚠️ Warning: Battery raw reading is 0. Check wiring/resistors.");
+            }
 
         } else if (type == "log") {
             String message = action["message"] | "Log message";

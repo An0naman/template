@@ -924,6 +924,19 @@ def _extract_aliases_from_script(script_content):
                             info['unit'] = ''
                             info['data_type'] = 'numeric'
                             info['category'] = 'sensor'
+                        elif action_type == 'read_battery':
+                            info['unit'] = 'V'
+                            info['data_type'] = 'numeric'
+                            info['category'] = 'sensor'
+                            # Also add the percentage alias
+                            aliases[alias + '_pct'] = {
+                                'alias': alias + '_pct',
+                                'type': 'read_battery_pct',
+                                'pin': pin,
+                                'unit': '%',
+                                'data_type': 'numeric',
+                                'category': 'sensor'
+                            }
                             
                         aliases[alias] = info
                     
@@ -960,6 +973,35 @@ def get_sensor_mappings(device_id):
         ''', (device_id,))
         sensor_mappings = [dict(row) for row in cursor.fetchall()]
         
+        # Try to get script aliases to improve labeling (do this first so it's available for fallback)
+        script_aliases = {}
+        try:
+            # Find the sensor_id (string) for this device
+            sensor_id = device['device_id']
+            logger.info(f"DEBUG: Looking for script for sensor_id: {sensor_id}")
+            
+            # Get the active script for this sensor
+            cursor.execute('''
+                SELECT s.script_content 
+                FROM SensorRegistration r
+                JOIN SensorScripts s ON r.current_script_id = s.id
+                WHERE r.sensor_id = ?
+            ''', (sensor_id,))
+            
+            script_row = cursor.fetchone()
+            if script_row:
+                logger.info(f"DEBUG: Found script content for {sensor_id}")
+                if script_row['script_content']:
+                    script_aliases = _extract_aliases_from_script(script_row['script_content'])
+                    logger.info(f"DEBUG: Extracted aliases: {list(script_aliases.keys())}")
+                else:
+                    logger.info("DEBUG: Script content is empty")
+            else:
+                logger.info(f"DEBUG: No active script found in DB for {sensor_id}")
+
+        except Exception as e:
+            logger.warning(f"Could not get script aliases: {e}")
+
         # Get available sensors by actually polling the device
         available_sensors = []
         try:
@@ -971,27 +1013,6 @@ def get_sensor_mappings(device_id):
             if response.status_code == 200:
                 device_data = response.json()
                 
-                # Try to get script aliases to improve labeling
-                script_aliases = {}
-                try:
-                    # Find the sensor_id (string) for this device
-                    sensor_id = device['device_id']
-                    
-                    # Get the active script for this sensor
-                    cursor.execute('''
-                        SELECT s.script_content 
-                        FROM SensorRegistration r
-                        JOIN SensorScripts s ON r.current_script_id = s.id
-                        WHERE r.sensor_id = ?
-                    ''', (sensor_id,))
-                    
-                    script_row = cursor.fetchone()
-                    if script_row and script_row['script_content']:
-                        script_aliases = _extract_aliases_from_script(script_row['script_content'])
-                        logger.info(f"Extracted aliases for {sensor_id}: {list(script_aliases.keys())}")
-                except Exception as e:
-                    logger.warning(f"Could not get script aliases: {e}")
-
                 # Analyze the data structure to find available sensors
                 data_paths = _analyze_data_structure(device_data)
                 
@@ -1103,6 +1124,23 @@ def get_sensor_mappings(device_id):
                 {'name': 'network.rssi', 'display_name': 'WiFi Signal Strength', 'unit': 'dBm', 'data_type': 'numeric', 'category': 'network'},
                 {'name': 'system.free_heap', 'display_name': 'Free Memory', 'unit': 'bytes', 'data_type': 'numeric', 'category': 'system'}
             ]
+        
+        # Generic injection for any alias found in the script but not in the device data
+        # This ensures new sensors (like battery) appear in the UI even if the device 
+        # hasn't been updated/flashed to report them yet, or if the device is offline.
+        existing_names = {s['name'] for s in available_sensors}
+        if script_aliases:
+            for alias, meta in script_aliases.items():
+                if alias not in existing_names:
+                    logger.info(f"Injecting missing sensor from script: {alias}")
+                    available_sensors.append({
+                        'name': alias,
+                        'display_name': meta.get('alias', alias).replace('_', ' ').title(),
+                        'unit': meta.get('unit', ''),
+                        'data_type': meta.get('data_type', 'text'),
+                        'category': meta.get('category', 'unknown'),
+                        'sample_value': 'N/A'
+                    })
         
         return jsonify({
             'sensor_mappings': sensor_mappings,

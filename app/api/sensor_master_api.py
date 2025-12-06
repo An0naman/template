@@ -1126,6 +1126,14 @@ def assign_library_script():
         ))
         
         new_script_id = cursor.lastrowid
+        
+        # Update SensorRegistration with current_script_id
+        cursor.execute('''
+            UPDATE SensorRegistration
+            SET current_script_id = ?
+            WHERE sensor_id = ?
+        ''', (new_script_id, data['sensor_id']))
+        
         conn.commit()
         
         logger.info(f"Assigned library script {data['library_script_id']} to sensor {data['sensor_id']}")
