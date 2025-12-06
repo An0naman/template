@@ -148,7 +148,23 @@ def register_sensor():
                 60  # Default check_in_interval
             ))
             
-            logger.info(f"Registered new sensor: {sensor_id}")
+        # Also update RegisteredDevices if it exists there (for Device Manager)
+        cursor.execute('SELECT id FROM RegisteredDevices WHERE device_id = ?', (sensor_id,))
+        registered_device = cursor.fetchone()
+        
+        if registered_device:
+            cursor.execute('''
+                UPDATE RegisteredDevices 
+                SET ip = ?, status = 'online', last_seen = ?
+                WHERE device_id = ?
+            ''', (
+                data.get('ip_address', ''),
+                timestamp,
+                sensor_id
+            ))
+            logger.info(f"Updated RegisteredDevices for {sensor_id}")
+
+        conn.commit()
         
         # Check if there's a configuration available
         # SensorMasterConfig table has been removed, so we check if a script is assigned
@@ -1573,5 +1589,142 @@ def get_sensor_logs(sensor_id):
     except Exception as e:
         logger.error(f"Error fetching sensor logs: {e}", exc_info=True)
         return jsonify({'error': 'Failed to fetch logs'}), 500
+
+
+@sensor_master_api_bp.route('/sensor-master/data', methods=['POST'])
+def receive_sensor_data():
+    """
+    Receive data from a sensor (push method)
+    
+    Expected payload:
+    {
+        "sensor_id": "esp32_unique_id",
+        "temperature": 25.5,
+        "relay_state": 1,
+        "timestamp": 1234567890,
+        "mode": "online"
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        if not data or 'sensor_id' not in data:
+            return jsonify({'error': 'sensor_id is required'}), 400
+        
+        sensor_id = data['sensor_id']
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Check if sensor is registered
+        cursor.execute('SELECT id, device_name, polling_interval, last_data_stored, polling_enabled FROM RegisteredDevices WHERE device_id = ?', (sensor_id,))
+        device = cursor.fetchone()
+        
+        if not device:
+            return jsonify({'error': 'Sensor not registered'}), 404
+            
+        device_id = device['id']
+        polling_interval = device['polling_interval'] or 30
+        last_data_stored = device['last_data_stored']
+        polling_enabled = device['polling_enabled']
+        
+        # Update last seen status
+        timestamp = datetime.now(timezone.utc).isoformat()
+        cursor.execute('''
+            UPDATE RegisteredDevices 
+            SET last_seen = ?, status = 'online', last_poll_success = ?
+            WHERE id = ?
+        ''', (timestamp, timestamp, device_id))
+        
+        # Check if polling (storage) is enabled
+        if not polling_enabled:
+             conn.commit()
+             return jsonify({'message': 'Data received (storage disabled)'}), 200
+
+        # Check rate limiting for data storage
+        should_store = True
+        if last_data_stored:
+            try:
+                last_stored_dt = datetime.fromisoformat(last_data_stored.replace('Z', '+00:00'))
+                now_dt = datetime.now(timezone.utc)
+                elapsed = (now_dt - last_stored_dt).total_seconds()
+                
+                if elapsed < polling_interval:
+                    should_store = False
+                    logger.debug(f"Skipping storage for device {device_id}: elapsed {elapsed}s < interval {polling_interval}s")
+            except Exception as e:
+                logger.warning(f"Error parsing last_data_stored: {e}")
+        
+        if not should_store:
+            conn.commit()
+            return jsonify({'message': 'Data received (storage skipped due to rate limit)'}), 200
+
+        # Get linked entries that are active
+        cursor.execute('''
+            SELECT del.entry_id, del.auto_record 
+            FROM DeviceEntryLinks del
+            JOIN Entry e ON del.entry_id = e.id
+            WHERE del.device_id = ? AND e.status != 'inactive'
+        ''', (device_id,))
+        
+        links = cursor.fetchall()
+        
+        if not links:
+            conn.commit()
+            return jsonify({'message': 'Data received (no active linked entries)'}), 200
+            
+        # Import helper from device_api to reuse mapping logic
+        # Import inside function to avoid circular imports
+        from .device_api import extract_sensor_data_using_mappings
+        
+        # Extract mapped data points
+        sensor_data_points = extract_sensor_data_using_mappings(device_id, data, cursor)
+        
+        stored_count = 0
+        entries_updated = 0
+        
+        for link in links:
+            entry_id = link['entry_id']
+            auto_record = link['auto_record']
+            
+            if not auto_record:
+                continue
+                
+            entries_updated += 1
+            for sensor_point in sensor_data_points:
+                cursor.execute('''
+                    INSERT INTO SensorData (entry_id, sensor_type, value, recorded_at)
+                    VALUES (?, ?, ?, ?)
+                ''', (
+                    entry_id,
+                    sensor_point['sensor_type'],
+                    sensor_point['value'],
+                    sensor_point['recorded_at']
+                ))
+                stored_count += 1
+                
+                # Check sensor notification rules
+                try:
+                    from ..api.notifications_api import check_sensor_rules
+                    check_sensor_rules(entry_id, sensor_point['sensor_type'], 
+                                     sensor_point['value'], sensor_point['recorded_at'])
+                except Exception as e:
+                    logger.warning(f"Error checking sensor rules for entry {entry_id}: {e}")
+
+        # Update last_data_stored timestamp
+        if stored_count > 0:
+            cursor.execute('UPDATE RegisteredDevices SET last_data_stored = ? WHERE id = ?', (timestamp, device_id))
+
+        conn.commit()
+        
+        return jsonify({
+            'message': 'Data received and processed',
+            'stored_points': stored_count,
+            'entries_updated': entries_updated
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error receiving sensor data: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to process sensor data'}), 500
 
 

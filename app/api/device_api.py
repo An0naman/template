@@ -222,10 +222,55 @@ def scan_network():
         # Run the scan
         scan_ip_range()
         
+        # Auto-reconnect registered devices found with new IPs
+        reconnected_count = 0
+        try:
+            conn = get_db()
+            cursor = conn.cursor()
+            
+            for device in discovered_devices:
+                device_id = device.get('device_id') or device.get('id')
+                ip = device.get('ip')
+                
+                if device_id and ip:
+                    # Check if this device is registered
+                    cursor.execute('SELECT id, ip FROM RegisteredDevices WHERE device_id = ?', (device_id,))
+                    registered = cursor.fetchone()
+                    
+                    if registered:
+                        # If registered but IP is different, update it
+                        if registered['ip'] != ip:
+                            logger.info(f"Auto-reconnecting device {device_id}: IP changed from {registered['ip']} to {ip}")
+                            timestamp = datetime.now(timezone.utc).isoformat()
+                            cursor.execute('''
+                                UPDATE RegisteredDevices 
+                                SET ip = ?, status = 'online', last_seen = ? 
+                                WHERE id = ?
+                            ''', (ip, timestamp, registered['id']))
+                            reconnected_count += 1
+                            device['status'] = 'reconnected'
+                        else:
+                            # Just update status to online if IP matches
+                            timestamp = datetime.now(timezone.utc).isoformat()
+                            cursor.execute('''
+                                UPDATE RegisteredDevices 
+                                SET status = 'online', last_seen = ? 
+                                WHERE id = ?
+                            ''', (timestamp, registered['id']))
+                            device['status'] = 'online'
+            
+            if reconnected_count > 0:
+                conn.commit()
+                logger.info(f"Auto-reconnected {reconnected_count} devices during scan")
+                
+        except Exception as e:
+            logger.error(f"Error processing auto-reconnect during scan: {e}")
+
         logger.info(f"Network scan completed. Found {len(discovered_devices)} ESP32 devices")
         
         return jsonify({
             'discovered_devices': discovered_devices,
+            'reconnected_count': reconnected_count,
             'scan_range': network_range,
             'scan_time': datetime.now().isoformat(),
             'total_scanned': len(list(ipaddress.IPv4Network(network_range).hosts()))
@@ -835,6 +880,65 @@ def get_api_status():
 
 # Sensor Mapping API Endpoints
 
+def _extract_aliases_from_script(script_content):
+    """
+    Extract aliases from a sensor script to improve data labeling
+    """
+    aliases = {}
+    try:
+        if not script_content:
+            return aliases
+            
+        # Handle case where script_content might be a dict already or a string
+        if isinstance(script_content, str):
+            script = json.loads(script_content)
+        else:
+            script = script_content
+            
+        actions = script.get('actions', [])
+        
+        def recurse_actions(action_list):
+            for action in action_list:
+                if isinstance(action, dict):
+                    if 'alias' in action and action['alias']:
+                        alias = action['alias']
+                        action_type = action.get('type', '')
+                        pin = action.get('pin')
+                        
+                        info = {
+                            'alias': alias, 
+                            'type': action_type,
+                            'pin': pin
+                        }
+                        
+                        # Add metadata based on type
+                        if action_type == 'read_temperature':
+                            info['unit'] = '°C'
+                            info['data_type'] = 'numeric'
+                            info['category'] = 'sensor'
+                        elif action_type == 'gpio_write':
+                            info['unit'] = ''
+                            info['data_type'] = 'text'
+                            info['category'] = 'control'
+                        elif action_type == 'gpio_read':
+                            info['unit'] = ''
+                            info['data_type'] = 'numeric'
+                            info['category'] = 'sensor'
+                            
+                        aliases[alias] = info
+                    
+                    # Recurse into nested blocks
+                    if 'then' in action and isinstance(action['then'], list):
+                        recurse_actions(action['then'])
+                    if 'else' in action and isinstance(action['else'], list):
+                        recurse_actions(action['else'])
+                    
+        recurse_actions(actions)
+    except Exception as e:
+        logger.error(f"Error extracting aliases from script: {e}")
+        
+    return aliases
+
 @device_api_bp.route('/devices/<int:device_id>/sensor-mappings', methods=['GET'])
 def get_sensor_mappings(device_id):
     """Get sensor mappings for a device"""
@@ -866,24 +970,118 @@ def get_sensor_mappings(device_id):
             
             if response.status_code == 200:
                 device_data = response.json()
+                
+                # Try to get script aliases to improve labeling
+                script_aliases = {}
+                try:
+                    # Find the sensor_id (string) for this device
+                    sensor_id = device['device_id']
+                    
+                    # Get the active script for this sensor
+                    cursor.execute('''
+                        SELECT s.script_content 
+                        FROM SensorRegistration r
+                        JOIN SensorScripts s ON r.current_script_id = s.id
+                        WHERE r.sensor_id = ?
+                    ''', (sensor_id,))
+                    
+                    script_row = cursor.fetchone()
+                    if script_row and script_row['script_content']:
+                        script_aliases = _extract_aliases_from_script(script_row['script_content'])
+                        logger.info(f"Extracted aliases for {sensor_id}: {list(script_aliases.keys())}")
+                except Exception as e:
+                    logger.warning(f"Could not get script aliases: {e}")
+
                 # Analyze the data structure to find available sensors
                 data_paths = _analyze_data_structure(device_data)
                 
                 # Convert to available sensors format, grouping by category
                 for path, info in data_paths.items():
                     # Skip non-useful data points
-                    if path in ['device_id', 'device_name', 'timestamp']:
+                    if path in ['device_id', 'device_name', 'timestamp', 'id', 'name', 'type', 'mac_address', 'ip_address']:
                         continue
                     
+                    display_name = info.get('display_name', path.replace('_', ' ').title())
+                    
+                    # Apply script aliases if available
+                    if script_aliases:
+                        # Heuristic: Map 'temperature' to the first read_temperature alias
+                        if path == 'temperature':
+                            for alias, meta in script_aliases.items():
+                                if meta['type'] == 'read_temperature':
+                                    display_name = f"{alias} (Temperature)"
+                                    break
+                        # Heuristic: Map 'relay_state' to the first gpio_write alias on pin 25
+                        elif path == 'relay_state':
+                            for alias, meta in script_aliases.items():
+                                if meta['type'] == 'gpio_write' and meta.get('pin') == 25:
+                                    display_name = f"{alias} (Relay)"
+                                    break
+                        # Direct match (if firmware is updated to send alias keys)
+                        elif path in script_aliases:
+                            display_name = script_aliases[path]['alias']
+
                     available_sensors.append({
                         'name': path,
-                        'display_name': info.get('display_name', path.replace('_', ' ').title()),
+                        'display_name': display_name,
                         'unit': info.get('unit', ''),
                         'data_type': info.get('data_type', 'text'),
                         'category': info.get('category', 'unknown'),
                         'sample_value': info.get('value', '')
                     })
                 
+                # If we filtered out everything (e.g. only metadata was returned), 
+                # or if we want to ensure standard sensors are present for this device type
+                # we should inject them based on the script or device type.
+                
+                # Check if we have the core sensors
+                has_temp = any(s['name'] == 'temperature' for s in available_sensors)
+                has_relay = any(s['name'] == 'relay_state' for s in available_sensors)
+                
+                if not has_temp or not has_relay:
+                    # Inject from script aliases if possible
+                    if script_aliases:
+                        for alias, meta in script_aliases.items():
+                            if meta['type'] == 'read_temperature' and not any(s['name'] == 'temperature' for s in available_sensors):
+                                available_sensors.append({
+                                    'name': 'temperature',
+                                    'display_name': f"{alias} (Temperature)",
+                                    'unit': '°C',
+                                    'data_type': 'numeric',
+                                    'category': 'sensor',
+                                    'sample_value': 20.0
+                                })
+                            elif meta['type'] == 'gpio_write' and meta.get('pin') == 25 and not any(s['name'] == 'relay_state' for s in available_sensors):
+                                available_sensors.append({
+                                    'name': 'relay_state',
+                                    'display_name': f"{alias} (Relay)",
+                                    'unit': '',
+                                    'data_type': 'text',
+                                    'category': 'control',
+                                    'sample_value': 'OFF'
+                                })
+                    
+                    # Fallback to standard sensors for this device type if still missing
+                    if device['device_type'] == 'esp32_fermentation':
+                        if not any(s['name'] == 'temperature' for s in available_sensors):
+                            available_sensors.append({
+                                'name': 'temperature', 
+                                'display_name': 'Temperature', 
+                                'unit': '°C', 
+                                'data_type': 'numeric', 
+                                'category': 'sensor',
+                                'sample_value': 20.0
+                            })
+                        if not any(s['name'] == 'relay_state' for s in available_sensors):
+                            available_sensors.append({
+                                'name': 'relay_state', 
+                                'display_name': 'Relay State', 
+                                'unit': '', 
+                                'data_type': 'text', 
+                                'category': 'control',
+                                'sample_value': 'OFF'
+                            })
+
                 # Sort sensors by category and then by name
                 available_sensors.sort(key=lambda x: (x['category'], x['name']))
             else:
@@ -1058,6 +1256,32 @@ def _analyze_data_structure(data, prefix="", max_array_items=5):
             current_path = f"{prefix}.{key}" if prefix else key
             
             if isinstance(value, (dict, list)):
+                # Check for complex value object pattern (e.g. {value: 25, alias: "Temp"})
+                if isinstance(value, dict) and ('value' in value or 'val' in value):
+                    actual_value = value.get('value', value.get('val'))
+                    # Don't recurse if it looks like a leaf node with metadata
+                    if not isinstance(actual_value, (dict, list)):
+                        alias = value.get('alias', value.get('label', value.get('name', value.get('friendly_name'))))
+                        unit = value.get('unit', "")
+                        
+                        # Use the alias as display name if available
+                        display_name = alias if alias else key.replace("_", " ").title()
+                        category = prefix.split('.')[0] if prefix else "root"
+                        
+                        # Infer data type
+                        data_type = "numeric" if isinstance(actual_value, (int, float)) else "text"
+                        
+                        paths[current_path] = {
+                            'type': type(actual_value).__name__,
+                            'value': actual_value,
+                            'sample': str(actual_value)[:50] + ('...' if len(str(actual_value)) > 50 else ''),
+                            'data_type': data_type,
+                            'unit': unit,
+                            'display_name': display_name,
+                            'category': category
+                        }
+                        continue
+
                 paths.update(_analyze_data_structure(value, current_path, max_array_items))
             else:
                 # Enhanced analysis for ESP32 fermentation controller data
@@ -1070,6 +1294,12 @@ def _analyze_data_structure(data, prefix="", max_array_items=5):
                 if "temp" in key.lower():
                     unit = "°C"
                     display_name = "Temperature"
+                    if "target" in key.lower():
+                        display_name = "Target Temperature"
+                    elif "beer" in key.lower():
+                        display_name = "Beer Temperature"
+                    elif "fridge" in key.lower() or "chamber" in key.lower():
+                        display_name = "Chamber Temperature"
                 elif "rssi" in key.lower():
                     unit = "dBm"
                     display_name = "WiFi Signal Strength"
@@ -1106,6 +1336,10 @@ def _analyze_data_structure(data, prefix="", max_array_items=5):
                     display_name = "Control Pin"
                 elif "state" in key.lower():
                     display_name = "Relay State"
+                    if "relay" in prefix.lower():
+                         display_name = "Relay State"
+                    elif "door" in prefix.lower():
+                         display_name = "Door State"
                 elif "status" in key.lower():
                     display_name = f"{prefix.split('.')[-1].title() if prefix else 'Device'} Status"
                 elif "valid" in key.lower():
@@ -1133,6 +1367,24 @@ def _analyze_data_structure(data, prefix="", max_array_items=5):
                     unit = "V"
                 elif "amp" in key.lower():
                     unit = "A"
+                elif "humidity" in key.lower():
+                    unit = "%"
+                    display_name = "Humidity"
+                elif "pressure" in key.lower():
+                    unit = "hPa"
+                    display_name = "Pressure"
+                elif "gravity" in key.lower():
+                    unit = "SG"
+                    display_name = "Specific Gravity"
+                elif "abv" in key.lower():
+                    unit = "%"
+                    display_name = "Alcohol by Volume"
+                elif "ph" in key.lower():
+                    unit = "pH"
+                    display_name = "pH Level"
+                elif "co2" in key.lower():
+                    unit = "ppm"
+                    display_name = "CO2 Level"
                 
                 paths[current_path] = {
                     'type': type(value).__name__,

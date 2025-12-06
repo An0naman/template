@@ -244,6 +244,22 @@
                 min-width: 0 !important;
                 text-align: center !important;
             }
+            
+            /* Device Card Mobile Improvements */
+            .device-card .col-md-4 {
+                margin-top: 1rem;
+                text-align: center !important;
+            }
+            
+            .device-card .btn-group {
+                display: flex;
+                width: 100%;
+            }
+            
+            .device-card .btn-group .btn {
+                flex: 1;
+                padding: 0.5rem 0.25rem;
+            }
         }
     </style>
 </head>
@@ -836,39 +852,59 @@
         async function scanNetwork() {
             try {
                 scanningOverlay.style.display = 'flex';
-                document.querySelector('.scanning-content h5').textContent = 'Scanning Network (Full)';
-                document.querySelector('.scanning-content p').textContent = 'Looking for ESP32 devices with threading...';
+                document.querySelector('.scanning-content h5').textContent = 'Searching for Devices';
+                document.querySelector('.scanning-content p').textContent = 'Checking for recently active devices...';
                 
-                currentScanRequest = fetch('/api/devices/scan', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({})
+                // Simulate scan delay
+                await new Promise(resolve => setTimeout(resolve, 1500));
+
+                // Fetch sensors from sensor master
+                const response = await fetch('/api/sensor-master/sensors');
+                if (!response.ok) throw new Error('Scan failed');
+                
+                const allSensors = await response.json();
+                
+                // Filter for recent sensors (last 5 minutes)
+                const recentSensors = allSensors.filter(s => {
+                    const registeredAt = new Date(s.created_at);
+                    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+                    // Also check last check-in if available
+                    const lastCheckIn = s.last_check_in ? new Date(s.last_check_in) : null;
+                    
+                    return registeredAt > fiveMinutesAgo || (lastCheckIn && lastCheckIn > fiveMinutesAgo);
                 });
 
-                const response = await currentScanRequest;
-                currentScanRequest = null; // Reset after successful completion
-                
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-                }
-                
-                const result = await response.json();
                 scanningOverlay.style.display = 'none';
                 
-                if (result.discovered_devices.length > 0) {
-                    showDiscoveredDevices(result.discovered_devices, result);
+                // Map to format expected by showDiscoveredDevices
+                const discoveredDevices = recentSensors.map(s => ({
+                    device_id: s.sensor_id,
+                    device_name: s.sensor_name || 'Unnamed',
+                    ip: s.ip_address || 'Unknown',
+                    device_type: s.sensor_type || 'unknown',
+                    capabilities: s.capabilities || [],
+                    status: s.status || 'unknown',
+                    sample_data: {
+                        device_status: s.status,
+                        sensor: { temperature: 'N/A' }
+                    }
+                }));
+
+                if (discoveredDevices.length > 0) {
+                    showDiscoveredDevices(discoveredDevices, {
+                        scan_range: 'Sensor Master Registry',
+                        total_scanned: allSensors.length,
+                        scan_type: 'registry_lookup',
+                        scan_time: new Date().toISOString()
+                    });
                 } else {
-                    showAlert(`No ESP32 devices found on network ${result.scan_range}. Scanned ${result.total_scanned} addresses. Try manual "Test Connection" if you know the IP.`, 'warning');
+                    showAlert(`No active devices found recently. Ensure your device is powered on and connected to WiFi.`, 'warning');
                 }
                 
             } catch (error) {
-                currentScanRequest = null; // Reset on error
                 scanningOverlay.style.display = 'none';
-                if (error.name !== 'AbortError') {
-                    console.error('Error scanning network:', error);
-                    showAlert('Error scanning network: ' + error.message, 'danger');
-                }
+                console.error('Error scanning network:', error);
+                showAlert('Error scanning network: ' + error.message, 'danger');
             }
         }
 
@@ -924,9 +960,14 @@
                 
                 let actionButton;
                 if (existingDevice) {
+                    let statusBadge = '<span class="badge bg-success mb-2">Already Registered</span>';
+                    if (device.status === 'reconnected') {
+                        statusBadge = '<span class="badge bg-info mb-2">IP Updated (Reconnected)</span>';
+                    }
+                    
                     actionButton = `
                         <div class="text-center">
-                            <span class="badge bg-success mb-2">Already Registered</span><br>
+                            ${statusBadge}<br>
                             <button class="btn btn-outline-primary btn-sm" onclick="editDevice(${existingDevice.id})">
                                 <i class="fas fa-edit me-1"></i>Edit Device
                             </button>
@@ -1416,18 +1457,28 @@
             // Update modal title
             document.getElementById('sensorMappingModalLabel').textContent = `Configure Data Points - ${device.device_name}`;
             
+            // Reset container to loading state
+            const container = document.getElementById('sensorMappingContainer');
+            container.innerHTML = `
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <div class="mt-2 text-muted">Loading sensor mappings...</div>
+                </div>
+            `;
+            
+            // Show modal immediately so user sees loading state
+            sensorMappingModal.show();
+            
             // Load sensor mappings
             await loadSensorMappings(deviceId);
-            
-            // Show modal
-            sensorMappingModal.show();
         }
 
         // Load sensor mappings for a device
         async function loadSensorMappings(deviceId) {
             try {
-                const container = document.getElementById('sensorMappingContainer');
-                container.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin me-2"></i>Loading sensor mappings...</div>';
+                // Note: Loading spinner is already set by manageSensorMappings
 
                 const response = await fetch(`/api/devices/${deviceId}/sensor-mappings`);
                 if (!response.ok) throw new Error('Failed to load sensor mappings');
@@ -1441,13 +1492,29 @@
             } catch (error) {
                 console.error('Error loading sensor mappings:', error);
                 document.getElementById('sensorMappingContainer').innerHTML = 
-                    `<div class="alert alert-danger">Error loading sensor mappings: ${error.message}</div>`;
+                    `<div class="alert alert-danger m-3">Error loading sensor mappings: ${error.message}</div>`;
             }
         }
 
         // Render sensor mappings interface
         function renderSensorMappings() {
             const container = document.getElementById('sensorMappingContainer');
+            
+            // Helper for escaping attributes
+            const escapeAttr = (str) => {
+                if (str === null || str === undefined) return '';
+                return String(str).replace(/"/g, '&quot;').replace(/'/g, "\\'");
+            };
+
+            // Helper to format raw keys into titles
+            const formatKey = (key) => {
+                if (!key) return '';
+                // Get the last part after dot
+                const parts = key.split('.');
+                const lastPart = parts[parts.length - 1];
+                // Replace underscores with spaces and title case
+                return lastPart.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            };
             
             let html = `
                 <div class="alert alert-info">
@@ -1460,21 +1527,31 @@
                 <div class="row mb-3">
                     <div class="col-md-6">
                         <h6>Available Sensors</h6>
-                        <div class="list-group" id="availableSensorsList">
+                        <div class="list-group" id="availableSensorsList" style="max-height: 400px; overflow-y: auto;">
             `;
             
             // Show available sensors
             availableSensors.forEach(sensor => {
                 const isUsed = currentSensorMappings.some(m => m.sensor_name === sensor.name);
+                const safeName = escapeAttr(sensor.name);
+                
+                // Determine best display name
+                let displayName = sensor.display_name;
+                // If display name is missing or looks like a raw key (contains dots/underscores and no spaces), format it
+                if (!displayName || ((displayName.includes('.') || displayName.includes('_')) && !displayName.includes(' '))) {
+                    displayName = formatKey(sensor.name);
+                }
+                
                 html += `
                     <div class="list-group-item ${isUsed ? 'list-group-item-secondary' : ''}">
                         <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <strong>${sensor.display_name}</strong>
-                                <small class="text-muted d-block">${sensor.unit} (${sensor.data_type})</small>
+                            <div class="overflow-hidden">
+                                <strong class="d-block text-truncate" title="${displayName}">${displayName}</strong>
+                                <small class="text-muted d-block text-truncate" title="${sensor.name}">${sensor.name}</small>
+                                <small class="text-muted d-block">${sensor.unit ? sensor.unit + ' ' : ''}(${sensor.data_type})</small>
                             </div>
-                            <button class="btn btn-sm ${isUsed ? 'btn-secondary' : 'btn-outline-success'}" 
-                                    onclick="${isUsed ? 'removeSensorMapping' : 'addSensorMapping'}('${sensor.name}')"
+                            <button type="button" class="btn btn-sm ${isUsed ? 'btn-secondary' : 'btn-outline-success'} ms-2" 
+                                    onclick="${isUsed ? 'removeSensorMapping' : 'addSensorMapping'}('${safeName}')"
                                     ${isUsed ? 'disabled' : ''}>
                                 <i class="fas ${isUsed ? 'fa-check' : 'fa-plus'}"></i>
                                 ${isUsed ? 'Added' : 'Add'}
@@ -1489,7 +1566,7 @@
                     </div>
                     <div class="col-md-6">
                         <h6>Configured Data Points</h6>
-                        <div id="configuredMappingsList">
+                        <div id="configuredMappingsList" style="max-height: 400px; overflow-y: auto;">
             `;
             
             // Show configured mappings
@@ -1504,19 +1581,37 @@
             } else {
                 currentSensorMappings.forEach((mapping, index) => {
                     const sensor = availableSensors.find(s => s.name === mapping.sensor_name);
+                    const safeName = escapeAttr(mapping.sensor_name);
+                    const safeField = escapeAttr(mapping.entry_field);
+                    const safeUnit = escapeAttr(mapping.unit);
+                    
+                    // Determine display name for the header
+                    let headerName = mapping.sensor_name;
+                    if (sensor) {
+                        headerName = sensor.display_name;
+                        if (!headerName || ((headerName.includes('.') || headerName.includes('_')) && !headerName.includes(' '))) {
+                            headerName = formatKey(sensor.name);
+                        }
+                    } else {
+                        headerName = formatKey(mapping.sensor_name);
+                    }
+                    
                     html += `
                         <div class="card mb-2">
                             <div class="card-body p-3">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <strong>${sensor ? sensor.display_name : mapping.sensor_name}</strong>
-                                    <button class="btn btn-sm btn-outline-danger" onclick="removeSensorMapping('${mapping.sensor_name}')">
+                                    <div class="overflow-hidden me-2">
+                                        <strong class="d-block text-truncate" title="${headerName}">${headerName}</strong>
+                                        <small class="text-muted d-block text-truncate" style="font-size: 0.75rem;">${mapping.sensor_name}</small>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeSensorMapping('${safeName}')">
                                         <i class="fas fa-times"></i>
                                     </button>
                                 </div>
                                 <div class="mb-2">
                                     <label class="form-label">Display as:</label>
                                     <input type="text" class="form-control form-control-sm" 
-                                           value="${mapping.entry_field}" 
+                                           value="${safeField}" 
                                            onchange="updateMappingField(${index}, 'entry_field', this.value)"
                                            placeholder="Field name in entries">
                                 </div>
@@ -1524,7 +1619,7 @@
                                     <div class="col-md-6">
                                         <label class="form-label">Unit:</label>
                                         <input type="text" class="form-control form-control-sm" 
-                                               value="${mapping.unit || ''}" 
+                                               value="${safeUnit}" 
                                                onchange="updateMappingField(${index}, 'unit', this.value)"
                                                placeholder="e.g., °C, %">
                                     </div>
@@ -1567,12 +1662,26 @@
             const sensor = availableSensors.find(s => s.name === sensorName);
             if (!sensor) return;
             
+            // Helper to format raw keys into titles (same as in renderSensorMappings)
+            const formatKey = (key) => {
+                if (!key) return '';
+                const parts = key.split('.');
+                const lastPart = parts[parts.length - 1];
+                return lastPart.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            };
+            
+            // Determine best display name
+            let displayName = sensor.display_name;
+            if (!displayName || ((displayName.includes('.') || displayName.includes('_')) && !displayName.includes(' '))) {
+                displayName = formatKey(sensor.name);
+            }
+            
             // Create new mapping
             const newMapping = {
                 sensor_name: sensorName,
-                entry_field: sensor.display_name,
-                data_type: sensor.data_type,
-                unit: sensor.unit,
+                entry_field: displayName || sensorName,
+                data_type: sensor.data_type || 'text',
+                unit: sensor.unit || '',
                 enabled: true
             };
             

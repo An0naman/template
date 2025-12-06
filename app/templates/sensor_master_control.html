@@ -253,6 +253,126 @@
         border-color: var(--theme-primary, var,--bs-primary));
         color: #fff;
     }
+
+    @media (max-width: 768px) {
+        /* Header adjustments */
+        .d-flex.justify-content-between.align-items-center.mb-4 {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 1rem;
+        }
+        
+        .d-flex.justify-content-between.align-items-center.mb-4 > div {
+            width: 100%;
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .d-flex.justify-content-between.align-items-center.mb-4 > div > button {
+            flex: 1;
+        }
+
+        /* Table to Card transformation */
+        .table-responsive table, 
+        .table-responsive thead, 
+        .table-responsive tbody, 
+        .table-responsive th, 
+        .table-responsive td, 
+        .table-responsive tr { 
+            display: block; 
+        }
+        
+        .table-responsive thead tr { 
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+        }
+        
+        .table-responsive tr { 
+            border: 1px solid var(--theme-border, var(--bs-border-color));
+            border-radius: var(--border-radius);
+            margin-bottom: 1rem;
+            background: var(--theme-bg-card, var(--bs-body-bg));
+            padding: 1rem;
+        }
+        
+        .table-responsive td { 
+            border: none;
+            position: relative;
+            padding-left: 0;
+            padding-right: 0;
+            padding-top: 0.75rem;
+            padding-bottom: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-align: right;
+            border-bottom: 1px solid var(--theme-border, var(--bs-border-color));
+            font-size: 1rem; /* Increase font size for readability */
+        }
+
+        .table-responsive td:last-child {
+            border-bottom: none;
+        }
+        
+        .table-responsive td:before { 
+            content: attr(data-label);
+            font-weight: 700; /* Make label bolder */
+            margin-right: 1rem;
+            text-align: left;
+            color: var(--theme-text, var (--bs-body-color)); /* Use main text color for better contrast */
+            opacity: 0.8;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Specific adjustments for the Actions column */
+        .table-responsive td:last-child {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .table-responsive td:last-child > div {
+            width: 100%;
+            justify-content: flex-end;
+        }
+
+        /* Stat Card Mobile Overrides */
+        .stat-card .card-body {
+            padding: 0.75rem !important;
+        }
+        
+        .stat-card h3 {
+            font-size: 1.5rem !important;
+        }
+        
+        .stat-card h6 {
+            font-size: 0.8rem !important;
+            letter-spacing: 0.5px;
+        }
+        
+        .stat-card i {
+            font-size: 1.2rem !important;
+            margin-bottom: 0.25rem !important;
+        }
+
+        /* Force 2-column grid for stats on mobile */
+        #statsContainer {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            flex-direction: row !important;
+        }
+        
+        #statsContainer .col-6 {
+            width: 50% !important;
+            flex: 0 0 50% !important;
+            max-width: 50% !important;
+        }
+    }
 </style>
 </head>
 <body>
@@ -276,36 +396,40 @@
     </div>
 
     <!-- Statistics Cards -->
-    <div class="row mb-4" id="statsContainer">
-        <div class="col-md-3">
-            <div class="card stat-card">
-                <div class="card-body">
-                    <h6 class="text-muted">Total Sensors</h6>
-                    <h3 id="stat-total-sensors">-</h3>
+    <div class="row mb-4 g-3" id="statsContainer">
+        <div class="col-6 col-md-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center p-3">
+                    <div class="text-muted mb-2"><i class="fas fa-microchip fa-lg"></i></div>
+                    <h6 class="text-muted small text-uppercase mb-1">Total</h6>
+                    <h3 id="stat-total-sensors" class="mb-0 fw-bold">-</h3>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card stat-card success">
-                <div class="card-body">
-                    <h6 class="text-muted">Online</h6>
-                    <h3 id="stat-online-sensors" class="text-success">-</h3>
+        <div class="col-6 col-md-3">
+            <div class="card stat-card success h-100">
+                <div class="card-body text-center p-3">
+                    <div class="text-success mb-2"><i class="fas fa-check-circle fa-lg"></i></div>
+                    <h6 class="text-muted small text-uppercase mb-1">Online</h6>
+                    <h3 id="stat-online-sensors" class="text-success mb-0 fw-bold">-</h3>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card stat-card danger">
-                <div class="card-body">
-                    <h6 class="text-muted">Offline</h6>
-                    <h3 id="stat-offline-sensors" class="text-danger">-</h3>
+        <div class="col-6 col-md-3">
+            <div class="card stat-card danger h-100">
+                <div class="card-body text-center p-3">
+                    <div class="text-danger mb-2"><i class="fas fa-times-circle fa-lg"></i></div>
+                    <h6 class="text-muted small text-uppercase mb-1">Offline</h6>
+                    <h3 id="stat-offline-sensors" class="text-danger mb-0 fw-bold">-</h3>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card stat-card warning">
-                <div class="card-body">
-                    <h6 class="text-muted">Pending</h6>
-                    <h3 id="stat-pending-sensors" class="text-warning">-</h3>
+        <div class="col-6 col-md-3">
+            <div class="card stat-card warning h-100">
+                <div class="card-body text-center p-3">
+                    <div class="text-warning mb-2"><i class="fas fa-clock fa-lg"></i></div>
+                    <h6 class="text-muted small text-uppercase mb-1">Pending</h6>
+                    <h3 id="stat-pending-sensors" class="text-warning mb-0 fw-bold">-</h3>
                 </div>
             </div>
         </div>
@@ -358,25 +482,7 @@
         </div>
     </div>
 
-    <!-- Script Assignments -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="mb-0"><i class="fas fa-link"></i> Script Assignments</h5>
-        </div>
-        <div class="card-body">
-            <div class="alert alert-warning">
-                <i class="fas fa-info-circle"></i>
-                <strong>Assign Scripts to Sensors:</strong> Select which script each sensor should run. Changes take effect on the next sensor check-in (typically within 30 seconds).
-            </div>
-            <div id="assignmentsContainer">
-                <div class="text-center py-4">
-                    <div class="spinner-border" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+
 
 
 
@@ -1129,15 +1235,17 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 async function refreshData() {
-    // Load sensors first and show assignments immediately
+    // Load sensors first
     await loadSensors();
-    loadAssignments(); // Don't await - render immediately with what we have
     
     // Then load everything else in parallel
     await Promise.all([
-        loadScripts().then(() => renderAssignments()), // Re-render when scripts load
+        loadScripts(),
         loadStats()
     ]);
+    
+    // Re-render sensors to ensure script dropdowns are populated
+    renderSensors();
     
     // Update sensor status indicators based on heartbeat
     updateSensorStatusIndicators();
@@ -1177,151 +1285,9 @@ function updateSensorStatusIndicators() {
 
 
 
-async function loadAssignments() {
-    try {
-        const container = document.getElementById('assignmentsContainer');
-        
-        // Show sensors immediately, even if scripts aren't loaded yet
-        if (sensors.length === 0) {
-            container.innerHTML = `
-                <div class="text-center text-muted py-4">
-                    <i class="fas fa-microchip fa-3x mb-3"></i>
-                    <p>No sensors registered yet. Register sensors to assign scripts.</p>
-                </div>
-            `;
-            return;
-        }
-        
-        // Render whatever we have - show loading state for scripts if needed
-        renderAssignments();
-    } catch (error) {
-        console.error('Error loading assignments:', error);
-    }
-}
 
-function renderAssignments() {
-    const container = document.getElementById('assignmentsContainer');
-    // We consider scripts loaded if the array exists, even if empty.
-    // If it's null/undefined, we might still be fetching.
-    // But loadScripts initializes it to [] and populates it.
-    // So we can just check if we have sensors.
-    
-    let html = '<div class="table-responsive"><table class="table table-hover">';
-    html += `
-        <thead>
-            <tr>
-                <th>Sensor</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Assigned Script</th>
-                <th>Version Running</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-    `;
-    
-    sensors.forEach(sensor => {
-        const assignedScript = sensor.assigned_script;
-        
-        // Build script options
-        let scriptOptions = '<option value="">-- Select Script --</option>';
-        if (scripts && scripts.length > 0) {
-            scriptOptions += scripts.map(s => 
-                `<option value="${s.id}" ${assignedScript && assignedScript.id === s.id ? 'selected' : ''}>
-                    ${s.name} (v${s.script_version})
-                </option>`
-            ).join('');
-        } else {
-            scriptOptions += '<option value="" disabled>No library scripts available</option>';
-        }
-        
-        // Script status display
-        let scriptStatus = '<span class="text-muted">None</span>';
-        if (assignedScript) {
-            const scriptState = assignedScript.status || 'unknown';
-            
-            if (scriptState === 'running') {
-                scriptStatus = `
-                    <div>
-                        ${assignedScript.name}
-                        <span class="badge bg-success ms-2"><i class="fas fa-check-circle"></i> Running</span>
-                    </div>
-                `;
-            } else if (scriptState === 'pending') {
-                scriptStatus = `
-                    <div>
-                        ${assignedScript.name}
-                        <span class="badge bg-warning ms-2"><i class="fas fa-upload"></i> Pending Upload</span>
-                    </div>
-                `;
-            } else if (scriptState === 'outdated') {
-                scriptStatus = `
-                    <div>
-                        ${assignedScript.name}
-                        <span class="badge bg-info ms-2"><i class="fas fa-sync"></i> Updating</span>
-                    </div>
-                `;
-            } else {
-                scriptStatus = `
-                    <div>
-                        ${assignedScript.name}
-                        <span class="badge bg-secondary ms-2"><i class="fas fa-question"></i> Unknown</span>
-                    </div>
-                `;
-            }
-        }
-        
-        // Version info
-        let versionInfo = '<span class="text-muted">-</span>';
-        if (sensor.running_script_version) {
-            const runningVersion = sensor.running_script_version;
-            const assignedVersion = assignedScript ? assignedScript.version : null;
-            
-            if (assignedVersion && runningVersion !== assignedVersion) {
-                versionInfo = `
-                    <div>
-                        <code class="text-warning">${runningVersion}</code>
-                        <i class="fas fa-arrow-right text-muted"></i>
-                        <code class="text-success">${assignedVersion}</code>
-                    </div>
-                `;
-            } else {
-                versionInfo = `<code class="text-success">${runningVersion}</code>`;
-            }
-        } else if (assignedScript) {
-            versionInfo = `<span class="badge bg-info"><i class="fas fa-upload"></i> Pending</span>`;
-        }
-        
-        // Actions dropdown
-        let actionsHtml = `
-            <select class="form-select form-select-sm" onchange="assignScript('${sensor.sensor_id}', this.value)">
-                ${scriptOptions}
-            </select>
-        `;
-        
-        html += `
-            <tr>
-                <td>
-                    <strong>${sensor.sensor_name || sensor.sensor_id}</strong><br>
-                    <small class="text-muted"><code>${sensor.sensor_id}</code></small>
-                </td>
-                <td><span class="badge bg-secondary">${sensor.sensor_type}</span></td>
-                <td>
-                    <i class="fas fa-circle sensor-status-${sensor.status}"></i>
-                    ${sensor.status}
-                </td>
-                <td>${scriptStatus}</td>
-                <td>${versionInfo}</td>
-                <td>${actionsHtml}</td>
-            </tr>
-        `;
-    });
-    
-    html += '</tbody></table></div>';
-    
-    container.innerHTML = html;
-}
+
+
 
 async function assignScript(sensorId, scriptId) {
     if (!scriptId) {
@@ -1452,35 +1418,58 @@ function renderSensors() {
                             `;
                         }
                         
+                        // Build script options for dropdown
+                        let scriptOptions = '<option value="">-- Select Script --</option>';
+                        if (typeof scripts !== 'undefined' && scripts.length > 0) {
+                             scriptOptions += scripts.map(s => {
+                                // Check compatibility
+                                const isCompatible = !s.target_sensor_type || s.target_sensor_type === sensor.sensor_type;
+                                if (!isCompatible) return '';
+                                
+                                return `<option value="${s.id}" ${sensor.assigned_script && sensor.assigned_script.id === s.id ? 'selected' : ''}>
+                                    ${s.name} (v${s.script_version})
+                                </option>`;
+                            }).join('');
+                        }
+
                         return `
                         <tr class="sensor-list-item">
-                            <td><code>${sensor.sensor_id}</code></td>
-                            <td>${sensor.sensor_name || 'Unnamed'}</td>
-                            <td><span class="badge bg-secondary">${sensor.sensor_type}</span></td>
-                            <td>
+                            <td data-label="Sensor ID"><code>${sensor.sensor_id}</code></td>
+                            <td data-label="Name">${sensor.sensor_name || 'Unnamed'}</td>
+                            <td data-label="Type"><span class="badge bg-secondary">${sensor.sensor_type}</span></td>
+                            <td data-label="Status">
                                 <i class="fas fa-circle sensor-status-${sensor.status}"></i>
                                 ${sensor.status}
                             </td>
-                            <td>${scriptIndicator}</td>
-                            <td>${versionIndicator}</td>
-                            <td>${sensor.last_check_in ? new Date(sensor.last_check_in).toLocaleString() : 'Never'}</td>
-                            <td>
-                                <button class="btn btn-sm btn-outline-primary" 
-                                        onclick="viewSensorDetails('${sensor.sensor_id}')" title="View Details">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                                <button class="btn btn-sm btn-outline-info" 
-                                        onclick="openLogicBuilder('${sensor.sensor_id}')" title="Logic Builder">
-                                    <i class="fas fa-project-diagram"></i>
-                                </button>
-                                <button class="btn btn-sm btn-outline-success" 
-                                        onclick="openSensorPlotter('${sensor.sensor_id}')" title="Serial Plotter">
-                                    <i class="fas fa-chart-line"></i>
-                                </button>
-                                <button class="btn btn-sm btn-outline-danger" 
-                                        onclick="deleteSensor('${sensor.sensor_id}')" title="Delete Sensor">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+                            <td data-label="Current Script">${scriptIndicator}</td>
+                            <td data-label="Running Version">${versionIndicator}</td>
+                            <td data-label="Last Check-in">${sensor.last_check_in ? new Date(sensor.last_check_in).toLocaleString() : 'Never'}</td>
+                            <td data-label="Actions">
+                                <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                                    <select class="form-select form-select-sm" style="width: auto; max-width: 150px;" 
+                                            onchange="assignScript('${sensor.sensor_id}', this.value)"
+                                            title="Assign Script">
+                                        ${scriptOptions}
+                                    </select>
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-primary" 
+                                                onclick="viewSensorDetails('${sensor.sensor_id}')" title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-info" 
+                                                onclick="openLogicBuilder('${sensor.sensor_id}')" title="Logic Builder">
+                                            <i class="fas fa-project-diagram"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-success" 
+                                                onclick="openSensorPlotter('${sensor.sensor_id}')" title="Serial Plotter">
+                                            <i class="fas fa-chart-line"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" 
+                                                onclick="deleteSensor('${sensor.sensor_id}')" title="Delete Sensor">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
                             </td>
                         </tr>
                         `;
@@ -1802,18 +1791,20 @@ function renderScripts() {
     scripts.forEach(script => {
         html += `
             <tr>
-                <td><strong>${script.name}</strong></td>
-                <td><span class="badge bg-secondary">${script.script_version}</span></td>
-                <td><code>${script.script_type}</code></td>
-                <td>${script.target_sensor_type || '<span class="text-muted">Any</span>'}</td>
-                <td>${script.description || '-'}</td>
-                <td>
-                    <button class="btn btn-sm btn-outline-info" onclick="viewScript(${script.id})">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteScript(${script.id})">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                <td data-label="Name"><strong>${script.name}</strong></td>
+                <td data-label="Version"><span class="badge bg-secondary">${script.script_version}</span></td>
+                <td data-label="Type"><code>${script.script_type}</code></td>
+                <td data-label="Target Sensor">${script.target_sensor_type || '<span class="text-muted">Any</span>'}</td>
+                <td data-label="Description">${script.description || '-'}</td>
+                <td data-label="Actions">
+                    <div class="d-flex justify-content-end gap-2">
+                        <button class="btn btn-sm btn-outline-info" onclick="viewScript(${script.id})">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteScript(${script.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>
         `;
@@ -2393,7 +2384,7 @@ function syncJsonToVisual() {
             
             if (!currentLogicData.actions) currentLogicData.actions = [];
             
-            // Normalize to ensure defaults
+            // Normalize to ensure defaults are present
             normalizeLogicData(currentLogicData.actions);
             
             // Reset view to root when syncing from JSON
