@@ -56,3 +56,8 @@ ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # Command to run your Flask application
 CMD ["python", "run.py"]
+
+# Healthcheck for container orchestration (Watchtower, Docker Swarm, Kubernetes)
+# This ensures the container is actually ready to serve requests
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD python3 -c "import urllib.request; import os; import sys; port = os.environ.get('PORT', '5001'); sys.exit(0 if urllib.request.urlopen(f'http://localhost:{port}/api/health').getcode() == 200 else 1)"

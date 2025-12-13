@@ -98,9 +98,9 @@ services:
       net.ipv6.conf.all.disable_ipv6: "1"
       net.ipv6.conf.default.disable_ipv6: "1"
     
-    # Health check
+    # Health check - Ensures Watchtower only updates if new version is healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:${PORT:-5001}/api/health', timeout=5)"]
+      test: ["CMD", "python3", "-c", "import urllib.request; import sys; sys.exit(0 if urllib.request.urlopen('http://localhost:${PORT:-5001}/api/health').getcode() == 200 else 1)"]
       interval: 30s
       timeout: 10s
       start_period: 40s
