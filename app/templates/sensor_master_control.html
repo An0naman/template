@@ -302,14 +302,14 @@
             position: relative;
             padding-left: 0;
             padding-right: 0;
-            padding-top: 0.75rem;
-            padding-bottom: 0.75rem;
+            padding-top: 1rem; /* Increased padding */
+            padding-bottom: 1rem; /* Increased padding */
             display: flex;
             justify-content: space-between;
             align-items: center;
             text-align: right;
             border-bottom: 1px solid var(--theme-border, var(--bs-border-color));
-            font-size: 1rem; /* Increase font size for readability */
+            font-size: 1.1rem; /* Increased font size for readability */
         }
 
         .table-responsive td:last-child {
@@ -322,8 +322,8 @@
             margin-right: 1rem;
             text-align: left;
             color: var(--theme-text, var (--bs-body-color)); /* Use main text color for better contrast */
-            opacity: 0.8;
-            font-size: 0.9rem;
+            opacity: 0.9; /* Increased opacity */
+            font-size: 1rem; /* Increased font size */
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
@@ -463,9 +463,14 @@
     <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="fas fa-file-code"></i> Sensor Scripts Library</h5>
-            <button class="btn btn-sm btn-success" onclick="showUploadScriptModal()">
-                <i class="fas fa-plus"></i> Upload New Script
-            </button>
+            <div>
+                <button class="btn btn-sm btn-info me-2" onclick="showUploadToManyModal()">
+                    <i class="fas fa-tasks"></i> Upload to Many
+                </button>
+                <button class="btn btn-sm btn-success" onclick="showUploadScriptModal()">
+                    <i class="fas fa-plus"></i> Upload New Script
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <div class="alert alert-info">
@@ -994,6 +999,55 @@
     </div>
 </div>
 
+<!-- Upload to Many Modal -->
+<div class="modal fade" id="uploadToManyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-tasks"></i> Upload Script to Multiple Sensors</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-4">
+                    <label class="form-label fw-bold">1. Select Script</label>
+                    <select class="form-select" id="bulkScriptSelect" onchange="filterBulkSensors()">
+                        <option value="">-- Select a script --</option>
+                    </select>
+                    <div id="bulkScriptDetails" class="form-text mt-2"></div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold">2. Select Target Sensors</label>
+                    <div class="d-flex justify-content-between mb-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="selectAllSensors" onchange="toggleSelectAllSensors()">
+                            <label class="form-check-label" for="selectAllSensors">Select All Visible</label>
+                        </div>
+                        <span class="badge bg-secondary" id="selectedCountBadge">0 selected</span>
+                    </div>
+                    
+                    <div class="border rounded p-2" style="max-height: 300px; overflow-y: auto;">
+                        <div id="bulkSensorList" class="list-group list-group-flush">
+                            <div class="text-center text-muted py-3">Please select a script first</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="bulkUploadResult" class="alert" style="display: none;"></div>
+                <div id="bulkUploadProgress" class="progress mb-3" style="display: none;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitBulkUpload()" id="btnBulkUpload" disabled>
+                    <i class="fas fa-upload"></i> Upload to Selected
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 let sensors = [];
@@ -1449,15 +1503,17 @@ function renderSensors() {
                             </td>
                             <td data-label="Battery">
                                 ${sensor.last_battery_pct !== undefined && sensor.last_battery_pct !== null 
-                                    ? `<div class="progress" style="height: 20px; min-width: 80px;" title="${sensor.last_battery_voltage ? sensor.last_battery_voltage.toFixed(2) + 'V' : ''}">
-                                        <div class="progress-bar ${sensor.last_battery_pct < 20 ? 'bg-danger' : (sensor.last_battery_pct < 50 ? 'bg-warning' : 'bg-success')}" 
-                                             role="progressbar" 
-                                             style="width: ${sensor.last_battery_pct}%" 
-                                             aria-valuenow="${sensor.last_battery_pct}" 
-                                             aria-valuemin="0" 
-                                             aria-valuemax="100">
-                                            <small>${sensor.last_battery_pct}%</small>
+                                    ? `<div class="d-flex align-items-center battery-display w-100 justify-content-end">
+                                        <div class="progress flex-grow-1 me-2" style="height: 20px; min-width: 60px; max-width: 150px;" title="${sensor.last_battery_voltage ? sensor.last_battery_voltage.toFixed(2) + 'V' : ''}">
+                                            <div class="progress-bar ${sensor.last_battery_pct < 20 ? 'bg-danger' : (sensor.last_battery_pct < 50 ? 'bg-warning' : 'bg-success')}" 
+                                                 role="progressbar" 
+                                                 style="width: ${sensor.last_battery_pct}%" 
+                                                 aria-valuenow="${sensor.last_battery_pct}" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100">
+                                            </div>
                                         </div>
+                                        <span class="fw-bold" style="min-width: 3.5em; text-align: right;">${sensor.last_battery_pct}%</span>
                                        </div>`
                                     : (sensor.last_battery_voltage ? `<small>${sensor.last_battery_voltage.toFixed(2)}V</small>` : '<span class="text-muted">-</span>')}
                             </td>
@@ -1789,6 +1845,8 @@ async function loadScripts() {
         
         scripts = await response.json();
         renderScripts();
+        // Also re-render sensors to update the script dropdowns
+        renderSensors();
     } catch (error) {
         console.error('Error loading scripts:', error);
         document.getElementById('scriptsContainer').innerHTML = 
@@ -2838,134 +2896,223 @@ async function saveLogicBuilder() {
 }
 
 // ============================================================================
-// ADD DEVICE FUNCTIONS
+// BULK UPLOAD FUNCTIONS
 // ============================================================================
 
-function showAddDeviceModal() {
-    // Reset form
-    document.getElementById('addDeviceForm').reset();
-    document.getElementById('scanResults').innerHTML = `
-        <div class="text-center text-muted py-4">
-            <small>Click Scan to find devices on your network.</small>
-        </div>
-    `;
+function showUploadToManyModal() {
+    // Populate script dropdown
+    const scriptSelect = document.getElementById('bulkScriptSelect');
+    scriptSelect.innerHTML = '<option value="">-- Select a script --</option>';
     
-    new bootstrap.Modal(document.getElementById('addDeviceModal')).show();
+    scripts.forEach(script => {
+        const option = document.createElement('option');
+        option.value = script.id;
+        option.textContent = `${script.name} (v${script.script_version})`;
+        option.dataset.targetType = script.target_sensor_type || '';
+        option.dataset.description = script.description || '';
+        scriptSelect.appendChild(option);
+    });
+    
+    // Reset UI
+    document.getElementById('bulkSensorList').innerHTML = '<div class="text-center text-muted py-3">Please select a script first</div>';
+    document.getElementById('bulkScriptDetails').textContent = '';
+    document.getElementById('selectAllSensors').checked = false;
+    document.getElementById('selectAllSensors').disabled = true;
+    document.getElementById('selectedCountBadge').textContent = '0 selected';
+    document.getElementById('btnBulkUpload').disabled = true;
+    document.getElementById('bulkUploadResult').style.display = 'none';
+    document.getElementById('bulkUploadProgress').style.display = 'none';
+    
+    const modal = new bootstrap.Modal(document.getElementById('uploadToManyModal'));
+    modal.show();
 }
 
-async function scanForDevices() {
-    const resultsContainer = document.getElementById('scanResults');
-    resultsContainer.innerHTML = `
-        <div class="text-center py-4">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Scanning...</span>
-            </div>
-            <p class="mt-2 text-muted">Listening for device announcements...</p>
-            <small class="text-muted">Reboot your ESP32 device to trigger registration.</small>
-        </div>
-    `;
+function filterBulkSensors() {
+    const scriptSelect = document.getElementById('bulkScriptSelect');
+    const sensorList = document.getElementById('bulkSensorList');
+    const scriptId = scriptSelect.value;
     
-    // Since we don't have a true network scan capability from the browser/server yet,
-    // we will simulate a scan by checking for recently registered sensors that might be "pending"
-    // or just refreshing the list.
-    // In a real implementation, this might trigger a server-side mDNS discovery or similar.
-    
-    setTimeout(async () => {
-        try {
-            // For now, we'll just fetch all sensors and show them, 
-            // highlighting any that were added recently (e.g. last 5 minutes)
-            const response = await fetch('/api/sensor-master/sensors');
-            if (!response.ok) throw new Error('Scan failed');
-            
-            const allSensors = await response.json();
-            const recentSensors = allSensors.filter(s => {
-                const registeredAt = new Date(s.created_at);
-                const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-                return registeredAt > fiveMinutesAgo;
-            });
-            
-            if (recentSensors.length === 0) {
-                resultsContainer.innerHTML = `
-                    <div class="text-center text-muted py-4">
-                        <i class="fas fa-search mb-2"></i>
-                        <p>No new devices found recently.</p>
-                        <small>Ensure your device is powered on and connected to WiFi.</small>
-                    </div>
-                `;
-            } else {
-                let html = '<div class="list-group">';
-                recentSensors.forEach(s => {
-                    html += `
-                        <button type="button" class="list-group-item list-group-item-action" 
-                                onclick="fillDeviceForm('${s.sensor_id}', '${s.sensor_name}', '${s.sensor_type}', '${s.ip_address}')">
-                            <div class="d-flex w-100 justify-content-between">
-                                <h6 class="mb-1">${s.sensor_id}</h6>
-                                <small class="text-success">Found</small>
-                            </div>
-                            <p class="mb-1 small">${s.sensor_name || 'Unnamed'}</p>
-                            <small class="text-muted">${s.ip_address || 'Unknown IP'}</small>
-                        </button>
-                    `;
-                });
-                html += '</div>';
-                resultsContainer.innerHTML = html;
-            }
-            
-        } catch (error) {
-            resultsContainer.innerHTML = `
-                <div class="alert alert-danger m-3">
-                    Scan failed: ${error.message}
-                </div>
-            `;
-        }
-    }, 2000);
-}
-
-function fillDeviceForm(id, name, type, ip) {
-    document.getElementById('newSensorId').value = id || '';
-    document.getElementById('newSensorName').value = name || '';
-    document.getElementById('newSensorType').value = type || '';
-    document.getElementById('newSensorIp').value = ip || '';
-}
-
-async function registerDevice() {
-    const sensorId = document.getElementById('newSensorId').value;
-    const name = document.getElementById('newSensorName').value;
-    const type = document.getElementById('newSensorType').value;
-    const ip = document.getElementById('newSensorIp').value;
-    
-    if (!sensorId) {
-        showAlert('Sensor ID is required', 'warning');
+    if (!scriptId) {
+        sensorList.innerHTML = '<div class="text-center text-muted py-3">Please select a script first</div>';
+        document.getElementById('bulkScriptDetails').textContent = '';
+        document.getElementById('selectAllSensors').disabled = true;
+        document.getElementById('btnBulkUpload').disabled = true;
         return;
     }
     
-    try {
-        const response = await fetch('/api/sensor-master/register', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                sensor_id: sensorId,
-                sensor_name: name,
-                sensor_type: type,
-                ip_address: ip,
-                capabilities: [] // Default empty capabilities for manual add
-            })
-        });
+    const selectedOption = scriptSelect.options[scriptSelect.selectedIndex];
+    const targetType = selectedOption.dataset.targetType;
+    const description = selectedOption.dataset.description;
+    
+    // Show script details
+    let details = description;
+    if (targetType) {
+        details += ` (Target: ${targetType})`;
+    } else {
+        details += ' (Compatible with all sensor types)';
+    }
+    document.getElementById('bulkScriptDetails').textContent = details;
+    
+    // Filter sensors
+    const compatibleSensors = sensors.filter(s => !targetType || s.sensor_type === targetType);
+    
+    if (compatibleSensors.length === 0) {
+        sensorList.innerHTML = '<div class="text-center text-warning py-3">No compatible sensors found</div>';
+        document.getElementById('selectAllSensors').disabled = true;
+        document.getElementById('btnBulkUpload').disabled = true;
+        return;
+    }
+    
+    // Render sensor list
+    let html = '';
+    compatibleSensors.forEach(sensor => {
+        const isAssigned = sensor.assigned_script && sensor.assigned_script.id == scriptId;
+        html += `
+            <label class="list-group-item d-flex gap-3 align-items-center">
+                <input class="form-check-input flex-shrink-0 bulk-sensor-checkbox" type="checkbox" 
+                       value="${sensor.sensor_id}" style="font-size: 1.375em;"
+                       onchange="updateSelectedCount()">
+                <div class="d-flex gap-2 w-100 justify-content-between">
+                    <div>
+                        <h6 class="mb-0">${sensor.sensor_name || sensor.sensor_id}</h6>
+                        <small class="text-muted">${sensor.sensor_type}</small>
+                    </div>
+                    <div class="text-end">
+                        ${isAssigned ? '<span class="badge bg-success">Already Assigned</span>' : ''}
+                        <small class="d-block text-muted">${sensor.status}</small>
+                    </div>
+                </div>
+            </label>
+        `;
+    });
+    
+    sensorList.innerHTML = html;
+    document.getElementById('selectAllSensors').disabled = false;
+    updateSelectedCount();
+}
+
+function toggleSelectAllSensors() {
+    const selectAll = document.getElementById('selectAllSensors').checked;
+    const checkboxes = document.querySelectorAll('.bulk-sensor-checkbox');
+    
+    checkboxes.forEach(cb => {
+        cb.checked = selectAll;
+    });
+    
+    updateSelectedCount();
+}
+
+function updateSelectedCount() {
+    const checkboxes = document.querySelectorAll('.bulk-sensor-checkbox:checked');
+    const count = checkboxes.length;
+    
+    document.getElementById('selectedCountBadge').textContent = `${count} selected`;
+    document.getElementById('btnBulkUpload').disabled = count === 0;
+}
+
+async function submitBulkUpload() {
+    const scriptId = document.getElementById('bulkScriptSelect').value;
+    const checkboxes = document.querySelectorAll('.bulk-sensor-checkbox:checked');
+    const sensorIds = Array.from(checkboxes).map(cb => cb.value);
+    
+    if (!scriptId || sensorIds.length === 0) return;
+    
+    if (!confirm(`Are you sure you want to upload this script to ${sensorIds.length} sensors?`)) return;
+    
+    // UI Updates
+    const btn = document.getElementById('btnBulkUpload');
+    const progressDiv = document.getElementById('bulkUploadProgress');
+    const progressBar = progressDiv.querySelector('.progress-bar');
+    const resultDiv = document.getElementById('bulkUploadResult');
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+    progressDiv.style.display = 'flex';
+    resultDiv.style.display = 'none';
+    
+    let successCount = 0;
+    let failCount = 0;
+    let errors = [];
+    
+    // Process sequentially to avoid overwhelming the server
+    for (let i = 0; i < sensorIds.length; i++) {
+        const sensorId = sensorIds[i];
+        const percent = Math.round(((i) / sensorIds.length) * 100);
+        progressBar.style.width = `${percent}%`;
         
-        const data = await response.json();
-        
-        if (response.ok) {
-            showAlert('Device registered successfully', 'success');
-            bootstrap.Modal.getInstance(document.getElementById('addDeviceModal')).hide();
-            refreshData();
-        } else {
-            throw new Error(data.error || 'Failed to register device');
+        try {
+            const response = await fetch('/api/sensor-master/assign-library-script', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    library_script_id: scriptId,
+                    sensor_id: sensorId
+                })
+            });
+            
+            if (response.ok) {
+                successCount++;
+            } else {
+                const data = await response.json();
+                throw new Error(data.error || 'Unknown error');
+            }
+        } catch (error) {
+            console.error(`Error assigning to ${sensorId}:`, error);
+            failCount++;
+            errors.push(`${sensorId}: ${error.message}`);
         }
-    } catch (error) {
-        console.error('Error registering device:', error);
-        showAlert('Failed to register device: ' + error.message, 'danger');
+    }
+    
+    progressBar.style.width = '100%';
+    
+    // Show results
+    let resultClass = 'alert-success';
+    let resultIcon = 'fa-check-circle';
+    let resultTitle = 'Success!';
+    
+    if (failCount > 0) {
+        if (successCount === 0) {
+            resultClass = 'alert-danger';
+            resultIcon = 'fa-times-circle';
+            resultTitle = 'Failed!';
+        } else {
+            resultClass = 'alert-warning';
+            resultIcon = 'fa-exclamation-triangle';
+            resultTitle = 'Partial Success';
+        }
+    }
+    
+    let resultHtml = `
+        <i class="fas ${resultIcon}"></i>
+        <strong>${resultTitle}</strong><br>
+        Successfully assigned to ${successCount} sensors.
+    `;
+    
+    if (failCount > 0) {
+        resultHtml += `<br>Failed: ${failCount} sensors.`;
+        if (errors.length > 0) {
+            resultHtml += `<div class="mt-2 small text-muted" style="max-height: 100px; overflow-y: auto;">${errors.join('<br>')}</div>`;
+        }
+    }
+    
+    resultDiv.className = `alert ${resultClass}`;
+    resultDiv.innerHTML = resultHtml;
+    resultDiv.style.display = 'block';
+    
+    btn.innerHTML = '<i class="fas fa-upload"></i> Upload to Selected';
+    
+    // Refresh main list
+    await loadSensors();
+    
+    // Close modal if fully successful after delay
+    if (failCount === 0) {
+        setTimeout(() => {
+            bootstrap.Modal.getInstance(document.getElementById('uploadToManyModal')).hide();
+        }, 2000);
+    } else {
+        btn.disabled = false;
     }
 }
 </script>

@@ -23,6 +23,7 @@ import sqlite3
 import json
 import hashlib
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from ..db import get_connection
 
@@ -591,7 +592,7 @@ def check_heartbeats():
                 updated_count += 1
                 logger.info(f"Sensor {sensor_id} status changed: {current_status} -> {new_status}")
         
-        conn.commit()
+        conn.commit();
         
         return jsonify({
             'message': 'Heartbeat check completed',
@@ -1540,6 +1541,50 @@ def report_sensor_log():
         
         # Use default CURRENT_TIMESTAMP for created_at, but we must provide timestamp because it is NOT NULL
         now_iso = datetime.now(timezone.utc).isoformat()
+        
+        # Try to parse battery info from log message to update sensor status
+        # Patterns: "Battery: 85%", "Battery: 3.7V", "Battery Level: 85%"
+        message = data['message']
+        sensor_id = data['sensor_id']
+        
+        updates = {}
+        
+        # Check for percentage
+        # Matches: "Battery: 85%", "Battery: 4.2V (85%)", "Battery Level: 85%"
+        pct_match = re.search(r'Battery.*?(\d+(?:\.\d+)?)%', message, re.IGNORECASE)
+        if pct_match:
+            try:
+                updates['last_battery_pct'] = float(pct_match.group(1))
+            except ValueError:
+                pass
+                
+        # Check for voltage
+        # Matches: "Battery: 4.2V", "Battery: 4.2V (85%)"
+        volt_match = re.search(r'Battery.*?([\d\.]+)V', message, re.IGNORECASE)
+        if volt_match:
+            try:
+                updates['last_battery_voltage'] = float(volt_match.group(1))
+            except ValueError:
+                pass
+                
+        if updates:
+            # Update SensorRegistration
+            set_clause = ', '.join([f"{k} = ?" for k in updates.keys()])
+            values = list(updates.values())
+            
+            # We append updated_at and sensor_id to the values list
+            values.append(now_iso)
+            values.append(sensor_id)
+            
+            try:
+                cursor.execute(f'''
+                    UPDATE SensorRegistration
+                    SET {set_clause}, updated_at = ?
+                    WHERE sensor_id = ?
+                ''', values)
+            except Exception as e:
+                logger.warning(f"Failed to update battery info from log: {e}")
+
         cursor.execute('''
             INSERT INTO SensorLogs (sensor_id, message, log_level, timestamp)
             VALUES (?, ?, ?, ?)
@@ -1634,20 +1679,65 @@ def receive_sensor_data():
         conn = get_db()
         cursor = conn.cursor()
         
-        # Check if sensor is registered
+        # Check if sensor is registered in Device Management (RegisteredDevices)
         cursor.execute('SELECT id, device_name, polling_interval, last_data_stored, polling_enabled FROM RegisteredDevices WHERE device_id = ?', (sensor_id,))
         device = cursor.fetchone()
         
-        if not device:
+        # Check if sensor is registered in Sensor Master Control (SensorRegistration)
+        cursor.execute('SELECT id FROM SensorRegistration WHERE sensor_id = ?', (sensor_id,))
+        sensor_reg = cursor.fetchone()
+        
+        if not device and not sensor_reg:
             return jsonify({'error': 'Sensor not registered'}), 404
             
+        timestamp = datetime.now(timezone.utc).isoformat()
+
+        # Update SensorRegistration (Sensor Master Control)
+        if sensor_reg:
+            try:
+                # Extract battery info
+                battery_pct = data.get('battery_pct')
+                battery_voltage = data.get('battery')
+                
+                update_fields = {}
+                if battery_pct is not None:
+                    update_fields['last_battery_pct'] = battery_pct
+                if battery_voltage is not None:
+                    update_fields['last_battery_voltage'] = battery_voltage
+                    
+                # Also update temperature/relay if present
+                if 'temperature' in data:
+                    update_fields['last_temperature'] = data['temperature']
+                if 'relay_state' in data:
+                    update_fields['last_relay_state'] = data['relay_state']
+                    
+                if update_fields:
+                    update_fields['last_check_in'] = timestamp
+                    update_fields['status'] = 'online'
+                    
+                    set_clause = ', '.join([f"{k} = ?" for k in update_fields.keys()])
+                    values = list(update_fields.values()) + [sensor_id]
+                    
+                    cursor.execute(f'''
+                        UPDATE SensorRegistration
+                        SET {set_clause}
+                        WHERE sensor_id = ?
+                    ''', values)
+            except Exception as e:
+                logger.warning(f"Failed to update SensorRegistration in receive_sensor_data: {e}")
+
+        # If not in RegisteredDevices, we are done (return success to keep firmware online)
+        if not device:
+            conn.commit()
+            return jsonify({'message': 'Data received (Sensor Master only)'}), 200
+
+        # Proceed with Device Management logic
         device_id = device['id']
         polling_interval = device['polling_interval'] or 30
         last_data_stored = device['last_data_stored']
         polling_enabled = device['polling_enabled']
         
         # Update last seen status
-        timestamp = datetime.now(timezone.utc).isoformat()
         cursor.execute('''
             UPDATE RegisteredDevices 
             SET last_seen = ?, status = 'online', last_poll_success = ?
