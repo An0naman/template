@@ -1,0 +1,12 @@
+[Unit]
+Description=Docker Cache Cleanup on Startup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/home/an0naman/Documents/GitHub/template/scripts/cleanup_docker_cache.sh
+User=root
+
+[Install]
+WantedBy=multi-user.target

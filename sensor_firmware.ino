@@ -29,6 +29,10 @@
 // CONFIGURATION - CUSTOMIZE THESE VALUES
 // ============================================================================
 
+// Environment Selection
+// Set to true for PRODUCTION (Port 5005), false for DEVELOPMENT (Port 5001)
+#define IS_PRODUCTION false
+
 // WiFi Configuration
 const char* WIFI_SSID = "SkyNet Mesh";
 const char* WIFI_PASSWORD = "TQ7@aecA&^eAmG)";
@@ -39,9 +43,15 @@ const long  gmtOffset_sec = 0;
 const int   daylightOffset_sec = 3600;
 
 // Master Control Configuration
-String masterUrl = "http://192.168.68.110:5001";  // Default/Fallback URL
+#if IS_PRODUCTION
+  String masterUrl = "http://192.168.68.110:5005";  // Production URL
+  const int MASTER_PORT = 5005;
+#else
+  String masterUrl = "http://192.168.68.110:5001";  // Development URL
+  const int MASTER_PORT = 5001;
+#endif
+
 const char* MDNS_SERVICE_NAME = "sensor-master";  // Hostname to look for (sensor-master.local)
-const int MASTER_PORT = 5001;
 const char* SENSOR_ID = "esp32_fermentation_002";
 const char* SENSOR_NAME = "Fermentation Chamber 2";
 const char* SENSOR_TYPE = "esp32_fermentation";

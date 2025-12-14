@@ -1,12 +1,12 @@
-name: template
+name: development-environment
 
 services:
-  template:
+  development-environment:
     build:
       context: .
       dockerfile: Dockerfile
     image: template:local
-    container_name: template
+    container_name: development-environment
     restart: always
     network_mode: host
     
@@ -68,7 +68,7 @@ services:
   # Watchtower - Automatic container updates
   watchtower:
     image: containrrr/watchtower
-    container_name: template-watchtower
+    container_name: development-environment-watchtower
     restart: always
     
     volumes:
@@ -87,7 +87,7 @@ x-casaos:
   architectures:
     - amd64
     - arm64
-  main: template
+  main: development-environment
   author: an0naman
   category: Productivity
   description:
@@ -97,7 +97,7 @@ x-casaos:
   tagline:
     en_us: "Complete project management solution"
   title:
-    en_us: "Project Template Manager"
+    en_us: "Development Environment"
   index: /
   port_map: "5001"
 
