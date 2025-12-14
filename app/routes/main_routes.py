@@ -390,9 +390,16 @@ def settings():
     from ..db import get_system_parameters
     params = get_system_parameters()
     
+    # Fetch entry types for mapping configuration
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, singular_label FROM EntryType ORDER BY name")
+    entry_types = cursor.fetchall()
+    
     return render_template('settings.html',
                           project_name=params.get('project_name'),
-                          params=params)
+                          params=params,
+                          entry_types=entry_types)
 
 @main_bp.route('/manage_ntfy')
 def manage_ntfy():

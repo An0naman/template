@@ -750,6 +750,12 @@ def init_db():
             'sensor_types': '',  # Start with empty sensor types - let devices register them dynamically
             'project_logo_path': '',
             
+            # Strava Integration
+            'strava_enabled': 'false',
+            'strava_client_id': '',
+            'strava_client_secret': '',
+            'strava_refresh_token': '',
+            
             # Label printing settings (defaults for all sizes)
             'label_font_size': '10',
             'label_title_font_size': '14',
@@ -948,6 +954,11 @@ def get_system_parameters():
             'huggingface_api_key': '',  # Hugging Face API key for image generation
             'huggingface_model': 'stabilityai/stable-diffusion-xl-base-1.0',  # Hugging Face model for image generation
             'huggingface_image_size': '1024x576',  # Default image size for Hugging Face generation
+            'strava_enabled': '0',  # Strava integration enabled (1 = enabled, 0 = disabled)
+            'strava_client_id': '',  # Strava Client ID
+            'strava_client_secret': '',  # Strava Client Secret
+            'strava_refresh_token': '',  # Strava Refresh Token
+            'strava_activity_mapping': '{}',  # JSON mapping of Strava types to Entry Types
             'gemini_base_prompt': 'You are a helpful assistant for a project management application. Please provide clear, concise, and well-structured responses.',  # Base prompt for AI context
             'prompt_description': 'Task: Generate a concise, informative description for a {entry_type} named "{title}".\n\nRequirements:\n- Be factual and informative\n- Include relevant details for a database/inventory system\n- Use professional, neutral tone\n- Use Markdown formatting when helpful\n- Use hyphens (-) for bullet lists\n\nReturn ONLY the description content.',
             'prompt_note': 'Task: Generate content for a {note_type} note.\n\nEntry Title: {title}\nEntry Type: {entry_type}\nNote Type: {note_type}\n\nGuidelines:\n- Create relevant and useful content appropriate for a {note_type} note\n- Make it specific to the entry\n- Keep the tone and format appropriate for the note type\n- Be concise but informative',
