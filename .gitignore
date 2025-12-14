@@ -89,3 +89,6 @@ btmon_capture*.txt
 test_*.png
 test_label_*.png
 data/*.before_recovery_*
+
+# Git integration data
+app/data/git_repos/
