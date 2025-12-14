@@ -23,6 +23,7 @@ services:
     privileged: true
     
     volumes:
+      - ./app:/app/app # Mount source code for live updates
       - ./data:/app/data  # Bind mount to use the same data directory
       - ./uploads:/app/uploads  # Persist uploaded files (logos, attachments, etc.)
       - /var/run/dbus:/var/run/dbus

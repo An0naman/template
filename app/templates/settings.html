@@ -685,7 +685,6 @@
                             <strong>Important:</strong> System prompts use template variables like <code>{title}</code>, <code>{entry_type}</code>, etc. These are automatically replaced with actual values when used. Modify carefully to maintain functionality.
                         </div>
                     </div>
-                    </div>
 
                 </div> <!-- End tab-content -->
 
@@ -713,6 +712,10 @@
                 </div>
             </div>
         </div>
+
+
+
+
 
         <!-- Git Integration Settings (token-based discovery) -->
         <div class="settings-section">
@@ -802,6 +805,157 @@
                 </div>
                 
                 <div id="gitSettingsStatus" class="mt-3 d-none"></div>
+            </div>
+        </div>
+
+        <!-- Strava Integration Settings -->
+        <div class="settings-section">
+            <div class="section-card">
+                <div class="section-title">
+                    <i class="fab fa-strava me-2"></i>Strava Integration
+                </div>
+                
+                <form id="stravaSettingsForm">
+                    <!-- Enable/Disable Toggle -->
+                    <div class="mb-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="stravaEnabled" 
+                                   {% if params.strava_enabled == 'true' or params.strava_enabled == '1' %}checked{% endif %}>
+                            <label class="form-check-label" for="stravaEnabled">
+                                <strong>Enable Strava Integration</strong>
+                            </label>
+                        </div>
+                        <small class="text-muted">Sync activities from Strava</small>
+                    </div>
+                    
+                    <!-- Configuration Form (shown when enabled) -->
+                    <div id="stravaConfigSection" style="display: {% if params.strava_enabled == 'true' or params.strava_enabled == '1' %}block{% else %}none{% endif %};">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="stravaClientId" class="form-label">Client ID</label>
+                                    <input type="text" class="form-control" id="stravaClientId" 
+                                           value="{{ params.strava_client_id or '' }}" placeholder="Enter Strava Client ID">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="stravaClientSecret" class="form-label">Client Secret</label>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="stravaClientSecret" 
+                                               value="{{ params.strava_client_secret or '' }}" placeholder="Enter Strava Client Secret">
+                                        <button class="btn btn-outline-secondary" type="button" id="toggleStravaSecretVisibility">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <label class="form-label">Connection Status</label>
+                                    {% if params.strava_access_token %}
+                                        <div class="alert alert-success d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <i class="fas fa-check-circle me-2"></i>
+                                                Connected as <strong>{{ params.strava_athlete_name or 'Athlete' }}</strong>
+                                                {% if params.strava_last_sync_time %}
+                                                    <br><small class="text-muted">Last synced: <span class="local-time" data-timestamp="{{ params.strava_last_sync_time }}"></span></small>
+                                                {% endif %}
+                                            </div>
+                                            <div>
+                                                <button type="button" class="btn btn-primary btn-sm me-2" id="syncStravaBtn">
+                                                    <i class="fas fa-sync me-1"></i>Sync Now
+                                                </button>
+                                                <!-- Disconnect is a separate action, keep it outside the main form submission or handle carefully -->
+                                                <button type="button" class="btn btn-danger btn-sm" onclick="document.getElementById('disconnectStravaForm').submit();">Disconnect</button>
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-secondary">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <i class="fas fa-info-circle me-2"></i>
+                                                    Connect your Strava account to sync activities.
+                                                </div>
+                                                {% if params.strava_client_id and params.strava_client_secret %}
+                                                    <a href="{{ url_for('strava_routes.strava_login') }}" class="btn btn-warning">
+                                                        <i class="fab fa-strava me-2"></i>Connect with Strava
+                                                    </a>
+                                                {% else %}
+                                                    <button type="button" class="btn btn-warning" disabled title="Please save Client ID and Secret first">
+                                                        <i class="fab fa-strava me-2"></i>Connect with Strava
+                                                    </button>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Advanced: Manual Token Entry (Hidden by default) -->
+                        <div class="mb-3">
+                            <button class="btn btn-link btn-sm p-0 text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#manualStravaToken" aria-expanded="false">
+                                <i class="fas fa-cog me-1"></i>Advanced: Manual Token Configuration
+                            </button>
+                        </div>
+                        
+                        <div class="collapse" id="manualStravaToken">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="mb-3">
+                                        <label for="stravaRefreshToken" class="form-label">Refresh Token</label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="stravaRefreshToken" 
+                                                   value="{{ params.strava_refresh_token or '' }}" placeholder="Enter Strava Refresh Token">
+                                            <button class="btn btn-outline-secondary" type="button" id="toggleStravaTokenVisibility">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                        <small class="text-muted">
+                                            Used to obtain access tokens. 
+                                            <a href="https://www.strava.com/settings/api" target="_blank">Get API Credentials</a>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Activity Mapping Section -->
+                        <div class="mt-4 border-top pt-3">
+                            <h6><i class="fas fa-exchange-alt me-2"></i>Activity Type Mapping</h6>
+                            <p class="text-muted small">Map Strava activity types to your system's Entry Types.</p>
+                            
+                            <div class="table-responsive">
+                                <table class="table table-sm table-borderless align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 40%">Strava Activity</th>
+                                            <th>Entry Type</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="stravaMappingTable">
+                                        <!-- Populated by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3 mt-3">
+                        <button type="submit" class="btn btn-primary" id="saveStravaConfigBtn">
+                            <i class="fas fa-save me-1"></i>Save Strava Configuration
+                        </button>
+                    </div>
+                </form>
+                
+                <!-- Hidden form for disconnect -->
+                <form id="disconnectStravaForm" action="{{ url_for('strava_routes.strava_disconnect') }}" method="POST" style="display:none;"></form>
+                
+                <div id="stravaSettingsStatus" class="mt-3 d-none"></div>
             </div>
         </div>
 
@@ -1002,7 +1156,7 @@
                         <form id="overdueSettingsForm">
                             <div class="mb-3">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="overdueCheckEnabled" {{ 'checked' if params.overdue_check_enabled == 'true' else '' }}>
+                                    <input class="form-check-input" type="checkbox" id="overdueCheckEnabled" {{ 'checked' if params.overdue_check_enabled == 'true' or params.overdue_check_enabled == '1' else '' }}>
                                     <label class="form-check-label" for="overdueCheckEnabled">
                                         Enable automatic overdue checking
                                     </label>
@@ -1093,12 +1247,12 @@
                         <h5>Current Logo</h5>
                         <div class="preview-container" id="logoPreviewContainer">
                             {% if params.project_logo_path %}
-                                <img src="{{ params.project_logo_path }}" alt="Project Logo" class="logo-preview">
+                            <img src="{{ url_for('static', filename=params.project_logo_path) }}" alt="Project Logo" class="img-fluid logo-preview">
                             {% else %}
-                                <div>
-                                    <i class="fas fa-image fa-3x text-muted mb-3"></i>
-                                    <p class="text-muted">No logo uploaded</p>
-                                </div>
+                            <div>
+                                <i class="fas fa-image fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">No logo uploaded</p>
+                            </div>
                             {% endif %}
                         </div>
                     </div>
@@ -1106,15 +1260,210 @@
             </div>
         </div>
 
-    </div>
+        <!-- Strava Data Injection -->
+        <script type="application/json" id="strava-entry-types-data">
+            [
+                { "id": "", "label": "-- Do Not Import --" }
+                {% for et in entry_types %}
+                ,{ "id": {{ et.id | tojson }}, "label": {{ et.singular_label | tojson }} }
+                {% endfor %}
+            ]
+        </script>
+        
+        <script type="application/json" id="strava-mapping-data">
+            {{ (params.get("strava_activity_mapping") or "{}") | safe }}
+        </script>
 
+        <!-- Strava Settings Handler -->
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log("Settings page script loaded");
+                
+                const stravaSettingsForm = document.getElementById('stravaSettingsForm');
+                const stravaMappingTable = document.getElementById('stravaMappingTable');
+                const commonStravaTypes = ['Run', 'Ride', 'Swim', 'Walk', 'Hike', 'Workout', 'WeightTraining', 'Yoga', 'VirtualRide', 'VirtualRun', 'AlpineSki', 'Snowboard'];
+                
+                // Load Data
+                let entryTypes = [];
+                let currentMapping = {};
+                
+                try {
+                    const entryTypesEl = document.getElementById('strava-entry-types-data');
+                    if (entryTypesEl) {
+                        entryTypes = JSON.parse(entryTypesEl.textContent);
+                    }
+                    
+                    const mappingEl = document.getElementById('strava-mapping-data');
+                    if (mappingEl) {
+                        let rawContent = mappingEl.textContent.trim();
+                        if (!rawContent) rawContent = "{}";
+                        
+                        // Handle potential single quotes from Python dict string representation
+                        // If the string starts with { and contains single quotes, it might be a Python dict string
+                        if (rawContent.startsWith('{') && rawContent.includes("'")) {
+                            // Replace single quotes with double quotes for valid JSON
+                            // This is a simple heuristic and might need refinement for complex strings
+                            rawContent = rawContent.replace(/'/g, '"');
+                        }
+
+                        // Try to parse
+                        let parsed = JSON.parse(rawContent);
+                        
+                        // Handle double-encoded JSON string if necessary
+                        if (typeof parsed === 'string') {
+                            try {
+                                parsed = JSON.parse(parsed);
+                            } catch (e) {
+                                console.warn("Mapping was a string but not valid JSON, using as is or empty");
+                            }
+                        }
+                        currentMapping = parsed || {};
+                    }
+                    console.log("Loaded Strava config:", { entryTypes, currentMapping });
+                } catch (e) {
+                    console.error("Error loading Strava data:", e);
+                }
+
+                function renderMappingTable() {
+                    if (!stravaMappingTable) return;
+                    stravaMappingTable.innerHTML = '';
+                    
+                    // Default Row
+                    renderMappingRow('Default (All Others)', 'default');
+                    
+                    // Specific Types
+                    commonStravaTypes.forEach(type => {
+                        renderMappingRow(type, type);
+                    });
+                }
+                
+                function renderMappingRow(label, key) {
+                    const tr = document.createElement('tr');
+                    
+                    const tdLabel = document.createElement('td');
+                    tdLabel.textContent = label;
+                    if (key === 'default') tdLabel.innerHTML = '<strong>Default (All Others)</strong>';
+                    
+                    const tdSelect = document.createElement('td');
+                    const select = document.createElement('select');
+                    select.className = 'form-select form-select-sm strava-mapping-select';
+                    select.dataset.stravaType = key;
+                    
+                    entryTypes.forEach(et => {
+                        const option = document.createElement('option');
+                        option.value = et.id;
+                        option.textContent = et.label;
+                        // Check for match (handling string/number differences)
+                        if (currentMapping[key] == et.id) option.selected = true;
+                        select.appendChild(option);
+                    });
+                    
+                    tdSelect.appendChild(select);
+                    tr.appendChild(tdLabel);
+                    tr.appendChild(tdSelect);
+                    stravaMappingTable.appendChild(tr);
+                }
+                
+                if (stravaMappingTable) renderMappingTable();
+
+                if (stravaSettingsForm) {
+                    console.log("Strava form found, attaching listener");
+                    
+                    // Toggle visibility
+                    const stravaEnabled = document.getElementById('stravaEnabled');
+                    const stravaConfigSection = document.getElementById('stravaConfigSection');
+                    
+                    if (stravaEnabled && stravaConfigSection) {
+                        stravaEnabled.addEventListener('change', function() {
+                            stravaConfigSection.style.display = this.checked ? 'block' : 'none';
+                        });
+                    }
+
+                    // Handle Form Submit
+                    stravaSettingsForm.addEventListener('submit', async function(e) {
+                        console.log("Strava form submitted");
+                        e.preventDefault();
+                        
+                        // Show loading state
+                        const saveBtn = document.getElementById('saveStravaConfigBtn');
+                        const originalBtnText = saveBtn.innerHTML;
+                        saveBtn.disabled = true;
+                        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
+                        
+                        try {
+                            const enabled = document.getElementById('stravaEnabled').checked;
+                            const clientId = document.getElementById('stravaClientId').value;
+                            const clientSecret = document.getElementById('stravaClientSecret').value;
+                            const refreshToken = document.getElementById('stravaRefreshToken').value;
+                            
+                            // Collect Mapping Data
+                            const mapping = {};
+                            document.querySelectorAll('.strava-mapping-select').forEach(select => {
+                                if (select.value) {
+                                    mapping[select.dataset.stravaType] = select.value;
+                                }
+                            });
+                            console.log("Saving mapping:", mapping);
+                            
+                            const formData = {
+                                strava_enabled: enabled ? '1' : '0',
+                                strava_client_id: clientId,
+                                strava_client_secret: clientSecret,
+                                strava_refresh_token: refreshToken,
+                                strava_activity_mapping: JSON.stringify(mapping)
+                            };
+
+                            const response = await fetch('/api/system_params', {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(formData)
+                            });
+                            
+                            if (response.ok) {
+                                displayStatus('stravaSettingsStatus', '✅ Strava settings saved successfully!', 'alert-success');
+                            } else {
+                                const error = await response.json();
+                                displayStatus('stravaSettingsStatus', 'Failed to save: ' + (error.error || 'Unknown error'), 'alert-danger');
+                            }
+                        } catch (error) {
+                            console.error('Error saving Strava settings:', error);
+                            displayStatus('stravaSettingsStatus', 'Error saving Strava settings: ' + error.message, 'alert-danger');
+                        } finally {
+                            // Restore button state
+                            saveBtn.disabled = false;
+                            saveBtn.innerHTML = originalBtnText;
+                        }
+                    });
+                } else {
+                    console.error("Strava form not found!");
+                }
+            });
+        </script>
+
+    </div> <!-- End container -->
+
+    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/label_printing.js') }}"></script>
+    
     <script>
-        // Toggle password visibility function
-        function togglePasswordVisibility(inputId, button) {
+        // Helper function to display status messages
+        function displayStatus(elementId, message, type) {
+            const el = document.getElementById(elementId);
+            if (el) {
+                el.className = 'mt-3 alert ' + type;
+                el.innerHTML = message;
+                el.classList.remove('d-none');
+                setTimeout(() => {
+                    el.classList.add('d-none');
+                }, 5000);
+            }
+        }
+
+        // Toggle password visibility
+        function togglePasswordVisibility(inputId, btn) {
             const input = document.getElementById(inputId);
-            const icon = button.querySelector('i');
-            
+            const icon = btn.querySelector('i');
             if (input.type === 'password') {
                 input.type = 'text';
                 icon.classList.remove('fa-eye');
@@ -1125,1742 +1474,375 @@
                 icon.classList.add('fa-eye');
             }
         }
-        
-        // General Settings Form
-        document.getElementById('generalSettingsForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const formData = {
-                project_name: document.getElementById('projectName').value,
-                project_subtitle: document.getElementById('projectSubtitle').value,
-                entry_singular_label: document.getElementById('entrySingularLabel').value,
-                entry_plural_label: document.getElementById('entryPluralLabel').value,
-                enable_sensors: document.getElementById('enableSensorsToggle').checked ? '1' : '0',
-                enable_sensor_master_control: document.getElementById('enableSensorMasterControlToggle').checked ? 'true' : 'false',
-                enable_kanban: document.getElementById('enableKanbanToggle').checked ? 'true' : 'false'
-            };
+
+        // Test AI Service
+        async function testAiService() {
+            const statusDiv = document.getElementById('aiStatusMessage');
+            statusDiv.className = 'mt-3 alert alert-info';
+            statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Testing connection...';
+            statusDiv.classList.remove('d-none');
             
             try {
-                displayStatus('generalStatusMessage', 'Saving settings...', 'alert-info');
-                
-                const response = await fetch('/api/system_params', {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData)
-                });
-                
-                if (!response.ok) throw new Error('Failed to save settings');
-                
-                displayStatus('generalStatusMessage', 'Settings saved successfully!', 'alert-success');
-                
-                // Update page title and header
-                document.title = `${formData.project_name} - Settings`;
-                const headerElement = document.querySelector('h1');
-                if (headerElement) {
-                    headerElement.textContent = `${formData.project_name} System Parameters`;
-                }
-                
-            } catch (error) {
-                displayStatus('generalStatusMessage', 'Failed to save settings: ' + error.message, 'alert-danger');
-            }
-        });
-
-        // Label size configurations for each printer type
-        const printerLabelSizes = {
-            '8_labels': [
-                { value: 'static', label: '97.5mm × 65.5mm (Fixed Size)' }
-            ],
-            '14_labels': [
-                { value: 'static', label: '97.5mm × 35.3mm (Fixed Size)' }
-            ],
-            'niimbot_b1': [
-                { value: '30x12mm', label: '30mm × 12mm' },
-                { value: '30x15mm', label: '30mm × 15mm' },
-                { value: '40x20mm', label: '40mm × 20mm' },
-                { value: '40x24mm', label: '40mm × 24mm' },
-                { value: '60x30mm', label: '60mm × 30mm' },
-                { value: 'default', label: 'Default (All Other Sizes)' }
-            ],
-            'niimbot_d110': [
-                { value: '30x15mm', label: '30mm × 15mm' },
-                { value: '40x12mm', label: '40mm × 12mm' },
-                { value: '50x14mm', label: '50mm × 14mm' },
-                { value: '75x12mm', label: '75mm × 12mm' },
-                { value: 'default', label: 'Default (All Other Sizes)' }
-            ]
-        };
-
-        // Update label sizes when printer type changes
-        function updateLabelSizes() {
-            const printerType = document.getElementById('settingsPrinterType').value;
-            const labelSizeSelect = document.getElementById('settingsLabelSize');
-            const labelSizeContainer = document.getElementById('labelSizeContainer');
-            
-            // Clear existing options
-            labelSizeSelect.innerHTML = '';
-            
-            // For sheet labels (8 or 14), hide the size selector since they're static
-            if (printerType === '8_labels' || printerType === '14_labels') {
-                labelSizeContainer.style.display = 'none';
-                // Add the static option and auto-select it
-                const option = document.createElement('option');
-                option.value = 'static';
-                option.textContent = printerLabelSizes[printerType][0].label;
-                labelSizeSelect.appendChild(option);
-            } else {
-                // Show size selector for Niimbot printers
-                labelSizeContainer.style.display = 'block';
-                
-                // Populate with sizes for this printer
-                const sizes = printerLabelSizes[printerType];
-                sizes.forEach(size => {
-                    const option = document.createElement('option');
-                    option.value = size.value;
-                    option.textContent = size.label;
-                    labelSizeSelect.appendChild(option);
-                });
-            }
-            
-            // Trigger change event to load settings for first size
-            labelSizeSelect.dispatchEvent(new Event('change'));
-        }
-
-        // Initialize label sizes and add event listener
-        document.getElementById('settingsPrinterType').addEventListener('change', updateLabelSizes);
-        
-        // Initialize preview label type dropdown sizes on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize label sizes and preview on page load
-            updateLabelSizes();
-            setTimeout(() => {
-                updateLabelPreview(); // Initial preview after settings are loaded
-            }, 100);
-            
-            // Load sensor toggle state
-            loadSensorToggleState();
-            // Load kanban toggle state
-            loadKanbanToggleState();
-        });
-        
-        // Load current sensor toggle state
-        async function loadSensorToggleState() {
-            try {
-                // Load main sensor toggle
-                const response = await fetch('/api/system_params/enable_sensors');
+                const response = await fetch('/api/ai/test_connection', { method: 'POST' });
                 const data = await response.json();
-                const toggle = document.getElementById('enableSensorsToggle');
-                const label = document.getElementById('sensorToggleLabel');
-                const masterControlContainer = document.getElementById('sensorMasterControlContainer');
                 
-                const isEnabled = data.value === '1';
-                toggle.checked = isEnabled;
-                label.textContent = isEnabled ? 'Enabled' : 'Disabled';
-                label.style.color = isEnabled ? '#198754' : '#dc3545';
-                
-                // Show/hide master control container based on main toggle
-                masterControlContainer.style.display = isEnabled ? 'block' : 'none';
-                
-                // Load master control toggle if sensors are enabled
-                if (isEnabled) {
-                    try {
-                        const mcResponse = await fetch('/api/system_params/enable_sensor_master_control');
-                        const mcData = await mcResponse.json();
-                        const mcToggle = document.getElementById('enableSensorMasterControlToggle');
-                        const mcLabel = document.getElementById('sensorMasterControlToggleLabel');
-                        
-                        const isMcEnabled = mcData.value === 'true' || mcData.value === '1';
-                        mcToggle.checked = isMcEnabled;
-                        mcLabel.textContent = isMcEnabled ? 'Enabled' : 'Disabled';
-                        mcLabel.style.color = isMcEnabled ? '#198754' : '#6c757d';
-                    } catch (mcError) {
-                        console.warn('Error loading sensor master control state:', mcError);
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading sensor toggle state:', error);
-                document.getElementById('sensorToggleLabel').textContent = 'Error';
-            }
-        }
-        
-        // Load current kanban toggle state
-        async function loadKanbanToggleState() {
-            try {
-                const response = await fetch('/api/system_params/enable_kanban');
-                const data = await response.json();
-                const toggle = document.getElementById('enableKanbanToggle');
-                const label = document.getElementById('kanbanToggleLabel');
-                
-                const isEnabled = data.value === 'true';
-                toggle.checked = isEnabled;
-                label.textContent = isEnabled ? 'Enabled' : 'Disabled';
-                label.style.color = isEnabled ? '#198754' : '#dc3545';
-            } catch (error) {
-                console.error('Error loading kanban toggle state:', error);
-                document.getElementById('kanbanToggleLabel').textContent = 'Error';
-            }
-        }
-
-        // Store loaded settings in memory
-        let labelSettings = {};
-
-        // Function to load settings for current size + rotation
-        function loadCurrentSettings() {
-            const labelSize = document.getElementById('settingsLabelSize').value;
-            const rotation = document.getElementById('settingsLabelRotation').value;
-            const key = `${labelSize}_r${rotation}`;
-            
-            // If we have settings for this combo, load them
-            if (labelSettings[key]) {
-                const settings = labelSettings[key];
-                document.getElementById('labelFontSize').value = settings.font_size;
-                document.getElementById('labelTitleFontSize').value = settings.title_font_size;
-                document.getElementById('labelBorderStyle').value = settings.border_style;
-                document.getElementById('labelIncludeQr').checked = settings.include_qr_code === 'true';
-                document.getElementById('labelQrSize').value = settings.qr_size;
-                document.getElementById('labelQrPosition').value = settings.qr_position;
-                document.getElementById('labelIncludeLogo').checked = settings.include_logo === 'true';
-                document.getElementById('labelLogoPosition').value = settings.logo_position;
-            } else {
-                // Load from data attributes (initial load)
-                const settings = document.querySelectorAll('.label-setting');
-                settings.forEach(setting => {
-                    const value = setting.getAttribute(`data-${labelSize}`);
-                    if (setting.type === 'checkbox') {
-                        setting.checked = value === 'true';
-                    } else {
-                        setting.value = value;
-                    }
-                });
-            }
-            
-            // Update button text
-            const sizeDisplay = labelSize === 'default' ? 'Default' : labelSize.replace('x', 'mm × ') + 'mm';
-            const rotationDisplay = rotation === '0' ? 'Portrait' : 'Landscape';
-            document.querySelector('#labelSettingsForm button[type="submit"]').innerHTML = 
-                `<i class="fas fa-save me-1"></i>Save Settings for ${sizeDisplay} - ${rotationDisplay}`;
-            
-            // Update preview
-            updateLabelPreview();
-        }
-
-        // Label Settings - Switch between label sizes or rotation
-        document.getElementById('settingsLabelSize').addEventListener('change', loadCurrentSettings);
-        document.getElementById('settingsLabelRotation').addEventListener('change', loadCurrentSettings);
-
-        // Label Settings Form
-        document.getElementById('labelSettingsForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const labelSize = document.getElementById('settingsLabelSize').value;
-            const rotation = document.getElementById('settingsLabelRotation').value;
-            const prefix = labelSize === 'default' ? 'label' : `label_${labelSize}`;
-            const rotationSuffix = rotation === '90' ? '_r90' : '';
-            
-            const formData = {
-                [`${prefix}${rotationSuffix}_font_size`]: document.getElementById('labelFontSize').value,
-                [`${prefix}${rotationSuffix}_title_font_size`]: document.getElementById('labelTitleFontSize').value,
-                [`${prefix}${rotationSuffix}_border_style`]: document.getElementById('labelBorderStyle').value,
-                [`${prefix}${rotationSuffix}_include_qr_code`]: document.getElementById('labelIncludeQr').checked ? 'true' : 'false',
-                [`${prefix}${rotationSuffix}_qr_size`]: document.getElementById('labelQrSize').value,
-                [`${prefix}${rotationSuffix}_qr_position`]: document.getElementById('labelQrPosition').value,
-                [`${prefix}${rotationSuffix}_include_logo`]: document.getElementById('labelIncludeLogo').checked ? 'true' : 'false',
-                [`${prefix}${rotationSuffix}_logo_position`]: document.getElementById('labelLogoPosition').value,
-                label_qr_code_prefix: document.getElementById('labelQrPrefix').value
-            };
-            
-            try {
-                const sizeDisplay = labelSize === 'default' ? 'default' : labelSize;
-                const rotationDisplay = rotation === '0' ? 'Portrait' : 'Landscape';
-                displayStatus('labelStatusMessage', `Saving ${sizeDisplay} (${rotationDisplay}) label settings...`, 'alert-info');
-                
-                const response = await fetch('/api/system_params', {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData)
-                });
-                
-                if (!response.ok) throw new Error('Failed to save label settings');
-                
-                displayStatus('labelStatusMessage', `Settings for ${sizeDisplay} (${rotationDisplay}) saved successfully!`, 'alert-success');
-                
-                // Store settings in memory for this size + rotation combo
-                const key = `${labelSize}_r${rotation}`;
-                labelSettings[key] = {
-                    font_size: document.getElementById('labelFontSize').value,
-                    title_font_size: document.getElementById('labelTitleFontSize').value,
-                    border_style: document.getElementById('labelBorderStyle').value,
-                    include_qr_code: document.getElementById('labelIncludeQr').checked ? 'true' : 'false',
-                    qr_size: document.getElementById('labelQrSize').value,
-                    qr_position: document.getElementById('labelQrPosition').value,
-                    include_logo: document.getElementById('labelIncludeLogo').checked ? 'true' : 'false',
-                    logo_position: document.getElementById('labelLogoPosition').value
-                };
-                
-                // Refresh preview after save
-                updateLabelPreview();
-                
-            } catch (error) {
-                displayStatus('labelStatusMessage', 'Failed to save label settings: ' + error.message, 'alert-danger');
-            }
-        });
-
-        // Label Preview Functionality
-        let previewTimeout = null;
-        
-        function updateLabelPreview() {
-            const container = document.getElementById('labelPreviewContainer');
-            // Use the settings dropdowns instead of separate preview dropdowns
-            const printerType = document.getElementById('settingsPrinterType').value;
-            const labelSize = document.getElementById('settingsLabelSize').value;
-            const rotation = document.getElementById('settingsLabelRotation').value;
-            
-            // Update the preview info text
-            const sizeDisplay = labelSize === 'default' ? 'Default' : 
-                               labelSize === 'static' ? (printerType === '8_labels' ? '97.5mm × 65.5mm' : '97.5mm × 35.3mm') : 
-                               labelSize;
-            const rotationDisplay = rotation === '0' ? 'Portrait' : 'Landscape (90°)';
-            document.getElementById('previewCurrentSettings').textContent = `${sizeDisplay} - ${rotationDisplay}`;
-            
-            // Determine label type from printer type and label size
-            let labelType = printerType;
-            
-            // Get current form values
-            const titleFontSize = parseInt(document.getElementById('labelTitleFontSize').value) || 14;
-            const bodyFontSize = parseInt(document.getElementById('labelFontSize').value) || 10;
-            const borderStyle = document.getElementById('labelBorderStyle').value;
-            const includeQr = document.getElementById('labelIncludeQr').checked;
-            const qrSize = document.getElementById('labelQrSize').value;
-            const qrPosition = document.getElementById('labelQrPosition').value;
-            const includeLogo = document.getElementById('labelIncludeLogo').checked;
-            const logoPosition = document.getElementById('labelLogoPosition').value;
-            
-            // Create canvas for preview
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            // Set canvas size based on label type
-            let width, height;
-            if (labelType.startsWith('niimbot_')) {
-                // Niimbot label sizes (pixels at 203 DPI to match backend)
-                // Calculate: mm * 203 DPI / 25.4 mm per inch
-                // NOTE: Backend enforces max_width_px limits:
-                //   B1: 384px max (48mm), D110: 240px max (30mm)
-                const sizes = {
-                    // B1 sizes (max 384px width)
-                    '60x30mm': [Math.round(60 * 203 / 25.4), Math.round(30 * 203 / 25.4)],  // 480 x 240 -> clamped to 384x240
-                    '40x24mm': [Math.round(40 * 203 / 25.4), Math.round(24 * 203 / 25.4)],  // 320 x 192
-                    '40x20mm': [Math.round(40 * 203 / 25.4), Math.round(20 * 203 / 25.4)],  // 320 x 160
-                    '30x15mm': [Math.round(30 * 203 / 25.4), Math.round(15 * 203 / 25.4)],  // 240 x 120
-                    '30x12mm': [Math.round(30 * 203 / 25.4), Math.round(12 * 203 / 25.4)],  // 240 x 96
-                    // D110 sizes (max 240px width - 30mm print head)
-                    '75x12mm': [240, Math.round(12 * 203 / 25.4)],  // Would be 600px, clamped to 240
-                    '50x14mm': [240, Math.round(14 * 203 / 25.4)],  // Would be 400px, clamped to 240
-                    '40x12mm': [240, Math.round(12 * 203 / 25.4)],  // Would be 320px, clamped to 240
-                };
-                [width, height] = sizes[labelSize] || [384, 237];
-                
-                // If rotated, swap width and height
-                if (rotation === '90') {
-                    [width, height] = [height, width];
-                }
-            } else {
-                // Sheet labels - use 300 DPI to match backend (mm * 300 / 25.4)
-                const scale = 300 / 25.4; // ~11.8 pixels per mm at 300 DPI
-                if (labelType === '8_labels') {
-                    width = Math.round(97.5 * scale);   // 97.5mm → ~1150px
-                    height = Math.round(65.5 * scale);  // 65.5mm → ~773px
-                } else if (labelType === '14_labels') {
-                    width = Math.round(97.5 * scale);   // 97.5mm → ~1150px
-                    height = Math.round(35.3 * scale);  // 35.3mm → ~416px
+                if (response.ok && data.success) {
+                    statusDiv.className = 'mt-3 alert alert-success';
+                    statusDiv.innerHTML = '<i class="fas fa-check-circle me-2"></i>Connection successful!';
                 } else {
-                    // Fallback for unknown sheet types
-                    width = 300;
-                    height = 150;
+                    statusDiv.className = 'mt-3 alert alert-danger';
+                    statusDiv.innerHTML = '<i class="fas fa-times-circle me-2"></i>Connection failed: ' + (data.error || 'Unknown error');
                 }
-                
-                // If rotated, swap width and height
-                if (rotation === '90') {
-                    [width, height] = [height, width];
-                }
+            } catch (error) {
+                statusDiv.className = 'mt-3 alert alert-danger';
+                statusDiv.innerHTML = '<i class="fas fa-times-circle me-2"></i>Error: ' + error.message;
             }
-            
-            canvas.width = width;
-            canvas.height = height;
-            
-            // White background
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, width, height);
-            
-            // Draw border
-            ctx.strokeStyle = 'black';
-            const margin = 10;
-            if (borderStyle === 'simple') {
-                ctx.lineWidth = 1;
-                ctx.strokeRect(margin, margin, width - margin * 2, height - margin * 2);
-            } else if (borderStyle === 'thick') {
-                ctx.lineWidth = 3;
-                ctx.strokeRect(margin, margin, width - margin * 2, height - margin * 2);
-            } else if (borderStyle === 'double') {
-                ctx.lineWidth = 1;
-                ctx.strokeRect(margin, margin, width - margin * 2, height - margin * 2);
-                ctx.strokeRect(margin + 3, margin + 3, width - (margin + 3) * 2, height - (margin + 3) * 2);
-            } else if (borderStyle === 'rounded') {
-                const radius = 5;
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(margin + radius, margin);
-                ctx.lineTo(width - margin - radius, margin);
-                ctx.quadraticCurveTo(width - margin, margin, width - margin, margin + radius);
-                ctx.lineTo(width - margin, height - margin - radius);
-                ctx.quadraticCurveTo(width - margin, height - margin, width - margin - radius, height - margin);
-                ctx.lineTo(margin + radius, height - margin);
-                ctx.quadraticCurveTo(margin, height - margin, margin, height - margin - radius);
-                ctx.lineTo(margin, margin + radius);
-                ctx.quadraticCurveTo(margin, margin, margin + radius, margin);
-                ctx.stroke();
-            } else if (borderStyle === 'dashed') {
-                ctx.lineWidth = 1;
-                ctx.setLineDash([5, 3]);
-                ctx.strokeRect(margin, margin, width - margin * 2, height - margin * 2);
-                ctx.setLineDash([]);
-            } else if (borderStyle === 'dotted') {
-                ctx.lineWidth = 1;
-                ctx.setLineDash([2, 2]);
-                ctx.strokeRect(margin, margin, width - margin * 2, height - margin * 2);
-                ctx.setLineDash([]);
-            } else if (borderStyle === 'decorative') {
-                ctx.lineWidth = 1;
-                // Main border
-                ctx.strokeRect(margin, margin, width - margin * 2, height - margin * 2);
-                // Corner decorations
-                const cornerSize = 15;
-                ctx.lineWidth = 2;
-                // Top-left corner
-                ctx.beginPath();
-                ctx.moveTo(margin, margin + cornerSize);
-                ctx.lineTo(margin, margin);
-                ctx.lineTo(margin + cornerSize, margin);
-                ctx.stroke();
-                // Top-right corner
-                ctx.beginPath();
-                ctx.moveTo(width - margin - cornerSize, margin);
-                ctx.lineTo(width - margin, margin);
-                ctx.lineTo(width - margin, margin + cornerSize);
-                ctx.stroke();
-                // Bottom-right corner
-                ctx.beginPath();
-                ctx.moveTo(width - margin, height - margin - cornerSize);
-                ctx.lineTo(width - margin, height - margin);
-                ctx.lineTo(width - margin - cornerSize, height - margin);
-                ctx.stroke();
-                // Bottom-left corner
-                ctx.beginPath();
-                ctx.moveTo(margin + cornerSize, height - margin);
-                ctx.lineTo(margin, height - margin);
-                ctx.lineTo(margin, height - margin - cornerSize);
-                ctx.stroke();
-            } else if (borderStyle === 'shadow') {
-                ctx.lineWidth = 1;
-                // Shadow effect
-                ctx.strokeStyle = '#ccc';
-                ctx.strokeRect(margin + 2, margin + 2, width - margin * 2, height - margin * 2);
-                ctx.strokeStyle = '#999';
-                ctx.strokeRect(margin + 1, margin + 1, width - margin * 2, height - margin * 2);
-                // Main border
-                ctx.strokeStyle = 'black';
-                ctx.strokeRect(margin, margin, width - margin * 2, height - margin * 2);
-            }
-            
-            // Helper function to wrap text
-            function wrapText(context, text, x, y, maxWidth, lineHeight) {
-                const words = text.split(' ');
-                let line = '';
-                let lines = [];
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- Initialization from Server Params ---
+            const params = {
+                enable_sensors: "{{ params.enable_sensors }}",
+                enable_sensor_master_control: "{{ params.enable_sensor_master_control }}",
+                enable_kanban: "{{ params.enable_kanban }}",
+                git_integration_enabled: "{{ params.git_integration_enabled }}",
+                git_provider: "{{ params.git_provider }}",
+                gitlab_url: "{{ params.gitlab_url }}",
+                git_token: "{{ params.git_token }}"
+            };
+
+            // --- General Settings ---
+            const sensorToggle = document.getElementById('enableSensorsToggle');
+            const sensorLabel = document.getElementById('sensorToggleLabel');
+            const sensorMasterContainer = document.getElementById('sensorMasterControlContainer');
+            const sensorMasterToggle = document.getElementById('enableSensorMasterControlToggle');
+            const sensorMasterLabel = document.getElementById('sensorMasterControlToggleLabel');
+            const kanbanToggle = document.getElementById('enableKanbanToggle');
+            const kanbanLabel = document.getElementById('kanbanToggleLabel');
+
+            // Initialize Toggles
+            if (sensorToggle) {
+                sensorToggle.checked = (params.enable_sensors === 'true' || params.enable_sensors === '1');
+                sensorLabel.textContent = sensorToggle.checked ? 'Enabled' : 'Disabled';
+                if (sensorMasterContainer) sensorMasterContainer.style.display = sensorToggle.checked ? 'block' : 'none';
                 
-                for (let n = 0; n < words.length; n++) {
-                    const testLine = line + words[n] + ' ';
-                    const metrics = context.measureText(testLine);
-                    const testWidth = metrics.width;
+                sensorToggle.addEventListener('change', function() {
+                    sensorLabel.textContent = this.checked ? 'Enabled' : 'Disabled';
+                    if (sensorMasterContainer) sensorMasterContainer.style.display = this.checked ? 'block' : 'none';
+                });
+            }
+
+            if (sensorMasterToggle) {
+                sensorMasterToggle.checked = (params.enable_sensor_master_control === 'true' || params.enable_sensor_master_control === '1');
+                sensorMasterLabel.textContent = sensorMasterToggle.checked ? 'Enabled' : 'Disabled';
+                
+                sensorMasterToggle.addEventListener('change', function() {
+                    sensorMasterLabel.textContent = this.checked ? 'Enabled' : 'Disabled';
+                });
+            }
+
+            if (kanbanToggle) {
+                kanbanToggle.checked = (params.enable_kanban === 'true' || params.enable_kanban === '1');
+                kanbanLabel.textContent = kanbanToggle.checked ? 'Enabled' : 'Disabled';
+                
+                kanbanToggle.addEventListener('change', function() {
+                    kanbanLabel.textContent = this.checked ? 'Enabled' : 'Disabled';
+                });
+            }
+
+            // General Settings Form Submit
+            const generalForm = document.getElementById('generalSettingsForm');
+            if (generalForm) {
+                generalForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const formData = {
+                        project_name: document.getElementById('projectName').value,
+                        project_subtitle: document.getElementById('projectSubtitle').value,
+                        entry_singular_label: document.getElementById('entrySingularLabel').value,
+                        entry_plural_label: document.getElementById('entryPluralLabel').value,
+                        enable_sensors: sensorToggle && sensorToggle.checked ? '1' : '0',
+                        enable_sensor_master_control: sensorMasterToggle && sensorMasterToggle.checked ? '1' : '0',
+                        enable_kanban: kanbanToggle && kanbanToggle.checked ? '1' : '0'
+                    };
                     
-                    if (testWidth > maxWidth && n > 0) {
-                        lines.push(line);
-                        line = words[n] + ' ';
-                    } else {
-                        line = testLine;
+                    try {
+                        const response = await fetch('/api/system_params', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(formData)
+                        });
+                        if (response.ok) {
+                            displayStatus('generalStatusMessage', '✅ General settings saved successfully!', 'alert-success');
+                        } else {
+                            displayStatus('generalStatusMessage', '❌ Failed to save settings.', 'alert-danger');
+                        }
+                    } catch (error) {
+                        displayStatus('generalStatusMessage', '❌ Error: ' + error.message, 'alert-danger');
                     }
-                }
-                lines.push(line);
-                
-                // Draw all lines
-                for (let i = 0; i < lines.length; i++) {
-                    context.fillText(lines[i], x, y + (i * lineHeight));
-                }
-                
-                return lines.length * lineHeight; // Return total height used
+                });
             }
+
+            // --- AI Settings ---
+            window.switchAiServiceSettings = function() {
+                const selector = document.getElementById('aiServiceSelector');
+                if (!selector) return;
+                const service = selector.value;
+                document.querySelectorAll('.ai-service-settings').forEach(el => el.style.display = 'none');
+                const target = document.getElementById(service + 'Settings');
+                if (target) target.style.display = 'block';
+            };
             
-            // Calculate available text width and starting position (considering QR code and logo positions)
-            // New approach: Only adjust text if elements actually overlap with text area
-            let textMaxWidth = width - (margin * 2) - 10;
-            let textStartX = margin + 5;
-            let textStartY = margin + 5;
-            let qrX = 0, qrY = 0, qrPixels = 0;
-            let logoX = 0, logoY = 0, logoPixels = 0;
+            window.switchPromptEditor = function() {
+                const selector = document.getElementById('promptSelector');
+                if (!selector) return;
+                const prompt = selector.value;
+                document.querySelectorAll('.prompt-editor-section').forEach(el => el.style.display = 'none');
+                const target = document.getElementById('promptEditor_' + prompt);
+                if (target) target.style.display = 'block';
+            };
+
+            // Initialize AI Views
+            if (document.getElementById('aiServiceSelector')) switchAiServiceSettings();
+            if (document.getElementById('promptSelector')) switchPromptEditor();
             
-            // Pre-calculate QR position and size if enabled
-            if (includeQr) {
-                const qrSizes = { 'small': 50, 'medium': 70, 'large': 90 };
-                qrPixels = Math.min(qrSizes[qrSize] || 70, Math.min(height * 0.5, width * 0.3));
-                
-                // Calculate QR position
-                switch(qrPosition) {
-                    case 'left':
-                        qrX = margin + 5;
-                        qrY = margin + ((height - margin * 2 - qrPixels) / 2);
-                        break;
-                    case 'top-left':
-                        qrX = margin + 5;
-                        qrY = margin + 5;
-                        break;
-                    case 'top-right':
-                        qrX = width - qrPixels - margin - 5;
-                        qrY = margin + 5;
-                        break;
-                    case 'bottom-right':
-                        qrX = width - qrPixels - margin - 5;
-                        qrY = height - qrPixels - margin - 5;
-                        break;
-                    case 'bottom-left':
-                        qrX = margin + 5;
-                        qrY = height - qrPixels - margin - 5;
-                        break;
-                    case 'center-right':
-                    case 'right':
-                    default:
-                        qrX = width - qrPixels - margin - 5;
-                        qrY = margin + ((height - margin * 2 - qrPixels) / 2);
-                        break;
+            // Update AI Status
+            const aiStatus = document.getElementById('aiServiceStatus');
+            if (aiStatus) {
+                const hasKey = "{{ params.gemini_api_key }}" !== "";
+                if (hasKey) {
+                    aiStatus.innerHTML = '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Active</span>';
+                } else {
+                    aiStatus.innerHTML = '<span class="badge bg-warning text-dark"><i class="fas fa-exclamation-triangle me-1"></i>Not Configured</span>';
                 }
             }
-            
-            // Pre-calculate logo position and size if enabled
-            if (includeLogo) {
-                logoPixels = Math.min(60, Math.min(height * 0.3, width * 0.2));
-                
-                // Calculate logo position
-                switch(logoPosition) {
-                    case 'top-left':
-                        logoX = margin + 5;
-                        logoY = margin + 5;
-                        break;
-                    case 'top-right':
-                        logoX = width - logoPixels - margin - 5;
-                        logoY = margin + 5;
-                        break;
-                    case 'left':
-                        logoX = margin + 5;
-                        logoY = margin + ((height - margin * 2 - logoPixels) / 2);
-                        break;
-                    case 'bottom-left':
-                    default:
-                        logoX = margin + 5;
-                        logoY = height - logoPixels - margin - 5;
-                        break;
-                }
-            }
-            
-            // Smart text area adjustment - only adjust if elements overlap with text area
-            // Text area is roughly: top 60% of label, left to right with margins
-            const textAreaTop = margin + 5;
-            const textAreaBottom = height - margin - 30; // Leave room for date at bottom
-            const textAreaLeft = margin + 5;
-            const textAreaRight = width - margin - 5;
-            
-            // Check if QR overlaps with LEFT side of text area
-            if (includeQr) {
-                const qrRight = qrX + qrPixels;
-                const qrBottom = qrY + qrPixels;
-                
-                // QR on left side overlapping text area
-                if (qrX < textAreaLeft + 50 && qrY < textAreaBottom && qrBottom > textAreaTop) {
-                    textStartX = Math.max(textStartX, qrRight + 10);
-                    textMaxWidth = width - textStartX - margin - 5;
-                }
-                
-                // QR on right side overlapping text area
-                if (qrRight > textAreaRight - 50 && qrY < textAreaBottom && qrBottom > textAreaTop) {
-                    textMaxWidth = qrX - textStartX - 10;
-                }
-            }
-            
-            // Check if logo overlaps with LEFT side of text area
-            if (includeLogo) {
-                const logoRight = logoX + logoPixels;
-                const logoBottom = logoY + logoPixels;
-                
-                // Logo on left side overlapping text area
-                if (logoX < textAreaLeft + 50 && logoY < textAreaBottom && logoBottom > textAreaTop) {
-                    const logoEnd = logoRight + 10;
-                    if (logoEnd > textStartX) {
-                        textStartX = logoEnd;
-                        textMaxWidth = width - textStartX - margin - 5;
-                        
-                        // If QR is also on right, further reduce width
-                        if (includeQr) {
-                            const qrRight = qrX + qrPixels;
-                            if (qrRight > textAreaRight - 50) {
-                                textMaxWidth = qrX - textStartX - 10;
-                            }
+
+            // AI Form Submit
+            const aiForm = document.getElementById('aiSettingsForm');
+            if (aiForm) {
+                aiForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const formData = {};
+                    const elements = aiForm.elements;
+                    for (let i = 0; i < elements.length; i++) {
+                        const el = elements[i];
+                        if (el.id) {
+                            if (el.id === 'geminiApiKey') formData.gemini_api_key = el.value;
+                            else if (el.id === 'geminiModelName') formData.gemini_model_name = el.value;
+                            else if (el.id === 'groqApiKey') formData.groq_api_key = el.value;
+                            else if (el.id === 'groqModelName') formData.groq_model_name = el.value;
+                            else if (el.id === 'huggingfaceApiKey') formData.huggingface_api_key = el.value;
+                            else if (el.id === 'huggingfaceModel') formData.huggingface_model = el.value;
+                            else if (el.id === 'huggingfaceImageSize') formData.huggingface_image_size = el.value;
+                            else if (el.id === 'geminiBasePrompt') formData.gemini_base_prompt = el.value;
+                            else if (el.id === 'promptDescription') formData.prompt_description = el.value;
+                            else if (el.id === 'promptNote') formData.prompt_note = el.value;
+                            else if (el.id === 'promptSql') formData.prompt_sql = el.value;
+                            else if (el.id === 'promptTheme') formData.prompt_theme = el.value;
+                            else if (el.id === 'promptChat') formData.prompt_chat = el.value;
+                            else if (el.id === 'promptDiagram') formData.prompt_diagram = el.value;
+                            else if (el.id === 'promptDiagramRules') formData.prompt_diagram_rules = el.value;
+                            else if (el.id === 'promptSummary') formData.prompt_summary = el.value;
                         }
                     }
-                }
-                
-                // Logo on right side overlapping text area (rare but possible)
-                if (logoRight > textAreaRight - 50 && logoY < textAreaBottom && logoBottom > textAreaTop) {
-                    textMaxWidth = Math.min(textMaxWidth, logoX - textStartX - 10);
-                }
-            }
-            
-            // Draw title with wrapping
-            // Scale font sizes based on label type (sheet labels are higher resolution)
-            let scaledTitleFontSize, scaledBodyFontSize;
-            if (labelType.startsWith('niimbot_')) {
-                // Niimbot uses font sizes directly (203 DPI)
-                scaledTitleFontSize = titleFontSize;
-                scaledBodyFontSize = bodyFontSize;
-            } else {
-                // Sheet labels use 300 DPI, so scale fonts: 300/72 = 4.167
-                scaledTitleFontSize = Math.round(titleFontSize * 300 / 72);
-                scaledBodyFontSize = Math.round(bodyFontSize * 300 / 72);
-            }
-            
-            ctx.fillStyle = 'black';
-            ctx.font = `bold ${scaledTitleFontSize}px Arial`;
-            let currentY = textStartY + scaledTitleFontSize;
-            const titleHeight = wrapText(ctx, 'Sample Product Title', textStartX, currentY, textMaxWidth, scaledTitleFontSize + 4);
-            currentY += titleHeight + 5;
-            
-            // Draw entry type and ID
-            ctx.font = `${scaledBodyFontSize}px Arial`;
-            ctx.fillStyle = '#555';
-            const entryHeight = wrapText(ctx, 'Entry #123 - Type: Product', textStartX, currentY, textMaxWidth, scaledBodyFontSize + 4);
-            currentY += entryHeight + 3;
-            
-            // Draw description with wrapping
-            ctx.fillStyle = '#666';
-            const descHeight = wrapText(ctx, 'Sample description text that wraps properly', textStartX, currentY, textMaxWidth, bodyFontSize + 4);
-            currentY += descHeight + 3;
-            
-            // Draw logo placeholder if enabled
-            if (includeLogo) {
-                // Draw logo placeholder (position already calculated above)
-                ctx.fillStyle = '#e8f5e9';
-                ctx.fillRect(logoX, logoY, logoPixels, logoPixels);
-                ctx.strokeStyle = '#4caf50';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(logoX, logoY, logoPixels, logoPixels);
-                
-                ctx.fillStyle = '#4caf50';
-                ctx.font = 'bold 10px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('LOGO', logoX + logoPixels/2, logoY + logoPixels/2);
-                ctx.textAlign = 'left';
-            }
-            
-            // Draw QR code placeholder if enabled
-            if (includeQr) {
-                // Draw QR placeholder (position already calculated above)
-                ctx.fillStyle = '#ddd';
-                ctx.fillRect(qrX, qrY, qrPixels, qrPixels);
-                ctx.strokeStyle = '#999';
-                ctx.strokeRect(qrX, qrY, qrPixels, qrPixels);
-                ctx.fillStyle = '#666';
-                ctx.font = '10px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('QR', qrX + qrPixels/2, qrY + qrPixels/2);
-                ctx.textAlign = 'left';
-            }
-            
-            // Draw date at bottom - adaptive to logo and QR positions
-            ctx.fillStyle = '#888';
-            ctx.font = `${scaledBodyFontSize}px Arial`;
-            
-            // Default date position (bottom left)
-            let dateX = margin + 5;
-            let dateY = height - margin - 5;
-            const dateWidth = ctx.measureText('2025-10-24').width;
-            
-            // Date bounds
-            const dateBounds = {
-                left: dateX,
-                right: dateX + dateWidth,
-                top: dateY - bodyFontSize,
-                bottom: dateY
-            };
-            
-            // Check if date overlaps with logo
-            if (includeLogo) {
-                const logoBounds = {
-                    left: logoX,
-                    right: logoX + logoPixels,
-                    top: logoY,
-                    bottom: logoY + logoPixels
-                };
-                
-                // Check overlap
-                if (!(dateBounds.right < logoBounds.left || dateBounds.left > logoBounds.right ||
-                      dateBounds.bottom < logoBounds.top || dateBounds.top > logoBounds.bottom)) {
-                    // Overlap detected - move date to avoid logo
-                    if (logoPosition === 'bottom-left') {
-                        dateX = logoX + logoPixels + 5; // Move date to right of logo
-                    }
-                }
-            }
-            
-            // Check if date overlaps with QR code
-            if (includeQr) {
-                const qrBounds = {
-                    left: qrX,
-                    right: qrX + qrPixels,
-                    top: qrY,
-                    bottom: qrY + qrPixels
-                };
-                
-                // Update date bounds with potentially adjusted X position
-                dateBounds.left = dateX;
-                dateBounds.right = dateX + dateWidth;
-                
-                // Check overlap
-                if (!(dateBounds.right < qrBounds.left || dateBounds.left > qrBounds.right ||
-                      dateBounds.bottom < qrBounds.top || dateBounds.top > qrBounds.bottom)) {
-                    // Overlap detected - move date to avoid QR
-                    if (qrPosition === 'bottom-left') {
-                        dateX = qrX + qrPixels + 5; // Move date to right of QR
-                    } else if (qrPosition === 'bottom-right') {
-                        dateX = qrX - dateWidth - 5; // Move date to left of QR
-                    }
-                }
-            }
-            
-            ctx.fillText('2025-10-24', dateX, dateY);
-            
-            // Display canvas (scale down if too large for preview area)
-            container.innerHTML = '';
-            const maxWidth = 500;  // Maximum preview width
-            const maxHeight = 400; // Maximum preview height
-            
-            if (width > maxWidth || height > maxHeight) {
-                // Scale down to fit
-                const scale = Math.min(maxWidth / width, maxHeight / height);
-                canvas.style.width = Math.round(width * scale) + 'px';
-                canvas.style.height = Math.round(height * scale) + 'px';
-            }
-            
-            container.appendChild(canvas);
-            
-            // Add orientation label if rotated
-            if (rotation === '90') {
-                const rotationLabel = document.createElement('div');
-                rotationLabel.textContent = '📐 Landscape (90°)';
-                rotationLabel.style.fontSize = '12px';
-                rotationLabel.style.color = '#666';
-                rotationLabel.style.marginTop = '10px';
-                rotationLabel.style.textAlign = 'center';
-                container.appendChild(rotationLabel);
-            }
-        }
-        
-        // Debounced preview update
-        function schedulePreviewUpdate() {
-            if (previewTimeout) {
-                clearTimeout(previewTimeout);
-            }
-            previewTimeout = setTimeout(updateLabelPreview, 500);
-        }
-        
-        // Add event listeners to all label settings inputs for live preview
-        document.getElementById('labelFontSize').addEventListener('input', schedulePreviewUpdate);
-        document.getElementById('labelTitleFontSize').addEventListener('input', schedulePreviewUpdate);
-        document.getElementById('labelBorderStyle').addEventListener('change', schedulePreviewUpdate);
-        document.getElementById('labelIncludeQr').addEventListener('change', schedulePreviewUpdate);
-        document.getElementById('labelQrSize').addEventListener('change', schedulePreviewUpdate);
-        document.getElementById('labelQrPosition').addEventListener('change', schedulePreviewUpdate);
-        document.getElementById('labelIncludeLogo').addEventListener('change', schedulePreviewUpdate);
-        document.getElementById('labelLogoPosition').addEventListener('change', schedulePreviewUpdate);
-        document.getElementById('settingsLabelSize').addEventListener('change', schedulePreviewUpdate);
-        document.getElementById('settingsPrinterType').addEventListener('change', schedulePreviewUpdate);
-        document.getElementById('settingsLabelRotation').addEventListener('change', schedulePreviewUpdate);
-        
-        // Initial preview load
-        updateLabelPreview();
 
-        // AI Settings Form
-        document.getElementById('aiSettingsForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const formData = {
-                gemini_api_key: document.getElementById('geminiApiKey').value,
-                groq_api_key: document.getElementById('groqApiKey').value,
-                huggingface_api_key: document.getElementById('huggingfaceApiKey').value,
-                gemini_model_name: document.getElementById('geminiModelName').value,
-                groq_model_name: document.getElementById('groqModelName').value,
-                huggingface_model: document.getElementById('huggingfaceModel').value,
-                huggingface_image_size: document.getElementById('huggingfaceImageSize').value,
-                gemini_base_prompt: document.getElementById('geminiBasePrompt').value,
-                prompt_description: document.getElementById('promptDescription').value,
-                prompt_note: document.getElementById('promptNote').value,
-                prompt_sql: document.getElementById('promptSql').value,
-                prompt_theme: document.getElementById('promptTheme').value,
-                prompt_chat: document.getElementById('promptChat').value,
-                prompt_diagram: document.getElementById('promptDiagram').value,
-                prompt_diagram_rules: document.getElementById('promptDiagramRules').value,
-                prompt_summary: document.getElementById('promptSummary').value
-            };
-            
-            try {
-                displayStatus('aiStatusMessage', 'Saving AI settings...', 'alert-info');
-                
-                const response = await fetch('/api/system_params', {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData)
+                    try {
+                        const response = await fetch('/api/system_params', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(formData)
+                        });
+                        if (response.ok) {
+                            displayStatus('aiStatusMessage', '✅ AI settings saved successfully!', 'alert-success');
+                        } else {
+                            displayStatus('aiStatusMessage', '❌ Failed to save AI settings.', 'alert-danger');
+                        }
+                    } catch (error) {
+                        displayStatus('aiStatusMessage', '❌ Error: ' + error.message, 'alert-danger');
+                    }
                 });
-                
-                if (!response.ok) throw new Error('Failed to save AI settings');
-                
-                // AI service is automatically reconfigured by the API
-                displayStatus('aiStatusMessage', '✅ AI settings saved and applied successfully! No restart required.', 'alert-success');
-                
-                // Update AI service status after saving
-                setTimeout(() => {
-                    checkAiServiceStatus();
-                }, 500);
-                
-            } catch (error) {
-                displayStatus('aiStatusMessage', 'Failed to save AI settings: ' + error.message, 'alert-danger');
             }
-        });
 
-        // Logo Upload Form
-        document.getElementById('logoUploadForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
+            // --- Git Integration ---
+            const gitToggle = document.getElementById('gitIntegrationEnabled');
+            const gitConfig = document.getElementById('gitConfigSection');
+            const gitProvider = document.getElementById('gitProvider');
+            const gitlabUrlSection = document.getElementById('gitlabUrlSection');
             
-            const fileInput = document.getElementById('logoFile');
-            if (!fileInput.files[0]) {
-                displayStatus('logoStatusMessage', 'Please select a logo file', 'alert-warning');
-                return;
+            if (gitToggle) {
+                gitToggle.checked = (params.git_integration_enabled === 'true' || params.git_integration_enabled === '1');
+                if (gitConfig) gitConfig.style.display = gitToggle.checked ? 'block' : 'none';
+                
+                gitToggle.addEventListener('change', function() {
+                    if (gitConfig) gitConfig.style.display = this.checked ? 'block' : 'none';
+                });
+            }
+
+            if (gitProvider) {
+                gitProvider.value = params.git_provider || '';
+                if (gitlabUrlSection) gitlabUrlSection.style.display = (params.git_provider === 'gitlab') ? 'block' : 'none';
+                
+                gitProvider.addEventListener('change', function() {
+                    if (gitlabUrlSection) gitlabUrlSection.style.display = this.value === 'gitlab' ? 'block' : 'none';
+                });
             }
             
-            const formData = new FormData();
-            formData.append('logo', fileInput.files[0]);
-            
-            try {
-                displayStatus('logoStatusMessage', 'Uploading logo...', 'alert-info');
-                
-                const response = await fetch('/api/upload_logo', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                if (!response.ok) throw new Error('Failed to upload logo');
-                
-                const result = await response.json();
-                displayStatus('logoStatusMessage', 'Logo uploaded successfully!', 'alert-success');
-                
-                // Update logo preview
-                document.getElementById('logoPreviewContainer').innerHTML = 
-                    `<img src="${result.logo_path}" alt="Project Logo" class="logo-preview">`;
-                
-                // Add remove button if it doesn't exist
-                if (!document.getElementById('removeLogo')) {
-                    const removeBtn = document.createElement('button');
-                    removeBtn.type = 'button';
-                    removeBtn.className = 'btn btn-outline-danger ms-2';
-                    removeBtn.id = 'removeLogo';
-                    removeBtn.innerHTML = '<i class="fas fa-trash me-1"></i>Remove Logo';
-                    removeBtn.addEventListener('click', removeLogo);
+            if (document.getElementById('gitlabUrl')) document.getElementById('gitlabUrl').value = params.gitlab_url || '';
+            if (document.getElementById('gitToken')) document.getElementById('gitToken').value = params.git_token || '';
+
+            const saveGitBtn = document.getElementById('saveGitConfigBtn');
+            if (saveGitBtn) {
+                saveGitBtn.addEventListener('click', async function() {
+                    const data = {
+                        git_integration_enabled: gitToggle.checked ? '1' : '0',
+                        git_provider: gitProvider.value,
+                        gitlab_url: document.getElementById('gitlabUrl').value,
+                        git_token: document.getElementById('gitToken').value
+                    };
                     
-                    const submitButton = document.querySelector('#logoUploadForm button[type="submit"]');
-                    if (submitButton && submitButton.parentNode) {
-                        submitButton.parentNode.appendChild(removeBtn);
-                    } else {
-                        console.error('Could not find logo upload form submit button');
+                    try {
+                        const response = await fetch('/api/system_params', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(data)
+                        });
+                        if (response.ok) {
+                            displayStatus('gitSettingsStatus', '✅ Git configuration saved!', 'alert-success');
+                            const discoverBtn = document.getElementById('discoverReposBtn');
+                            if (discoverBtn) discoverBtn.disabled = false;
+                        } else {
+                            displayStatus('gitSettingsStatus', '❌ Failed to save Git config.', 'alert-danger');
+                        }
+                    } catch (error) {
+                        displayStatus('gitSettingsStatus', '❌ Error: ' + error.message, 'alert-danger');
                     }
-                }
-                
-                // Clear file input
-                fileInput.value = '';
-                
-            } catch (error) {
-                displayStatus('logoStatusMessage', 'Failed to upload logo: ' + error.message, 'alert-danger');
-            }
-        });
-
-        // Remove Logo Function
-        function removeLogo() {
-            if (!confirm('Are you sure you want to remove the current logo?')) return;
-            
-            fetch('/api/system_params', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ project_logo_path: '' })
-            })
-            .then(response => {
-                if (!response.ok) throw new Error('Failed to remove logo');
-                
-                document.getElementById('logoPreviewContainer').innerHTML = 
-                    `<div><i class="fas fa-image fa-3x text-muted mb-3"></i><p class="text-muted">No logo uploaded</p></div>`;
-                
-                const removeBtn = document.getElementById('removeLogo');
-                if (removeBtn) removeBtn.remove();
-                
-                displayStatus('logoStatusMessage', 'Logo removed successfully!', 'alert-success');
-            })
-            .catch(error => {
-                displayStatus('logoStatusMessage', 'Failed to remove logo: ' + error.message, 'alert-danger');
-            });
-        }
-
-        // Attach remove logo event if button exists
-        const removeLogoBtn = document.getElementById('removeLogo');
-        if (removeLogoBtn) {
-            removeLogoBtn.addEventListener('click', removeLogo);
-        }
-
-        // Overdue Settings Form
-        document.getElementById('overdueSettingsForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const enabled = document.getElementById('overdueCheckEnabled').checked;
-            const schedule = document.getElementById('overdueCheckSchedule').value;
-            
-            const formData = {
-                overdue_check_enabled: enabled ? 'true' : 'false',
-                overdue_check_schedule: schedule
-            };
-            
-            try {
-                displayStatus('overdueStatusMessage', 'Saving scheduled job settings...', 'alert-info');
-                
-                // Save settings to database
-                const settingsResponse = await fetch('/api/system_params', {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData)
                 });
-                
-                if (!settingsResponse.ok) throw new Error('Failed to save settings');
-                
-                // Automatically manage cron job
-                const cronResponse = await fetch('/api/cron/overdue', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        enabled: enabled,
-                        schedule: schedule
-                    })
-                });
-                
-                const cronResult = await cronResponse.json();
-                
-                if (!cronResponse.ok) {
-                    throw new Error('Settings saved but failed to manage scheduled job: ' + (cronResult.error || 'Unknown error'));
-                }
-                
-                const status = enabled ? 'enabled and scheduled' : 'disabled';
-                displayStatus('overdueStatusMessage', 
-                    `Settings saved successfully! Overdue check job ${status} automatically.`, 
-                    'alert-success');
-                
-                // Update the status display
-                updateJobStatus(enabled, schedule, cronResult);
-                
-            } catch (error) {
-                displayStatus('overdueStatusMessage', 'Error: ' + error.message, 'alert-danger');
             }
-        });
-
-        // Update job status display
-        function updateJobStatus(enabled, schedule, cronResult = null) {
-            // Find the specific overdue notification status container
-            const overdueSection = document.querySelector('#overdueSettingsForm').closest('.section-card');
-            const statusContainer = overdueSection.querySelector('.col-md-6:nth-child(2)');
             
-            if (enabled) {
-                // Show active job status
-                statusContainer.innerHTML = `
-                    <h5>Scheduled Job Status</h5>
-                    <div class="mb-3">
-                        <div class="alert alert-purple d-flex align-items-center">
-                            <i class="fas fa-check-circle me-2"></i>
-                            <div>
-                                <strong>Overdue Check: Active</strong><br>
-                                <small>Schedule: ${schedule} (${getScheduleDescription(schedule)})</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <strong>What happens automatically:</strong>
-                        <ul class="small text-muted mt-2">
-                            <li>System checks for entries with overdue intended end dates</li>
-                            <li>High-priority notifications are created for overdue items</li>
-                            <li>Only applies to entry types with "Show End Date fields" enabled</li>
-                            <li>Duplicate notifications are prevented automatically</li>
-                        </ul>
-                    </div>
-                    <div class="preview-container">
-                        <div>
-                            <i class="fas fa-cogs fa-3x text-purple mb-3"></i>
-                            <p class="text-muted">Scheduled job is running automatically</p>
-                        </div>
-                    </div>
-                `;
-            } else {
-                // Show inactive job status
-                statusContainer.innerHTML = `
-                    <h5>Scheduled Job Status</h5>
-                    <div class="mb-3">
-                        <div class="alert alert-secondary d-flex align-items-center">
-                            <i class="fas fa-pause-circle me-2"></i>
-                            <div>
-                                <strong>Overdue Check: Inactive</strong><br>
-                                <small>Enable above to start automatic checking</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <strong>When enabled, the system will:</strong>
-                        <ul class="small text-muted mt-2">
-                            <li>Check for entries with overdue intended end dates</li>
-                            <li>Create high-priority notifications for overdue items</li>
-                            <li>Run according to your selected schedule</li>
-                            <li>Apply only to entry types with end date fields enabled</li>
-                        </ul>
-                    </div>
-                    <div class="preview-container">
-                        <div>
-                            <i class="fas fa-clock fa-3x text-muted mb-3"></i>
-                            <p class="text-muted">No scheduled jobs are currently active</p>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-
-        // Get human-readable description of cron schedule
-        function getScheduleDescription(schedule) {
-            const scheduleMap = {
-                '0 9 * * *': 'Daily at 9:00 AM',
-                '0 8 * * *': 'Daily at 8:00 AM',
-                '0 10 * * *': 'Daily at 10:00 AM',
-                '0 0 * * *': 'Daily at midnight',
-                '0 */6 * * *': 'Every 6 hours',
-                '0 */3 * * *': 'Every 3 hours',
-                '0 * * * *': 'Every hour',
-                '0 8 * * 1-5': 'Weekdays at 8:00 AM'
-            };
-            return scheduleMap[schedule] || 'Custom schedule';
-        }
-
-        // Update display when schedule changes
-        document.getElementById('overdueCheckSchedule').addEventListener('change', function() {
-            const enabled = document.getElementById('overdueCheckEnabled').checked;
-            updateJobStatus(enabled, this.value);
-        });
-
-        // Update display when enabled/disabled
-        document.getElementById('overdueCheckEnabled').addEventListener('change', function() {
-            const schedule = document.getElementById('overdueCheckSchedule').value;
-            updateJobStatus(this.checked, schedule);
-        });
-
-        // Initialize page display
-        document.addEventListener('DOMContentLoaded', function() {
-            const enabled = document.getElementById('overdueCheckEnabled').checked;
-            const schedule = document.getElementById('overdueCheckSchedule').value;
-            updateJobStatus(enabled, schedule);
-            
-            // Load current cron status
-            loadCurrentJobStatus();
-        });
-
-        // Load current job status from server
-        async function loadCurrentJobStatus() {
-            try {
-                const response = await fetch('/api/cron/overdue/status');
-                if (response.ok) {
-                    const status = await response.json();
+            // --- Scheduled Jobs ---
+            const overdueForm = document.getElementById('overdueSettingsForm');
+            if (overdueForm) {
+                overdueForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
                     const enabled = document.getElementById('overdueCheckEnabled').checked;
                     const schedule = document.getElementById('overdueCheckSchedule').value;
                     
-                    // Show warning if settings don't match actual cron job
-                    if (enabled !== status.enabled) {
-                        displayStatus('overdueStatusMessage', 
-                            `Warning: Settings (${enabled ? 'enabled' : 'disabled'}) don't match actual job status (${status.enabled ? 'enabled' : 'disabled'}). Save settings to synchronize.`, 
-                            'alert-warning');
+                    try {
+                        const response = await fetch('/api/system_params', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                overdue_check_enabled: enabled ? '1' : '0',
+                                overdue_check_schedule: schedule
+                            })
+                        });
+                        if (response.ok) {
+                            displayStatus('overdueStatusMessage', '✅ Scheduled job settings saved!', 'alert-success');
+                        } else {
+                            displayStatus('overdueStatusMessage', '❌ Failed to save settings.', 'alert-danger');
+                        }
+                    } catch (error) {
+                        displayStatus('overdueStatusMessage', '❌ Error: ' + error.message, 'alert-danger');
                     }
-                }
-            } catch (error) {
-                console.log('Could not load job status:', error.message);
-            }
-        }
-
-        // Test Overdue Check Button
-        document.getElementById('testOverdueCheck').addEventListener('click', async () => {
-            try {
-                displayStatus('overdueStatusMessage', 'Running overdue check...', 'alert-info');
-                
-                const response = await fetch('/api/check_overdue_end_dates', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
                 });
-                
-                if (!response.ok) throw new Error('Failed to run overdue check');
-                
-                const result = await response.json();
-                const message = result.notifications_created > 0 
-                    ? `Overdue check completed! Created ${result.notifications_created} notification(s).`
-                    : 'Overdue check completed. No overdue entries found.';
-                
-                displayStatus('overdueStatusMessage', message, 'alert-success');
-                
-            } catch (error) {
-                displayStatus('overdueStatusMessage', 'Failed to run overdue check: ' + error.message, 'alert-danger');
             }
-        });
-
-        // Status message helper
-        function displayStatus(elementId, message, alertClass) {
-            const statusElement = document.getElementById(elementId);
-            if (!statusElement) {
-                console.error(`Status element with ID '${elementId}' not found`);
-                return;
-            }
-            statusElement.className = `alert ${alertClass}`;
-            statusElement.textContent = message;
-            statusElement.classList.remove('d-none');
             
-            if (alertClass === 'alert-success') {
-                setTimeout(() => {
-                    statusElement.classList.add('d-none');
-                }, 3000);
-            }
-        }
-
-        // AI Service functions
-        async function loadAvailableModels() {
-            try {
-                const response = await fetch('/api/ai/models');
-                const data = await response.json();
-                
-                const selectElement = document.getElementById('geminiModelName');
-                const currentValue = selectElement.value || '{{ params.gemini_model_name if params.gemini_model_name else "gemini-1.5-flash" }}';
-                
-                // Clear existing options
-                selectElement.innerHTML = '';
-                
-                // Populate with available models
-                data.models.forEach(model => {
-                    const option = document.createElement('option');
-                    option.value = model.id;
-                    option.textContent = model.name + (model.recommended ? ' (Recommended)' : '');
-                    option.dataset.description = model.description;
-                    
-                    // Set selected if it matches current value
-                    if (model.id === currentValue) {
-                        option.selected = true;
-                        updateModelDescription(model.description);
+            const testOverdueBtn = document.getElementById('testOverdueCheck');
+            if (testOverdueBtn) {
+                testOverdueBtn.addEventListener('click', async function() {
+                    try {
+                        const response = await fetch('/api/jobs/run/overdue_check', { method: 'POST' });
+                        const data = await response.json();
+                        if (response.ok) {
+                            displayStatus('overdueStatusMessage', '✅ Job triggered successfully: ' + data.message, 'alert-success');
+                        } else {
+                            displayStatus('overdueStatusMessage', '❌ Job failed: ' + data.error, 'alert-danger');
+                        }
+                    } catch (error) {
+                        displayStatus('overdueStatusMessage', '❌ Error: ' + error.message, 'alert-danger');
                     }
-                    
-                    selectElement.appendChild(option);
                 });
-                
-                // If no model was selected (invalid model name), select default
-                if (!selectElement.value) {
-                    selectElement.value = data.default;
-                    const selectedOption = selectElement.options[selectElement.selectedIndex];
-                    if (selectedOption) {
-                        updateModelDescription(selectedOption.dataset.description);
-                    }
-                }
-                
-            } catch (error) {
-                console.error('Error loading models:', error);
-                // Fallback to basic options
-                const selectElement = document.getElementById('geminiModelName');
-                selectElement.innerHTML = `
-                    <option value="gemini-1.5-flash" selected>Gemini 1.5 Flash (Recommended)</option>
-                    <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                `;
             }
-        }
-        
-        function updateModelDescription(description) {
-            const descElement = document.getElementById('modelDescription');
-            if (descElement && description) {
-                descElement.innerHTML = `<i class="fas fa-info-circle me-1"></i>${description}`;
-            }
-        }
-        
-        async function checkAiServiceStatus() {
-            try {
-                const response = await fetch('/api/ai/status');
-                const data = await response.json();
-                
-                const statusElement = document.getElementById('aiServiceStatus');
-                
-                // Build status badges for each service
-                let statusHTML = '';
-                
-                // Gemini status
-                if (data.available) {
-                    statusHTML += '<span class="badge bg-success me-2"><i class="fas fa-check-circle me-1"></i>Gemini: Active</span>';
-                } else {
-                    statusHTML += '<span class="badge bg-warning me-2"><i class="fas fa-exclamation-triangle me-1"></i>Gemini: Not Configured</span>';
-                }
-                
-                // Check if Groq key exists (basic check)
-                const groqKey = document.getElementById('groqApiKey').value;
-                if (groqKey && groqKey.trim() !== '') {
-                    statusHTML += '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Groq: Configured</span>';
-                } else {
-                    statusHTML += '<span class="badge bg-secondary"><i class="fas fa-info-circle me-1"></i>Groq: Optional</span>';
-                }
-                
-                statusElement.innerHTML = statusHTML;
-            } catch (error) {
-                const statusElement = document.getElementById('aiServiceStatus');
-                statusElement.innerHTML = '<span class="badge bg-danger"><i class="fas fa-times-circle me-1"></i>Error</span>';
-                console.error('Error checking AI service status:', error);
-            }
-        }
 
-        function switchAiServiceSettings() {
-            const selector = document.getElementById('aiServiceSelector');
-            const selectedService = selector.value;
-            
-            // Hide all AI service settings
-            const allSettings = document.querySelectorAll('.ai-service-settings');
-            allSettings.forEach(setting => {
-                setting.style.display = 'none';
-            });
-            
-            // Show the selected service settings
-            const selectedSettings = document.getElementById(selectedService + 'Settings');
-            if (selectedSettings) {
-                selectedSettings.style.display = 'block';
-            }
-        }
-
-        function switchPromptEditor() {
-            const selector = document.getElementById('promptSelector');
-            const selectedPrompt = selector.value;
-            
-            // Hide all prompt editors
-            const allEditors = document.querySelectorAll('.prompt-editor-section');
-            allEditors.forEach(editor => {
-                editor.style.display = 'none';
-            });
-            
-            // Show the selected prompt editor
-            const selectedEditor = document.getElementById('promptEditor_' + selectedPrompt);
-            if (selectedEditor) {
-                selectedEditor.style.display = 'block';
-            }
-        }
-
-        async function testAiService() {
-            try {
-                displayStatus('aiStatusMessage', 'Testing AI connection...', 'alert-info');
-                
-                const response = await fetch('/api/ai/generate_description', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        title: 'Test Entry',
-                        entry_type: 'test',
-                        context: 'This is a test to verify AI connectivity'
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    displayStatus('aiStatusMessage', '✅ AI service is working correctly! Generated test description successfully.', 'alert-success');
-                } else {
-                    displayStatus('aiStatusMessage', '❌ AI service test failed: ' + (data.error || 'Unknown error'), 'alert-danger');
-                }
-                
-                // Update status badge
-                checkAiServiceStatus();
-                
-            } catch (error) {
-                displayStatus('aiStatusMessage', '❌ Failed to test AI service: ' + error.message, 'alert-danger');
-                console.error('Error testing AI service:', error);
-            }
-        }
-
-        // Check AI service status on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            checkAiServiceStatus();
-            loadAvailableModels();
-            
-            // Update description when Gemini model selection changes
-            document.getElementById('geminiModelName').addEventListener('change', function(e) {
-                const selectedOption = e.target.options[e.target.selectedIndex];
-                if (selectedOption && selectedOption.dataset.description) {
-                    updateModelDescription(selectedOption.dataset.description);
-                }
-            });
-            
-            // Update description when Groq model selection changes
-            document.getElementById('groqModelName').addEventListener('change', function(e) {
-                const descriptions = {
-                    'llama-3.3-70b-versatile': 'Most capable model for complex diagram generation',
-                    'llama-3.1-70b-versatile': 'Balanced performance and capability',
-                    'llama-3.1-8b-instant': 'Fastest response time, good for simpler diagrams',
-                    'mixtral-8x7b-32768': 'Excellent for long context and detailed diagrams',
-                    'gemma2-9b-it': 'Efficient mid-size model'
-                };
-                const descElement = document.getElementById('groqModelDescription');
-                if (descElement && descriptions[e.target.value]) {
-                    descElement.innerHTML = `<i class="fas fa-info-circle me-1"></i>${descriptions[e.target.value]}`;
-                }
-            });
-        });
-    </script>
-    <script src="{{ url_for('static', filename='global-theme-manager.js') }}"></script>
-    <script src="{{ url_for('static', filename='notifications.js') }}"></script>
-    <script>
-        // Git integration settings handling
-        document.addEventListener('DOMContentLoaded', async () => {
-            const enableToggle = document.getElementById('gitIntegrationEnabled');
-            const configSection = document.getElementById('gitConfigSection');
-            const providerSelect = document.getElementById('gitProvider');
-            const gitlabUrlSection = document.getElementById('gitlabUrlSection');
-            const gitlabUrlInput = document.getElementById('gitlabUrl');
-            const tokenInput = document.getElementById('gitToken');
-            const toggleVisibilityBtn = document.getElementById('toggleTokenVisibility');
-            const saveConfigBtn = document.getElementById('saveGitConfigBtn');
-            const discoverBtn = document.getElementById('discoverReposBtn');
-            const saveBtn = document.getElementById('saveTrackedReposBtn');
-            const discoveredSection = document.getElementById('discoveredRepos');
-            const reposList = document.getElementById('reposList');
-            const statusEl = document.getElementById('gitSettingsStatus');
-            const tokenHelpLink = document.getElementById('tokenHelpLink');
-            
-            let discoveredReposData = [];
-
-            // Load current git settings from system params
-            try {
-                const res = await fetch('/api/system_params');
-                const params = await res.json();
-                
-                // Load enable/disable state
-                if (params['git_integration_enabled'] === '1') {
-                    enableToggle.checked = true;
-                    configSection.style.display = 'block';
-                    document.getElementById('trackedReposConfig').style.display = 'block';
-                    loadTrackedRepositories();
-                }
-                
-                if (params['git_provider']) {
-                    providerSelect.value = params['git_provider'];
-                    if (params['git_provider'] === 'gitlab') {
-                        gitlabUrlSection.style.display = 'flex';
-                    }
-                }
-                if (params['git_token']) {
-                    tokenInput.value = params['git_token'];
-                    discoverBtn.disabled = false; // Enable discover if token exists
-                }
-                if (params['gitlab_url']) {
-                    gitlabUrlInput.value = params['gitlab_url'];
-                }
-            } catch (e) {
-                console.warn('Could not load git settings', e);
-            }
-            
-            // Handle enable/disable toggle
-            enableToggle.addEventListener('change', async () => {
-                const isEnabled = enableToggle.checked;
-                configSection.style.display = isEnabled ? 'block' : 'none';
-                document.getElementById('trackedReposConfig').style.display = isEnabled ? 'block' : 'none';
-                
-                // Load tracked repos if enabling
-                if (isEnabled) {
-                    loadTrackedRepositories();
-                }
-                
-                try {
-                    await fetch('/api/system_params', {
-                        method: 'PATCH',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            git_integration_enabled: isEnabled ? '1' : '0'
-                        })
-                    });
-                    displayStatus('gitSettingsStatus', 
-                        isEnabled ? '✅ Git integration enabled' : 'Git integration enabled', 
-                        isEnabled ? 'alert-success' : 'alert-info');
-                } catch (err) {
-                    displayStatus('gitSettingsStatus', 'Failed to update: ' + err.message, 'alert-danger');
-                }
-            });
-            
-            // Toggle token visibility
-            toggleVisibilityBtn.addEventListener('click', () => {
-                const icon = toggleVisibilityBtn.querySelector('i');
-                if (tokenInput.type === 'password') {
-                    tokenInput.type = 'text';
-                    icon.className = 'fas fa-eye-slash';
-                } else {
-                    tokenInput.type = 'password';
-                    icon.className = 'fas fa-eye';
-                }
-            });
-
-            // Show/hide GitLab URL based on provider
-            providerSelect.addEventListener('change', () => {
-                const isGitLab = providerSelect.value === 'gitlab';
-                gitlabUrlSection.style.display = isGitLab ? 'flex' : 'none';
-                
-                // Update help link
-                if (providerSelect.value === 'github') {
-                    tokenHelpLink.href = 'https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token';
-                } else if (providerSelect.value === 'gitlab') {
-                    tokenHelpLink.href = 'https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html';
-                } else {
-                    tokenHelpLink.href = '#';
-                }
-            });
-            
-            // Save Configuration button
-            saveConfigBtn.addEventListener('click', async () => {
-                const provider = providerSelect.value;
-                const token = tokenInput.value.trim();
-                const gitlabUrl = gitlabUrlInput.value.trim();
-                
-                if (!provider) {
-                    displayStatus('gitSettingsStatus', 'Please select a Git provider', 'alert-warning');
-                    return;
-                }
-                if (!token) {
-                    displayStatus('gitSettingsStatus', 'Please enter a personal access token', 'alert-warning');
-                    return;
-                }
-                if (provider === 'gitlab' && !gitlabUrl) {
-                    displayStatus('gitSettingsStatus', 'Please enter GitLab URL', 'alert-warning');
-                    return;
-                }
-                
-                try {
-                    displayStatus('gitSettingsStatus', 'Saving configuration...', 'alert-info');
-                    
-                    const res = await fetch('/api/system_params', {
-                        method: 'PATCH',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            git_provider: provider,
-                            git_token: token,
-                            gitlab_url: gitlabUrl || 'https://gitlab.com'
-                        })
-                    });
-                    
-                    if (!res.ok) throw new Error('Failed to save configuration');
-                    
-                    discoverBtn.disabled = false; // Enable discover button after save
-                    displayStatus('gitSettingsStatus', '✅ Configuration saved! You can now discover repositories.', 'alert-success');
-                } catch (err) {
-                    displayStatus('gitSettingsStatus', 'Save failed: ' + err.message, 'alert-danger');
-                }
-            });
-
-            // Discover repositories
-            discoverBtn.addEventListener('click', async () => {
-                const provider = providerSelect.value;
-                const token = tokenInput.value.trim();
-                const gitlabUrl = gitlabUrlInput.value.trim();
-
-                if (!provider || !token) {
-                    displayStatus('gitSettingsStatus', 'Please save configuration first', 'alert-warning');
-                    return;
-                }
-
-                try {
-                    displayStatus('gitSettingsStatus', 'Discovering repositories...', 'alert-info');
-                    
-                    // Discover repos
-                    const res = await fetch('/api/git/discover', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            provider: provider,
-                            token: token,
-                            gitlab_url: gitlabUrl || undefined
-                        })
-                    });
-                    
-                    if (!res.ok) {
-                        const error = await res.json();
-                        throw new Error(error.error || 'Discovery failed');
-                    }
-                    
-                    const data = await res.json();
-                    discoveredReposData = data.repositories || [];
-                    
-                    if (discoveredReposData.length === 0) {
-                        displayStatus('gitSettingsStatus', 'No repositories found', 'alert-warning');
+            // --- Project Logo ---
+            const logoForm = document.getElementById('logoUploadForm');
+            if (logoForm) {
+                logoForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const fileInput = document.getElementById('logoFile');
+                    if (!fileInput.files.length) {
+                        displayStatus('logoStatusMessage', '⚠️ Please select a file first.', 'alert-warning');
                         return;
                     }
                     
-                    // Load currently tracked repos
-                    const trackedRes = await fetch('/api/git/repositories');
-                    const trackedData = await trackedRes.json();
-                    const trackedRepos = trackedData.repositories || [];
-                    const trackedUrls = new Set(trackedRepos.map(r => r.url));
+                    const formData = new FormData();
+                    formData.append('logo', fileInput.files[0]);
                     
-                    // Display repos with toggle switches
-                    reposList.innerHTML = '';
-                    discoveredReposData.forEach(repo => {
-                        const isTracked = trackedUrls.has(repo.url);
-                        const item = document.createElement('div');
-                        item.className = 'list-group-item d-flex justify-content-between align-items-center';
-                        item.innerHTML = `
-                            <div>
-                                <strong>${repo.name}</strong>
-                                <br><small class="text-muted">${repo.url}</small>
-                            </div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input repo-toggle" type="checkbox" 
-                                       data-repo-index="${discoveredReposData.indexOf(repo)}"
-                                       ${isTracked ? 'checked' : ''}>
-                            </div>
-                        `;
-                        reposList.appendChild(item);
-                    });
-                    
-                    discoveredSection.style.display = 'block';
-                    saveBtn.style.display = 'inline-block';
-                    displayStatus('gitSettingsStatus', 
-                        `✅ Found ${discoveredReposData.length} repositories!`, 
-                        'alert-success');
-                } catch (err) {
-                    displayStatus('gitSettingsStatus', 'Discovery failed: ' + err.message, 'alert-danger');
-                }
-            });
-
-            // Save tracked repositories
-            saveBtn.addEventListener('click', async () => {
-                const toggles = document.querySelectorAll('.repo-toggle:checked');
-                const selectedRepos = Array.from(toggles).map(toggle => {
-                    const index = parseInt(toggle.dataset.repoIndex);
-                    return discoveredReposData[index];
-                });
-
-                if (selectedRepos.length === 0) {
-                    displayStatus('gitSettingsStatus', 'No repositories selected', 'alert-warning');
-                    return;
-                }
-
-                try {
-                    displayStatus('gitSettingsStatus', 'Saving tracked repositories...', 'alert-info');
-                    
-                    const token = tokenInput.value.trim();
-                    let successCount = 0;
-                    
-                    for (const repo of selectedRepos) {
-                        try {
-                            const res = await fetch('/api/git/repositories', {
-                                method: 'POST',
-                                headers: {'Content-Type': 'application/json'},
-                                body: JSON.stringify({
-                                    ...repo,
-                                    token: token
-                                })
-                            });
-                            if (res.ok) successCount++;
-                        } catch (e) {
-                            console.warn('Failed to add repo:', repo.name, e);
-                        }
-                    }
-                    
-                    displayStatus('gitSettingsStatus', 
-                        `✅ Successfully added ${successCount}/${selectedRepos.length} repositories!`, 
-                        'alert-success');
-                    
-                    // Refresh after a moment
-                    setTimeout(() => {
-                        window.location.href = '/?show_git=1';
-                    }, 2000);
-                } catch (err) {
-                    displayStatus('gitSettingsStatus', 'Save failed: ' + err.message, 'alert-danger');
-                }
-            });
-        });
-        
-        // Load and configure tracked repositories
-        async function loadTrackedRepositories() {
-            try {
-                const [reposRes, typesRes] = await Promise.all([
-                    fetch('/api/git/repositories'),
-                    fetch('/api/entry_types')
-                ]);
-                
-                const reposData = await reposRes.json();
-                const entryTypes = await typesRes.json();
-                
-                const trackedReposList = document.getElementById('trackedReposList');
-                
-                if (!reposData.repositories || reposData.repositories.length === 0) {
-                    trackedReposList.innerHTML = '<p class="text-muted">No repositories tracked yet. Use the "Discover Repositories" button above to add some.</p>';
-                    return;
-                }
-                
-                // Get statuses per entry type and build a combined map
-                const entryTypeStates = {}; // Map of entry_type_id -> [statuses]
-                const allStatuses = new Set();
-                
-                for (const et of entryTypes) {
                     try {
-                        const statesRes = await fetch(`/api/entry_types/${et.id}/states`);
-                        if (statesRes.ok) {
-                            const states = await statesRes.json();
-                            entryTypeStates[et.id] = states.map(state => state.name).sort();
-                            states.forEach(state => allStatuses.add(state.name));
+                        const response = await fetch('/api/system_params/logo', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        if (response.ok) {
+                            displayStatus('logoStatusMessage', '✅ Logo uploaded successfully! Refreshing...', 'alert-success');
+                            setTimeout(() => location.reload(), 1500);
                         } else {
-                            entryTypeStates[et.id] = [];
+                            const data = await response.json();
+                            displayStatus('logoStatusMessage', '❌ Upload failed: ' + data.error, 'alert-danger');
                         }
-                    } catch (err) {
-                        console.warn(`Failed to load states for entry type ${et.id}:`, err);
-                        entryTypeStates[et.id] = [];
+                    } catch (error) {
+                        displayStatus('logoStatusMessage', '❌ Error: ' + error.message, 'alert-danger');
                     }
-                }
-                const allStatusOptions = Array.from(allStatuses).sort();
-                
-                trackedReposList.innerHTML = '';
-                
-                for (const repo of reposData.repositories) {
-                    const card = document.createElement('div');
-                    card.className = 'card mb-3';
-                    
-                    // Determine which statuses to show initially
-                    const currentEntryTypeId = repo.entry_type_id;
-                    const initialStatusOptions = currentEntryTypeId && entryTypeStates[currentEntryTypeId] 
-                        ? entryTypeStates[currentEntryTypeId] 
-                        : allStatusOptions;
-                    
-                    card.innerHTML = `
-                        <div class="card-body">
-                            <h6 class="card-title">
-                                <i class="fab fa-git-alt me-2"></i>${repo.name}
-                            </h6>
-                            <p class="card-text small text-muted mb-3">${repo.url}</p>
-                            
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <label class="form-label small">Default Entry Type for Commits</label>
-                                    <select class="form-select form-select-sm repo-entry-type" data-repo-id="${repo.id}">
-                                        <option value="">-- No default --</option>
-                                        ${entryTypes.map(et => 
-                                            `<option value="${et.id}" ${et.id == repo.entry_type_id ? 'selected' : ''}>${et.singular_label}</option>`
-                                        ).join('')}
-                                    </select>
-                                    <small class="text-muted">Used when creating entries from commits</small>
-                                </div>
-                                
-                                <div class="col-md-6">
-                                    <label class="form-label small">Allowed Statuses</label>
-                                    <select class="form-select form-select-sm repo-statuses" data-repo-id="${repo.id}" multiple size="4">
-                                        ${initialStatusOptions.map(status => {
-                                            const allowedStatuses = repo.allowed_statuses ? repo.allowed_statuses.split(',') : [];
-                                            return `<option value="${status}" ${allowedStatuses.includes(status) ? 'selected' : ''}>${status}</option>`;
-                                        }).join('')}
-                                    </select>
-                                    <small class="text-muted">Only entries with these statuses can be linked (Ctrl+Click for multiple)</small>
-                                </div>
-                            </div>
-                            
-                            <div class="mt-3">
-                                <button class="btn btn-sm btn-primary save-repo-config" data-repo-id="${repo.id}">
-                                    <i class="fas fa-save me-1"></i>Save Configuration
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                    
-                    trackedReposList.appendChild(card);
-                }
-                
-                // Attach entry type change handlers to update statuses dropdown
-                document.querySelectorAll('.repo-entry-type').forEach(select => {
-                    select.addEventListener('change', function() {
-                        const repoId = this.dataset.repoId;
-                        const statusesSelect = document.querySelector(`.repo-statuses[data-repo-id="${repoId}"]`);
-                        const selectedEntryTypeId = this.value;
-                        
-                        // Get previously selected statuses
-                        const previouslySelected = Array.from(statusesSelect.selectedOptions).map(opt => opt.value);
-                        
-                        // Determine which statuses to show
-                        const statusesToShow = selectedEntryTypeId && entryTypeStates[selectedEntryTypeId]
-                            ? entryTypeStates[selectedEntryTypeId]
-                            : allStatusOptions;
-                        
-                        // Rebuild the statuses dropdown
-                        statusesSelect.innerHTML = statusesToShow.map(status => {
-                            const isSelected = previouslySelected.includes(status);
-                            return `<option value="${status}" ${isSelected ? 'selected' : ''}>${status}</option>`;
-                        }).join('');
-                    });
                 });
-                
-                // Attach save handlers
-                document.querySelectorAll('.save-repo-config').forEach(btn => {
-                    btn.addEventListener('click', async function() {
-                        const repoId = this.dataset.repoId;
-                        await saveRepoConfig(repoId);
-                    });
-                });
-                
-            } catch (err) {
-                console.error('Failed to load tracked repositories:', err);
             }
-        }
-        
-        async function saveRepoConfig(repoId) {
-            try {
-                const entryTypeSelect = document.querySelector(`.repo-entry-type[data-repo-id="${repoId}"]`);
-                const statusesSelect = document.querySelector(`.repo-statuses[data-repo-id="${repoId}"]`);
-                
-                const entryTypeId = entryTypeSelect.value || null;
-                const selectedStatuses = Array.from(statusesSelect.selectedOptions).map(opt => opt.value);
-                const allowedStatuses = selectedStatuses.length > 0 ? selectedStatuses.join(',') : null;
-                
-                const response = await fetch(`/api/git/repositories/${repoId}`, {
-                    method: 'PATCH',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        entry_type_id: entryTypeId,
-                        allowed_statuses: allowedStatuses
-                    })
+            
+            const removeLogoBtn = document.getElementById('removeLogo');
+            if (removeLogoBtn) {
+                removeLogoBtn.addEventListener('click', async function() {
+                    if (!confirm('Are you sure you want to remove the project logo?')) return;
+                    
+                    try {
+                        const response = await fetch('/api/system_params/logo', { method: 'DELETE' });
+                        if (response.ok) {
+                            displayStatus('logoStatusMessage', '✅ Logo removed. Refreshing...', 'alert-success');
+                            setTimeout(() => location.reload(), 1500);
+                        } else {
+                            displayStatus('logoStatusMessage', '❌ Failed to remove logo.', 'alert-danger');
+                        }
+                    } catch (error) {
+                        displayStatus('logoStatusMessage', '❌ Error: ' + error.message, 'alert-danger');
+                    }
                 });
-                
-                if (response.ok) {
-                    displayStatus('gitSettingsStatus', '✅ Repository configuration saved successfully!', 'alert-success');
-                } else {
-                    const error = await response.json();
-                    displayStatus('gitSettingsStatus', 'Failed to save: ' + (error.error || 'Unknown error'), 'alert-danger');
-                }
-            } catch (err) {
-                displayStatus('gitSettingsStatus', 'Save failed: ' + err.message, 'alert-danger');
             }
-        }
-        
 
+            // --- Strava Sync ---
+            const syncStravaBtn = document.getElementById('syncStravaBtn');
+            if (syncStravaBtn) {
+                syncStravaBtn.addEventListener('click', async function() {
+                    const originalText = this.innerHTML;
+                    this.disabled = true;
+                    this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Syncing...';
+                    
+                    try {
+                        const response = await fetch('/strava/sync', { method: 'POST' });
+                        const data = await response.json();
+                        
+                        if (response.ok && data.status === 'success') {
+                            alert('Sync Complete: ' + data.message);
+                            location.reload();
+                        } else if (data.status === 'skipped') {
+                            alert('Sync Skipped: ' + data.message);
+                        } else {
+                            alert('Sync Failed: ' + data.message);
+                        }
+                    } catch (error) {
+                        alert('Error syncing with Strava: ' + error.message);
+                    } finally {
+                        this.disabled = false;
+                        this.innerHTML = originalText;
+                    }
+                });
+            }
+        });
     </script>
-    
     <!-- About Modal -->
-    {% include 'components/about_modal.html' %}
-</body>
-</html>
