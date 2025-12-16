@@ -364,10 +364,40 @@ def sensor_heartbeat():
         battery_pct = metrics.get('battery_pct') or data.get('battery_pct')
         battery_voltage = metrics.get('battery') or data.get('battery')
         
-        if battery_pct is not None:
-            update_fields['last_battery_pct'] = battery_pct
-        if battery_voltage is not None:
-            update_fields['last_battery_voltage'] = battery_voltage
+        should_update_battery = True
+        if battery_pct is not None or battery_voltage is not None:
+            # Check if we should ignore this update because a log update happened recently
+            try:
+                cursor.execute('SELECT updated_at, last_battery_update_source FROM SensorRegistration WHERE sensor_id = ?', (sensor_id,))
+                current_state = cursor.fetchone()
+                
+                if current_state and current_state['last_battery_update_source'] == 'log':
+                    last_update = current_state['updated_at']
+                    if last_update:
+                        # Handle timestamp parsing
+                        if 'Z' in last_update:
+                            last_dt = datetime.fromisoformat(last_update.replace('Z', '+00:00'))
+                        else:
+                            last_dt = datetime.fromisoformat(last_update).replace(tzinfo=timezone.utc)
+                            
+                        now_dt = datetime.now(timezone.utc)
+                        diff = (now_dt - last_dt).total_seconds()
+                        
+                        # If updated via log in the last 2 minutes, ignore heartbeat battery data
+                        # This prevents stale heartbeat data from overwriting fresh log data
+                        if diff < 120:
+                            should_update_battery = False
+                            logger.info(f"Ignoring heartbeat battery data for {sensor_id} (log update was {diff:.1f}s ago)")
+            except Exception as e:
+                logger.warning(f"Error checking battery update source: {e}")
+
+        if should_update_battery:
+            if battery_pct is not None:
+                update_fields['last_battery_pct'] = battery_pct
+                update_fields['last_battery_update_source'] = 'heartbeat'
+            if battery_voltage is not None:
+                update_fields['last_battery_voltage'] = battery_voltage
+                update_fields['last_battery_update_source'] = 'heartbeat'
         
         set_clause = ', '.join([f"{k} = ?" for k in update_fields.keys()])
         values = list(update_fields.values()) + [sensor_id]
@@ -1547,11 +1577,16 @@ def report_sensor_log():
         message = data['message']
         sensor_id = data['sensor_id']
         
+        # Try to parse battery info from log message to update sensor status
+        # Patterns: "Battery: 85%", "Battery: 3.7V", "Battery Level: 85%"
+        message = data['message']
+        sensor_id = data['sensor_id']
+        
         updates = {}
         
         # Check for percentage
-        # Matches: "Battery: 85%", "Battery: 4.2V (85%)", "Battery Level: 85%"
-        pct_match = re.search(r'Battery.*?(\d+(?:\.\d+)?)%', message, re.IGNORECASE)
+        # Matches: "Battery: 85%", "Bat: 85%", "Battery Level: 85%"
+        pct_match = re.search(r'(?:Battery|Batt|Bat).*?(\d+(?:\.\d+)?)%', message, re.IGNORECASE)
         if pct_match:
             try:
                 updates['last_battery_pct'] = float(pct_match.group(1))
@@ -1559,8 +1594,8 @@ def report_sensor_log():
                 pass
                 
         # Check for voltage
-        # Matches: "Battery: 4.2V", "Battery: 4.2V (85%)"
-        volt_match = re.search(r'Battery.*?([\d\.]+)V', message, re.IGNORECASE)
+        # Matches: "Battery: 4.2V", "Bat: 4.2V", "Voltage: 4.2V"
+        volt_match = re.search(r'(?:Battery|Batt|Bat|Voltage|Volts).*?([\d\.]+)V', message, re.IGNORECASE)
         if volt_match:
             try:
                 updates['last_battery_voltage'] = float(volt_match.group(1))
@@ -1574,14 +1609,16 @@ def report_sensor_log():
             
             # We append updated_at and sensor_id to the values list
             values.append(now_iso)
+            values.append('log') # last_battery_update_source
             values.append(sensor_id)
             
             try:
                 cursor.execute(f'''
                     UPDATE SensorRegistration
-                    SET {set_clause}, updated_at = ?
+                    SET {set_clause}, updated_at = ?, last_battery_update_source = ?
                     WHERE sensor_id = ?
                 ''', values)
+                logger.info(f"Updated battery info for {sensor_id} from log: {updates}")
             except Exception as e:
                 logger.warning(f"Failed to update battery info from log: {e}")
 
