@@ -88,23 +88,23 @@ class ESP32CodeGenerator:
         
         if sensor_id:
             # Get existing sensor configuration
-            self.cursor.execute('''
-                SELECT sr.*, smc.api_endpoint, smc.instance_name
-                FROM SensorRegistration sr
-                LEFT JOIN SensorMasterControl smc ON sr.assigned_master_id = smc.id
-                WHERE sr.sensor_id = ?
-            ''', (sensor_id,))
-            
-            sensor = self.cursor.fetchone()
-            if sensor:
-                return {
-                    "sensor_id": sensor['sensor_id'],
-                    "sensor_type": sensor['sensor_type'],
-                    "sensor_name": sensor.get('sensor_name', sensor['sensor_id']),
-                    "master_url": sensor.get('api_endpoint', ''),
-                    "hardware_info": sensor.get('hardware_info', 'ESP32'),
-                    "firmware_version": sensor.get('firmware_version', '1.0.0')
-                }
+            try:
+                self.cursor.execute('''
+                    SELECT * FROM SensorRegistration WHERE sensor_id = ?
+                ''', (sensor_id,))
+                
+                sensor = self.cursor.fetchone()
+                if sensor:
+                    return {
+                        "sensor_id": sensor['sensor_id'],
+                        "sensor_type": sensor['sensor_type'],
+                        "sensor_name": sensor.get('sensor_name', sensor['sensor_id']),
+                        "master_url": self._get_master_url(),
+                        "hardware_info": sensor.get('hardware_info', 'ESP32'),
+                        "firmware_version": sensor.get('firmware_version', '1.0.0')
+                    }
+            except Exception as e:
+                logger.warning(f"Error fetching sensor config: {e}")
         
         # Generate default configuration
         return {
@@ -119,16 +119,21 @@ class ESP32CodeGenerator:
     def _get_master_url(self) -> str:
         """Get the active master control URL"""
         try:
-            self.cursor.execute('''
-                SELECT api_endpoint FROM SensorMasterControl
-                WHERE is_enabled = 1
-                ORDER BY priority ASC
-                LIMIT 1
-            ''')
-            result = self.cursor.fetchone()
-            return result['api_endpoint'] if result else "http://localhost:5000"
+            # Try to detect the host IP address
+            import socket
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                # doesn't even have to be reachable
+                s.connect(('8.8.8.8', 1))
+                IP = s.getsockname()[0]
+            except Exception:
+                IP = '127.0.0.1'
+            finally:
+                s.close()
+            
+            return f"http://{IP}:5001"
         except:
-            return "http://localhost:5000"
+            return "http://localhost:5001"
     
     def _generate_arduino_code(self, config: Dict, master_url: str, 
                                wifi_ssid: str, wifi_password: str) -> str:
@@ -936,7 +941,7 @@ void executeActions(JsonArray actions) {{
       while (startIndex >= 0) {{
           int endIndex = message.indexOf("}}", startIndex);
           if (endIndex > startIndex) {{
-              String key = message.substring(startIndex + 1, endIndex);
+              String key = message.substring(startIndex + 2, endIndex);
               float val = resolveValue(key);
               String valStr = String(val);
               // Clean up float formatting (remove .00)

@@ -1,6 +1,6 @@
 import socket
 import logging
-from zeroconf import ServiceInfo, Zeroconf
+from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser
 
 logger = logging.getLogger(__name__)
 
@@ -76,3 +76,57 @@ class ServiceAnnouncer:
             self.zeroconf.close()
             self.zeroconf = None
             self.info = None
+
+class DeviceScanner:
+    def __init__(self, timeout=2.0):
+        self.timeout = timeout
+        self.found_devices = []
+
+    def scan(self):
+        """Scan for mDNS services"""
+        import time
+        
+        class ServiceListener:
+            def __init__(self, devices_list):
+                self.devices_list = devices_list
+                
+            def remove_service(self, zeroconf, type, name):
+                pass
+
+            def add_service(self, zeroconf, type, name):
+                info = zeroconf.get_service_info(type, name)
+                if info:
+                    # Parse properties
+                    props = {}
+                    for key, value in info.properties.items():
+                        if isinstance(key, bytes):
+                            key = key.decode('utf-8')
+                        if isinstance(value, bytes):
+                            value = value.decode('utf-8')
+                        props[key] = value
+                        
+                    # Get IP
+                    ip = None
+                    if info.addresses:
+                        ip = socket.inet_ntoa(info.addresses[0])
+                        
+                    device = {
+                        'name': name.replace('._http._tcp.local.', ''),
+                        'type': props.get('type', 'unknown'),
+                        'ip': ip,
+                        'port': info.port,
+                        'properties': props
+                    }
+                    self.devices_list.append(device)
+                    
+            def update_service(self, zeroconf, type, name):
+                pass
+
+        zeroconf = Zeroconf()
+        listener = ServiceListener(self.found_devices)
+        browser = ServiceBrowser(zeroconf, "_http._tcp.local.", listener)
+        
+        time.sleep(self.timeout)
+        
+        zeroconf.close()
+        return self.found_devices

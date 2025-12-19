@@ -1598,7 +1598,20 @@ def report_sensor_log():
         volt_match = re.search(r'(?:Battery|Batt|Bat|Voltage|Volts).*?([\d\.]+)V', message, re.IGNORECASE)
         if volt_match:
             try:
-                updates['last_battery_voltage'] = float(volt_match.group(1))
+                voltage = float(volt_match.group(1))
+                
+                # Apply smoothing if we have previous data
+                try:
+                    cursor.execute('SELECT last_battery_voltage FROM SensorRegistration WHERE sensor_id = ?', (sensor_id,))
+                    row = cursor.fetchone()
+                    if row and row['last_battery_voltage'] is not None:
+                        prev_voltage = row['last_battery_voltage']
+                        # Weighted average: 30% new, 70% old to smooth out fluctuations
+                        voltage = (prev_voltage * 0.7) + (voltage * 0.3)
+                except Exception:
+                    pass # Fallback to raw value if fetch fails
+                
+                updates['last_battery_voltage'] = round(voltage, 2)
             except ValueError:
                 pass
                 
@@ -1623,7 +1636,7 @@ def report_sensor_log():
                 logger.warning(f"Failed to update battery info from log: {e}")
 
         cursor.execute('''
-            INSERT INTO SensorLogs (sensor_id, message, log_level, timestamp)
+            INSERT INTO SensorLogs (sensor_id, message, log_level, created_at)
             VALUES (?, ?, ?, ?)
         ''', (
             data['sensor_id'],
