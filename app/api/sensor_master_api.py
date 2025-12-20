@@ -26,6 +26,8 @@ import logging
 import re
 from datetime import datetime, timedelta, timezone
 from ..db import get_connection
+from app.utils.discovery import DeviceScanner
+from app.utils.discovery import DeviceScanner
 
 # Define a Blueprint for Sensor Master Control API
 sensor_master_api_bp = Blueprint('sensor_master_api', __name__)
@@ -466,16 +468,18 @@ def sensor_heartbeat():
         return jsonify({'error': 'Failed to process heartbeat'}), 500
 
 
-def calculate_sensor_status(last_check_in, timeout_minutes=10):
+def calculate_sensor_status(last_check_in, timeout_minutes=10, current_status=None, hibernation_timeout_minutes=120):
     """
     Calculate sensor online/offline status based on last heartbeat
     
     Args:
         last_check_in: ISO timestamp string or None
         timeout_minutes: Number of minutes before considering sensor offline (default: 10)
+        current_status: Current status of the sensor (e.g. 'online', 'hibernating')
+        hibernation_timeout_minutes: Timeout for hibernating sensors (default: 120)
     
     Returns:
-        'online', 'offline', or 'pending'
+        'online', 'offline', 'hibernating', or 'pending'
     """
     if not last_check_in:
         return 'pending'
@@ -496,6 +500,13 @@ def calculate_sensor_status(last_check_in, timeout_minutes=10):
             last_check = last_check.replace(tzinfo=timezone.utc)
         
         time_since_last = (now - last_check).total_seconds() / 60  # minutes
+        
+        # If currently hibernating, use hibernation timeout
+        if current_status == 'hibernating':
+            if time_since_last <= hibernation_timeout_minutes:
+                return 'hibernating'
+            else:
+                return 'offline'
         
         if time_since_last <= timeout_minutes:
             return 'online'
@@ -537,20 +548,32 @@ def get_registered_sensors():
                 sensor['capabilities'] = json.loads(sensor['capabilities'])
             
             # Calculate real-time status based on heartbeat
-            sensor['status'] = calculate_sensor_status(sensor.get('last_check_in'))
+            # Use sensor's check_in_interval (seconds) to determine timeout
+            # Default to 60s if not set. Add grace period (2x interval + buffer)
+            interval_seconds = sensor.get('check_in_interval') or 60
+            # Convert to minutes for the helper function, adding grace period
+            # (interval * 2 + 30s) / 60
+            timeout_minutes = ((interval_seconds * 2) + 30) / 60.0
+            
+            sensor['status'] = calculate_sensor_status(
+                sensor.get('last_check_in'), 
+                timeout_minutes=timeout_minutes,
+                current_status=sensor.get('status')
+            )
             
             # Get active script for this sensor (what SHOULD be running)
             cursor.execute('''
-                SELECT id, description, script_version, script_type, created_at, last_executed
-                FROM SensorScripts
-                WHERE sensor_id = ? AND is_active = 1
-                ORDER BY created_at DESC
+                SELECT ss.id, ss.description, ss.script_version, ss.script_type, ss.created_at, ss.last_executed,
+                       ss.script_content
+                FROM SensorScripts ss
+                WHERE ss.sensor_id = ? AND ss.is_active = 1
+                ORDER BY ss.created_at DESC
                 LIMIT 1
             ''', (sensor['sensor_id'],))
             
             script_row = cursor.fetchone()
             if script_row:
-                assigned_version = script_row[2]
+                assigned_version = script_row['script_version']
                 running_version = sensor.get('current_script_version')
                 
                 # Determine script status
@@ -564,12 +587,13 @@ def get_registered_sensors():
                     script_status = 'pending'  # Sensor hasn't reported version yet
                 
                 sensor['assigned_script'] = {
-                    'id': script_row[0],
-                    'name': script_row[1] or 'Unnamed Script',
+                    'id': script_row['id'],
+                    'name': script_row['description'] or 'Unnamed Script',
                     'version': assigned_version,
-                    'language': script_row[3],
-                    'uploaded_at': script_row[4],
-                    'last_executed': script_row[5],
+                    'language': script_row['script_type'],
+                    'uploaded_at': script_row['created_at'],
+                    'last_executed': script_row['last_executed'],
+                    'script_content': script_row['script_content'],
                     'status': script_status
                 }
             else:
@@ -598,7 +622,7 @@ def check_heartbeats():
         cursor = conn.cursor()
         
         # Get all sensors
-        cursor.execute('SELECT sensor_id, last_check_in, status FROM SensorRegistration')
+        cursor.execute('SELECT sensor_id, last_check_in, status, check_in_interval FROM SensorRegistration')
         sensors = cursor.fetchall()
         
         updated_count = 0
@@ -609,8 +633,16 @@ def check_heartbeats():
             last_check_in = sensor['last_check_in']
             current_status = sensor['status']
             
+            # Calculate timeout based on sensor's check_in_interval
+            interval_seconds = sensor['check_in_interval'] if sensor['check_in_interval'] else 60
+            timeout_minutes = ((interval_seconds * 2) + 30) / 60.0
+            
             # Calculate new status
-            new_status = calculate_sensor_status(last_check_in)
+            new_status = calculate_sensor_status(
+                last_check_in, 
+                timeout_minutes=timeout_minutes,
+                current_status=current_status
+            )
             
             # Update if status changed
             if new_status != current_status:
@@ -697,6 +729,46 @@ def delete_sensor(sensor_id):
     except Exception as e:
         logger.error(f"Error deleting sensor: {e}", exc_info=True)
         return jsonify({'error': 'Failed to delete sensor'}), 500
+
+
+@sensor_master_api_bp.route('/sensor-master/sensors/<sensor_id>/script', methods=['GET'])
+def get_sensor_assigned_script(sensor_id):
+    """Get the assigned script for a sensor from the database"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Get sensor's assigned script
+        cursor.execute('''
+            SELECT sr.sensor_id, sr.assigned_script_id,
+                   ls.script_content, ls.name, ls.script_version
+            FROM SensorRegistration sr
+            LEFT JOIN ScriptLibrary ls ON sr.assigned_script_id = ls.id
+            WHERE sr.sensor_id = ?
+        ''', (sensor_id,))
+        
+        sensor = cursor.fetchone()
+        
+        if not sensor:
+            return jsonify({'error': 'Sensor not found'}), 404
+        
+        if sensor['script_content']:
+            return jsonify({
+                'sensor_id': sensor_id,
+                'script': sensor['script_content'],
+                'name': sensor['name'],
+                'version': sensor['script_version']
+            }), 200
+        else:
+            return jsonify({
+                'sensor_id': sensor_id,
+                'script': None,
+                'message': 'No script assigned'
+            }), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting sensor script: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to get sensor script'}), 500
 
 
 @sensor_master_api_bp.route('/sensor-master/configs', methods=['GET'])
@@ -805,6 +877,96 @@ def queue_sensor_command():
     except Exception as e:
         logger.error(f"Error queuing command: {e}", exc_info=True)
         return jsonify({'error': 'Failed to queue command'}), 500
+
+
+@sensor_master_api_bp.route('/sensor-master/pin-control', methods=['POST'])
+def control_sensor_pin():
+    """
+    Real-time pin control endpoint for interactive board visualization
+    
+    Queues a high-priority pin control command for immediate execution
+    """
+    try:
+        data = request.get_json()
+        
+        required = ['sensor_id', 'pin', 'action_type', 'value']
+        for field in required:
+            if field not in data:
+                return jsonify({'error': f'{field} is required'}), 400
+        
+        sensor_id = data['sensor_id']
+        pin = data['pin']
+        action_type = data['action_type']
+        value = data['value']
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Check if sensor exists and is online
+        cursor.execute('''
+            SELECT id, status, last_heartbeat 
+            FROM SensorRegistration 
+            WHERE sensor_id = ?
+        ''', (sensor_id,))
+        
+        sensor = cursor.fetchone()
+        if not sensor:
+            return jsonify({'error': 'Sensor not registered'}), 404
+        
+        # Build command data based on action type
+        command_data = {
+            'pin': pin,
+            'action_type': action_type,
+            'value': value
+        }
+        
+        # Create a single-action script for immediate execution
+        pin_command_script = {
+            'type': 'json',
+            'actions': [{
+                'type': action_type,
+                'pin': pin,
+                'value': value if action_type in ['gpio_write', 'pwm_write', 'analog_write'] else None,
+                'state': value if action_type == 'set_relay' else None
+            }]
+        }
+        
+        # Queue as high priority command
+        cursor.execute('''
+            INSERT INTO SensorCommandQueue
+            (sensor_id, command_type, command_data, priority, max_attempts, expires_at)
+            VALUES (?, ?, ?, ?, ?, datetime('now', '+1 minute'))
+        ''', (
+            sensor_id,
+            'execute_script',
+            json.dumps(pin_command_script),
+            1,  # Highest priority
+            1   # Only try once
+        ))
+        
+        command_id = cursor.lastrowid
+        conn.commit()
+        
+        # Log the pin control action
+        cursor.execute('''
+            INSERT INTO SensorLogs (sensor_id, message, log_level)
+            VALUES (?, ?, ?)
+        ''', (
+            sensor_id,
+            f"🎮 Pin {pin} control: {action_type} = {value} (Manual Override)",
+            'info'
+        ))
+        conn.commit()
+        
+        return jsonify({
+            'message': 'Pin control command queued',
+            'command_id': command_id,
+            'sensor_status': sensor['status']
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error controlling pin: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to control pin'}), 500
 
 
 @sensor_master_api_bp.route('/sensor-master/commands', methods=['GET'])
@@ -1612,8 +1774,23 @@ def report_sensor_log():
                     pass # Fallback to raw value if fetch fails
                 
                 updates['last_battery_voltage'] = round(voltage, 2)
+                
+                # If percentage wasn't found but we have voltage, calculate it
+                if 'last_battery_pct' not in updates:
+                    # Linear approximation for LiPo (3.3V - 4.2V)
+                    min_v = 3.3
+                    max_v = 4.2
+                    pct = (voltage - min_v) / (max_v - min_v) * 100
+                    pct = max(0, min(100, pct)) # Clamp between 0 and 100
+                    updates['last_battery_pct'] = round(pct, 1)
             except ValueError:
                 pass
+
+        # Check for hibernation/deep sleep
+        if "Entering deep sleep" in message:
+            logger.info(f"Detected hibernation message from {sensor_id}. Updating status to hibernating.")
+            updates['status'] = 'hibernating'
+            updates['last_check_in'] = now_iso # Update check-in so it doesn't timeout immediately
                 
         if updates:
             # Update SensorRegistration
@@ -1884,5 +2061,38 @@ def receive_sensor_data():
     except Exception as e:
         logger.error(f"Error receiving sensor data: {e}", exc_info=True)
         return jsonify({'error': 'Failed to process sensor data'}), 500
+
+
+@sensor_master_api_bp.route('/sensor-master/scan', methods=['GET'])
+def scan_network_devices():
+    """Scan for devices on the network"""
+    try:
+        scanner = DeviceScanner(timeout=3.0)
+        devices = scanner.scan()
+        
+        # Check registration status
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT sensor_id FROM SensorRegistration')
+        registered_ids = {row['sensor_id'] for row in cursor.fetchall()}
+        
+        for device in devices:
+            # Get ID from properties (if available)
+            device_id = device.get('properties', {}).get('id')
+            if device_id and device_id in registered_ids:
+                device['is_registered'] = True
+            else:
+                device['is_registered'] = False
+        
+        return jsonify({
+            'status': 'success',
+            'devices': devices,
+            'count': len(devices)
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
 
 

@@ -24,6 +24,7 @@
 #include <vector>
 #include <map>
 #include "time.h"
+#include "esp32_web_interface.h"
 
 // ============================================================================
 // CONFIGURATION - CUSTOMIZE THESE VALUES
@@ -52,10 +53,10 @@ const int   daylightOffset_sec = 3600;
 #endif
 
 const char* MDNS_SERVICE_NAME = "sensor-master";  // Hostname to look for (sensor-master.local)
-const char* SENSOR_ID = "esp32_fermentation_002";
-const char* SENSOR_NAME = "Fermentation Chamber 2";
-const char* SENSOR_TYPE = "esp32_fermentation";
-const char* FIRMWARE_VERSION = "1.1.1";
+const char* SENSOR_ID = "esp32_fermentation_mk2";
+const char* SENSOR_NAME = "Fermentation Chamber";
+const char* SENSOR_TYPE = "esp32_wroom32";
+const char* FIRMWARE_VERSION = "2.0.1";
 
 // Default Firmware Script (Fallback)
 const char* DEFAULT_FIRMWARE_SCRIPT = R"({
@@ -183,7 +184,7 @@ bool sendDataToFallbackEndpoint(SensorData data);
 // Online Mode Functions
 bool registerWithMaster();
 bool getConfigFromMaster();
-bool sendHeartbeat();
+bool sendHeartbeat(String status = "online");
 bool sendDataToMaster(SensorData data);
 void sendRemoteLog(String message, String level = "info");
 void processCommands(JsonArray commands);
@@ -401,6 +402,9 @@ void setup() {
         server.on("/api/serial", HTTP_GET, []() {
             server.send(200, "application/json", WebSerial.getLogsJson());
         });
+        
+        // Setup board visualization web interface
+        setupWebInterface();
         
         server.begin();
         WebSerial.println("🌐 Web Server started for discovery");
@@ -772,7 +776,7 @@ bool getConfigFromMaster() {
     return false;
 }
 
-bool sendHeartbeat() {
+bool sendHeartbeat(String status) {
     if (WiFi.status() != WL_CONNECTED) {
         return false;
     }
@@ -786,7 +790,7 @@ bool sendHeartbeat() {
     
     JsonDocument doc;
     doc["sensor_id"] = SENSOR_ID;
-    doc["status"] = "online";
+    doc["status"] = status;
     
     JsonObject metrics = doc["metrics"].to<JsonObject>();
     metrics["uptime"] = millis() / 1000;
@@ -1195,7 +1199,10 @@ void executeActions(JsonArray actions) {
             Serial.println(msg);
             sendRemoteLog(msg, "system");
             
-            // Give time for logs to send
+            // Notify master that we are hibernating
+            sendHeartbeat("hibernating");
+            
+            // Give time for logs/heartbeat to send
             delay(1000);
             
             // Configure deep sleep
@@ -1681,6 +1688,12 @@ bool discoverMaster() {
         WebSerial.println("  ❌ Error setting up mDNS responder!");
         return false;
     }
+    
+    // Advertise service
+    MDNS.addService("http", "tcp", 80);
+    MDNS.addServiceTxt("http", "tcp", "id", SENSOR_ID);
+    MDNS.addServiceTxt("http", "tcp", "type", SENSOR_TYPE);
+    MDNS.addServiceTxt("http", "tcp", "name", SENSOR_NAME);
     
     WebSerial.println("  mDNS responder started. Searching for service: " + String(MDNS_SERVICE_NAME));
     

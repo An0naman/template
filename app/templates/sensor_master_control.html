@@ -14,6 +14,9 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.1/dist/chartjs-adapter-moment.min.js"></script>
+    
+    <!-- Board Configuration -->
+    <script src="{{ url_for('static', filename='js/board-configs.js') }}"></script>
 
     <!-- Dynamic Theme CSS -->
     <style id="theme-styles">
@@ -376,6 +379,44 @@
             flex: 0 0 50% !important;
             max-width: 50% !important;
         }
+    }
+    
+    /* Pin indicator and wire animations */
+    .pin-indicator {
+        box-shadow: 0 0 5px rgba(0,0,0,0.3);
+    }
+    
+    .pin-control {
+        border-left: 3px solid transparent;
+    }
+    
+    @keyframes pulse {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+        50% {
+            transform: scale(1.8);
+            opacity: 0.8;
+        }
+    }
+    
+    @keyframes wireFlow {
+        0% {
+            stroke-dashoffset: 1000;
+        }
+        100% {
+            stroke-dashoffset: 0;
+        }
+    }
+    
+    .wire {
+        stroke-dasharray: 10 5;
+        animation: wireFlow 20s linear infinite;
+    }
+    
+    .wire-glow {
+        stroke-dasharray: 10 5;
     }
 </style>
 </head>
@@ -880,38 +921,74 @@
 
 <!-- Sensor Plotter Modal -->
 <div class="modal fade" id="sensorPlotterModal" tabindex="-1">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-dialog modal-fullscreen">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-terminal me-2"></i>Sensor Serial Monitor: <span id="plotterSensorId"></span></h5>
+                <h5 class="modal-title"><i class="fas fa-microchip me-2"></i>Interactive Board Monitor: <span id="plotterSensorId"></span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h6 class="mb-0">Live Logs</h6>
-                    <div>
-                        <div class="form-check form-switch d-inline-block me-3">
-                            <input class="form-check-input" type="checkbox" id="autoScrollToggle" checked>
-                            <label class="form-check-label" for="autoScrollToggle">Auto-scroll</label>
+            <div class="modal-body p-0">
+                <div class="row g-0 h-100">
+                    <!-- Board Visualization Column -->
+                    <div class="col-md-5 bg-light border-end position-relative" style="height: calc(100vh - 120px); overflow-y: auto;">
+                        <div class="p-3">
+                            <h6 class="mb-3"><i class="fas fa-microchip"></i> Board Visualization</h6>
+                            
+                            <!-- Board Image Container -->
+                            <div id="boardContainer" class="position-relative mx-auto" style="width: 340px; height: 580px; overflow: visible;">
+                                <img id="boardImage" src="" alt="Board" class="img-fluid" style="width: 100%; height: auto; position: relative; z-index: 1;">
+                                
+                                <!-- Pin overlays will be dynamically added here -->
+                                <div id="pinOverlays" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none;"></div>
+                                
+                                <!-- Log overlay on chip -->
+                                <div id="chipLogOverlay" class="position-absolute bg-dark text-light font-monospace p-2 border rounded" 
+                                     style="font-size: 0.55rem; line-height: 1.1; overflow-y: auto; display: none; opacity: 0.95; z-index: 15; word-wrap: break-word;">
+                                </div>
+                            </div>
+                            
+                            <!-- Pin Controls Section -->
+                            <div id="pinControlsSection" class="mt-4">
+                                <h6 class="mb-3"><i class="fas fa-sliders-h"></i> Pin Controls</h6>
+                                <div id="pinControlsList" class="list-group">
+                                    <!-- Dynamic pin controls will be added here -->
+                                </div>
+                            </div>
                         </div>
-                        <button class="btn btn-outline-info btn-sm me-2" onclick="resetPlotterHistory()" id="plotterHistoryBtn" style="display: none;">
-                            <i class="fas fa-history"></i> History
-                        </button>
-                        <button class="btn btn-outline-warning btn-sm me-2" onclick="sendTestLog()">
-                            <i class="fas fa-bug"></i> Test Log
-                        </button>
-                        <button class="btn btn-outline-secondary btn-sm me-2" onclick="togglePlotterPause()" id="plotterPauseBtn">
-                            <i class="fas fa-pause"></i> Pause
-                        </button>
-                        <button class="btn btn-outline-danger btn-sm" onclick="clearPlotterData()">
-                            <i class="fas fa-trash"></i> Clear
-                        </button>
                     </div>
-                </div>
-
-                <!-- Logs Section (Predominate) -->
-                <div id="plotterLogs" class="bg-dark text-light p-3 border rounded mb-0 font-monospace" style="height: 70vh; overflow-y: auto; font-size: 0.9rem;">
-                    <div class="text-white-50">Waiting for logs...</div>
+                    
+                    <!-- Logs Column -->
+                    <div class="col-md-7 d-flex flex-column" style="height: calc(100vh - 120px);">
+                        <div class="p-3 border-bottom">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0"><i class="fas fa-terminal"></i> Live Logs</h6>
+                                <div>
+                                    <div class="form-check form-switch d-inline-block me-3">
+                                        <input class="form-check-input" type="checkbox" id="autoScrollToggle" checked>
+                                        <label class="form-check-label" for="autoScrollToggle">Auto-scroll</label>
+                                    </div>
+                                    <div class="form-check form-switch d-inline-block me-3">
+                                        <input class="form-check-input" type="checkbox" id="chipLogToggle" checked onchange="toggleChipLog()">
+                                        <label class="form-check-label" for="chipLogToggle">Chip Overlay</label>
+                                    </div>
+                                    <button class="btn btn-outline-warning btn-sm me-2" onclick="sendTestLog()">
+                                        <i class="fas fa-bug"></i> Test
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm me-2" onclick="togglePlotterPause()" id="plotterPauseBtn">
+                                        <i class="fas fa-pause"></i> Pause
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-sm" onclick="clearPlotterData()">
+                                        <i class="fas fa-trash"></i> Clear
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Full Logs Section -->
+                        <div id="plotterLogs" class="bg-dark text-light p-3 font-monospace flex-grow-1" style="overflow-y: auto; font-size: 0.85rem;">
+                            <div class="text-white-50">Waiting for logs...</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -959,12 +1036,18 @@
             <div class="modal-body">
                 <div class="row">
                     <div class="col-md-6 border-end">
-                        <h6>Manual Entry</h6>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6>Device Details</h6>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="manualEntryToggle" onchange="toggleManualEntry()">
+                                <label class="form-check-label" for="manualEntryToggle"><small>Manual Entry</small></label>
+                            </div>
+                        </div>
                         <form id="addDeviceForm">
                             <div class="mb-3">
                                 <label class="form-label">Sensor ID <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="newSensorId" required placeholder="e.g. esp32_fermentation_002">
-                                <div class="form-text">Unique identifier for the device. Must match the ID in the device firmware.</div>
+                                <input type="text" class="form-control bg-light" id="newSensorId" required placeholder="Select from scan..." readonly>
+                                <div class="form-text">Unique identifier inherited from device.</div>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Friendly Name</label>
@@ -1062,13 +1145,68 @@ let plotterSensorId = null;
 let plotterInterval = null;
 let isPlotterPaused = false;
 let lastLogId = 0;
+let currentBoardType = 'ESP32-WROOM-32'; // Default board type
+let currentPlotterLogicData = null; // Store logic for pin interactivity
+
+async function fetchDeviceScript(sensorId) {
+    try {
+        // Try to get the running script from device's recent logs or status
+        const response = await fetch(`/api/sensor-master/sensors/${sensorId}/script`);
+        if (response.ok) {
+            const data = await response.json();
+            if (data.script) {
+                console.log('Fetched running script from device:', data.script);
+                return typeof data.script === 'string' ? JSON.parse(data.script) : data.script;
+            }
+        }
+    } catch (e) {
+        console.warn('Could not fetch device script:', e);
+    }
+    return null;
+}
 
 async function openSensorPlotter(sensorId) {
     plotterSensorId = sensorId;
     document.getElementById('plotterSensorId').textContent = sensorId;
     
+    // Get sensor info to determine board type and logic
+    const sensor = sensors.find(s => s.sensor_id === sensorId);
+    if (sensor) {
+        currentBoardType = sensor.board_type || 'ESP32-WROOM-32';
+        
+        // Get assigned script logic if available
+        if (sensor.assigned_script) {
+            try {
+                const scriptContent = typeof sensor.assigned_script.script_content === 'string'
+                    ? JSON.parse(sensor.assigned_script.script_content)
+                    : sensor.assigned_script.script_content;
+                currentPlotterLogicData = scriptContent;
+            } catch (e) {
+                console.error('Error parsing logic:', e);
+                currentPlotterLogicData = null;
+            }
+        } else {
+            // Try to fetch the running script from the device
+            console.log('No assigned script in database, will fetch from device...');
+            fetchDeviceScript(sensorId).then(script => {
+                if (script) {
+                    currentPlotterLogicData = script;
+                    // Re-initialize board to show the controls
+                    const pinOverlays = document.getElementById('pinOverlays');
+                    const pinControlsList = document.getElementById('pinControlsList');
+                    if (pinOverlays && pinControlsList) {
+                        initializeBoardControls();
+                    }
+                }
+            });
+        }
+    }
+    
     // Reset state
     isPlotterPaused = false;
+    
+    // Initialize board visualization
+    initializeBoardVisualization();
     
     // Show modal
     const modal = new bootstrap.Modal(document.getElementById('sensorPlotterModal'));
@@ -1077,28 +1215,40 @@ async function openSensorPlotter(sensorId) {
     const logsContainer = document.getElementById('plotterLogs');
     const historyBtn = document.getElementById('plotterHistoryBtn');
     
-    logsContainer.innerHTML = '<div class="text-white-50 p-2">Connecting...</div>';
+    logsContainer.innerHTML = '<div class="text-white-50 p-2">Loading history...</div>';
     
-    // Initialize lastLogId to the current latest ID to avoid showing history
+    // Load recent history (last 50 logs)
     try {
-        const response = await fetch(`/api/sensor-master/logs/${plotterSensorId}?limit=1`);
+        const response = await fetch(`/api/sensor-master/logs/${plotterSensorId}?limit=50`);
         if (response.ok) {
             const data = await response.json();
             if (data.logs && data.logs.length > 0) {
-                lastLogId = data.logs[0].id; // Logs are ordered DESC, so first is latest
-                if (historyBtn) historyBtn.style.display = 'inline-block';
+                // Logs are ordered DESC (newest first), so we need to reverse them for display (oldest first)
+                const historyLogs = data.logs.reverse();
+                
+                // Clear container before showing history
+                logsContainer.innerHTML = '';
+                
+                // Display these logs
+                updatePlotterLogs(historyLogs);
+                
+                // Set lastLogId to the newest log we found
+                lastLogId = historyLogs[historyLogs.length - 1].id;
+                
+                if (historyBtn) historyBtn.style.display = 'none'; // Hide "Load History" since we just loaded it
             } else {
                 lastLogId = 0;
+                logsContainer.innerHTML = '<div class="text-white-50 p-2"><i>No logs found. Listening for new logs...</i></div>';
                 if (historyBtn) historyBtn.style.display = 'none';
             }
         }
     } catch (e) {
         console.error("Error initializing plotter:", e);
         lastLogId = 0;
+        logsContainer.innerHTML = '<div class="text-white-50 p-2"><i>Error loading history. Listening for new logs...</i></div>';
         if (historyBtn) historyBtn.style.display = 'none';
     }
     
-    logsContainer.innerHTML = '<div class="text-white-50 p-2"><i>Connected. Listening for new logs...</i></div>';
     updatePauseButton();
     
     // Start polling
@@ -1114,6 +1264,560 @@ async function openSensorPlotter(sensorId) {
             plotterInterval = null;
         }
     }, { once: true });
+}
+
+function initializeBoardVisualization() {
+    const config = getBoardConfig(currentBoardType);
+    const boardImage = document.getElementById('boardImage');
+    const chipLogOverlay = document.getElementById('chipLogOverlay');
+    const pinOverlays = document.getElementById('pinOverlays');
+    const pinControlsList = document.getElementById('pinControlsList');
+    
+    // Set board image with fallback
+    boardImage.src = config.image;
+    
+    // Wait for image to load before initializing controls
+    boardImage.onload = function() {
+        console.log('Board image loaded successfully');
+        // Position chip log overlay
+        chipLogOverlay.style.left = config.chipOverlay.x + 'px';
+        chipLogOverlay.style.top = config.chipOverlay.y + 'px';
+        chipLogOverlay.style.width = config.chipOverlay.width + 'px';
+        chipLogOverlay.style.height = config.chipOverlay.height + 'px';
+        
+        // Show overlay if toggle is checked
+        if (document.getElementById('chipLogToggle').checked) {
+            chipLogOverlay.style.display = 'block';
+        }
+        
+        // Initialize pin controls after image loads
+        setTimeout(() => initializeBoardControls(), 200);
+    };
+    
+    boardImage.onerror = function() {
+        // Try fallback image if available
+        if (config.fallbackImage && this.src !== config.fallbackImage) {
+            console.log('Primary image failed, trying fallback:', config.fallbackImage);
+            this.src = config.fallbackImage;
+        } else {
+            // If both fail, create a styled placeholder
+            console.warn('Board image not available, using placeholder');
+            const container = document.getElementById('boardContainer');
+            container.innerHTML = `
+                <div class="text-center p-4" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; color: white; height: 100%;">
+                    <i class="fas fa-microchip fa-4x mb-3" style="opacity: 0.7;"></i>
+                    <h5>${config.name}</h5>
+                    <p class="small mb-0">Board visualization</p>
+                    <p class="small text-white-50">Image not loaded - controls still functional</p>
+                </div>
+            `;
+            // Re-create pin overlays div
+            const newPinOverlays = document.createElement('div');
+            newPinOverlays.id = 'pinOverlays';
+            newPinOverlays.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none;';
+            container.appendChild(newPinOverlays);
+            
+            // Re-create chip log overlay
+            const newChipLog = document.createElement('div');
+            newChipLog.id = 'chipLogOverlay';
+            newChipLog.className = 'position-absolute bg-dark text-light font-monospace p-2 border rounded';
+            newChipLog.style.cssText = 'font-size: 0.55rem; line-height: 1.1; overflow-y: auto; display: none; opacity: 0.95; z-index: 15; word-wrap: break-word;';
+            container.appendChild(newChipLog);
+            
+            // Update references
+            const updatedOverlay = document.getElementById('chipLogOverlay');
+            if (updatedOverlay) {
+                updatedOverlay.style.left = config.chipOverlay.x + 'px';
+                updatedOverlay.style.top = config.chipOverlay.y + 'px';
+                updatedOverlay.style.width = config.chipOverlay.width + 'px';
+                updatedOverlay.style.height = config.chipOverlay.height + 'px';
+                if (document.getElementById('chipLogToggle')?.checked) {
+                    updatedOverlay.style.display = 'block';
+                }
+            }
+            
+            // Initialize controls even without image
+            setTimeout(() => initializeBoardControls(), 200);
+            return; // Exit early as we've replaced the container
+        }
+    };
+}
+
+function initializeBoardControls() {
+    const pinOverlays = document.getElementById('pinOverlays');
+    const pinControlsList = document.getElementById('pinControlsList');
+    
+    if (!pinOverlays || !pinControlsList) return;
+    
+    // Clear and rebuild pin overlays
+    pinOverlays.innerHTML = '';
+    pinControlsList.innerHTML = '';
+    
+    if (!currentPlotterLogicData || !currentPlotterLogicData.actions) {
+        pinControlsList.innerHTML = '<div class="text-muted p-3 text-center"><p>No logic assigned to this sensor</p><p class="small text-muted">Use the Logic Builder to assign a script, or the device will use its default firmware script.</p></div>';
+        return;
+    }
+    
+    // Extract pin actions from logic
+    const pinActions = extractPinActionsFromLogic(currentPlotterLogicData.actions);
+    
+    if (pinActions.length === 0) {
+        pinControlsList.innerHTML = '<div class="text-muted p-3 text-center">No pin actions found in logic</div>';
+        return;
+    }
+    
+    // Create SVG layer for wires
+    const boardContainer = document.getElementById('boardContainer');
+    const boardRect = boardContainer.getBoundingClientRect();
+    let svgLayer = document.getElementById('wireSvgLayer');
+    if (!svgLayer) {
+        svgLayer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svgLayer.id = 'wireSvgLayer';
+        svgLayer.setAttribute('viewBox', '0 0 340 580');
+        svgLayer.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        svgLayer.style.position = 'absolute';
+        svgLayer.style.top = '0';
+        svgLayer.style.left = '0';
+        svgLayer.style.width = '100%';
+        svgLayer.style.height = '100%';
+        svgLayer.style.pointerEvents = 'none';
+        svgLayer.style.zIndex = '5';
+        svgLayer.style.overflow = 'visible';
+        boardContainer.appendChild(svgLayer);
+        console.log('Created SVG wire layer');
+    }
+    svgLayer.innerHTML = ''; // Clear existing wires
+    console.log('Initializing wires for', pinActions.length, 'actions');
+    
+    // Deduplicate pin actions - only keep first occurrence of each pin
+    const seenPins = new Set();
+    const uniquePinActions = pinActions.filter(action => {
+        if (seenPins.has(action.pin)) {
+            console.log(`Skipping duplicate pin ${action.pin}`);
+            return false;
+        }
+        seenPins.add(action.pin);
+        return true;
+    });
+    
+    console.log(`Reduced ${pinActions.length} actions to ${uniquePinActions.length} unique pins`);
+    
+    // Create pin overlays and controls
+    uniquePinActions.forEach((action, index) => {
+        const pinInfo = getPinInfo(currentBoardType, action.pin);
+        if (!pinInfo) return;
+        
+        // Create visual pin indicator on board
+        const pinIndicator = document.createElement('div');
+        pinIndicator.className = 'position-absolute rounded-circle pin-indicator';
+        pinIndicator.style.left = (pinInfo.x - 6) + 'px';
+        pinIndicator.style.top = (pinInfo.y - 6) + 'px';
+        pinIndicator.style.width = '12px';
+        pinIndicator.style.height = '12px';
+        pinIndicator.style.backgroundColor = getActionColor(action.type);
+        pinIndicator.style.border = '2px solid white';
+        pinIndicator.style.cursor = 'pointer';
+        pinIndicator.style.zIndex = '10';
+        pinIndicator.style.transition = 'all 0.3s ease';
+        pinIndicator.style.pointerEvents = 'auto';
+        pinIndicator.title = `${pinInfo.name} (Pin ${action.pin}) - ${action.type}`;
+        pinIndicator.id = `pin-indicator-${action.pin}`;
+        pinIndicator.dataset.pin = action.pin;
+        
+        // Add hover effect to pin indicator
+        pinIndicator.addEventListener('mouseenter', () => highlightWire(action.pin, true));
+        pinIndicator.addEventListener('mouseleave', () => highlightWire(action.pin, false));
+        
+        pinOverlays.appendChild(pinIndicator);
+        
+        // Draw wire for ALL pin actions (both read and write)
+        setTimeout(() => {
+            drawWireFromPin(action.pin, pinInfo, action.type);
+        }, 100);
+        
+        // Create control for write actions only (user can interact with these)
+        if (isWriteAction(action.type)) {
+            const control = createPinControl(action, pinInfo, index);
+            pinControlsList.appendChild(control);
+        }
+    });
+}
+
+function drawWireFromPin(pin, pinInfo, actionType) {
+    const svgLayer = document.getElementById('wireSvgLayer');
+    if (!svgLayer) {
+        console.log('No SVG layer found');
+        return;
+    }
+    
+    const boardContainer = document.getElementById('boardContainer');
+    const boardImage = boardContainer.querySelector('img');
+    if (!boardImage) {
+        console.log('No board image found');
+        return;
+    }
+    
+    // Calculate wire extension from pin
+    const startX = pinInfo.x;
+    const startY = pinInfo.y;
+    
+    // Determine direction based on pin location (left or right side of board)
+    const isRightSide = startX > 170; // Middle of 340px board
+    const wireLength = 120;
+    const endX = isRightSide ? startX + wireLength : startX - wireLength;
+    const endY = startY;
+    
+    // Create wire path (straight line from pin)
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const pathData = `M ${startX} ${startY} L ${endX} ${endY}`;
+    
+    path.setAttribute('d', pathData);
+    path.setAttribute('stroke', getActionColor(actionType));
+    path.setAttribute('stroke-width', '3');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('opacity', '0.6');
+    path.setAttribute('class', `wire wire-pin-${pin}`);
+    path.setAttribute('data-pin', pin);
+    path.style.transition = 'all 0.3s ease';
+    path.setAttribute('stroke-linecap', 'round');
+    
+    svgLayer.appendChild(path);
+    
+    // Add glow effect for animation
+    const glowPath = path.cloneNode();
+    glowPath.setAttribute('stroke-width', '8');
+    glowPath.setAttribute('opacity', '0');
+    glowPath.setAttribute('class', `wire-glow wire-glow-pin-${pin}`);
+    glowPath.setAttribute('filter', 'url(#wireGlowFilter)');
+    svgLayer.insertBefore(glowPath, path);
+    
+    console.log(`Drew wire for pin ${pin} from (${startX},${startY}) to (${endX},${endY})`);
+    
+    // Add SVG filter for glow effect
+    if (!document.getElementById('wireGlowFilter')) {
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        const filter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
+        filter.id = 'wireGlowFilter';
+        filter.setAttribute('x', '-50%');
+        filter.setAttribute('y', '-50%');
+        filter.setAttribute('width', '200%');
+        filter.setAttribute('height', '200%');
+        
+        const feGaussianBlur = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
+        feGaussianBlur.setAttribute('stdDeviation', '3');
+        feGaussianBlur.setAttribute('result', 'coloredBlur');
+        
+        const feMerge = document.createElementNS('http://www.w3.org/2000/svg', 'feMerge');
+        const feMergeNode1 = document.createElementNS('http://www.w3.org/2000/svg', 'feMergeNode');
+        feMergeNode1.setAttribute('in', 'coloredBlur');
+        const feMergeNode2 = document.createElementNS('http://www.w3.org/2000/svg', 'feMergeNode');
+        feMergeNode2.setAttribute('in', 'SourceGraphic');
+        
+        feMerge.appendChild(feMergeNode1);
+        feMerge.appendChild(feMergeNode2);
+        filter.appendChild(feGaussianBlur);
+        filter.appendChild(feMerge);
+        defs.appendChild(filter);
+        svgLayer.appendChild(defs);
+    }
+}
+
+function extractPinActionsFromLogic(actions, result = []) {
+    actions.forEach(action => {
+        if (action.pin !== undefined) {
+            result.push(action);
+        }
+        // Recurse into conditional blocks
+        if (action.then) extractPinActionsFromLogic(action.then, result);
+        if (action.else) extractPinActionsFromLogic(action.else, result);
+    });
+    return result;
+}
+
+function getActionColor(type) {
+    const colors = {
+        'gpio_write': '#4CAF50',
+        'gpio_read': '#2196F3',
+        'pwm_write': '#FF9800',
+        'analog_write': '#9C27B0',
+        'analog_read': '#00BCD4',
+        'read_temperature': '#F44336',
+        'read_battery': '#FFC107'
+    };
+    return colors[type] || '#9E9E9E';
+}
+
+function isWriteAction(type) {
+    return ['gpio_write', 'pwm_write', 'analog_write', 'set_relay'].includes(type);
+}
+
+function createPinControl(action, pinInfo, index) {
+    const div = document.createElement('div');
+    div.className = 'list-group-item pin-control';
+    div.dataset.pin = action.pin;
+    div.dataset.actionType = action.type;
+    div.style.cursor = 'pointer';
+    div.style.transition = 'all 0.3s ease';
+    
+    // Add hover effects for wire highlighting
+    div.addEventListener('mouseenter', () => highlightWire(action.pin, true));
+    div.addEventListener('mouseleave', () => highlightWire(action.pin, false));
+    
+    let controlHtml = `
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+                <strong>Pin ${action.pin}</strong> - ${pinInfo.name}
+                ${action.alias ? `<span class="badge bg-secondary ms-2">${action.alias}</span>` : ''}
+            </div>
+            <span class="badge" style="background-color: ${getActionColor(action.type)}">${action.type}</span>
+        </div>
+    `;
+    
+    if (action.type === 'gpio_write') {
+        const currentValue = action.value || 'LOW';
+        controlHtml += `
+            <div class="btn-group w-100" role="group">
+                <button type="button" class="btn btn-sm ${currentValue === 'HIGH' ? 'btn-success' : 'btn-outline-secondary'}" 
+                        onclick="sendPinCommand(${action.pin}, 'gpio_write', 'HIGH')">
+                    <i class="fas fa-toggle-on"></i> HIGH
+                </button>
+                <button type="button" class="btn btn-sm ${currentValue === 'LOW' ? 'btn-danger' : 'btn-outline-secondary'}" 
+                        onclick="sendPinCommand(${action.pin}, 'gpio_write', 'LOW')">
+                    <i class="fas fa-toggle-off"></i> LOW
+                </button>
+            </div>
+        `;
+    } else if (action.type === 'pwm_write') {
+        const currentValue = action.value || 0;
+        controlHtml += `
+            <div>
+                <input type="range" class="form-range" min="0" max="255" value="${currentValue}" 
+                       id="pwm-slider-${action.pin}" 
+                       oninput="updatePWMDisplay(${action.pin}, this.value)">
+                <div class="d-flex justify-content-between">
+                    <small>0</small>
+                    <small id="pwm-value-${action.pin}">${currentValue}</small>
+                    <small>255</small>
+                </div>
+                <button class="btn btn-sm btn-primary w-100 mt-2" 
+                        onclick="sendPinCommand(${action.pin}, 'pwm_write', document.getElementById('pwm-slider-${action.pin}').value)">
+                    Apply PWM
+                </button>
+            </div>
+        `;
+    } else if (action.type === 'analog_write') {
+        const currentValue = action.value || 0;
+        controlHtml += `
+            <div>
+                <input type="range" class="form-range" min="0" max="255" value="${currentValue}" 
+                       id="dac-slider-${action.pin}" 
+                       oninput="updateDACDisplay(${action.pin}, this.value)">
+                <div class="d-flex justify-content-between">
+                    <small>0V</small>
+                    <small id="dac-value-${action.pin}">${(currentValue / 255 * 3.3).toFixed(2)}V</small>
+                    <small>3.3V</small>
+                </div>
+                <button class="btn btn-sm btn-primary w-100 mt-2" 
+                        onclick="sendPinCommand(${action.pin}, 'analog_write', document.getElementById('dac-slider-${action.pin}').value)">
+                    Apply DAC
+                </button>
+            </div>
+        `;
+    } else if (action.type === 'set_relay') {
+        const currentState = action.state || false;
+        controlHtml += `
+            <div class="btn-group w-100" role="group">
+                <button type="button" class="btn btn-sm ${currentState ? 'btn-success' : 'btn-outline-secondary'}" 
+                        onclick="sendPinCommand(${action.pin}, 'set_relay', true)">
+                    <i class="fas fa-power-off"></i> ON
+                </button>
+                <button type="button" class="btn btn-sm ${!currentState ? 'btn-danger' : 'btn-outline-secondary'}" 
+                        onclick="sendPinCommand(${action.pin}, 'set_relay', false)">
+                    <i class="fas fa-power-off"></i> OFF
+                </button>
+            </div>
+        `;
+    }
+    
+    div.innerHTML = controlHtml;
+    return div;
+}
+
+function highlightWire(pin, highlight) {
+    const wire = document.querySelector(`.wire-pin-${pin}`);
+    const wireGlow = document.querySelector(`.wire-glow-pin-${pin}`);
+    const pinIndicator = document.getElementById(`pin-indicator-${pin}`);
+    const pinControl = document.querySelector(`.pin-control[data-pin="${pin}"]`);
+    
+    if (wire) {
+        wire.setAttribute('opacity', highlight ? '0.9' : '0.4');
+        wire.setAttribute('stroke-width', highlight ? '3' : '2');
+    }
+    
+    if (wireGlow) {
+        wireGlow.setAttribute('opacity', highlight ? '0.6' : '0');
+    }
+    
+    if (pinIndicator) {
+        pinIndicator.style.transform = highlight ? 'scale(1.5)' : 'scale(1)';
+        pinIndicator.style.boxShadow = highlight ? '0 0 10px currentColor' : 'none';
+    }
+    
+    if (pinControl) {
+        pinControl.style.backgroundColor = highlight ? 'rgba(76, 175, 80, 0.1)' : '';
+    }
+}
+
+function activateWire(pin, duration = 1000) {
+    const wire = document.querySelector(`.wire-pin-${pin}`);
+    const wireGlow = document.querySelector(`.wire-glow-pin-${pin}`);
+    const pinIndicator = document.getElementById(`pin-indicator-${pin}`);
+    
+    // Store current state
+    const currentState = wire ? wire.dataset.state : null;
+    
+    if (wire) {
+        wire.setAttribute('opacity', '1');
+        wire.setAttribute('stroke-width', '5');
+    }
+    
+    if (wireGlow) {
+        wireGlow.setAttribute('opacity', '0.8');
+    }
+    
+    if (pinIndicator) {
+        pinIndicator.style.animation = 'pulse 0.5s ease-in-out 2';
+    }
+    
+    // Reset after duration, but preserve state-based styling
+    setTimeout(() => {
+        if (pinIndicator) {
+            pinIndicator.style.animation = '';
+        }
+        
+        // Don't reset if we have a state - let setWireState handle it
+        if (!currentState) {
+            if (wire) {
+                wire.setAttribute('opacity', '0.6');
+                wire.setAttribute('stroke-width', '3');
+            }
+            if (wireGlow) {
+                wireGlow.setAttribute('opacity', '0');
+            }
+        }
+    }, duration);
+}
+
+function updatePWMDisplay(pin, value) {
+    document.getElementById(`pwm-value-${pin}`).textContent = value;
+}
+
+function updateDACDisplay(pin, value) {
+    const voltage = (value / 255 * 3.3).toFixed(2);
+    document.getElementById(`dac-value-${pin}`).textContent = voltage + 'V';
+}
+
+async function sendPinCommand(pin, actionType, value) {
+    try {
+        const response = await fetch('/api/sensor-master/pin-control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sensor_id: plotterSensorId,
+                pin: pin,
+                action_type: actionType,
+                value: value
+            })
+        });
+        
+        if (response.ok) {
+            showAlert(`Pin ${pin} command sent successfully`, 'success');
+            
+            // Update wire state based on value FIRST
+            if (actionType === 'gpio_write') {
+                setWireState(pin, value);
+            }
+            
+            // Then do quick flash animation on top
+            const indicator = document.getElementById(`pin-indicator-${pin}`);
+            if (indicator) {
+                const originalColor = indicator.style.backgroundColor;
+                indicator.style.backgroundColor = '#FFD700'; // Gold flash
+                indicator.style.animation = 'pulse 0.3s ease-in-out 1';
+                setTimeout(() => {
+                    indicator.style.animation = '';
+                    // Restore state color
+                    if (actionType === 'gpio_write') {
+                        setWireState(pin, value);
+                    }
+                }, 300);
+            }
+        } else {
+            const data = await response.json();
+            showAlert(`Failed to send command: ${data.error || 'Unknown error'}`, 'error');
+        }
+    } catch (e) {
+        console.error('Error sending pin command:', e);
+        showAlert('Error sending pin command', 'error');
+    }
+}
+
+function setWireState(pin, state) {
+    const wire = document.querySelector(`.wire-pin-${pin}`);
+    const wireGlow = document.querySelector(`.wire-glow-pin-${pin}`);
+    const pinIndicator = document.getElementById(`pin-indicator-${pin}`);
+    
+    if (!wire) {
+        console.log('No wire found for pin', pin);
+        return;
+    }
+    
+    // Store state for future reference
+    wire.dataset.state = state;
+    
+    console.log(`Setting wire state for pin ${pin} to ${state}`);
+    
+    if (state === 'HIGH' || state === true || state === 1) {
+        // HIGH state - bright green with subtle moving dash animation
+        wire.setAttribute('stroke', '#00FF00');
+        wire.setAttribute('stroke-width', '4');
+        wire.setAttribute('opacity', '0.9');
+        wire.style.filter = 'none';
+        wire.setAttribute('stroke-dasharray', '8 8');
+        wire.style.animation = 'wireFlow 2s linear infinite';
+        
+        if (wireGlow) {
+            wireGlow.setAttribute('opacity', '0');
+        }
+        
+        if (pinIndicator) {
+            pinIndicator.style.backgroundColor = '#00FF00';
+            pinIndicator.style.boxShadow = '0 0 6px #00FF00';
+        }
+    } else {
+        // LOW state - red, thinner, no animation
+        wire.setAttribute('stroke', '#FF0000');
+        wire.setAttribute('stroke-width', '3');
+        wire.setAttribute('opacity', '0.5');
+        wire.style.filter = 'none';
+        wire.setAttribute('stroke-dasharray', 'none');
+        wire.style.animation = 'none';
+        
+        if (wireGlow) {
+            wireGlow.setAttribute('opacity', '0');
+        }
+        
+        if (pinIndicator) {
+            pinIndicator.style.backgroundColor = '#FF0000';
+            pinIndicator.style.boxShadow = 'none';
+        }
+    }
+}
+
+function toggleChipLog() {
+    const chipLogOverlay = document.getElementById('chipLogOverlay');
+    const isChecked = document.getElementById('chipLogToggle').checked;
+    chipLogOverlay.style.display = isChecked ? 'block' : 'none';
 }
 
 function resetPlotterHistory() {
@@ -1155,6 +1859,7 @@ async function fetchPlotterLogs() {
 
 function updatePlotterLogs(logs) {
     const container = document.getElementById('plotterLogs');
+    const chipLogOverlay = document.getElementById('chipLogOverlay');
     
     // Check if the container ONLY contains a placeholder message
     // We check if there are any log entries (divs with border-bottom)
@@ -1166,6 +1871,21 @@ function updatePlotterLogs(logs) {
     // Sort logs by ID ascending (oldest first) so we append them in order
     const sortedLogs = [...logs].sort((a, b) => a.id - b.id);
     
+    // Parse logs for pin state changes
+    sortedLogs.forEach(log => {
+        const msg = log.message.toLowerCase().trim();
+        // Detect HIGH state - must match exactly or specific patterns
+        if (msg === 'hi' || msg === 'high' || msg === 'on' || msg.includes('led on')) {
+            console.log('Detected HIGH state from log:', log.message);
+            setWireState(2, 'HIGH'); // Pin 2 is the LED
+        }
+        // Detect LOW state - must match exactly or specific patterns
+        else if (msg === 'low' || msg === 'off' || msg.includes('led off')) {
+            console.log('Detected LOW state from log:', log.message);
+            setWireState(2, 'LOW'); // Pin 2 is the LED
+        }
+    });
+    
     // Format logs
     const html = sortedLogs.map(log => {
         // Convert UTC timestamp to local time
@@ -1175,13 +1895,24 @@ function updatePlotterLogs(logs) {
         else if (log.log_level === 'warning') colorClass = 'text-warning';
         else if (log.log_level === 'debug') colorClass = 'text-secondary';
         
+        // Replace \n and \r\n with <br> for carriage returns
+        const formattedMessage = log.message.replace(/\r\n|\r|\n/g, '<br>');
+        
         return `<div class="mb-1 border-bottom border-secondary border-opacity-25 pb-1 font-monospace">
             <span class="text-white-50" style="font-size: 0.8em; margin-right: 8px;">[${time}]</span>
-            <span class="${colorClass}">${log.message}</span>
+            <span class="${colorClass}">${formattedMessage}</span>
         </div>`;
     }).join('');
     
     container.insertAdjacentHTML('beforeend', html);
+    
+    // Also update chip log overlay with latest logs (last 10)
+    if (chipLogOverlay && document.getElementById('chipLogToggle').checked) {
+        const allLogDivs = container.querySelectorAll('div.border-bottom');
+        const recentLogs = Array.from(allLogDivs).slice(-10);
+        chipLogOverlay.innerHTML = recentLogs.map(div => `<div class="mb-1">${div.innerHTML}</div>`).join('');
+        chipLogOverlay.scrollTop = chipLogOverlay.scrollHeight;
+    }
     
     // Auto-scroll if enabled
     const autoScroll = document.getElementById('autoScrollToggle').checked;
@@ -1332,16 +2063,20 @@ function updateSensorStatusIndicators() {
         const timeoutMs = (intervalSec * 1000) * 2 + 30000; 
         
         // Update status based on time since last heartbeat
-        if (timeSinceLastCheck > timeoutMs) {
+        if (sensor.status === 'hibernating') {
+            // Use longer timeout for hibernating sensors (e.g. 2 hours)
+            const hibernationTimeoutMs = 120 * 60 * 1000;
+            if (timeSinceLastCheck > hibernationTimeoutMs) {
+                sensor.status = 'offline';
+                console.log(`Hibernating sensor ${sensor.sensor_id} marked as offline (last seen ${Math.floor(timeSinceLastCheck / 60000)} minutes ago)`);
+            }
+        } else if (timeSinceLastCheck > timeoutMs) {
             if (sensor.status !== 'offline') {
                 sensor.status = 'offline';
                 console.log(`Sensor ${sensor.sensor_id} marked as offline (last seen ${Math.floor(timeSinceLastCheck / 60000)} minutes ago)`);
             }
-        } else {
-            if (sensor.status !== 'hibernating') {
-                sensor.status = 'hibernating';
-            }
         }
+        // Else: Status is good (online or hibernating). Keep whatever status the server reported.
     });
     
     // Re-render displays to show updated status
@@ -1503,6 +2238,20 @@ function renderSensors() {
                             }).join('');
                         }
 
+                        // Check if script has battery action
+                        let hasBatteryAction = false;
+                        if (sensor.assigned_script && sensor.assigned_script.script_content) {
+                            try {
+                                const content = typeof sensor.assigned_script.script_content === 'string' 
+                                    ? JSON.parse(sensor.assigned_script.script_content) 
+                                    : sensor.assigned_script.script_content;
+                                    
+                                if (content.actions) {
+                                    hasBatteryAction = content.actions.some(a => a.type === 'read_battery');
+                                }
+                            } catch(e) { console.error('Error parsing script content:', e); }
+                        }
+
                         return `
                         <tr class="sensor-list-item">
                             <td data-label="Sensor ID"><code>${sensor.sensor_id}</code></td>
@@ -1513,7 +2262,7 @@ function renderSensors() {
                                 ${sensor.status}
                             </td>
                             <td data-label="Battery">
-                                ${sensor.last_battery_pct !== undefined && sensor.last_battery_pct !== null 
+                                ${hasBatteryAction && sensor.last_battery_pct !== undefined && sensor.last_battery_pct !== null 
                                     ? `<div class="d-flex align-items-center battery-display w-100 justify-content-end">
                                         <div class="progress flex-grow-1 me-2" style="height: 20px; min-width: 60px; max-width: 150px;" title="${sensor.last_battery_voltage ? sensor.last_battery_voltage.toFixed(2) + 'V' : ''}">
                                             <div class="progress-bar ${sensor.last_battery_pct < 20 ? 'bg-danger' : (sensor.last_battery_pct < 50 ? 'bg-warning' : 'bg-success')}" 
@@ -1526,7 +2275,7 @@ function renderSensors() {
                                         </div>
                                         <span class="fw-bold" style="min-width: 3.5em; text-align: right;">${sensor.last_battery_pct}%</span>
                                        </div>`
-                                    : (sensor.last_battery_voltage ? `<small>${sensor.last_battery_voltage.toFixed(2)}V</small>` : '<span class="text-muted">-</span>')}
+                                    : (hasBatteryAction && sensor.last_battery_voltage ? `<small>${sensor.last_battery_voltage.toFixed(2)}V</small>` : '<span class="text-muted">-</span>')}
                             </td>
                             <td data-label="Current Script">${scriptIndicator}</td>
                             <td data-label="Running Version">${versionIndicator}</td>
@@ -3194,16 +3943,29 @@ async function scanForDevices() {
         if (data.status === 'success' && data.devices.length > 0) {
             let html = '<div class="list-group">';
             data.devices.forEach(device => {
+                const props = device.properties || {};
+                const sensorId = props.id || '';
+                // Use name from TXT record if available, otherwise mDNS name
+                const sensorName = props.name || device.name.replace('._http._tcp.local.', '').replace('.local.', '');
+                const isRegistered = device.is_registered;
+                
                 html += `
-                    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center ${isRegistered ? 'bg-light' : ''}">
                         <div>
-                            <h6 class="mb-1">${device.name}</h6>
+                            <h6 class="mb-1">
+                                ${sensorName}
+                                ${isRegistered ? '<span class="badge bg-success ms-2" style="font-size: 0.7em;">Registered</span>' : ''}
+                            </h6>
                             <small class="text-muted">${device.ip} (${device.type})</small>
+                            ${sensorId ? `<br><small class="text-info">ID: ${sensorId}</small>` : ''}
                         </div>
-                        <button class="btn btn-sm btn-primary" 
-                            onclick="prefillRegistration('${device.ip}', '${device.type}', '${device.name}')">
-                            Select
-                        </button>
+                        ${isRegistered ? 
+                            `<button class="btn btn-sm btn-outline-secondary" disabled>Added</button>` : 
+                            `<button class="btn btn-sm btn-primary" 
+                                onclick="prefillRegistration('${device.ip}', '${device.type}', '${sensorName}', '${sensorId}')">
+                                Select
+                            </button>`
+                        }
                     </div>
                 `;
             });
@@ -3229,19 +3991,42 @@ async function scanForDevices() {
     }
 }
 
-window.prefillRegistration = function(ip, type, name) {
-    document.getElementById('deviceIp').value = ip;
-    // Try to match type to dropdown
-    const typeSelect = document.getElementById('deviceType');
-    for(let i=0; i<typeSelect.options.length; i++) {
-        if(typeSelect.options[i].value.toLowerCase() === type.toLowerCase()) {
-            typeSelect.selectedIndex = i;
-            break;
+window.prefillRegistration = function(ip, type, name, id) {
+    document.getElementById('newSensorIp').value = ip;
+    document.getElementById('newSensorType').value = type;
+    document.getElementById('newSensorName').value = name;
+    
+    const idField = document.getElementById('newSensorId');
+    if (id) {
+        idField.value = id;
+        // Flash the field to indicate update
+        idField.classList.add('bg-success', 'text-white');
+        setTimeout(() => idField.classList.remove('bg-success', 'text-white'), 500);
+    } else {
+        // If no ID provided, maybe use name if it looks like an ID?
+        // Or force manual entry
+        if (!document.getElementById('manualEntryToggle').checked) {
+            document.getElementById('manualEntryToggle').click();
         }
+        idField.value = '';
+        idField.focus();
+        showAlert('Device did not report an ID. Please enter manually.', 'warning');
     }
-    // If name looks like an ID, use it
-    if(name) {
-        document.getElementById('deviceName').value = name.split('.')[0];
+};
+
+window.toggleManualEntry = function() {
+    const isManual = document.getElementById('manualEntryToggle').checked;
+    const idField = document.getElementById('newSensorId');
+    
+    if (isManual) {
+        idField.readOnly = false;
+        idField.classList.remove('bg-light');
+        idField.placeholder = "e.g. esp32_fermentation_002";
+        idField.focus();
+    } else {
+        idField.readOnly = true;
+        idField.classList.add('bg-light');
+        idField.placeholder = "Select from scan...";
     }
 };
 

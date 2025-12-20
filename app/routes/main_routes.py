@@ -576,3 +576,8 @@ def sensor_master_control():
 def sensor_plotter():
     """Render the sensor serial plotter page"""
     return render_template('sensor_plotter.html')
+
+@main_bp.route('/test-board-config')
+def test_board_config():
+    """Test page for board configuration"""
+    return render_template('test_board_config.html')

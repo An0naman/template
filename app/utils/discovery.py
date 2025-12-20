@@ -117,7 +117,10 @@ class DeviceScanner:
                         'port': info.port,
                         'properties': props
                     }
-                    self.devices_list.append(device)
+                    
+                    # Filter out the master server itself
+                    if device['type'] != 'sensor-master':
+                        self.devices_list.append(device)
                     
             def update_service(self, zeroconf, type, name):
                 pass
