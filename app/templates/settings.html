@@ -639,12 +639,12 @@
                                     <i class="fas fa-project-diagram me-1"></i>Diagram Generation Prompt:
                                 </label>
                                 <textarea class="form-control font-monospace" id="promptDiagram" rows="10" 
-                                          placeholder="Prompt used when generating Draw.io diagrams">{{ params.prompt_diagram if params.prompt_diagram else 'You are an expert at creating Draw.io diagrams using mxGraph XML format for educational and documentation purposes.\n\nContext: You are helping users create technical diagrams for project documentation, learning materials, and system design.\n\nYour Task: Generate valid mxGraph XML based on user requests. Be creative but ensure:\n1. All cell IDs are unique\n2. Proper parent-child relationships\n3. Reasonable positioning and sizing\n4. Appropriate colors and styles\n5. Clear, readable labels' }}</textarea>
+                                          placeholder="Prompt used when generating SVG diagrams">{{ params.prompt_diagram if params.prompt_diagram else 'You are an expert at creating technical diagrams in SVG format for educational and documentation purposes.\n\nContext: You are helping users create technical diagrams for project documentation, learning materials, and system design.\n\nYour Task: Generate valid, standalone SVG code based on user requests. Be creative but ensure:\n1. Use clean, semantic SVG markup\n2. Ensure proper scaling and viewbox\n3. Use professional styling and colors\n4. Include clear, readable text labels\n5. Make the diagram self-contained (no external references)' }}</textarea>
                                 <small class="text-muted">
-                                    <strong>Purpose:</strong> Controls how AI generates Draw.io diagram XML<br>
-                                    <strong>Used in:</strong> Diagram generation in Draw.io sections<br>
+                                    <strong>Purpose:</strong> Controls how AI generates SVG diagrams<br>
+                                    <strong>Used in:</strong> Diagram generation sections<br>
                                     <strong>Variables:</strong> None (user request is passed directly)<br>
-                                    <strong>Note:</strong> This prompt includes extensive XML structure guidance
+                                    <strong>Note:</strong> This prompt guides the AI to produce SVG code
                                 </small>
                             </div>
                             
@@ -653,7 +653,7 @@
                                     <i class="fas fa-ruler me-1"></i>Diagram Structure Rules:
                                 </label>
                                 <textarea class="form-control font-monospace" id="promptDiagramRules" rows="12" 
-                                          placeholder="Additional rules for diagram structure (applied when examples are available)">{{ params.prompt_diagram_rules if params.prompt_diagram_rules else '' }}</textarea>
+                                          placeholder="Additional rules for diagram structure (applied when examples are available)">{{ params.prompt_diagram_rules if params.prompt_diagram_rules else 'When creating diagrams based on examples, follow these structural guidelines:\n\n1. Keep diagrams simple - only create necessary elements\n2. Wire connections: Set source attribute to the component ID, use exitX/exitY to control exit points\n3. Exit points: exitX=1,exitY=0 (top-right), exitX=1,exitY=1 (bottom-right), exitX=1,exitY=0.5 (middle-right)\n4. Wire endpoints: Use <mxPoint> as targetPoint, not additional nodes\n5. Wire colors: Use strokeColor attribute (#ff0000 for power, #000000 for ground, #008000 for I/O)\n6. Wire routing: Use edgeStyle=orthogonalEdgeStyle for clean 90-degree routing\n7. Labels: Add descriptive value attribute to edges\n\nExample edge pattern:\n<mxCell id="6" value="Wire Label" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#ff0000;exitX=1;exitY=0;" source="2" edge="1">\n  <mxGeometry relative="1" as="geometry">\n    <mxPoint x="400" y="100" as="targetPoint" />\n  </mxGeometry>\n</mxCell>' }}</textarea>
                                 <small class="text-muted">
                                     <strong>Purpose:</strong> Provides specific structural rules for diagram generation<br>
                                     <strong>Used in:</strong> Diagram discussion and generation when examples are provided<br>
@@ -1482,13 +1482,41 @@
             statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Testing connection...';
             statusDiv.classList.remove('d-none');
             
+            // Get selected service
+            const serviceSelector = document.getElementById('aiServiceSelector');
+            const service = serviceSelector ? serviceSelector.value : 'gemini';
+            
+            // Get current values based on service
+            let apiKey, modelName;
+            
+            if (service === 'gemini') {
+                apiKey = document.getElementById('geminiApiKey').value;
+                modelName = document.getElementById('geminiModelName').value;
+            } else if (service === 'groq') {
+                apiKey = document.getElementById('groqApiKey').value;
+                modelName = document.getElementById('groqModelName').value;
+            } else if (service === 'huggingface') {
+                apiKey = document.getElementById('huggingfaceApiKey').value;
+                modelName = document.getElementById('huggingfaceModel').value;
+            }
+            
             try {
-                const response = await fetch('/api/ai/test_connection', { method: 'POST' });
+                const response = await fetch('/api/ai/test_connection', { 
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        service: service,
+                        api_key: apiKey,
+                        model_name: modelName
+                    })
+                });
                 const data = await response.json();
                 
                 if (response.ok && data.success) {
                     statusDiv.className = 'mt-3 alert alert-success';
-                    statusDiv.innerHTML = '<i class="fas fa-check-circle me-2"></i>Connection successful!';
+                    statusDiv.innerHTML = '<i class="fas fa-check-circle me-2"></i>Connection successful! Response: ' + (data.response || 'OK');
                 } else {
                     statusDiv.className = 'mt-3 alert alert-danger';
                     statusDiv.innerHTML = '<i class="fas fa-times-circle me-2"></i>Connection failed: ' + (data.error || 'Unknown error');
@@ -1496,6 +1524,82 @@
             } catch (error) {
                 statusDiv.className = 'mt-3 alert alert-danger';
                 statusDiv.innerHTML = '<i class="fas fa-times-circle me-2"></i>Error: ' + error.message;
+            }
+        }
+
+        // Load Gemini Models
+        async function loadGeminiModels() {
+            const modelSelect = document.getElementById('geminiModelName');
+            if (!modelSelect) return;
+            
+            try {
+                // Use url_for to ensure correct path handling
+                const modelsUrl = "{{ url_for('ai_api.get_available_models') }}";
+                const response = await fetch(modelsUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const text = await response.text();
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    console.error('Failed to parse JSON response:', text);
+                    // Show the first 50 chars of the response in the dropdown to help debugging
+                    const preview = text.substring(0, 50).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    modelSelect.innerHTML = `<option value="">Error: Server returned "${preview}..."</option>`;
+                    return;
+                }
+                
+                if (data.models && data.models.length > 0) {
+                    modelSelect.innerHTML = '';
+                    const currentModel = "{{ params.gemini_model_name }}";
+                    let foundCurrent = false;
+                    const options = [];
+                    
+                    data.models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.id;
+                        option.textContent = model.name;
+                        option.title = model.description;
+                        
+                        if (model.id === currentModel) {
+                            option.selected = true;
+                            foundCurrent = true;
+                        }
+                        
+                        modelSelect.appendChild(option);
+                        options.push({option, model});
+                    });
+                    
+                    if (!foundCurrent) {
+                        // If current model not found (e.g. deprecated), select recommended
+                        options.forEach(({option, model}) => {
+                            if (model.recommended) {
+                                option.selected = true;
+                            }
+                        });
+                    }
+                    
+                    // Update description
+                    modelSelect.addEventListener('change', function() {
+                        const selectedOption = this.options[this.selectedIndex];
+                        const descEl = document.getElementById('modelDescription');
+                        if (descEl && selectedOption.title) {
+                            descEl.textContent = selectedOption.title;
+                        }
+                    });
+                    
+                    // Trigger change to update description
+                    modelSelect.dispatchEvent(new Event('change'));
+                } else {
+                    modelSelect.innerHTML = '<option value="">No models available</option>';
+                }
+            } catch (error) {
+                console.error('Error loading Gemini models:', error);
+                modelSelect.innerHTML = '<option value="">Error loading models</option>';
             }
         }
 
@@ -1604,6 +1708,9 @@
             // Initialize AI Views
             if (document.getElementById('aiServiceSelector')) switchAiServiceSettings();
             if (document.getElementById('promptSelector')) switchPromptEditor();
+            
+            // Load Gemini Models
+            loadGeminiModels();
             
             // Update AI Status
             const aiStatus = document.getElementById('aiServiceStatus');

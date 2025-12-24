@@ -961,7 +961,7 @@ Additional context: {context}
                 SELECT COUNT(*) as count, type
                 FROM Note
                 WHERE entry_id = ? 
-                   OR (associated_entry_ids IS NOT NULL 
+                   OR (entry_id is NULL AND associated_entry_ids IS NOT NULL 
                        AND associated_entry_ids != '[]' 
                        AND json_array_length(associated_entry_ids) > 0
                        AND EXISTS (
@@ -980,7 +980,7 @@ Additional context: {context}
                 SELECT note_title, note_text, type, created_at, entry_id, associated_entry_ids, file_paths
                 FROM Note
                 WHERE entry_id = ? 
-                   OR (associated_entry_ids IS NOT NULL 
+                   OR (entry_id is NULL AND associated_entry_ids IS NOT NULL 
                        AND associated_entry_ids != '[]' 
                        AND json_array_length(associated_entry_ids) > 0
                        AND EXISTS (
@@ -1021,7 +1021,7 @@ Additional context: {context}
                     SELECT note_title, note_text, type, created_at, entry_id, associated_entry_ids, file_paths
                     FROM Note
                     WHERE entry_id = ? 
-                       OR (associated_entry_ids IS NOT NULL 
+                       OR (entry_id is NULL AND associated_entry_ids IS NOT NULL 
                            AND associated_entry_ids != '[]' 
                            AND json_array_length(associated_entry_ids) > 0
                            AND EXISTS (
@@ -1554,16 +1554,16 @@ You are currently discussing the following entry:
                             e2.title,
                             et2.singular_label as type,
                             COALESCE(rd.name, 'Related to') as relationship_type
-                        FROM EntryRelationship er
+                        FROM EntryRelationship r
                         JOIN Entry e2 ON (
                             CASE 
-                                WHEN er.source_entry_id = ? THEN er.target_entry_id
-                                ELSE er.source_entry_id
+                                WHEN r.from_entry_id = ? THEN r.to_entry_id
+                                ELSE r.from_entry_id
                             END = e2.id
                         )
                         JOIN EntryType et2 ON e2.entry_type_id = et2.id
-                        LEFT JOIN RelationshipDefinition rd ON er.relationship_type = rd.id
-                        WHERE er.source_entry_id = ? OR er.target_entry_id = ?
+                        LEFT JOIN RelationshipDefinition rd ON r.relationship_type = rd.id
+                        WHERE r.from_entry_id = ? OR r.to_entry_id = ?
                         LIMIT 50
                     ''', (entry_id, entry_id, entry_id))
                     
@@ -1949,9 +1949,9 @@ Respond ONLY with the JSON object, no additional text.
                 if not isinstance(example_configs, list) or len(example_configs) == 0:
                     return []
                 
-                # Fetch actual diagrams from the referenced entries
+                # Fetch actual diagrams from the referenced entries (up to 3 examples)
                 examples = []
-                for config in example_configs:
+                for config in example_configs[:3]:
                     example_entry_id = config.get('entry_id')
                     if not example_entry_id:
                         continue
@@ -2033,11 +2033,60 @@ Respond ONLY with the JSON object, no additional text.
                 return result
             return result
         elif self.is_available():
-            logger.warning("Groq not configured, using Gemini (may encounter safety filters)")
+            logger.warning("Groq not configured, using Gemini (may encounter safety filter issues)")
             return self._generate_diagram_with_gemini(user_request, current_diagram, entry_id)
         else:
             logger.error("No AI service available for diagram generation")
             return {'error': 'No AI service configured. Please configure Groq or Gemini API keys.'}
+    
+    def _extract_diagram_xml(self, text: str) -> Optional[str]:
+        """Extract mxGraph XML from AI response"""
+        import re
+        
+        # Look for XML within mxGraphModel tags
+        match = re.search(r'<mxGraphModel[^>]*>.*?</mxGraphModel>', text, re.DOTALL)
+        if match:
+            return match.group(0)
+        
+        # Try looking for XML code blocks
+        match = re.search(r'```xml\s*(<mxGraphModel[^>]*>.*?</mxGraphModel>)\s*```', text, re.DOTALL)
+        if match:
+            return match.group(1)
+        
+        return None
+    
+    def _extract_diagram_svg(self, text: str) -> Optional[str]:
+        """Extract SVG from AI response"""
+        import re
+        
+        # Look for SVG tags
+        match = re.search(r'<svg[^>]*>.*?</svg>', text, re.DOTALL)
+        if match:
+            return match.group(0)
+        
+        # Try looking for SVG code blocks
+        match = re.search(r'```svg\s*(<svg[^>]*>.*?</svg>)\s*```', text, re.DOTALL)
+        if match:
+            return match.group(1)
+        
+        return None
+    
+    def _extract_explanation(self, text: str) -> Optional[str]:
+        """Extract explanation text from AI response"""
+        import re
+        
+        # Remove XML/SVG content first
+        cleaned = re.sub(r'<mxGraphModel[^>]*>.*?</mxGraphModel>', '', text, flags=re.DOTALL)
+        cleaned = re.sub(r'<svg[^>]*>.*?</svg>', '', cleaned, flags=re.DOTALL)
+        cleaned = re.sub(r'```[a-z]*\s*.*?```', '', cleaned, flags=re.DOTALL)
+        
+        # Clean up whitespace
+        cleaned = cleaned.strip()
+        
+        if cleaned:
+            return cleaned
+        
+        return None
     
     def _generate_diagram_with_gemini(self, user_request: str, current_diagram: Optional[str] = None, entry_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
         """Generate diagram using Google Gemini (may have safety filter issues)"""
@@ -2074,7 +2123,21 @@ Please modify this diagram according to the user's request. Preserve existing el
             
             # Entry context not needed - conversation history contains sufficient context
             
-            user_prompt += """
+            # Check if we are in SVG mode based on system prompt
+            is_svg_mode = 'SVG' in system_prompt or 'svg' in system_prompt.lower()
+            
+            if is_svg_mode:
+                user_prompt += """
+**Instructions:**
+1. Generate valid, standalone SVG code.
+2. Use appropriate shapes and connectors.
+3. Position elements logically.
+4. Include proper styling (colors, borders, text).
+5. Return ONLY the SVG code within <svg> tags.
+6. Provide a brief explanation of what you created/modified.
+"""
+            else:
+                user_prompt += """
 **Instructions:**
 1. Generate valid mxGraph XML for Draw.io
 2. Use appropriate shapes and connectors
@@ -2140,8 +2203,9 @@ Please modify this diagram according to the user's request. Preserve existing el
                     logger.error(f"Response finish_reason likely indicates blocking or error")
                     return None
                 
-                # Extract XML from response
+                # Extract XML or SVG from response
                 diagram_xml = self._extract_diagram_xml(response_text)
+                diagram_svg = self._extract_diagram_svg(response_text)
                 explanation = self._extract_explanation(response_text)
                 
                 if diagram_xml:
@@ -2150,9 +2214,15 @@ Please modify this diagram according to the user's request. Preserve existing el
                         'diagram_xml': diagram_xml,
                         'explanation': explanation or 'Diagram generated successfully'
                     }
+                elif diagram_svg:
+                    logger.info(f"Successfully extracted diagram SVG ({len(diagram_svg)} chars)")
+                    return {
+                        'diagram_svg': diagram_svg,
+                        'explanation': explanation or 'Diagram generated successfully'
+                    }
                 else:
-                    logger.error("No valid diagram XML found in AI response")
-                    logger.error(f"AI response was: {response_text[:500]}...")
+                    logger.error("No valid diagram XML or SVG found in response")
+                    logger.error(f"Response was: {response_text[:500]}...")
                     return None
             else:
                 logger.error(f"Empty or invalid AI response")
@@ -2203,26 +2273,28 @@ Please modify this diagram according to the user's request. Preserve existing el
             
             # Entry context not needed - conversation history contains sufficient context
             
-            user_prompt += """
+            # Check if we are in SVG mode based on system prompt
+            is_svg_mode = 'SVG' in system_prompt or 'svg' in system_prompt.lower()
+            
+            if is_svg_mode:
+                user_prompt += """
+**Instructions:**
+1. Generate valid, standalone SVG code.
+2. Use appropriate shapes and connectors.
+3. Position elements logically.
+4. Include proper styling (colors, borders, text).
+5. Return ONLY the SVG code within <svg> tags.
+6. Provide a brief explanation of what you created/modified.
+"""
+            else:
+                user_prompt += """
 **Instructions:**
 1. Generate valid mxGraph XML for Draw.io
-2. Start with <mxGraphModel> and end with </mxGraphModel>
-3. Use clear, descriptive labels
-4. Arrange elements in a logical layout
-5. Use appropriate colors and styles
-6. Make connections clear with arrows
-
-Provide:
-1. The complete mxGraph XML
-2. A brief explanation of what you created
-
-Format your response as:
-<mxGraphModel>
-[your diagram XML here]
-</mxGraphModel>
-
-**Explanation:**
-[your explanation here]
+2. Use appropriate shapes and connectors
+3. Position elements logically (use reasonable x,y coordinates)
+4. Include proper styling (colors, borders, text)
+5. Return ONLY the XML within <mxGraphModel> tags
+6. Provide a brief explanation of what you created/modified
 """
             
             logger.info(f"Generating diagram for request: {user_request[:100]}...")
@@ -2245,8 +2317,9 @@ Format your response as:
             response_text = chat_completion.choices[0].message.content
             logger.info(f"Groq response length: {len(response_text)} characters")
             
-            # Extract XML and explanation
+            # Extract XML or SVG and explanation
             diagram_xml = self._extract_diagram_xml(response_text)
+            diagram_svg = self._extract_diagram_svg(response_text)
             explanation = self._extract_explanation(response_text)
             
             if diagram_xml:
@@ -2255,8 +2328,14 @@ Format your response as:
                     'diagram_xml': diagram_xml,
                     'explanation': explanation or 'Diagram generated successfully'
                 }
+            elif diagram_svg:
+                logger.info(f"Successfully extracted diagram SVG ({len(diagram_svg)} chars)")
+                return {
+                    'diagram_svg': diagram_svg,
+                    'explanation': explanation or 'Diagram generated successfully'
+                }
             else:
-                logger.error("No valid diagram XML found in Groq response")
+                logger.error("No valid diagram XML or SVG found in Groq response")
                 logger.error(f"Response was: {response_text[:500]}...")
                 return None
                 
@@ -2294,7 +2373,66 @@ Format your response as:
             logger.warning(f"Could not load custom diagram prompt: {e}")
             custom_intro = 'You are an expert at creating Draw.io diagrams using mxGraph XML format for educational and documentation purposes.'
         
-        return f"""{custom_intro}
+        # Check if we should use SVG or mxGraph XML (default to XML for Draw.io)
+        use_svg = 'svg' in custom_intro.lower() and 'mxgraph' not in custom_intro.lower()
+        
+        if use_svg:
+            return f"""{custom_intro}
+
+**Context:** You are helping users create technical diagrams for project documentation, learning materials, and system design. All diagrams are for informational and educational purposes only.
+
+**SVG Instructions:**
+Generate valid, standalone SVG code with the following requirements:
+
+1. **Structure**: Use proper SVG elements (rect, circle, ellipse, path, line, polyline, polygon, text)
+2. **Sizing**: Set appropriate width and height (e.g., viewBox="0 0 800 600")
+3. **Styling**: Include inline styles or style attributes for colors, strokes, fills
+4. **Text**: Use <text> elements with proper positioning and readable font sizes
+5. **Grouping**: Use <g> elements to group related shapes
+6. **Connectors**: Use <line>, <polyline>, or <path> for arrows and connections
+7. **Markers**: Define arrowheads using <defs> and <marker> elements
+
+**Example SVG Structure:**
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#000"/>
+    </marker>
+  </defs>
+  
+  <!-- Box -->
+  <rect x="50" y="50" width="120" height="60" fill="#dae8fc" stroke="#6c8ebf" stroke-width="2" rx="5"/>
+  <text x="110" y="85" text-anchor="middle" font-family="Arial" font-size="14">Component</text>
+  
+  <!-- Arrow -->
+  <line x1="170" y1="80" x2="250" y2="80" stroke="#000" stroke-width="2" marker-end="url(#arrowhead)"/>
+</svg>
+```
+
+**Common Shapes:**
+- Rectangle: `<rect x="X" y="Y" width="W" height="H" fill="COLOR" stroke="COLOR"/>`
+- Circle: `<circle cx="X" cy="Y" r="RADIUS" fill="COLOR" stroke="COLOR"/>`
+- Ellipse: `<ellipse cx="X" cy="Y" rx="RX" ry="RY" fill="COLOR" stroke="COLOR"/>`
+- Text: `<text x="X" y="Y" font-size="SIZE">TEXT</text>`
+- Arrow: `<line x1="X1" y1="Y1" x2="X2" y2="Y2" marker-end="url(#arrowhead)"/>`
+
+**Colors:**
+- Light blue: #dae8fc (fill), #6c8ebf (stroke)
+- Light green: #d5e8d4 (fill), #82b366 (stroke)
+- Light yellow: #fff2cc (fill), #d6b656 (stroke)
+- Light red: #f8cecc (fill), #b85450 (stroke)
+
+Return your response in this format:
+```svg
+<svg ...>
+  ... your diagram ...
+</svg>
+```
+
+Then provide a brief explanation of what you created."""
+        else:
+            return f"""{custom_intro}
 
 **Context:** You are helping users create technical diagrams for project documentation, learning materials, and system design. All diagrams are for informational and educational purposes only.
 
@@ -2368,57 +2506,13 @@ Return your response in this format:
 
 Then provide a brief explanation of what you created."""
 
-    def _extract_diagram_xml(self, text: str) -> Optional[str]:
-        """Extract mxGraph XML from AI response"""
-        import re
-        
-        logger.debug(f"Attempting to extract XML from text length: {len(text)}")
-        logger.debug(f"Text starts with: {text[:200]}")
-        
-        # Try to find XML within code blocks (with or without attributes in mxGraphModel tag)
-        xml_match = re.search(r'```(?:xml)?\s*(<mxGraphModel[^>]*>.*?</mxGraphModel>)\s*```', text, re.DOTALL)
-        if xml_match:
-            logger.info("Extracted XML from code block")
-            return xml_match.group(1).strip()
-        else:
-            logger.debug("No match found in code blocks")
-        
-        # Try to find XML directly (with or without attributes in mxGraphModel tag)
-        xml_match = re.search(r'(<mxGraphModel[^>]*>.*?</mxGraphModel>)', text, re.DOTALL)
-        if xml_match:
-            logger.info("Extracted XML directly (no code block)")
-            return xml_match.group(1).strip()
-        else:
-            logger.debug("No direct XML match found")
-        
-        # Try finding just the opening tag to see if it exists
-        opening_match = re.search(r'<mxGraphModel[^>]*>', text)
-        if opening_match:
-            logger.error(f"Found opening tag but not closing tag: {opening_match.group(0)}")
-        else:
-            logger.error("No opening mxGraphModel tag found at all")
-        
-        return None
-    
-    def _extract_explanation(self, text: str) -> Optional[str]:
-        """Extract explanation text from AI response (text after XML)"""
-        import re
-        
-        # Remove XML blocks (with or without attributes in mxGraphModel tag)
-        cleaned_text = re.sub(r'```(?:xml)?\s*<mxGraphModel[^>]*>.*?</mxGraphModel>\s*```', '', text, flags=re.DOTALL)
-        cleaned_text = re.sub(r'<mxGraphModel[^>]*>.*?</mxGraphModel>', '', cleaned_text, flags=re.DOTALL)
-        
-        # Clean up remaining text
-        explanation = cleaned_text.strip()
-        
-        # Remove common prefixes
-        explanation = re.sub(r'^(Here\'s|I\'ve created|I\'ve modified|Explanation:|Sure[,!]?\s*)', '', explanation, flags=re.IGNORECASE)
-        
-        return explanation.strip() if explanation else None
 
-# Global AI service instance
-ai_service = AIService()
+# Singleton instance
+_ai_service_instance = None
 
-def get_ai_service() -> AIService:
-    """Get the global AI service instance"""
-    return ai_service
+def get_ai_service():
+    """Get or create the singleton AI service instance"""
+    global _ai_service_instance
+    if _ai_service_instance is None:
+        _ai_service_instance = AIService()
+    return _ai_service_instance

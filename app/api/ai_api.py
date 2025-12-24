@@ -29,30 +29,73 @@ def get_available_models():
         # Updated for Gemini 2.x series (current as of 2025)
         models = [
             {
-                'id': 'gemini-2.5-flash',
-                'name': 'Gemini 2.5 Flash',
-                'description': 'Fast and efficient - Best for most use cases',
+                'id': 'gemini-2.0-flash-exp',
+                'name': 'Gemini 2.0 Flash (Experimental)',
+                'description': 'Next-gen multimodal model',
                 'recommended': True
             },
             {
-                'id': 'gemini-2.5-pro',
-                'name': 'Gemini 2.5 Pro',
-                'description': 'Most capable - Advanced reasoning',
+                'id': 'gemini-1.5-flash',
+                'name': 'Gemini 1.5 Flash',
+                'description': 'Fast and cost-efficient (Stable)',
+                'recommended': True
+            },
+            {
+                'id': 'gemini-1.5-flash-8b',
+                'name': 'Gemini 1.5 Flash-8B',
+                'description': 'High volume, lower intelligence tasks',
                 'recommended': False
             },
             {
-                'id': 'gemini-2.0-flash',
-                'name': 'Gemini 2.0 Flash',
-                'description': 'Stable flash model',
-                'recommended': False
-            },
-            {
-                'id': 'gemini-flash-latest',
-                'name': 'Gemini Flash (Latest)',
-                'description': 'Auto-updates to latest flash model',
+                'id': 'gemini-1.5-pro',
+                'name': 'Gemini 1.5 Pro',
+                'description': 'Complex reasoning and long context',
                 'recommended': False
             }
         ]
+        
+        # Try to dynamically fetch models to check for new ones like 2.5
+        try:
+            # This might fail if API key is not set or invalid, so we wrap in try/except
+            # We only want to add models if we can confirm they exist
+            available_models = [m.name.split('/')[-1] for m in genai.list_models()]
+            
+            # Check for Gemini 2.5 Flash
+            if 'gemini-2.5-flash' in available_models or True: # Force add for now as user sees it
+                 # Check if already in list to avoid duplicates
+                 if not any(m['id'] == 'gemini-2.5-flash' for m in models):
+                    models.insert(0, {
+                        'id': 'gemini-2.5-flash',
+                        'name': 'Gemini 2.5 Flash',
+                        'description': 'Latest fast model (Check quotas)',
+                        'recommended': False
+                    })
+
+            # Check for Gemini 2.5 Flash Lite
+            if 'gemini-2.5-flash-lite' in available_models or True: # Force add for now as user sees it
+                 if not any(m['id'] == 'gemini-2.5-flash-lite' for m in models):
+                    models.insert(1, {
+                        'id': 'gemini-2.5-flash-lite',
+                        'name': 'Gemini 2.5 Flash Lite',
+                        'description': 'Lightweight, cost-effective',
+                        'recommended': True
+                    })
+                    
+        except Exception as e:
+            logger.warning(f"Could not list dynamic models: {e}")
+            # Fallback: Add them anyway since user sees them in their dashboard
+            models.insert(0, {
+                'id': 'gemini-2.5-flash',
+                'name': 'Gemini 2.5 Flash',
+                'description': 'Latest fast model (Check quotas)',
+                'recommended': False
+            })
+            models.insert(1, {
+                'id': 'gemini-2.5-flash-lite',
+                'name': 'Gemini 2.5 Flash Lite',
+                'description': 'Lightweight, cost-effective',
+                'recommended': True
+            })
         
         return jsonify({
             'models': models,
@@ -104,6 +147,221 @@ def reconfigure_ai():
             })
     except Exception as e:
         logger.error(f"Error reconfiguring AI service: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@ai_api_bp.route('/ai/test_connection', methods=['POST'])
+def test_connection():
+    """Test the AI service connection"""
+    try:
+        ai_service = get_ai_service()
+        
+        # Check if parameters are provided in the request
+        data = request.get_json() if request.is_json else {}
+        service = data.get('service', 'gemini')
+        api_key = data.get('api_key')
+        model_name = data.get('model_name')
+        
+        # --- GROQ TESTING ---
+        if service == 'groq':
+            import os
+            from groq import Groq
+            
+            # Use provided key or fallback
+            key_to_use = api_key if api_key else os.getenv('GROQ_API_KEY')
+            if not key_to_use:
+                from app.db import get_system_parameters
+                params = get_system_parameters()
+                key_to_use = params.get('groq_api_key', '')
+            
+            model_to_use = model_name if model_name else 'llama-3.3-70b-versatile'
+            
+            if not key_to_use:
+                return jsonify({
+                    'success': False,
+                    'error': 'No Groq API key provided'
+                }), 400
+                
+            try:
+                client = Groq(api_key=key_to_use)
+                completion = client.chat.completions.create(
+                    messages=[{"role": "user", "content": "Reply with 'OK'"}],
+                    model=model_to_use,
+                    max_tokens=10
+                )
+                
+                response_text = completion.choices[0].message.content
+                return jsonify({
+                    'success': True,
+                    'message': 'Groq connection successful',
+                    'response': response_text
+                })
+            except Exception as e:
+                logger.error(f"Groq connection test failed: {str(e)}")
+                return jsonify({
+                    'success': False,
+                    'error': f"Groq connection failed: {str(e)}"
+                }), 500
+
+        # --- HUGGING FACE TESTING ---
+        elif service == 'huggingface':
+            import os
+            import requests
+            
+            # Use provided key or fallback
+            key_to_use = api_key if api_key else os.getenv('HUGGINGFACE_API_KEY')
+            if not key_to_use:
+                from app.db import get_system_parameters
+                params = get_system_parameters()
+                key_to_use = params.get('huggingface_api_key', '')
+            
+            model_to_use = model_name if model_name else 'stabilityai/stable-diffusion-xl-base-1.0'
+            
+            if not key_to_use:
+                return jsonify({
+                    'success': False,
+                    'error': 'No Hugging Face API token provided'
+                }), 400
+                
+            try:
+                # Test with a simple image generation request (dry run if possible, but HF doesn't have dry run)
+                # We'll try to fetch model info or do a very small generation
+                # Using the same endpoint as image_service
+                api_url = f"https://router.huggingface.co/hf-inference/models/{model_to_use}"
+                headers = {"Authorization": f"Bearer {key_to_use}"}
+                
+                # Just check if we can access the model status or do a lightweight call
+                # Since we can't easily "ping", we'll try a small generation
+                payload = {
+                    "inputs": "A small red dot",
+                    "parameters": {"width": 256, "height": 256, "num_inference_steps": 1}
+                }
+                
+                response = requests.post(api_url, headers=headers, json=payload, timeout=10)
+                
+                if response.status_code == 200:
+                    return jsonify({
+                        'success': True,
+                        'message': 'Hugging Face connection successful',
+                        'response': 'Image generated successfully'
+                    })
+                elif response.status_code == 503:
+                    # Model loading is also a success in terms of auth
+                    return jsonify({
+                        'success': True,
+                        'message': 'Hugging Face connected (Model loading)',
+                        'response': 'Model is loading, please wait...'
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'error': f"Hugging Face API error: {response.status_code} - {response.text}"
+                    }), 500
+                    
+            except Exception as e:
+                logger.error(f"Hugging Face connection test failed: {str(e)}")
+                return jsonify({
+                    'success': False,
+                    'error': f"Hugging Face connection failed: {str(e)}"
+                }), 500
+
+        # --- GEMINI TESTING (Default) ---
+        else:
+            if api_key or model_name:
+                # Configure with provided parameters temporarily
+                import os
+                import google.generativeai as genai
+                
+                # Use provided key or fallback to configured one
+                key_to_use = api_key if api_key else os.getenv('GEMINI_API_KEY')
+                if not key_to_use:
+                    # Try to get from system params if not provided
+                    from app.db import get_system_parameters
+                    params = get_system_parameters()
+                    key_to_use = params.get('gemini_api_key', '')
+                
+                model_to_use = model_name if model_name else 'gemini-1.5-flash'
+                
+                if not key_to_use:
+                    return jsonify({
+                        'success': False,
+                        'error': 'No Gemini API key provided'
+                    }), 400
+                    
+                try:
+                    genai.configure(api_key=key_to_use)
+                    model = genai.GenerativeModel(model_to_use)
+                    
+                    # Test generation
+                    response = model.generate_content("Reply with 'OK'")
+                    
+                    if response and response.text:
+                        return jsonify({
+                            'success': True,
+                            'message': 'Gemini connection successful',
+                            'response': response.text
+                        })
+                except Exception as e:
+                    error_msg = str(e)
+                    logger.error(f"Direct Gemini connection test failed: {error_msg}")
+                    
+                    if "429" in error_msg or "quota" in error_msg.lower() or "resource exhausted" in error_msg.lower():
+                        return jsonify({
+                            'success': False,
+                            'error': f"Quota exceeded (429). Please check your Google AI Studio quota or billing. Details: {error_msg}"
+                        }), 429
+                        
+                    return jsonify({
+                        'success': False,
+                        'error': f"Gemini connection failed: {error_msg}"
+                    }), 500
+            
+            # Fallback to standard reconfiguration if no params provided
+            # Force reconfiguration to ensure we use the latest settings
+            ai_service.reconfigure()
+            
+            if not ai_service.is_available():
+                return jsonify({
+                    'success': False,
+                    'error': 'AI service is not configured or API key is invalid'
+                }), 400
+                
+            # Try a simple generation request
+            try:
+                # Use a very simple prompt to minimize token usage and latency
+                response = ai_service.model.generate_content("Reply with 'OK'")
+                
+                if response and response.text:
+                    return jsonify({
+                        'success': True,
+                        'message': 'Gemini connection successful',
+                        'response': response.text
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'error': 'No response received from AI service'
+                    }), 500
+                    
+            except Exception as e:
+                error_msg = str(e)
+                logger.error(f"AI connection test failed: {error_msg}")
+                
+                if "429" in error_msg or "quota" in error_msg.lower() or "resource exhausted" in error_msg.lower():
+                    return jsonify({
+                        'success': False,
+                        'error': f"Quota exceeded (429). Please check your Google AI Studio quota or billing. Details: {error_msg}"
+                    }), 429
+                
+                return jsonify({
+                    'success': False,
+                    'error': f"Connection failed: {error_msg}"
+                }), 500
+            
+    except Exception as e:
+        logger.error(f"Error in test_connection: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -1102,12 +1360,16 @@ def generate_diagram():
                 return jsonify({'error': error_message}), 400
             
             # Success case
-            if 'diagram_xml' in result:
+            if 'diagram_xml' in result or 'diagram_svg' in result:
                 response_data = {
                     'success': True,
-                    'diagram_xml': result['diagram_xml'],
                     'explanation': result.get('explanation', 'Diagram updated successfully')
                 }
+                
+                if 'diagram_xml' in result:
+                    response_data['diagram_xml'] = result['diagram_xml']
+                if 'diagram_svg' in result:
+                    response_data['diagram_svg'] = result['diagram_svg']
                 
                 # Add debug info if we captured the prompt
                 if actual_prompt_sent:

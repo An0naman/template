@@ -763,6 +763,7 @@ function exitNoteComposerMode() {
 // Diagram Editor Mode Functions
 var diagramMode = false;
 var currentDiagramXML = null;
+var currentDiagramType = 'xml';
 var diagramUpdateCallback = null;
 
 async function enterDiagramMode() {
@@ -835,17 +836,17 @@ What diagram would you like to create?`);
     document.getElementById('chatInput').focus();
 }
 
-async function updateDiagram(diagramXML, explanation) {
+async function updateDiagram(diagramXML, explanation, type = 'xml') {
     // Show the diagram update in chat
     addMessageToChat('assistant', `✅ ${explanation}
 
 I've updated the diagram. Click "Apply Diagram" below to see the changes.`);
     
     // Show diagram preview with apply button
-    showDiagramPreview(diagramXML, explanation);
+    showDiagramPreview(diagramXML, explanation, type);
 }
 
-function showDiagramPreview(diagramXML, explanation) {
+function showDiagramPreview(diagramXML, explanation, type = 'xml') {
     const previewContainer = document.getElementById('diagramPreview');
     const previewContent = document.getElementById('diagramPreviewContent');
     
@@ -873,6 +874,7 @@ function showDiagramPreview(diagramXML, explanation) {
     
     // Store the XML for later
     currentDiagramXML = diagramXML;
+    currentDiagramType = type;
     
     // Show the preview container
     previewContainer.classList.remove('d-none');
@@ -896,13 +898,31 @@ function applyDiagramPreview() {
     const frame = drawioFrames[0];
     
     try {
-        frame.contentWindow.postMessage(JSON.stringify({
+        let messagePayload = {
             action: 'load',
-            xml: currentDiagramXML,
             autosave: 1
-        }), '*');
+        };
+
+        if (currentDiagramType === 'svg') {
+            // Wrap SVG in mxGraph XML so Draw.io can import it
+            // This creates a single image cell containing the SVG
+            const wrappedXML = `<mxGraphModel>
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+    <mxCell id="2" value="" style="shape=image;verticalLabelPosition=bottom;labelBackgroundColor=default;verticalAlign=top;aspect=fixed;imageAspect=0;image=data:image/svg+xml,${encodeURIComponent(currentDiagramXML)};" vertex="1" parent="1">
+      <mxGeometry x="40" y="40" width="400" height="300" as="geometry"/>
+    </mxCell>
+  </root>
+</mxGraphModel>`;
+            messagePayload.xml = wrappedXML;
+        } else {
+            messagePayload.xml = currentDiagramXML;
+        }
+
+        frame.contentWindow.postMessage(JSON.stringify(messagePayload), '*');
         
-        addMessageToChat('assistant', '✅ Diagram applied! The Draw.io editor has been updated. Scroll down to see the Diagram Editor section.');
+        addMessageToChat('assistant', '✅ Diagram applied to editor');
         closeDiagramPreview();
     } catch (error) {
         console.error('Error applying diagram:', error);
@@ -970,8 +990,10 @@ async function processDiagramRequest(message) {
         const data = await response.json();
         document.getElementById(loadingId).remove();
         
-        if (response.ok && data.diagram_xml) {
-            updateDiagram(data.diagram_xml, data.explanation || 'Diagram updated');
+        if (response.ok && (data.diagram_xml || data.diagram_svg)) {
+            const diagramData = data.diagram_xml || data.diagram_svg;
+            const type = data.diagram_svg ? 'svg' : 'xml';
+            updateDiagram(diagramData, data.explanation || 'Diagram updated', type);
             
             // Add assistant response to history
             chatHistory.push({
