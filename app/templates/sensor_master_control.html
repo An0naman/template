@@ -1266,6 +1266,109 @@ async function openSensorPlotter(sensorId) {
     }, { once: true });
 }
 
+function getBoardConfig(boardType) {
+    // Board configurations with image paths and overlay positions
+    const configs = {
+        'ESP32-WROOM-32': {
+            name: 'ESP32-WROOM-32',
+            image: '/static/images/boards/esp32-wroom-32.svg',
+            chipOverlay: { x: 105, y: 120, width: 130, height: 180 },
+            pins: {
+                // Pin configurations for interactive controls
+                left: [
+                    { gpio: null, label: '3V3', y: 70, type: 'power' },
+                    { gpio: null, label: 'EN', y: 90, type: 'reset' },
+                    { gpio: 36, label: '36', y: 110, type: 'input' },
+                    { gpio: 39, label: '39', y: 130, type: 'input' },
+                    { gpio: 34, label: '34', y: 150, type: 'input' },
+                    { gpio: 35, label: '35', y: 170, type: 'input' },
+                    { gpio: 32, label: '32', y: 190, type: 'io' },
+                    { gpio: 33, label: '33', y: 210, type: 'io' },
+                    { gpio: 25, label: '25', y: 230, type: 'io' },
+                    { gpio: 26, label: '26', y: 250, type: 'io' },
+                    { gpio: 27, label: '27', y: 270, type: 'io' },
+                    { gpio: 14, label: '14', y: 290, type: 'io' },
+                    { gpio: 12, label: '12', y: 310, type: 'io' },
+                    { gpio: null, label: 'GND', y: 330, type: 'ground' },
+                    { gpio: 13, label: '13', y: 350, type: 'io' },
+                    { gpio: 9, label: '9', y: 370, type: 'io' },
+                    { gpio: 10, label: '10', y: 390, type: 'io' },
+                    { gpio: 11, label: '11', y: 410, type: 'io' },
+                    { gpio: null, label: 'VIN', y: 430, type: 'power' }
+                ],
+                right: [
+                    { gpio: null, label: 'GND', y: 70, type: 'ground' },
+                    { gpio: 23, label: '23', y: 90, type: 'io' },
+                    { gpio: 22, label: '22', y: 110, type: 'io' },
+                    { gpio: 1, label: 'TX', y: 130, type: 'uart' },
+                    { gpio: 3, label: 'RX', y: 150, type: 'uart' },
+                    { gpio: 21, label: '21', y: 170, type: 'io' },
+                    { gpio: null, label: 'GND', y: 190, type: 'ground' },
+                    { gpio: 19, label: '19', y: 210, type: 'io' },
+                    { gpio: 18, label: '18', y: 230, type: 'io' },
+                    { gpio: 5, label: '5', y: 250, type: 'io' },
+                    { gpio: 17, label: '17', y: 270, type: 'io' },
+                    { gpio: 16, label: '16', y: 290, type: 'io' },
+                    { gpio: 4, label: '4', y: 310, type: 'io' },
+                    { gpio: 0, label: '0', y: 330, type: 'io' },
+                    { gpio: 2, label: '2', y: 350, type: 'io' },
+                    { gpio: 15, label: '15', y: 370, type: 'io' },
+                    { gpio: 8, label: '8', y: 390, type: 'io' },
+                    { gpio: 7, label: '7', y: 410, type: 'io' },
+                    { gpio: 6, label: '6', y: 430, type: 'io' }
+                ]
+            }
+        },
+        'firebeetle2_esp32c6': {
+            name: 'DFRobot Firebeetle 2 ESP32-C6',
+            image: '/static/images/boards/firebeetle2-esp32-c6.svg',
+            chipOverlay: { x: 95, y: 100, width: 150, height: 150 },
+            pins: {
+                left: [
+                    { gpio: null, label: 'VIN', y: 280, type: 'power' },
+                    { gpio: null, label: '3V3', y: 298, type: 'power' },
+                    { gpio: null, label: 'GND', y: 316, type: 'ground' },
+                    { gpio: null, label: 'SCL', y: 334, type: 'i2c' },
+                    { gpio: null, label: 'SDA', y: 352, type: 'i2c' },
+                    { gpio: 5, label: '5', y: 370, type: 'uart' },
+                    { gpio: 4, label: '4', y: 388, type: 'uart' },
+                    { gpio: 3, label: '3', y: 406, type: 'adc' },
+                    { gpio: 2, label: '2', y: 424, type: 'adc' },
+                    { gpio: null, label: 'NC', y: 442, type: 'nc' },
+                    { gpio: 15, label: '15', y: 460, type: 'io' },
+                    { gpio: 6, label: '6', y: 478, type: 'i2c' },
+                    { gpio: 7, label: '7', y: 496, type: 'i2c' },
+                    { gpio: null, label: 'NC', y: 514, type: 'nc' }
+                ],
+                right: [
+                    { gpio: null, label: 'RST', y: 280, type: 'reset' },
+                    { gpio: null, label: '3V3', y: 298, type: 'power' },
+                    { gpio: null, label: 'NC', y: 316, type: 'nc' },
+                    { gpio: null, label: 'GND', y: 334, type: 'ground' },
+                    { gpio: null, label: 'NC', y: 352, type: 'nc' },
+                    { gpio: null, label: 'NC', y: 370, type: 'nc' },
+                    { gpio: null, label: 'VIN', y: 388, type: 'power' },
+                    { gpio: null, label: '3V3', y: 406, type: 'power' },
+                    { gpio: null, label: 'GND', y: 424, type: 'ground' },
+                    { gpio: null, label: 'SCL', y: 442, type: 'i2c' },
+                    { gpio: null, label: 'SDA', y: 460, type: 'i2c' },
+                    { gpio: 23, label: '23', y: 478, type: 'spi' },
+                    { gpio: 22, label: '22', y: 496, type: 'spi' },
+                    { gpio: 21, label: '21', y: 514, type: 'spi' }
+                ]
+            }
+        }
+    };
+    
+    // Debug logging
+    console.log('getBoardConfig called with boardType:', boardType);
+    console.log('Available configs:', Object.keys(configs));
+    console.log('Match found:', configs[boardType] ? 'YES' : 'NO (using default)');
+    
+    // Return config for the specified board type, or default to ESP32-WROOM-32
+    return configs[boardType] || configs['ESP32-WROOM-32'];
+}
+
 function initializeBoardVisualization() {
     const config = getBoardConfig(currentBoardType);
     const boardImage = document.getElementById('boardImage');
@@ -2167,6 +2270,7 @@ function renderSensors() {
                         <th>Sensor ID</th>
                         <th>Name</th>
                         <th>Type</th>
+                        <th>Board</th>
                         <th>Status</th>
                         <th>Battery Level</th>
                         <th>Current Script</th>
@@ -2257,6 +2361,13 @@ function renderSensors() {
                             <td data-label="Sensor ID"><code>${sensor.sensor_id}</code></td>
                             <td data-label="Name">${sensor.sensor_name || 'Unnamed'}</td>
                             <td data-label="Type"><span class="badge bg-secondary">${sensor.sensor_type}</span></td>
+                            <td data-label="Board">
+                                ${sensor.board_type === 'firebeetle2_esp32c6' 
+                                    ? '<span class="badge bg-info" title="Firebeetle 2 ESP32-C6 (RISC-V)"><i class="fas fa-microchip"></i> ESP32-C6</span>'
+                                    : sensor.board_type === 'esp32_wroom32'
+                                        ? '<span class="badge bg-primary" title="ESP32-WROOM-32 (Xtensa)"><i class="fas fa-microchip"></i> ESP32</span>'
+                                        : '<span class="badge bg-secondary"><i class="fas fa-question"></i> Unknown</span>'}
+                            </td>
                             <td data-label="Status">
                                 <i class="fas fa-circle sensor-status-${sensor.status}"></i>
                                 ${sensor.status}
@@ -2344,13 +2455,140 @@ async function loadStats() {
     }
 }
 
+// Generate board SVG visualization
+function getBoardSvg(boardType) {
+    if (boardType === 'firebeetle2_esp32c6') {
+        // DFRobot Firebeetle 2 ESP32-C6 SVG
+        return `
+            <svg width="280" height="180" viewBox="0 0 280 180" xmlns="http://www.w3.org/2000/svg">
+                <!-- Board PCB -->
+                <rect x="20" y="20" width="240" height="140" rx="8" fill="#2E7D32" stroke="#1B5E20" stroke-width="2"/>
+                
+                <!-- ESP32-C6 Chip -->
+                <rect x="110" y="60" width="60" height="60" rx="3" fill="#424242" stroke="#212121" stroke-width="2"/>
+                <text x="140" y="85" font-family="Arial" font-size="10" fill="white" text-anchor="middle">ESP32</text>
+                <text x="140" y="98" font-family="Arial" font-size="10" fill="white" text-anchor="middle">C6</text>
+                <text x="140" y="111" font-family="Arial" font-size="8" fill="#90CAF9" text-anchor="middle">RISC-V</text>
+                
+                <!-- USB-C Port -->
+                <rect x="118" y="5" width="44" height="18" rx="4" fill="#616161" stroke="#424242" stroke-width="1"/>
+                <text x="140" y="16" font-family="Arial" font-size="8" fill="white" text-anchor="middle">USB-C</text>
+                
+                <!-- Pin Headers Left -->
+                <g>
+                    ${Array.from({length: 8}, (_, i) => `
+                        <rect x="8" y="${35 + i * 15}" width="12" height="8" rx="1" fill="#FFD700" stroke="#FFA000" stroke-width="0.5"/>
+                    `).join('')}
+                </g>
+                
+                <!-- Pin Headers Right -->
+                <g>
+                    ${Array.from({length: 8}, (_, i) => `
+                        <rect x="260" y="${35 + i * 15}" width="12" height="8" rx="1" fill="#FFD700" stroke="#FFA000" stroke-width="0.5"/>
+                    `).join('')}
+                </g>
+                
+                <!-- Status LED -->
+                <circle cx="50" cy="35" r="3" fill="#00E676" opacity="0.8"/>
+                <text x="60" y="38" font-family="Arial" font-size="8" fill="white">PWR</text>
+                
+                <!-- WiFi 6 Antenna -->
+                <path d="M 230 40 Q 240 40, 240 50 T 230 60" stroke="#FFD700" fill="none" stroke-width="2"/>
+                <text x="220" y="53" font-family="Arial" font-size="7" fill="white" text-anchor="end">WiFi 6</text>
+                
+                <!-- Board Label -->
+                <text x="140" y="155" font-family="Arial" font-size="9" fill="white" text-anchor="middle" font-weight="bold">Firebeetle 2 ESP32-C6</text>
+                <text x="140" y="168" font-family="Arial" font-size="7" fill="#81C784" text-anchor="middle">DFRobot</text>
+            </svg>
+        `;
+    } else if (boardType === 'esp32_wroom32') {
+        // ESP32-WROOM-32 SVG
+        return `
+            <svg width="280" height="180" viewBox="0 0 280 180" xmlns="http://www.w3.org/2000/svg">
+                <!-- Board PCB -->
+                <rect x="20" y="20" width="240" height="140" rx="8" fill="#1565C0" stroke="#0D47A1" stroke-width="2"/>
+                
+                <!-- ESP32 Module -->
+                <rect x="95" y="50" width="90" height="80" rx="3" fill="#37474F" stroke="#263238" stroke-width="2"/>
+                <text x="140" y="78" font-family="Arial" font-size="12" fill="white" text-anchor="middle" font-weight="bold">ESP32</text>
+                <text x="140" y="93" font-family="Arial" font-size="9" fill="white" text-anchor="middle">WROOM-32</text>
+                <text x="140" y="108" font-family="Arial" font-size="7" fill="#90CAF9" text-anchor="middle">Dual Core</text>
+                <text x="140" y="120" font-family="Arial" font-size="7" fill="#90CAF9" text-anchor="middle">240MHz</text>
+                
+                <!-- Micro USB Port -->
+                <rect x="120" y="5" width="40" height="18" rx="4" fill="#616161" stroke="#424242" stroke-width="1"/>
+                <text x="140" y="16" font-family="Arial" font-size="8" fill="white" text-anchor="middle">μUSB</text>
+                
+                <!-- Pin Headers Left -->
+                <g>
+                    ${Array.from({length: 9}, (_, i) => `
+                        <rect x="8" y="${30 + i * 14}" width="12" height="8" rx="1" fill="#FFD700" stroke="#FFA000" stroke-width="0.5"/>
+                    `).join('')}
+                </g>
+                
+                <!-- Pin Headers Right -->
+                <g>
+                    ${Array.from({length: 9}, (_, i) => `
+                        <rect x="260" y="${30 + i * 14}" width="12" height="8" rx="1" fill="#FFD700" stroke="#FFA000" stroke-width="0.5"/>
+                    `).join('')}
+                </g>
+                
+                <!-- Status LED -->
+                <circle cx="50" cy="35" r="3" fill="#FF1744" opacity="0.8"/>
+                <text x="60" y="38" font-family="Arial" font-size="8" fill="white">LED</text>
+                
+                <!-- WiFi Antenna -->
+                <path d="M 220 45 Q 230 45, 230 55 T 220 65" stroke="#FFD700" fill="none" stroke-width="2"/>
+                <text x="210" y="58" font-family="Arial" font-size="7" fill="white" text-anchor="end">WiFi</text>
+                
+                <!-- Board Label -->
+                <text x="140" y="155" font-family="Arial" font-size="10" fill="white" text-anchor="middle" font-weight="bold">ESP32-WROOM-32</text>
+                <text x="140" y="168" font-family="Arial" font-size="7" fill="#90CAF9" text-anchor="middle">Espressif</text>
+            </svg>
+        `;
+    } else {
+        // Unknown board - generic SVG
+        return `
+            <svg width="280" height="180" viewBox="0 0 280 180" xmlns="http://www.w3.org/2000/svg">
+                <rect x="20" y="20" width="240" height="140" rx="8" fill="#757575" stroke="#424242" stroke-width="2"/>
+                <text x="140" y="95" font-family="Arial" font-size="16" fill="white" text-anchor="middle">
+                    <tspan>❓</tspan>
+                </text>
+                <text x="140" y="120" font-family="Arial" font-size="10" fill="white" text-anchor="middle">Unknown Board</text>
+            </svg>
+        `;
+    }
+}
 
 
 async function viewSensorDetails(sensorId) {
     const sensor = sensors.find(s => s.sensor_id === sensorId);
     if (!sensor) return;
     
+    // Get board configuration (same function used by Serial Plotter)
+    const boardConfig = getBoardConfig(sensor.board_type);
+    
     const content = `
+        <!-- Board Visualization -->
+        <div class="text-center mb-4 p-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px;">
+            <div style="background: white; border-radius: 8px; padding: 15px; display: inline-block; max-width: 400px;">
+                <img src="${boardConfig.image}" alt="${boardConfig.name}" class="img-fluid" style="max-height: 400px; width: auto;" 
+                     onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 280 180%22%3E%3Crect fill=%22%23ddd%22 width=%22280%22 height=%22180%22/%3E%3Ctext x=%22140%22 y=%2290%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%2220%22 fill=%22%23666%22%3EBoard Image%3C/text%3E%3Ctext x=%22140%22 y=%22110%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%2216%22 fill=%22%23999%22%3ENot Available%3C/text%3E%3C/svg%3E';">
+            </div>
+            <div class="mt-3">
+                <h5 class="text-white mb-1">
+                    <i class="fas fa-microchip"></i> ${boardConfig.name}
+                </h5>
+                <small class="text-white-50">
+                    ${sensor.board_type === 'firebeetle2_esp32c6' 
+                        ? 'RISC-V 160MHz • WiFi 6 • BLE 5.0'
+                        : sensor.board_type === 'ESP32-WROOM-32'
+                            ? 'Xtensa Dual-Core 240MHz • WiFi • BLE 4.2'
+                            : 'ESP32 Development Board'}
+                </small>
+            </div>
+        </div>
+        
         <dl class="row">
             <dt class="col-sm-3">Sensor ID:</dt>
             <dd class="col-sm-9"><code>${sensor.sensor_id}</code></dd>
@@ -2360,6 +2598,15 @@ async function viewSensorDetails(sensorId) {
             
             <dt class="col-sm-3">Type:</dt>
             <dd class="col-sm-9">${sensor.sensor_type}</dd>
+            
+            <dt class="col-sm-3">Board Type:</dt>
+            <dd class="col-sm-9">
+                ${sensor.board_type === 'firebeetle2_esp32c6' 
+                    ? '<span class="badge bg-info"><i class="fas fa-microchip"></i> Firebeetle 2 ESP32-C6</span> <small class="text-muted">(RISC-V)</small>'
+                    : sensor.board_type === 'esp32_wroom32'
+                        ? '<span class="badge bg-primary"><i class="fas fa-microchip"></i> ESP32-WROOM-32</span> <small class="text-muted">(Xtensa)</small>'
+                        : '<span class="text-muted">Unknown</span>'}
+            </dd>
             
             <dt class="col-sm-3">Status:</dt>
             <dd class="col-sm-9">

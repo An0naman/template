@@ -20,15 +20,27 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <Preferences.h>
-#include <OneWire.h>
-#include <DallasTemperature.h>
-#include <WebServer.h>
+// #include <OneWire.h>  // Disabled for ESP32-C6 compatibility testing
+// #include <DallasTemperature.h>  // Disabled for ESP32-C6 compatibility testing
+// #include <WebServer.h>  // Disabled for ESP32-C6 minimal build
 #include <ESPmDNS.h>
-#include "WebSerial.h"
+// #include "WebSerial.h"  // Disabled for ESP32-C6 minimal build
 #include <vector>
 #include <map>
 #include "time.h"
-#include "esp32_web_interface.h"
+
+// Operating mode enum (must be defined before including esp32_web_interface.h)
+enum OperatingMode {
+    MODE_OFFLINE,
+    MODE_ONLINE
+};
+
+// #include "esp32_web_interface.h"  // Disabled for ESP32-C6 minimal build
+
+// ============================================================================
+// WEBSERIAL COMPATIBILITY (redirect to Serial for minimal build)
+// ============================================================================
+#define WebSerial Serial
 
 // ============================================================================
 // BOARD TYPE DETECTION
@@ -123,7 +135,7 @@ unsigned long offlineRetryInterval = 10000;   // Default: 10 seconds (retry conn
     #define ONE_WIRE_BUS 15           // GPIO15 for Dallas Temperature Sensor
     #define RELAY_PIN 14              // GPIO14 for relay control
     #define STATUS_LED_PIN 15         // GPIO15 built-in RGB LED (shared with onboard LED)
-    #define BATTERY_PIN 2             // GPIO2 for battery voltage reading (if using voltage divider)
+    #define BATTERY_PIN 0             // GPIO0 for battery voltage reading (ADC1_CH0)
 #else
     // ESP32-WROOM-32 Pin Configuration (Original)
     #define ONE_WIRE_BUS 4            // GPIO4 for Dallas Temperature Sensor
@@ -132,18 +144,15 @@ unsigned long offlineRetryInterval = 10000;   // Default: 10 seconds (retry conn
     #define BATTERY_PIN 34            // GPIO34 for battery voltage reading (ADC1_CH6)
 #endif
 
-OneWire oneWire(ONE_WIRE_BUS);
-DallasTemperature sensors(&oneWire);
+// Disabled for ESP32-C6 compatibility testing
+// OneWire oneWire(ONE_WIRE_BUS);
+// DallasTemperature sensors(&oneWire);
 
 // ============================================================================
 // GLOBAL VARIABLES
 // ============================================================================
 
-// Operating mode
-enum OperatingMode {
-    MODE_OFFLINE,
-    MODE_ONLINE
-};
+// Operating mode (enum defined at top of file)
 OperatingMode currentMode = MODE_OFFLINE;
 
 // Timing variables
@@ -200,9 +209,9 @@ struct SensorData {
 // Preferences for persistent storage
 Preferences preferences;
 
-// Web Server for discovery
-WebServer server(80);
-WebSerialClass WebSerial;
+// Web Server for discovery - DISABLED FOR ESP32-C6 MINIMAL BUILD
+// WebServer server(80);
+// WebSerialClass WebSerial;
 
 // ============================================================================
 // FUNCTION DECLARATIONS
@@ -293,7 +302,8 @@ void setup() {
         discoverMaster();
     }
     
-    // Start Web Server for discovery
+    // Start Web Server for discovery - DISABLED FOR ESP32-C6 MINIMAL BUILD
+    #ifndef ESP32C6_MINIMAL_BUILD
     if (WiFi.status() == WL_CONNECTED) {
         server.on("/", HTTP_GET, []() {
             String html = "<!DOCTYPE html><html><head>";
@@ -438,16 +448,13 @@ void setup() {
             server.send(200, "application/json", json);
         });
         
-        server.on("/api/serial", HTTP_GET, []() {
-            server.send(200, "application/json", WebSerial.getLogsJson());
-        });
-        
         // Setup board visualization web interface
-        setupWebInterface();
+        // Web routes are already configured above
         
         server.begin();
         WebSerial.println("🌐 Web Server started for discovery");
     }
+    #endif // ESP32C6_MINIMAL_BUILD
     
     // Try to register with master control
     if (WiFi.status() == WL_CONNECTED) {
@@ -482,8 +489,10 @@ void setup() {
 // ============================================================================
 
 void loop() {
-    // Handle Web Server requests
+    // Handle Web Server requests - DISABLED FOR ESP32-C6 MINIMAL BUILD
+    #ifndef ESP32C6_MINIMAL_BUILD
     server.handleClient();
+    #endif
 
     unsigned long currentTime = millis();
     
@@ -1036,8 +1045,10 @@ float resolveValue(String key) {
 
         // Special handling for OneWire bus pin or read_temperature block - return actual temperature
         if (pin == ONE_WIRE_BUS || type == "read_temperature") {
-            sensors.requestTemperatures();
-            float temp = sensors.getTempCByIndex(0);
+            // Disabled for ESP32-C6 compatibility testing
+            // sensors.requestTemperatures();
+            // float temp = sensors.getTempCByIndex(0);
+            float temp = 25.0; // Placeholder temperature
             WebSerial.println("🔍 DEBUG: Alias '" + key + "' resolved to Temperature: " + String(temp));
             return temp;
         }
@@ -1631,12 +1642,13 @@ void initializeSensors() {
     pinMode(STATUS_LED_PIN, OUTPUT);
     pinMode(RELAY_PIN, OUTPUT);
     
-    // Initialize Dallas Temperature Sensor
-    sensors.begin();
+    // Initialize Dallas Temperature Sensor - DISABLED FOR ESP32-C6 TESTING
+    // sensors.begin();
     
     // Retry logic for sensor detection
     int retryCount = 0;
     int deviceCount = 0;
+    /* DISABLED FOR ESP32-C6 TESTING
     while (deviceCount == 0 && retryCount < 5) {
         deviceCount = sensors.getDeviceCount();
         if (deviceCount == 0) {
@@ -1646,6 +1658,7 @@ void initializeSensors() {
             retryCount++;
         }
     }
+    */
     
     Serial.print("DEBUG: Found ");
     Serial.print(deviceCount);
@@ -1663,10 +1676,12 @@ void initializeSensors() {
 SensorData readSensorData() {
     SensorData data;
     
-    // Read temperature from Dallas sensor
-    sensors.requestTemperatures(); 
-    float temp = sensors.getTempCByIndex(0);
+    // Read temperature from Dallas sensor - DISABLED FOR ESP32-C6 TESTING
+    // sensors.requestTemperatures(); 
+    // float temp = sensors.getTempCByIndex(0);
+    float temp = 25.0; // Placeholder temperature for testing
     
+    /* DISABLED FOR ESP32-C6 TESTING
     // Check for error and retry once
     if (temp == -127.0 || temp == 85.0) {
         Serial.println("⚠️ Invalid reading (" + String(temp) + "), retrying...");
@@ -1675,6 +1690,7 @@ SensorData readSensorData() {
         sensors.requestTemperatures();
         temp = sensors.getTempCByIndex(0);
     }
+    */
     
     data.temperature = temp;
     
@@ -1752,14 +1768,16 @@ bool discoverMaster() {
         String hostname = MDNS.hostname(i);
         String serviceName = MDNS.txt(i, "type"); // We added 'type' property in Python
         
-        WebSerial.println("  " + String(i + 1) + ": " + hostname + " (" + MDNS.IP(i).toString() + ":" + String(MDNS.port(i)) + ")");
+        IPAddress ipAddr = MDNS.address(i);
+        String ip = ipAddr.toString();
+        int port = MDNS.port(i);
+        
+        WebSerial.println("  " + String(i + 1) + ": " + hostname + " (" + ip + ":" + String(port) + ")");
         
         // Check if this is our master
         // In Python we set server name as "sensor-master.local."
         // MDNS.hostname(i) usually returns just "sensor-master"
         if (hostname.startsWith(MDNS_SERVICE_NAME) || serviceName == "sensor-master") {
-            String ip = MDNS.IP(i).toString();
-            int port = MDNS.port(i);
             
             // Validate IP address
             if (ip == "0.0.0.0" || ip == "127.0.0.1") {

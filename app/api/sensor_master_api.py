@@ -59,6 +59,7 @@ def register_sensor():
         "sensor_id": "esp32_unique_id",
         "sensor_name": "Fermentation Chamber 1",
         "sensor_type": "esp32_fermentation",
+        "board_type": "esp32_wroom32" or "firebeetle2_esp32c6",
         "hardware_info": "ESP32-WROOM-32",
         "firmware_version": "1.0.0",
         "ip_address": "192.168.1.100",
@@ -81,6 +82,7 @@ def register_sensor():
         
         sensor_id = data['sensor_id']
         sensor_type = data.get('sensor_type', 'unknown')
+        board_type = data.get('board_type', sensor_type)  # Default to sensor_type if not provided
         
         conn = get_db()
         cursor = conn.cursor()
@@ -104,6 +106,7 @@ def register_sensor():
                 UPDATE SensorRegistration
                 SET sensor_name = ?,
                     sensor_type = ?,
+                    board_type = ?,
                     hardware_info = ?,
                     firmware_version = ?,
                     ip_address = ?,
@@ -116,6 +119,7 @@ def register_sensor():
             ''', (
                 data.get('sensor_name', 'Unnamed Sensor'),
                 sensor_type,
+                board_type,
                 data.get('hardware_info', ''),
                 data.get('firmware_version', ''),
                 data.get('ip_address', ''),
@@ -127,19 +131,20 @@ def register_sensor():
                 sensor_id
             ))
             
-            logger.info(f"Updated sensor registration: {sensor_id}")
+            logger.info(f"Updated sensor registration: {sensor_id} (board: {board_type})")
         else:
             # Create new registration
             cursor.execute('''
                 INSERT INTO SensorRegistration
-                (sensor_id, sensor_name, sensor_type, hardware_info, firmware_version,
+                (sensor_id, sensor_name, sensor_type, board_type, hardware_info, firmware_version,
                  ip_address, mac_address, capabilities,
                  last_check_in, status, registration_source, check_in_interval)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 sensor_id,
                 data.get('sensor_name', 'Unnamed Sensor'),
                 sensor_type,
+                board_type,
                 data.get('hardware_info', ''),
                 data.get('firmware_version', ''),
                 data.get('ip_address', ''),
@@ -150,6 +155,8 @@ def register_sensor():
                 'auto',
                 60  # Default check_in_interval
             ))
+            
+            logger.info(f"New sensor registered: {sensor_id} (board: {board_type})")
             
         # Also update RegisteredDevices if it exists there (for Device Manager)
         cursor.execute('SELECT id FROM RegisteredDevices WHERE device_id = ?', (sensor_id,))
