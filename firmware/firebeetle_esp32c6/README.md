@@ -102,6 +102,65 @@ firmware/firebeetle_esp32c6/
    pio device monitor
    ```
 
+### PlatformIO Troubleshooting
+
+#### Build Fails or Platform Corruption
+If you encounter build errors, corrupted packages, or persistent compilation issues:
+
+```bash
+# Remove all cached packages and platforms
+rm -rf ~/.platformio/packages
+rm -rf ~/.platformio/platforms
+
+# Reinstall everything fresh
+pio run -e firebeetle2_esp32c6
+```
+
+This forces PlatformIO to download fresh packages and platform files.
+
+#### Upload Port Not Found
+```bash
+# List available serial ports
+pio device list
+
+# If device not showing:
+# 1. Check USB cable (must support data, not just charging)
+# 2. Check driver installation (CP210x or CH340 depending on board)
+# 3. Try different USB port
+# 4. On Linux: Add user to dialout group
+sudo usermod -a -G dialout $USER
+# Then logout and login again
+```
+
+#### Permissions Denied on Linux
+```bash
+# Give temporary access to serial port
+sudo chmod 666 /dev/ttyUSB0  # or ttyACM0
+
+# Or permanent fix: add to dialout group (see above)
+```
+
+#### Clean Build (When Changes Not Detected)
+```bash
+# Clean build files
+pio run -t clean
+
+# Full clean including dependencies
+rm -rf .pio/
+
+# Then rebuild
+pio run -e firebeetle2_esp32c6
+```
+
+#### Monitor Shows Garbled Output
+```bash
+# Ensure correct baud rate (default 115200)
+pio device monitor --baud 115200
+
+# If still garbled, try:
+pio device monitor --baud 115200 --raw
+```
+
 ### Build Environments
 
 The `platformio.ini` supports multiple build configurations:
