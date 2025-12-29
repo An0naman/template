@@ -50,6 +50,11 @@ logs/
 .DS_Store
 Thumbs.db
 
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+
 # Flask
 instance/
 .webassets-cache
