@@ -123,7 +123,7 @@ unsigned long offlineRetryInterval = 10000;   // Default: 10 seconds (retry conn
     #define ONE_WIRE_BUS 15           // GPIO15 for Dallas Temperature Sensor
     #define RELAY_PIN 14              // GPIO14 for relay control
     #define STATUS_LED_PIN 15         // GPIO15 built-in RGB LED (shared with onboard LED)
-    #define BATTERY_PIN 2             // GPIO2 for battery voltage reading (if using voltage divider)
+    #define BATTERY_PIN 0             // GPIO0 for battery voltage reading (built-in voltage divider)
 #else
     // ESP32-WROOM-32 Pin Configuration (Original)
     #define ONE_WIRE_BUS 4            // GPIO4 for Dallas Temperature Sensor
@@ -1144,27 +1144,50 @@ void executeActions(JsonArray actions) {
 
         } else if (type == "read_battery") {
             int pin = action["pin"].as<int>();
-            float r1 = action["r1"] | 100000.0; // Top resistor (connected to Battery +)
-            float r2 = action["r2"] | 100000.0; // Bottom resistor (connected to GND)
+            float r1 = action["r1"] | 145900.0; // Top resistor (Firebeetle ESP32-C6: calibrated 145.9k)
+            float r2 = action["r2"] | 100000.0; // Bottom resistor (standard: 100k)
             float vref = action["vref"] | 3.3;  // Reference voltage (usually 3.3V for ESP32)
             String alias = action["alias"] | "battery";
             
             pinMode(pin, INPUT);
             
-            // Take multiple samples for averaging to reduce fluctuation
+            // Set ADC attenuation to 12dB (0-3.3V range) for ESP32-C6
+            #if CONFIG_IDF_TARGET_ESP32C6
+            analogReadResolution(12);  // 12-bit resolution (0-4095)
+            analogSetPinAttenuation(pin, ADC_ATTEN_DB_12);  // 0-3.3V range
+            #endif
+            
+            // Small delay to let ADC stabilize
+            delay(100);
+            
+            // Take MANY samples for averaging to reduce ADC noise on ESP32-C6
             long sum = 0;
-            const int samples = 10;
+            const int samples = 50;  // Increased from 10 to 50
+            int minVal = 4095;
+            int maxVal = 0;
+            
             for(int i=0; i<samples; i++) {
-                sum += analogRead(pin);
-                delay(10);
+                int reading = analogRead(pin);
+                sum += reading;
+                if (reading < minVal) minVal = reading;
+                if (reading > maxVal) maxVal = reading;
+                delay(5);
             }
-            float raw = sum / (float)samples;
+            
+            // Remove outliers: subtract min and max, average the rest
+            sum = sum - minVal - maxVal;
+            float raw = sum / (float)(samples - 2);
             
             // Voltage Divider Formula: Vout = Vin * (R2 / (R1 + R2))
             // Vin = Vout * ((R1 + R2) / R2)
             // Vout = (raw / 4095.0) * vref
             
-            float voltage = (raw / 4095.0) * vref * ((r1 + r2) / r2);
+            // Debug: Show raw ADC value and calculated Vout
+            float vout = (raw / 4095.0) * vref;
+            WebSerial.println("🔍 DEBUG Pin " + String(pin) + ": Raw ADC=" + String(raw) + " (sum=" + String(sum) + "), Vout=" + String(vout) + "V");
+            sendRemoteLog("DEBUG Pin " + String(pin) + ": Raw=" + String((int)raw) + ", Vout=" + String(vout, 2) + "V");
+            
+            float voltage = vout * ((r1 + r2) / r2);
             
             // Calculate Percentage (Linear approximation for LiPo 3.3V - 4.2V)
             float minV = action["min_v"] | 3.3;
@@ -1175,8 +1198,15 @@ void executeActions(JsonArray actions) {
 
             globalVariables[alias] = voltage;
             globalVariables[alias + "_pct"] = (float)pct;
+            globalVariables[alias + "_raw"] = raw;       // Store raw ADC reading
+            globalVariables[alias + "_vout"] = vout;     // Store Vout (voltage at ADC pin)
             
-            WebSerial.println("✓ Battery: " + String(voltage) + "V (" + String(pct) + "%)");
+            // Debug: Verify storage
+            String rawKey = alias + "_raw";
+            String voutKey = alias + "_vout";
+            sendRemoteLog("STORED " + alias + "=" + String(voltage, 2) + "V, " + rawKey + "=" + String(raw, 0) + ", " + voutKey + "=" + String(vout, 2) + "V");
+            
+            WebSerial.println("✓ Battery: " + String(voltage) + "V (" + String(pct) + "%) [R1=" + String((int)r1) + ", R2=" + String((int)r2) + "]");
             
             if (raw == 0) {
                 WebSerial.println("⚠️ Warning: Battery raw reading is 0. Check wiring/resistors.");

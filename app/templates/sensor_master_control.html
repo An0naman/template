@@ -3122,6 +3122,7 @@ function viewScript(scriptId) {
 let currentLogicSensorId = null;
 let currentLogicData = { actions: [] };
 let currentSensorCapabilities = null;
+let currentLogicSensor = null; // Store the full sensor object
 
 const SYSTEM_VARIABLES = [
     'millis', 'wifi_rssi', 'free_heap', 'uptime', 'sensor_id', 'current_time', 'sensor.temp', 'sensor.relay', 'firmware_version'
@@ -3135,6 +3136,9 @@ function openLogicBuilder(sensorId) {
         showAlert('Sensor not found', 'error');
         return;
     }
+    
+    // Store the full sensor object for later reference
+    currentLogicSensor = sensor;
     
     document.getElementById('logicBuilderSensorName').textContent = sensor.sensor_name || sensor.sensor_id;
     
@@ -3689,6 +3693,33 @@ function renderLogicCanvas() {
                                     <option value="HIGH" ${val === 'HIGH' ? 'selected' : ''}>HIGH</option>
                                     <option value="LOW" ${val === 'LOW' ? 'selected' : ''}>LOW</option>
                                 </select>
+                            </div>
+                         `;
+                         return;
+                    }
+                    
+                    // Special handling for 'message' in log block
+                    if (key === 'message' && block.type === 'log') {
+                        // Get board-specific variable suggestions
+                        const boardType = currentLogicSensor && currentLogicSensor.board_type ? currentLogicSensor.board_type : 'unknown';
+                        let placeholderText = 'Log message (use {variable} syntax)';
+                        let helpText = '<div class="form-text x-small text-muted">💡 Examples: <code>{Temp}</code>, <code>{battery}</code>, <code>{myAlias}</code></div>';
+                        
+                        if (boardType === 'firebeetle2_esp32c6') {
+                            helpText = `<div class="form-text x-small text-info">
+                                <i class="fas fa-lightbulb"></i> <strong>Firebeetle 2 ESP32-C6</strong> - Try: 
+                                <code>{battery}V</code>, <code>{battery_pct}%</code>, <code>{Temp}°C</code>, or any alias you defined
+                            </div>`;
+                            placeholderText = 'e.g. "Battery: {battery}V ({battery_pct}%)"';
+                        }
+                        
+                        contentHtml += `
+                            <div class="col-12 mb-2">
+                                <label class="form-label small mb-0 fw-bold text-success"><i class="fas fa-comment-alt"></i> ${key}</label>
+                                <textarea class="form-control form-control-sm" rows="2" 
+                                          placeholder="${placeholderText}"
+                                          onchange="updateBlockProperty(${index}, '${key}', this.value, 'text', false)">${val}</textarea>
+                                ${helpText}
                             </div>
                          `;
                          return;
