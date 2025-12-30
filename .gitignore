@@ -97,3 +97,9 @@ data/*.before_recovery_*
 
 # Git integration data
 app/data/git_repos/
+
+# Nested repositories
+
+# ESP-IDF generated config
+sdkconfig.firebeetle2_esp32c6_idf
+logs/
