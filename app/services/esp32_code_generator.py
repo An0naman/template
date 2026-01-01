@@ -842,6 +842,14 @@ float resolveValue(String key) {{
         return -1.0;
     }}
     return (timeinfo.tm_hour * 100) + timeinfo.tm_min;
+  }} else if (key == "wifi_rssi") {{
+    return (float)WiFi.RSSI();
+  }} else if (key == "free_heap") {{
+    return (float)ESP.getFreeHeap();
+  }} else if (key == "uptime") {{
+    return (float)(millis() / 1000);
+  }} else if (key == "millis") {{
+    return (float)millis();
   }}
   
   // Check for GPIO (format: gpio.12)
@@ -936,16 +944,34 @@ void executeActions(JsonArray actions) {{
       // Log: Print message to serial
       String message = action["message"] | "Log message";
       
+    }} else if (type == "log") {{
+      // Log: Print message to serial
+      String message = action["message"] | "Log message";
+      
       // Support for {{variable}} syntax in message
       int startIndex = message.indexOf("{{");
       while (startIndex >= 0) {{
           int endIndex = message.indexOf("}}", startIndex);
           if (endIndex > startIndex) {{
-              String key = message.substring(startIndex + 2, endIndex);
-              float val = resolveValue(key);
-              String valStr = String(val);
-              // Clean up float formatting (remove .00)
-              if (valStr.endsWith(".00")) valStr.remove(valStr.length() - 3);
+              String key = message.substring(startIndex + 1, endIndex);
+              String valStr = "";
+              
+              // Check for string variables first
+              if (key == "firmware_version") valStr = String(FIRMWARE_VERSION);
+              else if (key == "sensor_id") valStr = String(SENSOR_ID);
+              else if (key == "sensor_type") valStr = String(SENSOR_TYPE);
+              else if (key == "ip_address") valStr = WiFi.localIP().toString();
+              else if (key == "mac_address") valStr = WiFi.macAddress();
+              else if (key == "wifi_rssi") valStr = String(WiFi.RSSI());
+              else if (key == "free_heap") valStr = String(ESP.getFreeHeap());
+              else if (key == "uptime") valStr = String(millis() / 1000);
+              else {{
+                  // Fallback to float resolution
+                  float val = resolveValue(key);
+                  valStr = String(val);
+                  // Clean up float formatting (remove .00)
+                  if (valStr.endsWith(".00")) valStr.remove(valStr.length() - 3);
+              }}
               
               message = message.substring(0, startIndex) + valStr + message.substring(endIndex + 1);
               

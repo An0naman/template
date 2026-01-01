@@ -3016,7 +3016,9 @@ let currentSensorCapabilities = null;
 let currentLogicSensor = null; // Store the full sensor object
 
 const SYSTEM_VARIABLES = [
-    'millis', 'wifi_rssi', 'free_heap', 'uptime', 'sensor_id', 'current_time', 'sensor.temp', 'sensor.relay', 'firmware_version'
+    'millis', 'wifi_rssi', 'free_heap', 'uptime', 'sensor_id', 
+    'firmware_version', 'battery', 'battery_pct', 
+    'ip_address', 'wifi_ssid', 'current_datetime'
 ];
 
 // Helper to insert text at cursor position in a textarea/input
@@ -3031,6 +3033,9 @@ function insertAtCursor(elementId, text) {
     el.value = val.substring(0, start) + text + val.substring(end);
     el.selectionStart = el.selectionEnd = start + text.length;
     el.focus();
+    
+    // Trigger change event so onchange handlers fire
+    el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
 function openLogicBuilder(sensorId) {
@@ -3104,15 +3109,59 @@ function renderVariablesList() {
     const container = document.getElementById('availableVariablesList');
     if (!container) return;
     
-    if (!SYSTEM_VARIABLES || SYSTEM_VARIABLES.length === 0) {
+    // 1. System Variables
+    const systemVars = SYSTEM_VARIABLES || [];
+    
+    // 2. User Aliases (from Logic)
+    const userAliases = collectUserAliases(currentLogicData.actions);
+    const uniqueAliases = [...new Set(userAliases.map(a => a.name))];
+    
+    // 3. User Variables (from Logic)
+    const userVars = collectUserVariables(currentLogicData.actions);
+    const uniqueVars = [...new Set(userVars)];
+
+    // 4. Sensor Capabilities
+    const sensorCaps = currentSensorCapabilities && currentSensorCapabilities.sensors ? currentSensorCapabilities.sensors : [];
+    
+    if (systemVars.length === 0 && uniqueAliases.length === 0 && uniqueVars.length === 0 && sensorCaps.length === 0) {
         container.innerHTML = '<p class="text-muted">No variables defined.</p>';
         return;
     }
     
-    let html = '<ul class="list-unstyled ps-2">';
-    SYSTEM_VARIABLES.forEach(v => {
-        html += `<li><code class="text-primary">${v}</code> <span class="text-muted small">(System)</span></li>`;
-    });
+    let html = '<ul class="list-unstyled ps-2 small">';
+    
+    // System
+    if (systemVars.length > 0) {
+        html += '<li class="mb-1"><strong><i class="fas fa-cog"></i> System</strong></li>';
+        systemVars.forEach(v => {
+            html += `<li class="ms-3"><code class="text-secondary">{${v}}</code></li>`;
+        });
+    }
+
+    // Sensors
+    if (sensorCaps.length > 0) {
+        html += '<li class="mt-2 mb-1"><strong><i class="fas fa-microchip"></i> Sensors</strong></li>';
+        sensorCaps.forEach(s => {
+            if (s.name) html += `<li class="ms-3"><code class="text-info">{${s.name}}</code></li>`;
+        });
+    }
+    
+    // Aliases
+    if (uniqueAliases.length > 0) {
+        html += '<li class="mt-2 mb-1"><strong><i class="fas fa-tag"></i> Aliases</strong></li>';
+        uniqueAliases.forEach(a => {
+            html += `<li class="ms-3"><code class="text-success">{${a}}</code></li>`;
+        });
+    }
+    
+    // User Variables
+    if (uniqueVars.length > 0) {
+        html += '<li class="mt-2 mb-1"><strong><i class="fas fa-calculator"></i> Variables</strong></li>';
+        uniqueVars.forEach(v => {
+            html += `<li class="ms-3"><code class="text-primary">{${v}}</code></li>`;
+        });
+    }
+    
     html += '</ul>';
     container.innerHTML = html;
 }
@@ -3808,6 +3857,17 @@ function renderLogicCanvas() {
                         const systemVars = SYSTEM_VARIABLES || [];
                         
                         let varOptions = '';
+
+                        // Sensor Capabilities (Hardware Sensors)
+                        if (currentSensorCapabilities && currentSensorCapabilities.sensors) {
+                            const sensorNames = currentSensorCapabilities.sensors.map(s => s.name).filter(n => n);
+                            if (sensorNames.length > 0) {
+                                varOptions += '<li><h6 class="dropdown-header">Sensors</h6></li>';
+                                sensorNames.forEach(n => {
+                                    varOptions += `<li><a class="dropdown-item small" href="#" onclick="insertAtCursor('log-message-${index}', '{${n}}'); return false;">{${n}}</a></li>`;
+                                });
+                            }
+                        }
                         
                         // Aliases
                         const uniqueAliases = [...new Set(userAliases.map(a => a.name))];
@@ -4055,6 +4115,9 @@ function renderLogicCanvas() {
             
             container.appendChild(card);
         });
+
+        // Update the variables list sidebar whenever the canvas is re-rendered
+        renderVariablesList();
     } catch (e) {
         console.error("Error rendering canvas:", e);
         const container = document.getElementById('logicCanvas');
