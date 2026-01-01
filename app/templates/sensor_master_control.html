@@ -808,7 +808,10 @@
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Logic Builder - <span id="logicBuilderSensorName"></span></h5>
+                <h5 class="modal-title">
+                    Logic Builder - <span id="logicBuilderSensorName"></span>
+                    <span id="logicBuilderBoardType" class="badge bg-info ms-2" style="font-size: 0.6em; vertical-align: middle;"></span>
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -866,19 +869,8 @@
                         <div class="row">
                             <div class="col-md-3 border-end">
                                 <h6>Toolbox</h6>
-                                <div class="d-grid gap-2 mb-3">
-                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('gpio_write')"><i class="fas fa-bolt"></i> GPIO Write</button>
-                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('gpio_read')"><i class="fas fa-eye"></i> GPIO Read</button>
-                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('pwm_write')"><i class="fas fa-wave-square"></i> PWM Write</button>
-                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('analog_write')"><i class="fas fa-bezier-curve"></i> DAC Write</button>
-                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('analog_read')"><i class="fas fa-chart-bar"></i> Analog Read</button>
-                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('read_battery')"><i class="fas fa-battery-half"></i> Read Battery</button>
-                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('read_temperature')"><i class="fas fa-thermometer-half"></i> Read Temperature</button>
-                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('set_relay')"><i class="fas fa-toggle-on"></i> Set Relay</button>
-                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('delay')"><i class="fas fa-clock"></i> Delay</button>
-                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('log')"><i class="fas fa-comment-alt"></i> Log Message</button>
-                                    <button class="btn btn-outline-primary btn-sm text-start" onclick="addLogicBlock('hibernate')"><i class="fas fa-bed"></i> Hibernate</button>
-                                    <button class="btn btn-outline-warning btn-sm text-start" onclick="addLogicBlock('if')"><i class="fas fa-code-branch"></i> If Condition</button>
+                                <div class="d-grid gap-2 mb-3" id="logicToolbox">
+                                    <!-- Populated via JS -->
                                 </div>
                                 <hr>
                                 <h6>Sensor Capabilities</h6>
@@ -1266,108 +1258,7 @@ async function openSensorPlotter(sensorId) {
     }, { once: true });
 }
 
-function getBoardConfig(boardType) {
-    // Board configurations with image paths and overlay positions
-    const configs = {
-        'ESP32-WROOM-32': {
-            name: 'ESP32-WROOM-32',
-            image: '/static/images/boards/esp32-wroom-32.svg',
-            chipOverlay: { x: 105, y: 120, width: 130, height: 180 },
-            pins: {
-                // Pin configurations for interactive controls
-                left: [
-                    { gpio: null, label: '3V3', y: 70, type: 'power' },
-                    { gpio: null, label: 'EN', y: 90, type: 'reset' },
-                    { gpio: 36, label: '36', y: 110, type: 'input' },
-                    { gpio: 39, label: '39', y: 130, type: 'input' },
-                    { gpio: 34, label: '34', y: 150, type: 'input' },
-                    { gpio: 35, label: '35', y: 170, type: 'input' },
-                    { gpio: 32, label: '32', y: 190, type: 'io' },
-                    { gpio: 33, label: '33', y: 210, type: 'io' },
-                    { gpio: 25, label: '25', y: 230, type: 'io' },
-                    { gpio: 26, label: '26', y: 250, type: 'io' },
-                    { gpio: 27, label: '27', y: 270, type: 'io' },
-                    { gpio: 14, label: '14', y: 290, type: 'io' },
-                    { gpio: 12, label: '12', y: 310, type: 'io' },
-                    { gpio: null, label: 'GND', y: 330, type: 'ground' },
-                    { gpio: 13, label: '13', y: 350, type: 'io' },
-                    { gpio: 9, label: '9', y: 370, type: 'io' },
-                    { gpio: 10, label: '10', y: 390, type: 'io' },
-                    { gpio: 11, label: '11', y: 410, type: 'io' },
-                    { gpio: null, label: 'VIN', y: 430, type: 'power' }
-                ],
-                right: [
-                    { gpio: null, label: 'GND', y: 70, type: 'ground' },
-                    { gpio: 23, label: '23', y: 90, type: 'io' },
-                    { gpio: 22, label: '22', y: 110, type: 'io' },
-                    { gpio: 1, label: 'TX', y: 130, type: 'uart' },
-                    { gpio: 3, label: 'RX', y: 150, type: 'uart' },
-                    { gpio: 21, label: '21', y: 170, type: 'io' },
-                    { gpio: null, label: 'GND', y: 190, type: 'ground' },
-                    { gpio: 19, label: '19', y: 210, type: 'io' },
-                    { gpio: 18, label: '18', y: 230, type: 'io' },
-                    { gpio: 5, label: '5', y: 250, type: 'io' },
-                    { gpio: 17, label: '17', y: 270, type: 'io' },
-                    { gpio: 16, label: '16', y: 290, type: 'io' },
-                    { gpio: 4, label: '4', y: 310, type: 'io' },
-                    { gpio: 0, label: '0', y: 330, type: 'io' },
-                    { gpio: 2, label: '2', y: 350, type: 'io' },
-                    { gpio: 15, label: '15', y: 370, type: 'io' },
-                    { gpio: 8, label: '8', y: 390, type: 'io' },
-                    { gpio: 7, label: '7', y: 410, type: 'io' },
-                    { gpio: 6, label: '6', y: 430, type: 'io' }
-                ]
-            }
-        },
-        'firebeetle2_esp32c6': {
-            name: 'DFRobot Firebeetle 2 ESP32-C6',
-            image: '/static/images/boards/firebeetle2-esp32-c6.svg',
-            chipOverlay: { x: 95, y: 100, width: 150, height: 150 },
-            pins: {
-                left: [
-                    { gpio: null, label: 'VIN', y: 280, type: 'power' },
-                    { gpio: null, label: '3V3', y: 298, type: 'power' },
-                    { gpio: null, label: 'GND', y: 316, type: 'ground' },
-                    { gpio: null, label: 'SCL', y: 334, type: 'i2c' },
-                    { gpio: null, label: 'SDA', y: 352, type: 'i2c' },
-                    { gpio: 5, label: '5', y: 370, type: 'uart' },
-                    { gpio: 4, label: '4', y: 388, type: 'uart' },
-                    { gpio: 3, label: '3', y: 406, type: 'adc' },
-                    { gpio: 2, label: '2', y: 424, type: 'adc' },
-                    { gpio: null, label: 'NC', y: 442, type: 'nc' },
-                    { gpio: 15, label: '15', y: 460, type: 'io' },
-                    { gpio: 6, label: '6', y: 478, type: 'i2c' },
-                    { gpio: 7, label: '7', y: 496, type: 'i2c' },
-                    { gpio: null, label: 'NC', y: 514, type: 'nc' }
-                ],
-                right: [
-                    { gpio: null, label: 'RST', y: 280, type: 'reset' },
-                    { gpio: null, label: '3V3', y: 298, type: 'power' },
-                    { gpio: null, label: 'NC', y: 316, type: 'nc' },
-                    { gpio: null, label: 'GND', y: 334, type: 'ground' },
-                    { gpio: null, label: 'NC', y: 352, type: 'nc' },
-                    { gpio: null, label: 'NC', y: 370, type: 'nc' },
-                    { gpio: null, label: 'VIN', y: 388, type: 'power' },
-                    { gpio: null, label: '3V3', y: 406, type: 'power' },
-                    { gpio: null, label: 'GND', y: 424, type: 'ground' },
-                    { gpio: null, label: 'SCL', y: 442, type: 'i2c' },
-                    { gpio: null, label: 'SDA', y: 460, type: 'i2c' },
-                    { gpio: 23, label: '23', y: 478, type: 'spi' },
-                    { gpio: 22, label: '22', y: 496, type: 'spi' },
-                    { gpio: 21, label: '21', y: 514, type: 'spi' }
-                ]
-            }
-        }
-    };
-    
-    // Debug logging
-    console.log('getBoardConfig called with boardType:', boardType);
-    console.log('Available configs:', Object.keys(configs));
-    console.log('Match found:', configs[boardType] ? 'YES' : 'NO (using default)');
-    
-    // Return config for the specified board type, or default to ESP32-WROOM-32
-    return configs[boardType] || configs['ESP32-WROOM-32'];
-}
+// getBoardConfig removed to use shared version from board-configs.js
 
 function initializeBoardVisualization() {
     const config = getBoardConfig(currentBoardType);
@@ -2651,7 +2542,7 @@ async function viewSensorDetails(sensorId) {
             </dd>
 
             <dt class="col-sm-3">Last Check-in:</dt>
-            <dd class="col-sm-9">${sensor.last_check_in ? new Date(sensor.last_check_in).toLocaleString() : 'Never'}</dd>
+            <dd class="col-sm-9">${sensor.last_check_in ? new Date(sensor.last_check_in).toLocaleString() : 'Never'}</td>
             
             <dt class="col-sm-3">Hibernation:</dt>
             <dd class="col-sm-9">${sensor.check_in_interval || 60} seconds</dd>
@@ -3142,6 +3033,19 @@ function openLogicBuilder(sensorId) {
     
     document.getElementById('logicBuilderSensorName').textContent = sensor.sensor_name || sensor.sensor_id;
     
+    // Show Board Type
+    const boardType = sensor.board_type || 'Unknown Board';
+    const boardBadge = document.getElementById('logicBuilderBoardType');
+    if (boardBadge) {
+        boardBadge.textContent = boardType;
+        // Optional: Change color based on board type
+        if (boardType.includes('c6')) {
+            boardBadge.className = 'badge bg-success ms-2';
+        } else {
+            boardBadge.className = 'badge bg-info ms-2';
+        }
+    }
+    
     // Parse capabilities
     try {
         currentSensorCapabilities = typeof sensor.capabilities === 'string' 
@@ -3171,6 +3075,9 @@ function openLogicBuilder(sensorId) {
     // Populate library dropdown
     populateLibraryDropdown();
     
+    // Render Toolbox based on capabilities
+    renderToolbox();
+    
     // Initialize editors
     document.getElementById('logicJsonEditor').value = JSON.stringify(currentLogicData, null, 2);
     renderLogicCanvas();
@@ -3193,7 +3100,6 @@ function renderVariablesList() {
         html += `<li><code class="text-primary">${v}</code> <span class="text-muted small">(System)</span></li>`;
     });
     html += '</ul>';
-    
     container.innerHTML = html;
 }
 
@@ -3373,6 +3279,10 @@ function normalizeLogicData(actions) {
             if (block.unit === undefined) block.unit = 'seconds';
         } else if (block.type === 'log') {
             if (block.message === undefined) block.message = '';
+        } else if (block.type === 'variable_op') {
+            if (block.name === undefined) block.name = 'myVar';
+            if (block.operation === undefined) block.operation = '=';
+            if (block.value === undefined) block.value = 0;
         } else if (block.type === 'if') {
             if (!block.condition) block.condition = { left: '', operator: '==', right: '' };
             
@@ -3403,6 +3313,20 @@ function collectUserAliases(actions) {
         if (block.else) aliases = aliases.concat(collectUserAliases(block.else));
     });
     return aliases;
+}
+
+function collectUserVariables(actions) {
+    let vars = [];
+    if (!actions) return vars;
+    
+    actions.forEach(block => {
+        if (block.type === 'variable_op' && block.name) {
+            vars.push(block.name);
+        }
+        if (block.then) vars = vars.concat(collectUserVariables(block.then));
+        if (block.else) vars = vars.concat(collectUserVariables(block.else));
+    });
+    return vars;
 }
 
 function getGlobalPinAliases(actions) {
@@ -3463,11 +3387,84 @@ function resetLogicView() {
     renderLogicCanvas();
 }
 
+function renderToolbox() {
+    const container = document.getElementById('logicToolbox');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    const boardType = currentLogicSensor && currentLogicSensor.board_type ? currentLogicSensor.board_type : 'ESP32-WROOM-32';
+    const boardConfig = getBoardConfig(boardType);
+    const caps = boardConfig.capabilities || {};
+    
+    // Helper to add button
+    const addBtn = (label, type, icon, colorClass = 'btn-outline-secondary') => {
+        const btn = document.createElement('button');
+        btn.className = `btn ${colorClass} text-start`;
+        btn.innerHTML = `<i class="fas ${icon} me-2"></i> ${label}`;
+        btn.onclick = () => addLogicBlock(type);
+        container.appendChild(btn);
+    };
+    
+    // 1. Logic / Flow Control (Always available)
+    addBtn('IF Condition', 'if', 'fa-code-branch', 'btn-outline-warning');
+    addBtn('Delay / Wait', 'delay', 'fa-clock');
+    addBtn('Log Message', 'log', 'fa-comment-alt');
+    addBtn('Hibernate / Sleep', 'hibernate', 'fa-bed', 'btn-outline-dark');
+    
+    // Variables & Math
+    addBtn('Set Variable / Math', 'variable_op', 'fa-calculator', 'btn-outline-secondary');
+    
+    // 2. GPIO Control
+    if (caps.digital_output && caps.digital_output.length > 0) {
+        addBtn('Digital Write (On/Off)', 'gpio_write', 'fa-toggle-on', 'btn-outline-primary');
+    }
+    if (caps.digital_input && caps.digital_input.length > 0) {
+        addBtn('Digital Read', 'gpio_read', 'fa-eye', 'btn-outline-info');
+    }
+    
+    // 3. Analog
+    if (caps.analog_input && caps.analog_input.length > 0) {
+        addBtn('Analog Read (ADC)', 'adc_read', 'fa-wave-square', 'btn-outline-info');
+    }
+    if (caps.pwm && caps.pwm.length > 0) {
+        addBtn('PWM Write (Dimmer)', 'pwm_write', 'fa-sliders-h', 'btn-outline-primary');
+    }
+    
+    // 4. Sensors & Special
+    // Temperature (DS18B20) - Assuming support if digital pins exist
+    if (caps.digital_input && caps.digital_input.length > 0) {
+        addBtn('Read Temperature', 'read_temperature', 'fa-thermometer-half', 'btn-outline-success');
+    }
+    
+    // Battery - Only if board has battery capability
+    if (caps.battery && caps.battery.length > 0) {
+        addBtn('Read Battery', 'read_battery', 'fa-battery-half', 'btn-outline-success');
+    } else if (boardType.includes('firebeetle')) {
+        // Fallback: FireBeetles usually have battery monitoring even if not explicitly in caps
+        addBtn('Read Battery', 'read_battery', 'fa-battery-half', 'btn-outline-success');
+    }
+    
+    // Relay
+    addBtn('Control Relay', 'set_relay', 'fa-plug', 'btn-outline-danger');
+}
+
 function addLogicBlock(type) {
     try {
         const newBlock = { type: type };
         // Apply defaults immediately to fix "Empty JSON" bug
         normalizeLogicData([newBlock]);
+        
+        // Apply Board-Specific Overrides
+        const boardType = currentLogicSensor && currentLogicSensor.board_type ? currentLogicSensor.board_type : 'ESP32-WROOM-32';
+        const boardConfig = getBoardConfig(boardType);
+        
+        if (type === 'read_battery' && boardConfig.capabilities && boardConfig.capabilities.battery) {
+            // Auto-set the battery pin if defined in capabilities
+            if (boardConfig.capabilities.battery.length > 0) {
+                newBlock.pin = boardConfig.capabilities.battery[0];
+            }
+        }
         
         const targetArray = getCurrentLogicArray();
         targetArray.push(newBlock);
@@ -3568,6 +3565,13 @@ function renderLogicCanvas() {
             uniqueAliases.forEach(alias => {
                 datalistHtml += `<option value="${alias}">${alias} (Alias)</option>`;
             });
+            
+            // Add User-Defined Variables
+            const userVars = collectUserVariables(currentLogicData.actions);
+            const uniqueVars = [...new Set(userVars)];
+            uniqueVars.forEach(v => {
+                datalistHtml += `<option value="${v}">${v} (Variable)</option>`;
+            });
         }
         
         datalistHtml += '</datalist>';
@@ -3658,6 +3662,34 @@ function renderLogicCanvas() {
                         </button>
                     </div>
                 `;
+            } else if (block.type === 'variable_op') {
+                 contentHtml += `
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label small mb-0 fw-bold text-primary">Variable Name</label>
+                        <input type="text" class="form-control form-control-sm" 
+                               value="${block.name}" placeholder="e.g. counter"
+                               list="logicVariables"
+                               onchange="updateBlockProperty(${index}, 'name', this.value, 'text', false)">
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <label class="form-label small mb-0">Operation</label>
+                        <select class="form-select form-select-sm" 
+                                onchange="updateBlockProperty(${index}, 'operation', this.value, 'text', false)">
+                            <option value="=" ${block.operation === '=' ? 'selected' : ''}>= (Set)</option>
+                            <option value="+=" ${block.operation === '+=' ? 'selected' : ''}>+= (Add)</option>
+                            <option value="-=" ${block.operation === '-=' ? 'selected' : ''}>-= (Sub)</option>
+                            <option value="*=" ${block.operation === '*=' ? 'selected' : ''}>*= (Mult)</option>
+                            <option value="/=" ${block.operation === '/=' ? 'selected' : ''}>/= (Div)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-5 mb-2">
+                        <label class="form-label small mb-0">Value / Operand</label>
+                        <input type="text" class="form-control form-control-sm" 
+                               value="${block.value}" placeholder="Number or Variable"
+                               list="logicVariables"
+                               onchange="updateBlockProperty(${index}, 'value', this.value, 'text', false)">
+                    </div>
+                 `;
             } else {
                 // Standard rendering for other blocks
                 Object.keys(block).forEach(key => {
@@ -3725,6 +3757,103 @@ function renderLogicCanvas() {
                          return;
                     }
                     
+                    // Special handling for 'pin' to show guided dropdown
+                    if (key === 'pin') {
+                        try {
+                            const boardType = currentLogicSensor && currentLogicSensor.board_type ? currentLogicSensor.board_type : 'ESP32-WROOM-32';
+                            const boardConfig = getBoardConfig(boardType);
+                            let validPins = [];
+                            let capability = '';
+
+                            // Determine required capability based on block type
+                            if (block.type === 'gpio_read') capability = 'digital_input';
+                            else if (block.type === 'gpio_write') capability = 'digital_output';
+                            else if (block.type === 'adc_read') capability = 'analog_input';
+                            else if (block.type === 'pwm_write') capability = 'pwm';
+                            else if (block.type === 'read_temperature' || block.type === 'dht_read' || block.type === 'ds18b20_read') capability = 'digital_output';
+                            else if (block.type === 'read_battery') capability = 'battery';
+                            else capability = 'digital_input'; // Default
+
+                            // Filter pins
+                            if (boardConfig && boardConfig.pins) {
+                                if (boardConfig.capabilities && boardConfig.capabilities[capability]) {
+                                    const validPinNums = boardConfig.capabilities[capability];
+                                    validPins = boardConfig.pins.filter(p => validPinNums.includes(p.pin));
+                                } else {
+                                    // Fallback if no capability map or capability not found
+                                    // If capability is 'battery' and not found, it means board doesn't support it
+                                    if (capability === 'battery') {
+                                        validPins = [];
+                                    } else {
+                                        validPins = boardConfig.pins;
+                                    }
+                                }
+                            } else {
+                                console.warn('No pins defined for board:', boardType);
+                                validPins = [];
+                            }
+
+                            // Special handling for Battery Read: Lock if only one option
+                            let disabledAttr = '';
+                            let extraHelp = '';
+                            if (block.type === 'read_battery' && validPins.length === 1) {
+                                // Force the value to the only valid pin if not set
+                                if (val != validPins[0].pin) {
+                                    console.log(`Auto-correcting pin from ${val} to ${validPins[0].pin}`);
+                                    block.pin = validPins[0].pin;
+                                    // Trigger sync to update JSON editor
+                                    setTimeout(syncVisualToJson, 0);
+                                }
+                                disabledAttr = 'disabled';
+                                extraHelp = '<div class="form-text x-small text-success"><i class="fas fa-lock"></i> Locked to board default</div>';
+                            }
+
+                            let optionsHtml = `<option value="">-- Select Pin --</option>`;
+                            
+                            // Add "Manual Entry" option just in case, but NOT for battery if locked
+                            if (!disabledAttr) {
+                                // Only show if val is defined and not in validPins
+                                if (val !== undefined && val !== '' && !validPins.find(p => p.pin == val)) {
+                                    optionsHtml += `<option value="${val}" selected>${val} (Custom)</option>`;
+                                }
+                            } else {
+                                // If locked, ensure the correct value is selected visually even if 'val' is wrong initially
+                                // (though addLogicBlock should handle it)
+                            }
+
+                            validPins.forEach(p => {
+                                const isSelected = (p.pin == val || (validPins.length === 1 && block.type === 'read_battery')) ? 'selected' : '';
+                                let label = `Pin ${p.pin}`;
+                                if (p.name) label += ` (${p.name})`;
+                                
+                                // Add icons/badges for special pins
+                                if (p.battery) label += ' 🔋 Battery';
+                                if (p.led) label += ' 💡 LED';
+                                
+                                optionsHtml += `<option value="${p.pin}" ${isSelected}>${label}</option>`;
+                            });
+
+                            contentHtml += `
+                                <div class="col-md-4 mb-2">
+                                    <label class="form-label small mb-0 fw-bold text-primary">Pin Selection</label>
+                                    <select class="form-select form-select-sm" 
+                                            ${disabledAttr}
+                                            onchange="updateBlockProperty(${index}, '${key}', this.value, 'number', false)">
+                                        ${optionsHtml}
+                                    </select>
+                                    ${extraHelp}
+                                    <div class="form-text x-small text-muted">
+                                        Board: ${boardConfig ? boardConfig.name : boardType}
+                                    </div>
+                                </div>
+                            `;
+                            return;
+                        } catch (err) {
+                            console.error('Error rendering pin dropdown:', err);
+                            // Fallback to standard input if dropdown fails
+                        }
+                    }
+
                     let inputType = 'text';
                     if (typeof val === 'number') inputType = 'number';
                     if (typeof val === 'boolean') inputType = 'checkbox';

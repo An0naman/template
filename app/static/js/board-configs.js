@@ -80,6 +80,47 @@ const BOARD_CONFIGS = {
         capabilities: {
             // Similar capabilities
         }
+    },
+    
+    'firebeetle2_esp32c6': {
+        name: 'FireBeetle 2 ESP32-C6',
+        image: '/static/images/boards/firebeetle2-esp32c6.png', // Placeholder
+        chipOverlay: {
+            x: 95,
+            y: 115,
+            width: 150,
+            height: 190
+        },
+        pins: [
+            // Left Side
+            { pin: 0, name: 'A0/Bat', x: 10, y: 110, side: 'left', type: 'input', analog: true, battery: true },
+            { pin: 1, name: 'A1', x: 10, y: 130, side: 'left', type: 'io', analog: true },
+            { pin: 2, name: 'A2', x: 10, y: 150, side: 'left', type: 'io', analog: true },
+            { pin: 3, name: 'A3', x: 10, y: 170, side: 'left', type: 'io', analog: true },
+            { pin: 4, name: 'A4/SDA', x: 10, y: 190, side: 'left', type: 'io', analog: true, i2c: true },
+            { pin: 5, name: 'A5/SCL', x: 10, y: 210, side: 'left', type: 'io', analog: true, i2c: true },
+            { pin: 6, name: 'IO6', x: 10, y: 230, side: 'left', type: 'io', analog: true },
+            { pin: 7, name: 'IO7', x: 10, y: 250, side: 'left', type: 'io', analog: true },
+            
+            // Right Side
+            { pin: 15, name: 'IO15/LED', x: 330, y: 110, side: 'right', type: 'io', led: true },
+            { pin: 8, name: 'IO8', x: 330, y: 130, side: 'right', type: 'io' },
+            { pin: 9, name: 'IO9', x: 330, y: 150, side: 'right', type: 'io', boot: true },
+            { pin: 10, name: 'IO10', x: 330, y: 170, side: 'right', type: 'io' },
+            { pin: 11, name: 'IO11', x: 330, y: 190, side: 'right', type: 'io' },
+            { pin: 12, name: 'IO12', x: 330, y: 210, side: 'right', type: 'io' },
+            { pin: 13, name: 'IO13', x: 330, y: 230, side: 'right', type: 'io' },
+            { pin: 14, name: 'IO14', x: 330, y: 250, side: 'right', type: 'io' }
+        ],
+        capabilities: {
+            digital_output: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+            digital_input: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+            analog_input: [0, 1, 2, 3, 4, 5, 6], // LP_ADC pins
+            pwm: [1, 2, 3, 4, 5, 6, 7, 8, 15],
+            i2c: [4, 5],
+            led: [15],
+            battery: [0]
+        }
     }
 };
 
