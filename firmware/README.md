@@ -4,20 +4,14 @@ This directory contains firmware for various IoT devices supported by this proje
 
 ## Available Firmware
 
-### FireBeetle 2 ESP32-C6
-**Path**: [`firebeetle_esp32c6/`](firebeetle_esp32c6/)
+### Framework Connection App (Sensor Firmware)
+**Path**: [`Framework_Connection_App/`](Framework_Connection_App/)
 
-Production-ready firmware for the DFRobot FireBeetle 2 ESP32-C6 board with:
-- ✅ Calibrated battery monitoring (GPIO 0)
-- ✅ Dynamic logic system with JSON configuration
-- ✅ Built-in web interface for configuration
-- ✅ OTA firmware updates
-- ✅ Multi-sensor support (DHT22, analog, digital, I2C)
-- ✅ RESTful API endpoints
+This firmware is maintained in a separate repository and included here as a submodule.
+It provides support for ESP32-based sensor nodes.
 
-**Quick Start**: [firebeetle_esp32c6/QUICKSTART.md](firebeetle_esp32c6/QUICKSTART.md)  
-**Documentation**: [firebeetle_esp32c6/README.md](firebeetle_esp32c6/README.md)  
-**Examples**: [firebeetle_esp32c6/LOGIC_EXAMPLES.md](firebeetle_esp32c6/LOGIC_EXAMPLES.md)
+**Repository**: [https://github.com/An0naman/Framework_Connection_App](https://github.com/An0naman/Framework_Connection_App)
+**Documentation**: [Framework_Connection_App/README.md](Framework_Connection_App/README.md)
 
 ---
 
