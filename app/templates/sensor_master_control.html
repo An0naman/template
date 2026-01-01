@@ -3019,6 +3019,20 @@ const SYSTEM_VARIABLES = [
     'millis', 'wifi_rssi', 'free_heap', 'uptime', 'sensor_id', 'current_time', 'sensor.temp', 'sensor.relay', 'firmware_version'
 ];
 
+// Helper to insert text at cursor position in a textarea/input
+function insertAtCursor(elementId, text) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const val = el.value;
+    
+    el.value = val.substring(0, start) + text + val.substring(end);
+    el.selectionStart = el.selectionEnd = start + text.length;
+    el.focus();
+}
+
 function openLogicBuilder(sensorId) {
     currentLogicSensorId = sensorId;
     const sensor = sensors.find(s => s.sensor_id === sensorId);
@@ -3206,20 +3220,21 @@ function bumpVersion(type) {
 }
 
 function renderCapabilitiesList() {
-    const container = document.getElementById('sensorCapabilitiesList');
+    const container = document.getElementById('logicCapabilitiesList');
+    if (!container) return;
+    
     if (!currentSensorCapabilities || Object.keys(currentSensorCapabilities).length === 0) {
-        container.innerHTML = '<p class="text-muted">No capabilities reported.</p>';
+        container.innerHTML = '<p class="text-muted">No capabilities detected.</p>';
         return;
     }
     
-    let html = '<div class="alert alert-light p-1 mb-2 small">Use these <strong>Aliases</strong> in IF conditions (e.g. <code>temp > 25</code>)</div>';
+    let html = '';
     
     // Pins
     if (currentSensorCapabilities.pins) {
-        html += '<strong>Pins (Alias):</strong><ul class="list-unstyled ps-2">';
-        currentSensorCapabilities.pins.forEach(pin => {
-            const alias = pin.name || `Pin ${pin.pin}`;
-            html += `<li><span class="badge bg-secondary">${pin.pin}</span> <code class="text-primary">${alias}</code> <span class="text-muted small">(${pin.type})</span></li>`;
+        html += '<strong>Hardware Pins:</strong><ul class="list-unstyled ps-2">';
+        currentSensorCapabilities.pins.forEach(p => {
+            html += `<li>Pin ${p.pin}: <code class="text-primary">${p.name || 'GPIO'}</code></li>`;
         });
         html += '</ul>';
     }
@@ -3359,6 +3374,30 @@ function getGlobalPinAliases(actions) {
 
 // Logic Builder Implementation
 
+function validateLogic(actions, path = "") {
+    let errors = [];
+    if (!actions) return errors;
+    
+    actions.forEach((block, idx) => {
+        const blockName = block.type.toUpperCase() + (path ? ` (in ${path})` : ` #${idx + 1}`);
+        
+        if (block.type === 'if') {
+            if (!block.condition || block.condition.left === '' || block.condition.right === '') {
+                errors.push(`${blockName}: Incomplete condition`);
+            }
+            errors = errors.concat(validateLogic(block.then, `${blockName} THEN`));
+            errors = errors.concat(validateLogic(block.else, `${blockName} ELSE`));
+        } else if (block.type === 'variable_op') {
+            if (!block.name) errors.push(`${blockName}: Missing variable name`);
+        } else if (block.type === 'gpio_write' || block.type === 'gpio_read') {
+            if (block.pin === undefined || block.pin === null || block.pin === "") errors.push(`${blockName}: Missing Pin`);
+        } else if (block.type === 'delay') {
+            if (!block.ms || block.ms < 0) errors.push(`${blockName}: Invalid duration`);
+        }
+    });
+    return errors;
+}
+
 // Navigation stack for drilling down into nested blocks (IF/ELSE)
 let logicViewStack = []; // Array of { array: [], name: "Main" }
 
@@ -3414,6 +3453,7 @@ function renderToolbox() {
     
     // Variables & Math
     addBtn('Set Variable / Math', 'variable_op', 'fa-calculator', 'btn-outline-secondary');
+    addBtn('Initialize Variable (Safe)', 'init_variable', 'fa-shield-alt', 'btn-outline-success');
     
     // 2. GPIO Control
     if (caps.digital_output && caps.digital_output.length > 0) {
@@ -3451,9 +3491,26 @@ function renderToolbox() {
 
 function addLogicBlock(type) {
     try {
-        const newBlock = { type: type };
+        let newBlock;
+        
+        if (type === 'init_variable') {
+            // Create the "Safe Initialization" pattern: IF (var == 0) THEN (var = val)
+            newBlock = {
+                type: 'if',
+                condition: { left: 'myVar', operator: '==', right: '0' },
+                then: [
+                    { type: 'variable_op', operation: '=', name: 'myVar', value: '1' }
+                ],
+                else: []
+            };
+        } else {
+            newBlock = { type: type };
+        }
+        
         // Apply defaults immediately to fix "Empty JSON" bug
-        normalizeLogicData([newBlock]);
+        if (type !== 'init_variable') {
+            normalizeLogicData([newBlock]);
+        }
         
         // Apply Board-Specific Overrides
         const boardType = currentLogicSensor && currentLogicSensor.board_type ? currentLogicSensor.board_type : 'ESP32-WROOM-32';
@@ -3744,11 +3801,52 @@ function renderLogicCanvas() {
                             </div>`;
                             placeholderText = 'e.g. "Battery: {battery}V ({battery_pct}%)"';
                         }
+
+                        // Build Variable Dropdown
+                        const userAliases = collectUserAliases(currentLogicData.actions);
+                        const userVars = collectUserVariables(currentLogicData.actions);
+                        const systemVars = SYSTEM_VARIABLES || [];
+                        
+                        let varOptions = '';
+                        
+                        // Aliases
+                        const uniqueAliases = [...new Set(userAliases.map(a => a.name))];
+                        if (uniqueAliases.length > 0) {
+                            varOptions += '<li><h6 class="dropdown-header">Aliases</h6></li>';
+                            uniqueAliases.forEach(a => {
+                                varOptions += `<li><a class="dropdown-item small" href="#" onclick="insertAtCursor('log-message-${index}', '{${a}}'); return false;">{${a}}</a></li>`;
+                            });
+                        }
+                        
+                        // Variables
+                        const uniqueVars = [...new Set(userVars)];
+                        if (uniqueVars.length > 0) {
+                            varOptions += '<li><h6 class="dropdown-header">Variables</h6></li>';
+                            uniqueVars.forEach(v => {
+                                varOptions += `<li><a class="dropdown-item small" href="#" onclick="insertAtCursor('log-message-${index}', '{${v}}'); return false;">{${v}}</a></li>`;
+                            });
+                        }
+                        
+                        // System
+                        varOptions += '<li><h6 class="dropdown-header">System</h6></li>';
+                        systemVars.forEach(v => {
+                            varOptions += `<li><a class="dropdown-item small" href="#" onclick="insertAtCursor('log-message-${index}', '{${v}}'); return false;">{${v}}</a></li>`;
+                        });
                         
                         contentHtml += `
                             <div class="col-12 mb-2">
-                                <label class="form-label small mb-0 fw-bold text-success"><i class="fas fa-comment-alt"></i> ${key}</label>
-                                <textarea class="form-control form-control-sm" rows="2" 
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label small mb-0 fw-bold text-success"><i class="fas fa-comment-alt"></i> ${key}</label>
+                                    <div class="dropdown">
+                                        <button class="btn btn-xs btn-outline-secondary dropdown-toggle py-0" type="button" data-bs-toggle="dropdown">
+                                            Insert Variable
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end" style="max-height: 200px; overflow-y: auto;">
+                                            ${varOptions}
+                                        </ul>
+                                    </div>
+                                </div>
+                                <textarea id="log-message-${index}" class="form-control form-control-sm" rows="2" 
                                           placeholder="${placeholderText}"
                                           onchange="updateBlockProperty(${index}, '${key}', this.value, 'text', false)">${val}</textarea>
                                 ${helpText}
@@ -4040,6 +4138,19 @@ function moveBlock(index, direction) {
 
 async function saveLogicBuilder() {
     try {
+        // Validate Logic
+        const errors = validateLogic(currentLogicData.actions);
+        if (errors.length > 0) {
+            const errorHtml = `
+                <strong>Please fix the following errors:</strong>
+                <ul class="mb-0 ps-3 mt-1">
+                    ${errors.map(e => `<li>${e}</li>`).join('')}
+                </ul>
+            `;
+            showAlert(errorHtml, "danger");
+            return;
+        }
+
         // Update metadata from inputs
         currentLogicData.name = document.getElementById('logicName').value;
         currentLogicData.version = document.getElementById('logicVersion').value;
