@@ -97,10 +97,10 @@ def register_sensor():
         existing = cursor.fetchone()
         timestamp = datetime.now(timezone.utc).isoformat()
         
-        check_in_interval = 60  # Default
+        check_in_interval = 5  # Default
         
         if existing:
-            check_in_interval = existing['check_in_interval'] if existing['check_in_interval'] else 60
+            check_in_interval = existing['check_in_interval'] if existing['check_in_interval'] else 5
             # Update existing registration
             cursor.execute('''
                 UPDATE SensorRegistration
@@ -153,7 +153,7 @@ def register_sensor():
                 timestamp,
                 'online',
                 'auto',
-                60  # Default check_in_interval
+                5  # Default check_in_interval
             ))
             
             logger.info(f"New sensor registered: {sensor_id} (board: {board_type})")
@@ -253,7 +253,7 @@ def get_sensor_config(sensor_id):
                 'config_available': False,
                 'message': 'No configuration defined for this sensor',
                 'fallback_mode': True,
-                'check_in_interval': sensor['check_in_interval'] if sensor['check_in_interval'] else 60
+                'check_in_interval': sensor['check_in_interval'] if sensor['check_in_interval'] else 5
             }), 200
         
         # Parse configuration
