@@ -418,6 +418,45 @@
     .wire-glow {
         stroke-dasharray: 10 5;
     }
+
+    .structure-tree {
+        font-family: 'Arial', sans-serif;
+        font-size: 0.875rem;
+        color: #333;
+        margin-top: 0.5rem;
+    }
+    
+    .structure-tree ul {
+        padding-left: 1.5rem;
+        margin: 0.5rem 0;
+        list-style-type: none;
+    }
+    
+    .structure-tree li {
+        margin: 0.25rem 0;
+        position: relative;
+    }
+    
+    .structure-tree li:before {
+        content: '';
+        position: absolute;
+        left: -0.75rem;
+        top: 0.5rem;
+        width: 0.5rem;
+        height: 100%;
+        border-left: 2px solid #007bff;
+        border-top: 2px solid #007bff;
+        transform: translateY(-50%);
+    }
+    
+    .structure-tree li:last-child:before {
+        height: calc(100% + 0.5rem);
+    }
+    
+    .structure-tree .badge {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.4rem;
+    }
 </style>
 </head>
 <body>
@@ -512,7 +551,7 @@
                 <button class="btn btn-sm btn-info me-2" onclick="showUploadToManyModal()">
                     <i class="fas fa-tasks"></i> Upload to Many
                 </button>
-                <button class="btn btn-sm btn-success" onclick="showUploadScriptModal()">
+                <button class="btn btn-sm btn-success" onclick="openLogicBuilder()">
                     <i class="fas fa-plus"></i> Upload New Script
                 </button>
             </div>
@@ -825,6 +864,14 @@
                             <option value="">-- Select a script to load --</option>
                         </select>
                     </div>
+                    <div class="col-auto border-start ps-3" id="boardTypeSelectorContainer" style="display: none;">
+                        <label class="fw-bold mb-0 me-2"><i class="fas fa-microchip"></i> Target Board:</label>
+                        <select class="form-select form-select-sm d-inline-block w-auto" id="logicBoardTypeSelect" onchange="changeLogicBoardType(this.value)">
+                            <option value="esp32_wroom32">ESP32-WROOM-32</option>
+                            <option value="firebeetle2_esp32c6">FireBeetle 2 ESP32-C6</option>
+                            <option value="generic">Generic / All</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="row mb-3">
@@ -861,13 +908,25 @@
                     <li class="nav-item">
                         <button class="nav-link" id="json-tab" data-bs-toggle="tab" data-bs-target="#json-pane" type="button" onclick="syncVisualToJson()">JSON Editor</button>
                     </li>
+                    <li class="nav-item">
+                        <button class="nav-link" id="structure-tab" data-bs-toggle="tab" data-bs-target="#structure-pane" type="button" onclick="renderLogicStructure()">Structure View</button>
+                    </li>
                 </ul>
                 
                 <div class="tab-content">
                     <!-- Visual Builder Pane -->
                     <div class="tab-pane fade show active" id="visual-pane">
                         <div class="row">
-                            <div class="col-md-3 border-end">
+                            <div class="col-md-3 border-end" style="height: 65vh; overflow-y: auto;">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="mb-0">Hardware Config</h6>
+                                    <button class="btn btn-xs btn-outline-primary" onclick="addHardwareConfig()" title="Add Device"><i class="fas fa-plus"></i></button>
+                                </div>
+                                <div id="hardwareConfigList" class="mb-3">
+                                    <!-- Populated via JS -->
+                                    <div class="text-muted small fst-italic">No devices configured</div>
+                                </div>
+                                <hr>
                                 <h6>Toolbox</h6>
                                 <div class="d-grid gap-2 mb-3" id="logicToolbox">
                                     <!-- Populated via JS -->
@@ -887,7 +946,7 @@
                                 <div class="alert alert-info py-1 px-2 mb-2 small">
                                     <i class="fas fa-info-circle"></i> Drag and drop blocks to reorder, or use the Up/Down buttons.
                                 </div>
-                                <div id="logicCanvas" class="p-3 bg-light border rounded" style="min-height: 400px;">
+                                <div id="logicCanvas" class="p-3 bg-light border rounded" style="height: 65vh; overflow-y: auto;">
                                     <!-- Blocks go here -->
                                 </div>
                             </div>
@@ -899,6 +958,16 @@
                         <textarea id="logicJsonEditor" class="form-control font-monospace" rows="20"></textarea>
                         <div class="mt-2 text-end">
                             <button class="btn btn-sm btn-outline-secondary" onclick="formatJson()">Format JSON</button>
+                        </div>
+                    </div>
+
+                    <!-- Structure View Pane -->
+                    <div class="tab-pane fade" id="structure-pane">
+                        <div class="alert alert-light border mb-3">
+                            <i class="fas fa-sitemap"></i> This view shows the nested structure of your logic flow.
+                        </div>
+                        <div id="logicStructureView" class="p-3 bg-white border rounded font-monospace" style="height: 65vh; overflow-y: auto;">
+                            <!-- Structure tree goes here -->
                         </div>
                     </div>
                 </div>
@@ -1127,6 +1196,46 @@
     </div>
 </div>
 
+<!-- Add Hardware Device Modal -->
+<div class="modal fade" id="addHardwareModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-microchip"></i> Add Hardware Device</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Device Type</label>
+                    <select class="form-select" id="hwDeviceType" onchange="updateHwPinOptions()">
+                        <option value="relay">Relay (Switch)</option>
+                        <option value="temp_sensor">Temperature Sensor (DS18B20)</option>
+                        <option value="dht_sensor">DHT Sensor (Temp & Humidity)</option>
+                        <option value="button">Button / Switch (Input)</option>
+                        <option value="led">LED (Output)</option>
+                        <option value="analog_sensor">Analog Sensor</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Device Name (Alias)</label>
+                    <input type="text" class="form-control" id="hwDeviceName" placeholder="e.g. Living Room Light">
+                    <div class="form-text">This name will be used in your logic blocks.</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Pin</label>
+                    <select class="form-select" id="hwDevicePin">
+                        <!-- Populated via JS -->
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveHardwareConfig()">Add Device</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 let sensors = [];
@@ -1197,12 +1306,19 @@ async function openSensorPlotter(sensorId) {
     // Reset state
     isPlotterPaused = false;
     
-    // Initialize board visualization
-    initializeBoardVisualization();
-    
     // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('sensorPlotterModal'));
+    const modalEl = document.getElementById('sensorPlotterModal');
+    let modal = bootstrap.Modal.getInstance(modalEl);
+    if (!modal) {
+        modal = new bootstrap.Modal(modalEl);
+    }
     modal.show();
+    
+    // Initialize board visualization
+    // Small delay to ensure modal is fully in DOM/visible
+    setTimeout(() => {
+        initializeBoardVisualization();
+    }, 50);
     
     const logsContainer = document.getElementById('plotterLogs');
     const historyBtn = document.getElementById('plotterHistoryBtn');
@@ -1263,6 +1379,12 @@ async function openSensorPlotter(sensorId) {
 function initializeBoardVisualization() {
     const config = getBoardConfig(currentBoardType);
     const boardImage = document.getElementById('boardImage');
+    
+    if (!boardImage) {
+        console.error('Board image element not found!');
+        return;
+    }
+
     const chipLogOverlay = document.getElementById('chipLogOverlay');
     const pinOverlays = document.getElementById('pinOverlays');
     const pinControlsList = document.getElementById('pinControlsList');
@@ -1981,7 +2103,12 @@ function editSensor(sensorId) {
     document.getElementById('editSensorName').value = sensor.sensor_name || '';
     document.getElementById('editCheckInInterval').value = sensor.check_in_interval || 60;
     
-    new bootstrap.Modal(document.getElementById('editDeviceModal')).show();
+    const modalEl = document.getElementById('editDeviceModal');
+    let modal = bootstrap.Modal.getInstance(modalEl);
+    if (!modal) {
+        modal = new bootstrap.Modal(modalEl);
+    }
+    modal.show();
 }
 
 async function saveSensorSettings() {
@@ -2560,7 +2687,13 @@ async function viewSensorDetails(sensorId) {
     `;
     
     document.getElementById('sensorDetailContent').innerHTML = content;
-    new bootstrap.Modal(document.getElementById('sensorDetailModal')).show();
+    
+    const modalEl = document.getElementById('sensorDetailModal');
+    let modal = bootstrap.Modal.getInstance(modalEl);
+    if (!modal) {
+        modal = new bootstrap.Modal(modalEl);
+    }
+    modal.show();
 }
 
 async function deleteSensor(sensorId) {
@@ -2633,7 +2766,11 @@ function showCodeExportModal() {
     generatedCodeData = null;
     
     // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('codeExportModal'));
+    const modalEl = document.getElementById('codeExportModal');
+    let modal = bootstrap.Modal.getInstance(modalEl);
+    if (!modal) {
+        modal = new bootstrap.Modal(modalEl);
+    }
     modal.show();
 }
 
@@ -2836,7 +2973,11 @@ function showUploadScriptModal() {
     document.getElementById('scriptUploadResult').style.display = 'none';
     
     // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('uploadScriptModal'));
+    const modalEl = document.getElementById('uploadScriptModal');
+    let modal = bootstrap.Modal.getInstance(modalEl);
+    if (!modal) {
+        modal = new bootstrap.Modal(modalEl);
+    }
     modal.show();
 }
 
@@ -2929,7 +3070,11 @@ function showAssignScriptModal(scriptId, scriptName) {
         select.appendChild(option);
     });
     
-    const modal = new bootstrap.Modal(document.getElementById('assignScriptModal'));
+    const modalEl = document.getElementById('assignScriptModal');
+    let modal = bootstrap.Modal.getInstance(modalEl);
+    if (!modal) {
+        modal = new bootstrap.Modal(modalEl);
+    }
     modal.show();
 }
 
@@ -3005,7 +3150,12 @@ function viewScript(scriptId) {
     document.getElementById('viewScriptDescription').textContent = script.description || 'No description provided.';
     document.getElementById('viewScriptContent').textContent = script.script_content;
     
-    new bootstrap.Modal(document.getElementById('viewScriptModal')).show();
+    const modalEl = document.getElementById('viewScriptModal');
+    let modal = bootstrap.Modal.getInstance(modalEl);
+    if (!modal) {
+        modal = new bootstrap.Modal(modalEl);
+    }
+    modal.show();
 }
 
 /* Logic Builder Code */
@@ -3033,62 +3183,128 @@ function insertAtCursor(elementId, text) {
     el.value = val.substring(0, start) + text + val.substring(end);
     el.selectionStart = el.selectionEnd = start + text.length;
     el.focus();
-    
-    // Trigger change event so onchange handlers fire
-    el.dispatchEvent(new Event('change', { bubbles: true }));
+    el.dispatchEvent(new Event('change'));
 }
 
-function openLogicBuilder(sensorId) {
+function openLogicBuilder(sensorId = null, scriptId = null) {
     currentLogicSensorId = sensorId;
-    const sensor = sensors.find(s => s.sensor_id === sensorId);
+    currentLogicData = { actions: [] };
+    logicViewStack = [];
     
-    if (!sensor) {
-        showAlert('Sensor not found', 'error');
-        return;
-    }
-    
-    // Store the full sensor object for later reference
-    currentLogicSensor = sensor;
-    
-    document.getElementById('logicBuilderSensorName').textContent = sensor.sensor_name || sensor.sensor_id;
-    
-    // Show Board Type
-    const boardType = sensor.board_type || 'Unknown Board';
-    const boardBadge = document.getElementById('logicBuilderBoardType');
-    if (boardBadge) {
-        boardBadge.textContent = boardType;
-        // Optional: Change color based on board type
-        if (boardType.includes('c6')) {
-            boardBadge.className = 'badge bg-success ms-2';
-        } else {
+    if (sensorId) {
+        const sensor = sensors.find(s => s.id === sensorId);
+        currentLogicSensor = sensor;
+        
+        document.getElementById('logicBuilderSensorName').textContent = sensor ? (sensor.name || 'Sensor ' + sensor.id) : 'Unknown Sensor';
+        
+        const boardBadge = document.getElementById('logicBuilderBoardType');
+        if (boardBadge) {
+            boardBadge.textContent = sensor.board_type || 'Unknown Board';
             boardBadge.className = 'badge bg-info ms-2';
         }
+        
+        document.getElementById('boardSelectorContainer').style.display = 'none';
+        
+        try {
+            currentSensorCapabilities = typeof sensor.capabilities === 'string' 
+                ? JSON.parse(sensor.capabilities) 
+                : (sensor.capabilities || {});
+        } catch (e) {
+            console.error('Error parsing capabilities:', e);
+            currentSensorCapabilities = {};
+        }
+    } else {
+        // Generic / New Script Mode
+        currentLogicSensor = null;
+        document.getElementById('logicBuilderSensorName').textContent = 'New Generic Script';
+        
+        const boardBadge = document.getElementById('logicBuilderBoardType');
+        if (boardBadge) {
+            boardBadge.textContent = 'Generic / All';
+            boardBadge.className = 'badge bg-secondary ms-2';
+        }
+        
+        // Show board selector for generic mode
+        const boardSelector = document.getElementById('boardTypeSelectorContainer');
+        if (boardSelector) {
+            boardSelector.style.display = 'block';
+            // Default to generic
+            document.getElementById('logicBoardTypeSelect').value = 'generic';
+        }
+        
+        currentSensorCapabilities = {};
     }
     
-    // Parse capabilities
-    try {
-        currentSensorCapabilities = typeof sensor.capabilities === 'string' 
-            ? JSON.parse(sensor.capabilities) 
-            : (sensor.capabilities || {});
-    } catch (e) {
-        console.error('Error parsing capabilities:', e);
-        currentSensorCapabilities = {};
+    // Hide board selector if we are editing a specific sensor (locked to that sensor's board)
+    if (sensorId) {
+        const boardSelector = document.getElementById('boardTypeSelectorContainer');
+        if (boardSelector) boardSelector.style.display = 'none';
     }
     
     renderCapabilitiesList();
     
-    // Initialize with BLANK data
-    currentLogicData = { 
-        name: '', 
-        version: '1.0.0', 
-        description: '', 
-        actions: [] 
-    };
+    // Initialize Logic Data
+    let loadedFromSensor = false;
     
-    // Reset UI fields
-    document.getElementById('logicName').value = '';
-    document.getElementById('logicVersion').value = '1.0.0';
-    document.getElementById('logicDescription').value = '';
+    // Try to load current script from sensor if available
+    if (sensorId && currentLogicSensor && currentLogicSensor.assigned_script) {
+        try {
+            const script = currentLogicSensor.assigned_script;
+            let content = script.script_content;
+            let parsed;
+            
+            if (typeof content === 'string') {
+                parsed = JSON.parse(content);
+            } else {
+                parsed = content;
+            }
+            
+            currentLogicData = parsed;
+            
+            // Ensure actions array exists
+            if (!currentLogicData.actions && currentLogicData.commands) {
+                currentLogicData.actions = currentLogicData.commands;
+            }
+            if (!currentLogicData.actions) {
+                currentLogicData.actions = [];
+            }
+            
+            // Normalize data
+            normalizeLogicData(currentLogicData.actions);
+            
+            // Update UI fields
+            document.getElementById('logicName').value = script.name;
+            document.getElementById('logicVersion').value = script.version;
+            document.getElementById('logicDescription').value = ''; 
+            
+            // Auto-increment version (Patch by default)
+            bumpVersion('patch');
+            
+            loadedFromSensor = true;
+            // showAlert(`Loaded current script for ${currentLogicSensor.sensor_name || sensorId}`, 'success');
+            
+        } catch (e) {
+            console.error('Error loading sensor script:', e);
+            // Fallback to blank will happen below
+        }
+    }
+    
+    // If not loaded from sensor, initialize with BLANK data
+    if (!loadedFromSensor) {
+        currentLogicData = { 
+            name: '', 
+            version: '1.0.0', 
+            description: '', 
+            target_sensor_type: currentLogicSensor ? (currentLogicSensor.board_type || 'generic') : 'generic',
+            actions: [] 
+        };
+        
+        // Reset UI fields
+        document.getElementById('logicName').value = '';
+        document.getElementById('logicVersion').value = '1.0.0';
+        document.getElementById('logicDescription').value = '';
+    }
+    
     document.getElementById('logicLibrarySelect').value = '';
     
     // Populate library dropdown
@@ -3102,7 +3318,12 @@ function openLogicBuilder(sensorId) {
     renderLogicCanvas();
     renderVariablesList();
     
-    new bootstrap.Modal(document.getElementById('logicBuilderModal')).show();
+    const modalEl = document.getElementById('logicBuilderModal');
+    let modal = bootstrap.Modal.getInstance(modalEl);
+    if (!modal) {
+        modal = new bootstrap.Modal(modalEl);
+    }
+    modal.show();
 }
 
 function renderVariablesList() {
@@ -3166,6 +3387,38 @@ function renderVariablesList() {
     container.innerHTML = html;
 }
 
+function changeLogicBoardType(boardType) {
+    // Update badge
+    const boardBadge = document.getElementById('logicBuilderBoardType');
+    if (boardBadge) {
+        if (boardType === 'generic') {
+            boardBadge.textContent = 'Generic / All';
+            boardBadge.className = 'badge bg-secondary ms-2';
+        } else {
+            boardBadge.textContent = boardType;
+            if (boardType.includes('c6')) {
+                boardBadge.className = 'badge bg-success ms-2';
+            } else {
+                boardBadge.className = 'badge bg-info ms-2';
+            }
+        }
+    }
+    
+    // Update currentLogicSensor mock object to reflect selected board type
+    if (!currentLogicSensor) {
+        currentLogicSensor = {};
+    }
+    currentLogicSensor.board_type = boardType;
+    
+    // Update the logic data itself so it's saved with the script
+    if (currentLogicData) {
+        currentLogicData.target_sensor_type = boardType;
+    }
+    
+    // Re-render toolbox to show/hide capabilities based on board
+    renderToolbox();
+}
+
 function populateLibraryDropdown() {
     const select = document.getElementById('logicLibrarySelect');
     // Keep first option
@@ -3216,6 +3469,31 @@ function loadLogicFromLibrary(scriptId) {
         document.getElementById('logicName').value = script.name;
         document.getElementById('logicVersion').value = script.script_version;
         document.getElementById('logicDescription').value = script.description || '';
+        
+        // Set board type based on script target if in generic mode
+        // Priority: 1. target_sensor_type in JSON content, 2. target_sensor_type in DB record
+        const targetType = currentLogicData.target_sensor_type || script.target_sensor_type;
+        
+        if (targetType) {
+            const boardSelector = document.getElementById('boardTypeSelectorContainer');
+            // Only auto-select if the selector is visible (Generic Mode)
+            if (boardSelector && boardSelector.style.display !== 'none') {
+                let targetBoard = 'generic';
+                const target = targetType.toLowerCase();
+                
+                if (target.includes('c6') || target.includes('firebeetle')) {
+                    targetBoard = 'firebeetle2_esp32c6';
+                } else if (target.includes('wroom') || target.includes('esp32')) {
+                    targetBoard = 'esp32_wroom32';
+                }
+                
+                const select = document.getElementById('logicBoardTypeSelect');
+                if (select) {
+                    select.value = targetBoard;
+                    changeLogicBoardType(targetBoard);
+                }
+            }
+        }
         
         // Auto-increment version (Patch by default)
         bumpVersion('patch');
@@ -3475,6 +3753,34 @@ function resetLogicView() {
     renderLogicCanvas();
 }
 
+function getConfiguredPeripherals(actions) {
+    let peripherals = { relay: [], temp_sensor: [], led: [], button: [] };
+    if (!actions) return peripherals;
+    
+    actions.forEach(block => {
+        if (block.type === 'configure_pin' && block.device_type) {
+            if (!peripherals[block.device_type]) peripherals[block.device_type] = [];
+            peripherals[block.device_type].push(block);
+        }
+        // Recurse
+        if (block.then) {
+            const sub = getConfiguredPeripherals(block.then);
+            Object.keys(sub).forEach(k => {
+                if (!peripherals[k]) peripherals[k] = [];
+                peripherals[k] = peripherals[k].concat(sub[k]);
+            });
+        }
+        if (block.else) {
+            const sub = getConfiguredPeripherals(block.else);
+            Object.keys(sub).forEach(k => {
+                if (!peripherals[k]) peripherals[k] = [];
+                peripherals[k] = peripherals[k].concat(sub[k]);
+            });
+        }
+    });
+    return peripherals;
+}
+
 function renderToolbox() {
     const container = document.getElementById('logicToolbox');
     if (!container) return;
@@ -3485,14 +3791,26 @@ function renderToolbox() {
     const boardConfig = getBoardConfig(boardType);
     const caps = boardConfig.capabilities || {};
     
+    // Get currently configured peripherals
+    const configured = getConfiguredPeripherals(currentLogicData ? currentLogicData.actions : null);
+    
     // Helper to add button
-    const addBtn = (label, type, icon, colorClass = 'btn-outline-secondary') => {
+    const addBtn = (label, type, icon, colorClass = 'btn-outline-secondary', disabled = false, title = '') => {
         const btn = document.createElement('button');
         btn.className = `btn ${colorClass} text-start`;
         btn.innerHTML = `<i class="fas ${icon} me-2"></i> ${label}`;
-        btn.onclick = () => addLogicBlock(type);
+        if (disabled) {
+            btn.disabled = true;
+            btn.title = title || "Configure a pin for this device first";
+            btn.style.opacity = '0.6';
+        } else {
+            btn.onclick = () => addLogicBlock(type);
+        }
         container.appendChild(btn);
     };
+    
+    // 0. Setup / Configuration
+    addBtn('Configure Pin / Device', 'configure_pin', 'fa-cogs', 'btn-outline-dark');
     
     // 1. Logic / Flow Control (Always available)
     addBtn('IF Condition', 'if', 'fa-code-branch', 'btn-outline-warning');
@@ -3521,9 +3839,14 @@ function renderToolbox() {
     }
     
     // 4. Sensors & Special
-    // Temperature (DS18B20) - Assuming support if digital pins exist
-    if (caps.digital_input && caps.digital_input.length > 0) {
+    // Temperature (DS18B20) - Requires 'temp_sensor' configuration
+    if (configured.temp_sensor && configured.temp_sensor.length > 0) {
         addBtn('Read Temperature', 'read_temperature', 'fa-thermometer-half', 'btn-outline-success');
+    }
+    
+    // Relay - Requires 'relay' configuration
+    if (configured.relay && configured.relay.length > 0) {
+        addBtn('Control Relay', 'set_relay', 'fa-plug', 'btn-outline-danger');
     }
     
     // Battery - Only if board has battery capability
@@ -3533,9 +3856,6 @@ function renderToolbox() {
         // Fallback: FireBeetles usually have battery monitoring even if not explicitly in caps
         addBtn('Read Battery', 'read_battery', 'fa-battery-half', 'btn-outline-success');
     }
-    
-    // Relay
-    addBtn('Control Relay', 'set_relay', 'fa-plug', 'btn-outline-danger');
 }
 
 function addLogicBlock(type) {
@@ -3577,6 +3897,14 @@ function addLogicBlock(type) {
         
         renderLogicCanvas();
         syncVisualToJson();
+        
+        // Auto-scroll to bottom to show new block
+        setTimeout(() => {
+            const canvas = document.getElementById('logicCanvas');
+            if (canvas) {
+                canvas.scrollTop = canvas.scrollHeight;
+            }
+        }, 50);
     } catch (e) {
         console.error("Error adding block:", e);
         showAlert("Failed to add block: " + e.message, "danger");
@@ -3631,6 +3959,112 @@ function formatJson() {
     }
 }
 
+function renderLogicStructure() {
+    const container = document.getElementById('logicStructureView');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (!currentLogicData.actions || currentLogicData.actions.length === 0) {
+        container.innerHTML = '<div class="text-muted text-center p-4">No logic blocks defined.</div>';
+        return;
+    }
+    
+    const treeRoot = document.createElement('div');
+    treeRoot.className = 'logic-tree';
+    
+    currentLogicData.actions.forEach(action => {
+        treeRoot.appendChild(renderStructureNode(action));
+    });
+    
+    container.appendChild(treeRoot);
+}
+
+function renderStructureNode(action) {
+    const node = document.createElement('div');
+    node.className = 'logic-tree-node mb-1';
+    node.style.borderLeft = '2px solid #dee2e6';
+    node.style.paddingLeft = '10px';
+    
+    // Header
+    const header = document.createElement('div');
+    header.className = 'd-flex align-items-center';
+    
+    // Icon & Title
+    let icon = 'fa-cube';
+    let color = 'text-secondary';
+    let details = '';
+    
+    switch(action.type) {
+        case 'if':
+            icon = 'fa-code-branch';
+            color = 'text-warning';
+            const cond = action.condition || {};
+            details = `<span class="badge bg-light text-dark border ms-2">IF ${cond.left || '?'} ${cond.operator || '=='} ${cond.right || '?'}</span>`;
+            break;
+        case 'loop':
+            icon = 'fa-sync';
+            color = 'text-info';
+            details = `<span class="badge bg-light text-dark border ms-2">Repeat ${action.count || 1} times</span>`;
+            break;
+        case 'while':
+            icon = 'fa-redo';
+            color = 'text-info';
+            const wCond = action.condition || {};
+            details = `<span class="badge bg-light text-dark border ms-2">WHILE ${wCond.left || '?'} ${wCond.operator || '=='} ${wCond.right || '?'}</span>`;
+            break;
+        case 'wait':
+            icon = 'fa-clock';
+            color = 'text-secondary';
+            details = `<span class="text-muted ms-2">${action.value || 0} ms</span>`;
+            break;
+        case 'gpio_write':
+            icon = 'fa-bolt';
+            color = 'text-success';
+            details = `<span class="text-muted ms-2">Pin ${action.pin} &rarr; ${action.value}</span>`;
+            break;
+        case 'variable_op':
+            icon = 'fa-calculator';
+            color = 'text-primary';
+            details = `<span class="text-muted ms-2">${action.name} ${action.operation} ${action.value}</span>`;
+            break;
+        default:
+            details = `<span class="text-muted ms-2 small">${action.type}</span>`;
+    }
+    
+    header.innerHTML = `<i class="fas ${icon} ${color} me-2"></i><strong>${action.type.toUpperCase()}</strong>${details}`;
+    node.appendChild(header);
+    
+    // Children (Recursive)
+    if (action.type === 'if') {
+        // THEN Branch
+        if (action.then && action.then.length > 0) {
+            const thenContainer = document.createElement('div');
+            thenContainer.className = 'ms-3 mt-1';
+            thenContainer.innerHTML = '<div class="small text-success fw-bold"><i class="fas fa-check me-1"></i>THEN</div>';
+            action.then.forEach(child => thenContainer.appendChild(renderStructureNode(child)));
+            node.appendChild(thenContainer);
+        }
+        
+        // ELSE Branch
+        if (action.else && action.else.length > 0) {
+            const elseContainer = document.createElement('div');
+            elseContainer.className = 'ms-3 mt-1';
+            elseContainer.innerHTML = '<div class="small text-danger fw-bold"><i class="fas fa-times me-1"></i>ELSE</div>';
+            action.else.forEach(child => elseContainer.appendChild(renderStructureNode(child)));
+            node.appendChild(elseContainer);
+        }
+    } else if ((action.type === 'loop' || action.type === 'while') && action.do && action.do.length > 0) {
+        const doContainer = document.createElement('div');
+        doContainer.className = 'ms-3 mt-1';
+        doContainer.innerHTML = '<div class="small text-info fw-bold"><i class="fas fa-level-down-alt me-1"></i>DO</div>';
+        action.do.forEach(child => doContainer.appendChild(renderStructureNode(child)));
+        node.appendChild(doContainer);
+    }
+    
+    return node;
+}
+
 function renderLogicCanvas() {
     try {
         const container = document.getElementById('logicCanvas');
@@ -3640,6 +4074,7 @@ function renderLogicCanvas() {
         
         // Add Datalist for Variables
         let datalistHtml = '<datalist id="logicVariables">';
+        let uniqueVars = []; // Define uniqueVars in function scope
         
         // 1. Add System Variables
         if (SYSTEM_VARIABLES) {
@@ -3674,7 +4109,7 @@ function renderLogicCanvas() {
             
             // Add User-Defined Variables
             const userVars = collectUserVariables(currentLogicData.actions);
-            const uniqueVars = [...new Set(userVars)];
+            uniqueVars = [...new Set(userVars)];
             uniqueVars.forEach(v => {
                 datalistHtml += `<option value="${v}">${v} (Variable)</option>`;
             });
@@ -3796,6 +4231,35 @@ function renderLogicCanvas() {
                                onchange="updateBlockProperty(${index}, 'value', this.value, 'text', false)">
                     </div>
                  `;
+            } else if (block.type === 'configure_pin') {
+                 contentHtml += `
+                    <div class="col-md-3 mb-2">
+                        <label class="form-label small mb-0 fw-bold">Pin</label>
+                        <input type="number" class="form-control form-control-sm" 
+                               value="${block.pin || ''}" placeholder="Pin #"
+                               onchange="updateBlockProperty(${index}, 'pin', this.value, 'number', false)">
+                    </div>
+                    <div class="col-md-5 mb-2">
+                        <label class="form-label small mb-0">Alias / Name</label>
+                        <input type="text" class="form-control form-control-sm" 
+                               value="${block.alias || ''}" placeholder="e.g. Heater"
+                               onchange="updateBlockProperty(${index}, 'alias', this.value, 'text', false)">
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label small mb-0">Device Type</label>
+                        <select class="form-select form-select-sm" 
+                                onchange="updateBlockProperty(${index}, 'device_type', this.value, 'text', false)">
+                            <option value="">-- Select --</option>
+                            <option value="relay" ${block.device_type === 'relay' ? 'selected' : ''}>Relay</option>
+                            <option value="temp_sensor" ${block.device_type === 'temp_sensor' ? 'selected' : ''}>Temp Sensor</option>
+                            <option value="led" ${block.device_type === 'led' ? 'selected' : ''}>LED</option>
+                            <option value="button" ${block.device_type === 'button' ? 'selected' : ''}>Button</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-text x-small text-muted"><i class="fas fa-info-circle"></i> Configures this pin for use with specific tools.</div>
+                    </div>
+                 `;
             } else {
                 // Standard rendering for other blocks
                 Object.keys(block).forEach(key => {
@@ -3804,6 +4268,33 @@ function renderLogicCanvas() {
                     if (key === 'condition') return; // Handled above if type is 'if'
                     
                     const val = block[key];
+                    
+                    // Special handling for 'alias' to include Device Type
+                    if (key === 'alias') {
+                        contentHtml += `
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label small mb-0">Alias / Name</label>
+                                <input type="text" class="form-control form-control-sm" 
+                                       value="${val || ''}" placeholder="e.g. Heater"
+                                       onchange="updateBlockProperty(${index}, 'alias', this.value, 'text', false)">
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label small mb-0">Device Type</label>
+                                <select class="form-select form-select-sm" 
+                                        onchange="updateBlockProperty(${index}, 'device_type', this.value, 'text', false)">
+                                    <option value="">-- None --</option>
+                                    <option value="relay" ${block.device_type === 'relay' ? 'selected' : ''}>Relay</option>
+                                    <option value="temp_sensor" ${block.device_type === 'temp_sensor' ? 'selected' : ''}>Temp Sensor</option>
+                                    <option value="led" ${block.device_type === 'led' ? 'selected' : ''}>LED</option>
+                                    <option value="button" ${block.device_type === 'button' ? 'selected' : ''}>Button</option>
+                                </select>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    // Special handling for 'device_type' - handled with alias, so skip here
+                    if (key === 'device_type') return;
                     
                     // Special handling for 'unit' in hibernate block
                     if (key === 'unit' && block.type === 'hibernate') {
@@ -3841,45 +4332,8 @@ function renderLogicCanvas() {
                         // Get board-specific variable suggestions
                         const boardType = currentLogicSensor && currentLogicSensor.board_type ? currentLogicSensor.board_type : 'unknown';
                         let placeholderText = 'Log message (use {variable} syntax)';
-                        let helpText = '<div class="form-text x-small text-muted">💡 Examples: <code>{Temp}</code>, <code>{battery}</code>, <code>{myAlias}</code></div>';
+                        let varOptions = ''; // Initialize varOptions
                         
-                        if (boardType === 'firebeetle2_esp32c6') {
-                            helpText = `<div class="form-text x-small text-info">
-                                <i class="fas fa-lightbulb"></i> <strong>Firebeetle 2 ESP32-C6</strong> - Try: 
-                                <code>{battery}V</code>, <code>{battery_pct}%</code>, <code>{Temp}°C</code>, or any alias you defined
-                            </div>`;
-                            placeholderText = 'e.g. "Battery: {battery}V ({battery_pct}%)"';
-                        }
-
-                        // Build Variable Dropdown
-                        const userAliases = collectUserAliases(currentLogicData.actions);
-                        const userVars = collectUserVariables(currentLogicData.actions);
-                        const systemVars = SYSTEM_VARIABLES || [];
-                        
-                        let varOptions = '';
-
-                        // Sensor Capabilities (Hardware Sensors)
-                        if (currentSensorCapabilities && currentSensorCapabilities.sensors) {
-                            const sensorNames = currentSensorCapabilities.sensors.map(s => s.name).filter(n => n);
-                            if (sensorNames.length > 0) {
-                                varOptions += '<li><h6 class="dropdown-header">Sensors</h6></li>';
-                                sensorNames.forEach(n => {
-                                    varOptions += `<li><a class="dropdown-item small" href="#" onclick="insertAtCursor('log-message-${index}', '{${n}}'); return false;">{${n}}</a></li>`;
-                                });
-                            }
-                        }
-                        
-                        // Aliases
-                        const uniqueAliases = [...new Set(userAliases.map(a => a.name))];
-                        if (uniqueAliases.length > 0) {
-                            varOptions += '<li><h6 class="dropdown-header">Aliases</h6></li>';
-                            uniqueAliases.forEach(a => {
-                                varOptions += `<li><a class="dropdown-item small" href="#" onclick="insertAtCursor('log-message-${index}', '{${a}}'); return false;">{${a}}</a></li>`;
-                            });
-                        }
-                        
-                        // Variables
-                        const uniqueVars = [...new Set(userVars)];
                         if (uniqueVars.length > 0) {
                             varOptions += '<li><h6 class="dropdown-header">Variables</h6></li>';
                             uniqueVars.forEach(v => {
@@ -3889,9 +4343,12 @@ function renderLogicCanvas() {
                         
                         // System
                         varOptions += '<li><h6 class="dropdown-header">System</h6></li>';
+                        const systemVars = SYSTEM_VARIABLES || []; // Ensure systemVars is defined
                         systemVars.forEach(v => {
                             varOptions += `<li><a class="dropdown-item small" href="#" onclick="insertAtCursor('log-message-${index}', '{${v}}'); return false;">{${v}}</a></li>`;
                         });
+                        
+                        const helpText = '<div class="form-text x-small">Use {variable} to insert values.</div>';
                         
                         contentHtml += `
                             <div class="col-12 mb-2">
@@ -3922,6 +4379,16 @@ function renderLogicCanvas() {
                             const boardConfig = getBoardConfig(boardType);
                             let validPins = [];
                             let capability = '';
+                            
+                            // Check for configured peripherals first
+                            const configured = getConfiguredPeripherals(currentLogicData.actions);
+                            let forcedPins = null;
+                            
+                            if (block.type === 'set_relay' && configured.relay) {
+                                forcedPins = configured.relay.map(b => ({ pin: parseInt(b.pin), name: b.alias || `Pin ${b.pin}` }));
+                            } else if (block.type === 'read_temperature' && configured.temp_sensor) {
+                                forcedPins = configured.temp_sensor.map(b => ({ pin: parseInt(b.pin), name: b.alias || `Pin ${b.pin}` }));
+                            }
 
                             // Determine required capability based on block type
                             if (block.type === 'gpio_read') capability = 'digital_input';
@@ -3933,7 +4400,9 @@ function renderLogicCanvas() {
                             else capability = 'digital_input'; // Default
 
                             // Filter pins
-                            if (boardConfig && boardConfig.pins) {
+                            if (forcedPins) {
+                                validPins = forcedPins;
+                            } else if (boardConfig && boardConfig.pins) {
                                 if (boardConfig.capabilities && boardConfig.capabilities[capability]) {
                                     const validPinNums = boardConfig.capabilities[capability];
                                     validPins = boardConfig.pins.filter(p => validPinNums.includes(p.pin));
@@ -4154,13 +4623,18 @@ function updateBlockProperty(index, key, value, type, checked) {
             currentArray[index][key] = value;
             syncVisualToJson();
             
-            // Re-render if pin or alias changes, to update locks/references
-            if (key === 'pin' || key === 'alias') {
+            // Re-render if pin, alias, or device_type changes
+            if (key === 'pin' || key === 'alias' || key === 'device_type') {
                 // Small delay to allow UI to settle if needed, but immediate is usually better for sync
                 // However, re-rendering kills focus. 
                 // If key is 'alias', we are typing in the alias field. Re-rendering on every char is bad.
                 // But onchange only fires on blur/enter. So focus is already lost/moving.
                 renderLogicCanvas();
+                
+                // Also re-render toolbox if device_type changes, to show/hide dependent tools
+                if (key === 'device_type') {
+                    renderToolbox();
+                }
             }
         }
     } catch (e) {
@@ -4230,7 +4704,12 @@ async function saveLogicBuilder() {
         const logicModal = bootstrap.Modal.getInstance(document.getElementById('logicBuilderModal'));
         if (logicModal) logicModal.hide();
         
-        new bootstrap.Modal(document.getElementById('uploadScriptModal')).show();
+        const modalEl = document.getElementById('uploadScriptModal');
+        let modal = bootstrap.Modal.getInstance(modalEl);
+        if (!modal) {
+            modal = new bootstrap.Modal(modalEl);
+        }
+        modal.show();
     } catch (e) {
         console.error("Error saving logic:", e);
         showAlert("Failed to prepare save: " + e.message, "danger");
@@ -4265,7 +4744,11 @@ function showUploadToManyModal() {
     document.getElementById('bulkUploadResult').style.display = 'none';
     document.getElementById('bulkUploadProgress').style.display = 'none';
     
-    const modal = new bootstrap.Modal(document.getElementById('uploadToManyModal'));
+    const modalEl = document.getElementById('uploadToManyModal');
+    let modal = bootstrap.Modal.getInstance(modalEl);
+    if (!modal) {
+        modal = new bootstrap.Modal(modalEl);
+    }
     modal.show();
 }
 
@@ -4466,7 +4949,13 @@ function showAddDeviceModal() {
             <small>Click Scan to find devices on your network.</small>
         </div>
     `;
-    new bootstrap.Modal(document.getElementById('addDeviceModal')).show();
+    
+    const modalEl = document.getElementById('addDeviceModal');
+    let modal = bootstrap.Modal.getInstance(modalEl);
+    if (!modal) {
+        modal = new bootstrap.Modal(modalEl);
+    }
+    modal.show();
 }
 
 async function registerDevice() {

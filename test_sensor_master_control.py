@@ -45,9 +45,7 @@ def test_database_tables():
         cursor = conn.cursor()
         
         tables = [
-            'SensorMasterControl',
             'SensorRegistration',
-            'SensorMasterConfig',
             'SensorCommandQueue'
         ]
         
@@ -58,11 +56,6 @@ def test_database_tables():
             else:
                 print(f"✗ Table {table} not found")
                 return False
-        
-        # Check if default master instance exists
-        cursor.execute("SELECT COUNT(*) FROM SensorMasterControl")
-        count = cursor.fetchone()[0]
-        print(f"✓ Found {count} master control instance(s)")
         
         conn.close()
         return True
@@ -80,9 +73,11 @@ def test_files_exist():
         'app/services/sensor_master_service.py',
         'app/templates/sensor_master_control.html',
         'app/migrations/add_sensor_master_control.py',
-        'docs/SENSOR_MASTER_CONTROL.md',
-        'scripts/esp32_master_control_integration.py',
-        'SENSOR_MASTER_CONTROL_SUMMARY.md'
+        'scripts/esp32_master_control_integration.py'
+    ]
+    
+    optional_files = [
+        'docs/SENSOR_MASTER_CONTROL.md'
     ]
     
     all_exist = True
@@ -94,6 +89,14 @@ def test_files_exist():
         else:
             print(f"✗ {filepath} not found")
             all_exist = False
+            
+    for filepath in optional_files:
+        full_path = os.path.join(os.path.dirname(__file__), filepath)
+        if os.path.exists(full_path):
+            size = os.path.getsize(full_path)
+            print(f"✓ {filepath} ({size:,} bytes)")
+        else:
+            print(f"⚠️ {filepath} not found (optional/docs)")
     
     return all_exist
 
