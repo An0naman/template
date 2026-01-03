@@ -934,6 +934,22 @@ void executeActions(JsonArray actions) {{
       // Implement your relay control here
       Serial.println("  ✓ Relay: " + String(state ? "ON" : "OFF"));
       
+    }} else if (type == "set_pump") {{
+      // Set Pump: Control pump state
+      int pin = action["pin"] | 2;
+      bool state = action["state"] | false;
+      pinMode(pin, OUTPUT);
+      digitalWrite(pin, state ? HIGH : LOW);
+      Serial.println("  ✓ Pump (Pin " + String(pin) + "): " + String(state ? "ON" : "OFF"));
+      
+    }} else if (type == "set_solenoid") {{
+      // Set Solenoid: Control solenoid state
+      int pin = action["pin"] | 2;
+      bool state = action["state"] | false;
+      pinMode(pin, OUTPUT);
+      digitalWrite(pin, state ? HIGH : LOW);
+      Serial.println("  ✓ Solenoid (Pin " + String(pin) + "): " + String(state ? "ON" : "OFF"));
+      
     }} else if (type == "delay") {{
       // Delay: Wait for specified milliseconds
       int ms = action["ms"] | 1000;

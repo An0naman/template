@@ -738,6 +738,56 @@ def delete_sensor(sensor_id):
         return jsonify({'error': 'Failed to delete sensor'}), 500
 
 
+def transform_actions_recursive(actions):
+    """Recursively transform high-level actions to low-level firmware commands"""
+    if not actions:
+        return
+        
+    for action in actions:
+        # Transform current action
+        if action.get('type') in ['set_pump', 'set_solenoid']:
+            action['type'] = 'gpio_write'
+            action['value'] = 'HIGH' if action.get('state') else 'LOW'
+            # Remove 'state' to avoid confusion, though firmware would ignore it
+            if 'state' in action:
+                del action['state']
+                
+        # Recurse into nested blocks
+        if 'then' in action:
+            transform_actions_recursive(action['then'])
+        if 'else' in action:
+            transform_actions_recursive(action['else'])
+        if 'do' in action:
+            transform_actions_recursive(action['do'])
+
+def transform_script_for_firmware(script_content):
+    """Transform script content to be compatible with existing firmware"""
+    try:
+        if not script_content:
+            return script_content
+            
+        # Parse JSON if it's a string
+        if isinstance(script_content, str):
+            data = json.loads(script_content)
+        else:
+            data = script_content
+            
+        # Handle both 'actions' and 'commands' (legacy)
+        if isinstance(data, dict):
+            if 'actions' in data:
+                transform_actions_recursive(data['actions'])
+            elif 'commands' in data:
+                transform_actions_recursive(data['commands'])
+        elif isinstance(data, list):
+            transform_actions_recursive(data)
+            
+        # Return as string
+        return json.dumps(data)
+    except Exception as e:
+        logger.error(f"Error transforming script: {e}")
+        return script_content
+
+
 @sensor_master_api_bp.route('/sensor-master/sensors/<sensor_id>/script', methods=['GET'])
 def get_sensor_assigned_script(sensor_id):
     """Get the assigned script for a sensor from the database"""
@@ -760,9 +810,12 @@ def get_sensor_assigned_script(sensor_id):
             return jsonify({'error': 'Sensor not found'}), 404
         
         if sensor['script_content']:
+            # Transform script for firmware compatibility (e.g. set_pump -> gpio_write)
+            transformed_script = transform_script_for_firmware(sensor['script_content'])
+            
             return jsonify({
                 'sensor_id': sensor_id,
-                'script': sensor['script_content'],
+                'script': transformed_script,
                 'name': sensor['name'],
                 'version': sensor['script_version']
             }), 200
@@ -927,14 +980,24 @@ def control_sensor_pin():
             'value': value
         }
         
+        # Transform high-level device commands to low-level GPIO commands
+        # This avoids needing to update firmware to support new device types
+        real_action_type = action_type
+        real_value = value
+        
+        if action_type in ['set_pump', 'set_solenoid']:
+            real_action_type = 'gpio_write'
+            # value is boolean (true/false) for these types
+            real_value = 'HIGH' if value else 'LOW'
+        
         # Create a single-action script for immediate execution
         pin_command_script = {
             'type': 'json',
             'actions': [{
-                'type': action_type,
+                'type': real_action_type,
                 'pin': pin,
-                'value': value if action_type in ['gpio_write', 'pwm_write', 'analog_write'] else None,
-                'state': value if action_type == 'set_relay' else None
+                'value': real_value if real_action_type in ['gpio_write', 'pwm_write', 'analog_write'] else None,
+                'state': real_value if real_action_type == 'set_relay' else None
             }]
         }
         

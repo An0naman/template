@@ -3587,6 +3587,30 @@ function normalizeLogicData(actions) {
     if (!actions) return;
     
     actions.forEach(block => {
+        // Auto-convert generic gpio_write to specific types if device_type is set (Import/Load Logic)
+        if (block.type === 'gpio_write' && block.device_type) {
+            if (block.device_type === 'relay') block.type = 'set_relay';
+            else if (block.device_type === 'pump') block.type = 'set_pump';
+            else if (block.device_type === 'solenoid') block.type = 'set_solenoid';
+            else if (block.device_type === 'led') block.type = 'set_led';
+            else if (block.device_type === 'fan') block.type = 'set_fan';
+            
+            // Convert value to state if needed
+            if (block.type !== 'gpio_write') {
+                if (block.state === undefined) {
+                    // Handle various truthy values for HIGH
+                    block.state = (block.value === 'HIGH' || block.value === 1 || block.value === true || block.value === 'true');
+                }
+                // We remove 'value' to keep the internal object clean for the specific block type
+                delete block.value;
+            }
+        }
+
+        // Auto-convert generic analog_read/adc_read to specific types
+        if ((block.type === 'analog_read' || block.type === 'adc_read') && block.device_type) {
+             if (block.device_type === 'soil_moisture') block.type = 'read_soil_moisture';
+        }
+
         // Apply defaults based on type
         if (block.type === 'gpio_read') {
             if (block.pin === undefined) block.pin = 2;
@@ -3622,6 +3646,30 @@ function normalizeLogicData(actions) {
             if (block.state === undefined) block.state = true;
             if (block.alias === undefined) block.alias = '';
             block.device_type = 'relay';
+        } else if (block.type === 'set_pump') {
+            if (block.pin === undefined) block.pin = '';
+            if (block.state === undefined) block.state = true;
+            if (block.alias === undefined) block.alias = '';
+            block.device_type = 'pump';
+        } else if (block.type === 'set_solenoid') {
+            if (block.pin === undefined) block.pin = '';
+            if (block.state === undefined) block.state = true;
+            if (block.alias === undefined) block.alias = '';
+            block.device_type = 'solenoid';
+        } else if (block.type === 'set_led') {
+            if (block.pin === undefined) block.pin = '';
+            if (block.state === undefined) block.state = true;
+            if (block.alias === undefined) block.alias = '';
+            block.device_type = 'led';
+        } else if (block.type === 'set_fan') {
+            if (block.pin === undefined) block.pin = '';
+            if (block.state === undefined) block.state = true;
+            if (block.alias === undefined) block.alias = '';
+            block.device_type = 'fan';
+        } else if (block.type === 'read_soil_moisture') {
+            if (block.pin === undefined) block.pin = '';
+            if (block.alias === undefined) block.alias = '';
+            block.device_type = 'soil_moisture';
         } else if (block.type === 'delay') {
             if (block.ms === undefined) block.ms = 1000;
         } else if (block.type === 'hibernate') {
@@ -3724,7 +3772,7 @@ function validateLogic(actions, path = "") {
             errors = errors.concat(validateLogic(block.else, `${blockName} ELSE`));
         } else if (block.type === 'variable_op') {
             if (!block.name) errors.push(`${blockName}: Missing variable name`);
-        } else if (block.type === 'gpio_write' || block.type === 'gpio_read') {
+        } else if (block.type === 'gpio_write' || block.type === 'gpio_read' || block.type === 'set_pump' || block.type === 'set_solenoid' || block.type === 'set_led' || block.type === 'set_fan' || block.type === 'read_soil_moisture') {
             if (block.pin === undefined || block.pin === null || block.pin === "") errors.push(`${blockName}: Missing Pin`);
         } else if (block.type === 'delay') {
             if (!block.ms || block.ms < 0) errors.push(`${blockName}: Invalid duration`);
@@ -3762,7 +3810,7 @@ function resetLogicView() {
 }
 
 function getConfiguredPeripherals(actions) {
-    let peripherals = { relay: [], temp_sensor: [], led: [], button: [] };
+    let peripherals = { relay: [], temp_sensor: [], led: [], button: [], pump: [], solenoid: [], soil_moisture: [], fan: [] };
     if (!actions) return peripherals;
     
     actions.forEach(block => {
@@ -3771,6 +3819,11 @@ function getConfiguredPeripherals(actions) {
         if (!dType) {
             if (block.type === 'read_temperature') dType = 'temp_sensor';
             else if (block.type === 'set_relay') dType = 'relay';
+            else if (block.type === 'set_pump') dType = 'pump';
+            else if (block.type === 'set_solenoid') dType = 'solenoid';
+            else if (block.type === 'set_led') dType = 'led';
+            else if (block.type === 'set_fan') dType = 'fan';
+            else if (block.type === 'read_soil_moisture') dType = 'soil_moisture';
         }
 
         if (dType) {
@@ -3858,10 +3911,35 @@ function renderToolbox() {
     if (configured.temp_sensor && configured.temp_sensor.length > 0) {
         addBtn('Read Temperature', 'read_temperature', 'fa-thermometer-half', 'btn-outline-success');
     }
+
+    // Soil Moisture - Requires 'soil_moisture' configuration
+    if (configured.soil_moisture && configured.soil_moisture.length > 0) {
+        addBtn('Read Soil Moisture', 'read_soil_moisture', 'fa-seedling', 'btn-outline-success');
+    }
     
     // Relay - Requires 'relay' configuration
     if (configured.relay && configured.relay.length > 0) {
         addBtn('Control Relay', 'set_relay', 'fa-plug', 'btn-outline-danger');
+    }
+
+    // Pump - Requires 'pump' configuration
+    if (configured.pump && configured.pump.length > 0) {
+        addBtn('Control Pump', 'set_pump', 'fa-water', 'btn-outline-primary');
+    }
+
+    // Solenoid - Requires 'solenoid' configuration
+    if (configured.solenoid && configured.solenoid.length > 0) {
+        addBtn('Control Solenoid', 'set_solenoid', 'fa-magnet', 'btn-outline-warning');
+    }
+
+    // Fan - Requires 'fan' configuration
+    if (configured.fan && configured.fan.length > 0) {
+        addBtn('Control Fan', 'set_fan', 'fa-fan', 'btn-outline-primary');
+    }
+
+    // LED - Requires 'led' configuration
+    if (configured.led && configured.led.length > 0) {
+        addBtn('Control LED', 'set_led', 'fa-lightbulb', 'btn-outline-warning');
     }
     
     // Battery - Only if board has battery capability
@@ -3957,7 +4035,41 @@ function syncJsonToVisual() {
 
 function syncVisualToJson() {
     try {
-        const json = JSON.stringify(currentLogicData, null, 2);
+        // Create a deep copy to avoid modifying the active UI data
+        const dataCopy = JSON.parse(JSON.stringify(currentLogicData));
+        
+        // Helper to recursively transform specific blocks to generic gpio_write for saving
+        const transformForSave = (actions) => {
+            if (!actions) return;
+            actions.forEach(block => {
+                if (['set_relay', 'set_pump', 'set_solenoid', 'set_led', 'set_fan'].includes(block.type)) {
+                    const originalType = block.type;
+                    block.type = 'gpio_write';
+                    block.value = block.state ? 'HIGH' : 'LOW';
+                    // device_type should already be there, but ensure it matches
+                    if (originalType === 'set_relay') block.device_type = 'relay';
+                    else if (originalType === 'set_pump') block.device_type = 'pump';
+                    else if (originalType === 'set_solenoid') block.device_type = 'solenoid';
+                    else if (originalType === 'set_led') block.device_type = 'led';
+                    else if (originalType === 'set_fan') block.device_type = 'fan';
+                    
+                    delete block.state;
+                }
+                
+                if (block.type === 'read_soil_moisture') {
+                    block.type = 'analog_read';
+                    block.device_type = 'soil_moisture';
+                }
+                
+                if (block.then) transformForSave(block.then);
+                if (block.else) transformForSave(block.else);
+                if (block.do) transformForSave(block.do);
+            });
+        };
+        
+        if (dataCopy.actions) transformForSave(dataCopy.actions);
+
+        const json = JSON.stringify(dataCopy, null, 2);
         document.getElementById('logicJsonEditor').value = json;
     } catch (e) {
         console.error("Error syncing visual to JSON:", e);
@@ -4042,6 +4154,21 @@ function renderStructureNode(action) {
             icon = 'fa-calculator';
             color = 'text-primary';
             details = `<span class="text-muted ms-2">${action.name} ${action.operation} ${action.value}</span>`;
+            break;
+        case 'set_relay':
+            icon = 'fa-plug';
+            color = 'text-danger';
+            details = `<span class="text-muted ms-2">Relay ${action.pin} &rarr; ${action.state ? 'ON' : 'OFF'}</span>`;
+            break;
+        case 'set_pump':
+            icon = 'fa-water';
+            color = 'text-primary';
+            details = `<span class="text-muted ms-2">Pump ${action.pin} &rarr; ${action.state ? 'ON' : 'OFF'}</span>`;
+            break;
+        case 'set_solenoid':
+            icon = 'fa-magnet';
+            color = 'text-warning';
+            details = `<span class="text-muted ms-2">Solenoid ${action.pin} &rarr; ${action.state ? 'ON' : 'OFF'}</span>`;
             break;
         default:
             details = `<span class="text-muted ms-2 small">${action.type}</span>`;
@@ -4266,6 +4393,8 @@ function renderLogicCanvas() {
                                 onchange="updateBlockProperty(${index}, 'device_type', this.value, 'text', false)">
                             <option value="">-- Select --</option>
                             <option value="relay" ${block.device_type === 'relay' ? 'selected' : ''}>Relay</option>
+                            <option value="pump" ${block.device_type === 'pump' ? 'selected' : ''}>Pump</option>
+                            <option value="solenoid" ${block.device_type === 'solenoid' ? 'selected' : ''}>Solenoid</option>
                             <option value="temp_sensor" ${block.device_type === 'temp_sensor' ? 'selected' : ''}>Temp Sensor</option>
                             <option value="led" ${block.device_type === 'led' ? 'selected' : ''}>LED</option>
                             <option value="button" ${block.device_type === 'button' ? 'selected' : ''}>Button</option>
@@ -4298,6 +4427,7 @@ function renderLogicCanvas() {
                                 onchange="updateBlockProperty(${index}, 'device_type', this.value, 'text', false)">
                             <option value="">-- None --</option>
                             <option value="temp_sensor" ${block.device_type === 'temp_sensor' ? 'selected' : ''}>Temp Sensor</option>
+                            <option value="soil_moisture" ${block.device_type === 'soil_moisture' ? 'selected' : ''}>Soil Moisture</option>
                             <option value="button" ${block.device_type === 'button' ? 'selected' : ''}>Button</option>
                         </select>
                     </div>
@@ -4314,31 +4444,39 @@ function renderLogicCanvas() {
                     // Special handling for 'alias' to include Device Type
                     if (key === 'alias') {
                         // Hide Alias/Device Type for blocks where it is implied/redundant
-                        if (block.type === 'read_temperature' || block.type === 'set_relay') {
+                        if (block.type === 'read_temperature' || block.type === 'set_relay' || block.type === 'set_pump' || block.type === 'set_solenoid' || block.type === 'set_led' || block.type === 'set_fan' || block.type === 'read_soil_moisture') {
                             return;
                         }
 
                         // Determine context for device type options
                         let deviceOptions = '<option value="">-- None --</option>';
-                        const isWrite = ['gpio_write', 'pwm_write', 'analog_write', 'set_relay'].includes(block.type);
-                        const isRead = ['gpio_read', 'analog_read', 'adc_read', 'read_temperature', 'read_battery', 'dht_read', 'ds18b20_read'].includes(block.type);
+                        const isWrite = ['gpio_write', 'pwm_write', 'analog_write', 'set_relay', 'set_pump', 'set_solenoid', 'set_led', 'set_fan'].includes(block.type);
+                        const isRead = ['gpio_read', 'analog_read', 'adc_read', 'read_temperature', 'read_battery', 'dht_read', 'ds18b20_read', 'read_soil_moisture'].includes(block.type);
                         
                         if (isWrite) {
                              deviceOptions += `
                                 <option value="relay" ${block.device_type === 'relay' ? 'selected' : ''}>Relay</option>
+                                <option value="pump" ${block.device_type === 'pump' ? 'selected' : ''}>Pump</option>
+                                <option value="solenoid" ${block.device_type === 'solenoid' ? 'selected' : ''}>Solenoid</option>
                                 <option value="led" ${block.device_type === 'led' ? 'selected' : ''}>LED</option>
+                                <option value="fan" ${block.device_type === 'fan' ? 'selected' : ''}>Fan</option>
                              `;
                         } else if (isRead) {
                              deviceOptions += `
                                 <option value="temp_sensor" ${block.device_type === 'temp_sensor' ? 'selected' : ''}>Temp Sensor</option>
+                                <option value="soil_moisture" ${block.device_type === 'soil_moisture' ? 'selected' : ''}>Soil Moisture</option>
                                 <option value="button" ${block.device_type === 'button' ? 'selected' : ''}>Button</option>
                              `;
                         } else {
                              // Fallback for unknown types
                              deviceOptions += `
                                 <option value="relay" ${block.device_type === 'relay' ? 'selected' : ''}>Relay</option>
+                                <option value="pump" ${block.device_type === 'pump' ? 'selected' : ''}>Pump</option>
+                                <option value="solenoid" ${block.device_type === 'solenoid' ? 'selected' : ''}>Solenoid</option>
                                 <option value="temp_sensor" ${block.device_type === 'temp_sensor' ? 'selected' : ''}>Temp Sensor</option>
                                 <option value="led" ${block.device_type === 'led' ? 'selected' : ''}>LED</option>
+                                <option value="fan" ${block.device_type === 'fan' ? 'selected' : ''}>Fan</option>
+                                <option value="soil_moisture" ${block.device_type === 'soil_moisture' ? 'selected' : ''}>Soil Moisture</option>
                                 <option value="button" ${block.device_type === 'button' ? 'selected' : ''}>Button</option>
                              `;
                         }
@@ -4441,7 +4579,7 @@ function renderLogicCanvas() {
                     }
                     
                     // Special handling for 'state' in set_relay block
-                    if (key === 'state' && block.type === 'set_relay') {
+                    if (key === 'state' && (block.type === 'set_relay' || block.type === 'set_pump' || block.type === 'set_solenoid' || block.type === 'set_led' || block.type === 'set_fan')) {
                          contentHtml += `
                             <div class="col-md-4 mb-2">
                                 <label class="form-label small mb-0">State</label>
@@ -4468,7 +4606,45 @@ function renderLogicCanvas() {
                             let forcedPins = null;
                             
                             if (block.type === 'read_temperature' && configured.temp_sensor) {
-                                forcedPins = configured.temp_sensor.map(b => ({ pin: parseInt(b.pin), name: b.alias || `Pin ${b.pin}` }));
+                                const seen = new Set();
+                                forcedPins = [];
+                                configured.temp_sensor.forEach(b => {
+                                    const p = parseInt(b.pin);
+                                    if (!isNaN(p) && !seen.has(p)) {
+                                        seen.add(p);
+                                        forcedPins.push({ pin: p, name: b.alias || `Pin ${b.pin}` });
+                                    }
+                                });
+                            } else if (block.type === 'set_led' && configured.led) {
+                                const seen = new Set();
+                                forcedPins = [];
+                                configured.led.forEach(b => {
+                                    const p = parseInt(b.pin);
+                                    if (!isNaN(p) && !seen.has(p)) {
+                                        seen.add(p);
+                                        forcedPins.push({ pin: p, name: b.alias || `Pin ${b.pin}` });
+                                    }
+                                });
+                            } else if (block.type === 'set_fan' && configured.fan) {
+                                const seen = new Set();
+                                forcedPins = [];
+                                configured.fan.forEach(b => {
+                                    const p = parseInt(b.pin);
+                                    if (!isNaN(p) && !seen.has(p)) {
+                                        seen.add(p);
+                                        forcedPins.push({ pin: p, name: b.alias || `Pin ${b.pin}` });
+                                    }
+                                });
+                            } else if (block.type === 'read_soil_moisture' && configured.soil_moisture) {
+                                const seen = new Set();
+                                forcedPins = [];
+                                configured.soil_moisture.forEach(b => {
+                                    const p = parseInt(b.pin);
+                                    if (!isNaN(p) && !seen.has(p)) {
+                                        seen.add(p);
+                                        forcedPins.push({ pin: p, name: b.alias || `Pin ${b.pin}` });
+                                    }
+                                });
                             }
 
                             // Determine required capability based on block type
@@ -4478,7 +4654,8 @@ function renderLogicCanvas() {
                             else if (block.type === 'pwm_write') capability = 'pwm';
                             else if (block.type === 'read_temperature' || block.type === 'dht_read' || block.type === 'ds18b20_read') capability = 'digital_output';
                             else if (block.type === 'read_battery') capability = 'battery';
-                            else if (block.type === 'set_relay') capability = 'digital_output';
+                            else if (block.type === 'set_relay' || block.type === 'set_pump' || block.type === 'set_solenoid' || block.type === 'set_led' || block.type === 'set_fan') capability = 'digital_output';
+                            else if (block.type === 'read_soil_moisture') capability = 'analog_input';
                             else capability = 'digital_input'; // Default
 
                             // Filter pins
@@ -4502,10 +4679,10 @@ function renderLogicCanvas() {
                                 validPins = [];
                             }
 
-                            // Special handling for Battery Read: Lock if only one option
+                            // Special handling for Battery Read & LED: Lock if only one option
                             let disabledAttr = '';
                             let extraHelp = '';
-                            if (block.type === 'read_battery' && validPins.length === 1) {
+                            if ((block.type === 'read_battery' || block.type === 'set_led' || block.type === 'set_fan') && validPins.length === 1) {
                                 // Force the value to the only valid pin if not set
                                 if (val != validPins[0].pin) {
                                     console.log(`Auto-correcting pin from ${val} to ${validPins[0].pin}`);
@@ -4519,7 +4696,7 @@ function renderLogicCanvas() {
 
                             let optionsHtml = `<option value="">-- Select Pin --</option>`;
                             
-                            // Add "Manual Entry" option just in case, but NOT for battery if locked
+                            // Add "Manual Entry" option just in case, but NOT for battery/led if locked
                             if (!disabledAttr) {
                                 // Only show if val is defined and not in validPins
                                 if (val !== undefined && val !== '' && !validPins.find(p => p.pin == val)) {
@@ -4530,16 +4707,23 @@ function renderLogicCanvas() {
                                 // (though addLogicBlock should handle it)
                             }
 
-                            // Group options for Relays to make selection easier
-                            // Check if we have any "real" configured relays (excluding the current block if it's new/empty)
-                            const realRelays = (configured.relay || []).filter(r => r.pin !== '' && r.pin !== undefined && r !== block);
+                            // Group options for Configured Devices (Relay, Pump, Solenoid, LED) to make selection easier
+                            let targetDeviceType = null;
+                            if (block.type === 'set_relay') targetDeviceType = 'relay';
+                            else if (block.type === 'set_pump') targetDeviceType = 'pump';
+                            else if (block.type === 'set_solenoid') targetDeviceType = 'solenoid';
+                            else if (block.type === 'set_led') targetDeviceType = 'led';
+                            else if (block.type === 'set_fan') targetDeviceType = 'fan';
+                            else if (block.type === 'read_soil_moisture') targetDeviceType = 'soil_moisture';
+                            
+                            const realConfiguredDevices = targetDeviceType ? (configured[targetDeviceType] || []).filter(d => d.pin !== '' && d.pin !== undefined && d !== block) : [];
 
-                            if (block.type === 'set_relay' && realRelays.length > 0) {
-                                // Strict Mode: User has configured relays, so we limit selection to those
+                            if (targetDeviceType && realConfiguredDevices.length > 0) {
+                                // Strict Mode: User has configured devices, so we limit selection to those
                                 
-                                // 1. Add Configured Relays
+                                // 1. Add Configured Devices
                                 validPins.forEach(p => {
-                                    const existing = configured.relay.find(r => r.pin == p.pin);
+                                    const existing = configured[targetDeviceType].find(d => d.pin == p.pin);
                                     if (existing) {
                                         const isSelected = (p.pin == val) ? 'selected' : '';
                                         let label = `Pin ${p.pin}`;
@@ -4551,7 +4735,7 @@ function renderLogicCanvas() {
                                 });
 
                                 // 2. Ensure the CURRENT pin is shown even if not configured (so we don't break the UI for new/unconfigured blocks)
-                                if (val !== undefined && val !== '' && !configured.relay.find(r => r.pin == val)) {
+                                if (val !== undefined && val !== '' && !configured[targetDeviceType].find(d => d.pin == val)) {
                                     const p = validPins.find(vp => vp.pin == val);
                                     if (p) {
                                         let label = `Pin ${p.pin}`;
@@ -4564,7 +4748,32 @@ function renderLogicCanvas() {
                                 
                             } else {
                                 // Standard flat list for other blocks
+                                
+                                // Filter out pins that are already configured as specific devices
+                                // ONLY for generic read/write blocks to prevent conflicts
+                                const isGenericBlock = ['gpio_write', 'gpio_read', 'adc_read', 'pwm_write', 'analog_write', 'analog_read'].includes(block.type);
+                                
+                                const configuredPinNums = new Set();
+                                if (isGenericBlock) {
+                                    // Only filter out devices that have their own dedicated blocks
+                                    // Button does NOT have dedicated blocks, so it must be controllable via generic GPIO
+                                    const typesToFilter = ['relay', 'pump', 'solenoid', 'temp_sensor', 'led', 'soil_moisture'];
+                                    
+                                    typesToFilter.forEach(type => {
+                                        if (configured[type]) {
+                                            configured[type].forEach(item => {
+                                                if (item.pin !== '' && item.pin !== undefined) configuredPinNums.add(parseInt(item.pin));
+                                            });
+                                        }
+                                    });
+                                }
+
                                 validPins.forEach(p => {
+                                    // If generic block, skip if pin is configured (unless it's the currently selected pin)
+                                    if (isGenericBlock && configuredPinNums.has(p.pin) && p.pin != val) {
+                                        return;
+                                    }
+
                                     const isSelected = (p.pin == val || (validPins.length === 1 && block.type === 'read_battery')) ? 'selected' : '';
                                     let label = `Pin ${p.pin}`;
                                     
