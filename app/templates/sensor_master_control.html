@@ -3192,23 +3192,28 @@ function openLogicBuilder(sensorId = null, scriptId = null) {
     logicViewStack = [];
     
     if (sensorId) {
-        const sensor = sensors.find(s => s.id === sensorId);
+        const sensor = sensors.find(s => s.sensor_id === sensorId);
         currentLogicSensor = sensor;
         
-        document.getElementById('logicBuilderSensorName').textContent = sensor ? (sensor.name || 'Sensor ' + sensor.id) : 'Unknown Sensor';
+        document.getElementById('logicBuilderSensorName').textContent = sensor ? (sensor.sensor_name || 'Sensor ' + sensor.sensor_id) : 'Unknown Sensor';
         
         const boardBadge = document.getElementById('logicBuilderBoardType');
-        if (boardBadge) {
+        if (boardBadge && sensor) {
             boardBadge.textContent = sensor.board_type || 'Unknown Board';
             boardBadge.className = 'badge bg-info ms-2';
         }
         
-        document.getElementById('boardSelectorContainer').style.display = 'none';
+        const boardSelector = document.getElementById('boardTypeSelectorContainer');
+        if (boardSelector) boardSelector.style.display = 'none';
         
         try {
-            currentSensorCapabilities = typeof sensor.capabilities === 'string' 
-                ? JSON.parse(sensor.capabilities) 
-                : (sensor.capabilities || {});
+            if (sensor) {
+                currentSensorCapabilities = typeof sensor.capabilities === 'string' 
+                    ? JSON.parse(sensor.capabilities) 
+                    : (sensor.capabilities || {});
+            } else {
+                currentSensorCapabilities = {};
+            }
         } catch (e) {
             console.error('Error parsing capabilities:', e);
             currentSensorCapabilities = {};
@@ -3606,14 +3611,17 @@ function normalizeLogicData(actions) {
         } else if (block.type === 'read_temperature') {
             if (block.pin === undefined) block.pin = 4;
             if (block.alias === undefined) block.alias = '';
+            block.device_type = 'temp_sensor';
         } else if (block.type === 'read_battery') {
             if (block.pin === undefined) block.pin = 34;
             if (block.r1 === undefined) block.r1 = 100000;
             if (block.r2 === undefined) block.r2 = 100000;
             if (block.alias === undefined) block.alias = 'battery';
         } else if (block.type === 'set_relay') {
+            if (block.pin === undefined) block.pin = ''; // Ensure pin exists so it renders
             if (block.state === undefined) block.state = true;
             if (block.alias === undefined) block.alias = '';
+            block.device_type = 'relay';
         } else if (block.type === 'delay') {
             if (block.ms === undefined) block.ms = 1000;
         } else if (block.type === 'hibernate') {
@@ -3758,9 +3766,16 @@ function getConfiguredPeripherals(actions) {
     if (!actions) return peripherals;
     
     actions.forEach(block => {
-        if (block.type === 'configure_pin' && block.device_type) {
-            if (!peripherals[block.device_type]) peripherals[block.device_type] = [];
-            peripherals[block.device_type].push(block);
+        // Determine device type (explicit or implied by block type)
+        let dType = block.device_type;
+        if (!dType) {
+            if (block.type === 'read_temperature') dType = 'temp_sensor';
+            else if (block.type === 'set_relay') dType = 'relay';
+        }
+
+        if (dType) {
+            if (!peripherals[dType]) peripherals[dType] = [];
+            peripherals[dType].push(block);
         }
         // Recurse
         if (block.then) {
@@ -4260,6 +4275,33 @@ function renderLogicCanvas() {
                         <div class="form-text x-small text-muted"><i class="fas fa-info-circle"></i> Configures this pin for use with specific tools.</div>
                     </div>
                  `;
+            } else if (block.type === 'adc_read') {
+                 // Dedicated UI so ADC blocks never render as “blank”
+                 // (and so we can show the context-aware Device Type selector)
+                 contentHtml += `
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label small mb-0 fw-bold">Pin</label>
+                        <input type="number" class="form-control form-control-sm" 
+                               value="${block.pin ?? ''}" placeholder="ADC Pin #"
+                               onchange="updateBlockProperty(${index}, 'pin', this.value, 'number', false)">
+                        <div class="form-text x-small text-muted">Use an ADC-capable pin for this board.</div>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label small mb-0">Alias / Name</label>
+                        <input type="text" class="form-control form-control-sm" 
+                               value="${block.alias || ''}" placeholder="e.g. soil_moisture"
+                               onchange="updateBlockProperty(${index}, 'alias', this.value, 'text', false)">
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label small mb-0">Device Type</label>
+                        <select class="form-select form-select-sm" 
+                                onchange="updateBlockProperty(${index}, 'device_type', this.value, 'text', false)">
+                            <option value="">-- None --</option>
+                            <option value="temp_sensor" ${block.device_type === 'temp_sensor' ? 'selected' : ''}>Temp Sensor</option>
+                            <option value="button" ${block.device_type === 'button' ? 'selected' : ''}>Button</option>
+                        </select>
+                    </div>
+                 `;
             } else {
                 // Standard rendering for other blocks
                 Object.keys(block).forEach(key => {
@@ -4271,6 +4313,36 @@ function renderLogicCanvas() {
                     
                     // Special handling for 'alias' to include Device Type
                     if (key === 'alias') {
+                        // Hide Alias/Device Type for blocks where it is implied/redundant
+                        if (block.type === 'read_temperature' || block.type === 'set_relay') {
+                            return;
+                        }
+
+                        // Determine context for device type options
+                        let deviceOptions = '<option value="">-- None --</option>';
+                        const isWrite = ['gpio_write', 'pwm_write', 'analog_write', 'set_relay'].includes(block.type);
+                        const isRead = ['gpio_read', 'analog_read', 'adc_read', 'read_temperature', 'read_battery', 'dht_read', 'ds18b20_read'].includes(block.type);
+                        
+                        if (isWrite) {
+                             deviceOptions += `
+                                <option value="relay" ${block.device_type === 'relay' ? 'selected' : ''}>Relay</option>
+                                <option value="led" ${block.device_type === 'led' ? 'selected' : ''}>LED</option>
+                             `;
+                        } else if (isRead) {
+                             deviceOptions += `
+                                <option value="temp_sensor" ${block.device_type === 'temp_sensor' ? 'selected' : ''}>Temp Sensor</option>
+                                <option value="button" ${block.device_type === 'button' ? 'selected' : ''}>Button</option>
+                             `;
+                        } else {
+                             // Fallback for unknown types
+                             deviceOptions += `
+                                <option value="relay" ${block.device_type === 'relay' ? 'selected' : ''}>Relay</option>
+                                <option value="temp_sensor" ${block.device_type === 'temp_sensor' ? 'selected' : ''}>Temp Sensor</option>
+                                <option value="led" ${block.device_type === 'led' ? 'selected' : ''}>LED</option>
+                                <option value="button" ${block.device_type === 'button' ? 'selected' : ''}>Button</option>
+                             `;
+                        }
+
                         contentHtml += `
                             <div class="col-md-6 mb-2">
                                 <label class="form-label small mb-0">Alias / Name</label>
@@ -4282,11 +4354,7 @@ function renderLogicCanvas() {
                                 <label class="form-label small mb-0">Device Type</label>
                                 <select class="form-select form-select-sm" 
                                         onchange="updateBlockProperty(${index}, 'device_type', this.value, 'text', false)">
-                                    <option value="">-- None --</option>
-                                    <option value="relay" ${block.device_type === 'relay' ? 'selected' : ''}>Relay</option>
-                                    <option value="temp_sensor" ${block.device_type === 'temp_sensor' ? 'selected' : ''}>Temp Sensor</option>
-                                    <option value="led" ${block.device_type === 'led' ? 'selected' : ''}>LED</option>
-                                    <option value="button" ${block.device_type === 'button' ? 'selected' : ''}>Button</option>
+                                    ${deviceOptions}
                                 </select>
                             </div>
                         `;
@@ -4372,6 +4440,21 @@ function renderLogicCanvas() {
                          return;
                     }
                     
+                    // Special handling for 'state' in set_relay block
+                    if (key === 'state' && block.type === 'set_relay') {
+                         contentHtml += `
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label small mb-0">State</label>
+                                <select class="form-select form-select-sm" 
+                                        onchange="updateBlockProperty(${index}, '${key}', this.value, 'boolean', false)">
+                                    <option value="true" ${val === true ? 'selected' : ''}>ON (High)</option>
+                                    <option value="false" ${val === false ? 'selected' : ''}>OFF (Low)</option>
+                                </select>
+                            </div>
+                         `;
+                         return;
+                    }
+
                     // Special handling for 'pin' to show guided dropdown
                     if (key === 'pin') {
                         try {
@@ -4384,9 +4467,7 @@ function renderLogicCanvas() {
                             const configured = getConfiguredPeripherals(currentLogicData.actions);
                             let forcedPins = null;
                             
-                            if (block.type === 'set_relay' && configured.relay) {
-                                forcedPins = configured.relay.map(b => ({ pin: parseInt(b.pin), name: b.alias || `Pin ${b.pin}` }));
-                            } else if (block.type === 'read_temperature' && configured.temp_sensor) {
+                            if (block.type === 'read_temperature' && configured.temp_sensor) {
                                 forcedPins = configured.temp_sensor.map(b => ({ pin: parseInt(b.pin), name: b.alias || `Pin ${b.pin}` }));
                             }
 
@@ -4397,6 +4478,7 @@ function renderLogicCanvas() {
                             else if (block.type === 'pwm_write') capability = 'pwm';
                             else if (block.type === 'read_temperature' || block.type === 'dht_read' || block.type === 'ds18b20_read') capability = 'digital_output';
                             else if (block.type === 'read_battery') capability = 'battery';
+                            else if (block.type === 'set_relay') capability = 'digital_output';
                             else capability = 'digital_input'; // Default
 
                             // Filter pins
@@ -4448,17 +4530,53 @@ function renderLogicCanvas() {
                                 // (though addLogicBlock should handle it)
                             }
 
-                            validPins.forEach(p => {
-                                const isSelected = (p.pin == val || (validPins.length === 1 && block.type === 'read_battery')) ? 'selected' : '';
-                                let label = `Pin ${p.pin}`;
-                                if (p.name) label += ` (${p.name})`;
+                            // Group options for Relays to make selection easier
+                            // Check if we have any "real" configured relays (excluding the current block if it's new/empty)
+                            const realRelays = (configured.relay || []).filter(r => r.pin !== '' && r.pin !== undefined && r !== block);
+
+                            if (block.type === 'set_relay' && realRelays.length > 0) {
+                                // Strict Mode: User has configured relays, so we limit selection to those
                                 
-                                // Add icons/badges for special pins
-                                if (p.battery) label += ' 🔋 Battery';
-                                if (p.led) label += ' 💡 LED';
+                                // 1. Add Configured Relays
+                                validPins.forEach(p => {
+                                    const existing = configured.relay.find(r => r.pin == p.pin);
+                                    if (existing) {
+                                        const isSelected = (p.pin == val) ? 'selected' : '';
+                                        let label = `Pin ${p.pin}`;
+                                        if (existing.alias) label += ` (${existing.alias})`;
+                                        else if (p.name) label += ` (${p.name})`;
+                                        
+                                        optionsHtml += `<option value="${p.pin}" ${isSelected}>${label}</option>`;
+                                    }
+                                });
+
+                                // 2. Ensure the CURRENT pin is shown even if not configured (so we don't break the UI for new/unconfigured blocks)
+                                if (val !== undefined && val !== '' && !configured.relay.find(r => r.pin == val)) {
+                                    const p = validPins.find(vp => vp.pin == val);
+                                    if (p) {
+                                        let label = `Pin ${p.pin}`;
+                                        if (p.name) label += ` (${p.name})`;
+                                        optionsHtml += `<option value="${p.pin}" selected>${label} (Unconfigured)</option>`;
+                                    } else {
+                                        optionsHtml += `<option value="${val}" selected>${val} (Custom)</option>`;
+                                    }
+                                }
                                 
-                                optionsHtml += `<option value="${p.pin}" ${isSelected}>${label}</option>`;
-                            });
+                            } else {
+                                // Standard flat list for other blocks
+                                validPins.forEach(p => {
+                                    const isSelected = (p.pin == val || (validPins.length === 1 && block.type === 'read_battery')) ? 'selected' : '';
+                                    let label = `Pin ${p.pin}`;
+                                    
+                                    if (p.name) label += ` (${p.name})`;
+                                    
+                                    // Add icons/badges for special pins
+                                    if (p.battery) label += ' 🔋 Battery';
+                                    if (p.led) label += ' 💡 LED';
+                                    
+                                    optionsHtml += `<option value="${p.pin}" ${isSelected}>${label}</option>`;
+                                });
+                            }
 
                             contentHtml += `
                                 <div class="col-md-4 mb-2">
