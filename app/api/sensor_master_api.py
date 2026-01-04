@@ -2166,3 +2166,122 @@ def scan_network_devices():
         }), 500
 
 
+@sensor_master_api_bp.route('/sensor-master/variables/<sensor_id>', methods=['POST'])
+def save_sensor_variables(sensor_id):
+    """
+    Save sensor variables to server (before hibernation)
+    
+    Expected payload:
+    {
+        "sensor_id": "esp32_unique_id",
+        "variables": {
+            "counter": 42.0,
+            "last_temp": 25.5,
+            "motion_count": 10.0
+        }
+    }
+    """
+    try:
+        data = request.get_json()
+        sensor_id = request.view_args.get('sensor_id')
+        
+        if not data or 'variables' not in data:
+            return jsonify({'error': 'variables object is required'}), 400
+        
+        variables = data['variables']
+        
+        if not isinstance(variables, dict):
+            return jsonify({'error': 'variables must be an object/dictionary'}), 400
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Verify sensor is registered
+        cursor.execute('SELECT id FROM SensorRegistration WHERE sensor_id = ?', (sensor_id,))
+        sensor = cursor.fetchone()
+        
+        if not sensor:
+            return jsonify({'error': 'Sensor not registered'}), 404
+        
+        timestamp = datetime.now(timezone.utc).isoformat()
+        
+        # Store variables as JSON blob
+        cursor.execute('''
+            INSERT OR REPLACE INTO SensorVariables (sensor_id, variables, updated_at)
+            VALUES (?, ?, ?)
+        ''', (sensor_id, json.dumps(variables), timestamp))
+        
+        conn.commit()
+        
+        logger.info(f"Saved {len(variables)} variables for sensor {sensor_id}")
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Saved {len(variables)} variables',
+            'timestamp': timestamp
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error saving sensor variables: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to save variables'}), 500
+
+
+@sensor_master_api_bp.route('/sensor-master/variables/<sensor_id>', methods=['GET'])
+def get_sensor_variables(sensor_id):
+    """
+    Retrieve sensor variables from server (after wake from hibernation)
+    
+    Returns:
+    {
+        "status": "success",
+        "variables": {
+            "counter": 42.0,
+            "last_temp": 25.5,
+            "motion_count": 10.0
+        },
+        "timestamp": "2026-01-04T12:00:00Z"
+    }
+    """
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Verify sensor is registered
+        cursor.execute('SELECT id FROM SensorRegistration WHERE sensor_id = ?', (sensor_id,))
+        sensor = cursor.fetchone()
+        
+        if not sensor:
+            return jsonify({'error': 'Sensor not registered'}), 404
+        
+        # Get stored variables
+        cursor.execute('''
+            SELECT variables, updated_at
+            FROM SensorVariables
+            WHERE sensor_id = ?
+        ''', (sensor_id,))
+        
+        result = cursor.fetchone()
+        
+        if not result or not result['variables']:
+            # No variables stored yet
+            return jsonify({
+                'status': 'success',
+                'variables': {},
+                'timestamp': None
+            }), 200
+        
+        variables = json.loads(result['variables'])
+        
+        logger.info(f"Retrieved {len(variables)} variables for sensor {sensor_id}")
+        
+        return jsonify({
+            'status': 'success',
+            'variables': variables,
+            'timestamp': result['updated_at']
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error retrieving sensor variables: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to retrieve variables'}), 500
+
+
