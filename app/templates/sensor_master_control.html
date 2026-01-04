@@ -1954,6 +1954,35 @@ async function fetchPlotterLogs() {
     }
 }
 
+// Helper function to format Unix timestamps in log messages
+function formatTimestampsInMessage(message) {
+    // Match Unix timestamps (10 digits for seconds, or with decimal for ms precision)
+    // Looks for patterns like: 1767497600 or 1767497600.00
+    const timestampRegex = /\b(1[0-9]{9})(\.\d{1,3})?\b/g;
+    
+    return message.replace(timestampRegex, (match, seconds, decimal) => {
+        const timestamp = parseInt(seconds);
+        // Validate it's a reasonable Unix timestamp (between 2000 and 2100)
+        if (timestamp < 946684800 || timestamp > 4102444800) {
+            return match; // Not a valid timestamp, return as-is
+        }
+        
+        const date = new Date(timestamp * 1000);
+        const formatted = date.toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+        
+        // Return formatted with a visual indicator and keep original in tooltip
+        return `<span class="badge bg-success bg-opacity-75" title="Unix: ${match}" style="cursor: help;">${formatted}</span>`;
+    });
+}
+
 function updatePlotterLogs(logs) {
     const container = document.getElementById('plotterLogs');
     const chipLogOverlay = document.getElementById('chipLogOverlay');
@@ -1993,7 +2022,10 @@ function updatePlotterLogs(logs) {
         else if (log.log_level === 'debug') colorClass = 'text-secondary';
         
         // Replace \n and \r\n with <br> for carriage returns
-        const formattedMessage = log.message.replace(/\r\n|\r|\n/g, '<br>');
+        let formattedMessage = log.message.replace(/\r\n|\r|\n/g, '<br>');
+        
+        // Format any Unix timestamps found in the message
+        formattedMessage = formatTimestampsInMessage(formattedMessage);
         
         return `<div class="mb-1 border-bottom border-secondary border-opacity-25 pb-1 font-monospace">
             <span class="text-white-50" style="font-size: 0.8em; margin-right: 8px;">[${time}]</span>
@@ -3149,7 +3181,7 @@ let currentLogicSensor = null; // Store the full sensor object
 const SYSTEM_VARIABLES = [
     'millis', 'wifi_rssi', 'free_heap', 'uptime', 'sensor_id', 
     'firmware_version', 'battery', 'battery_pct', 
-    'ip_address', 'wifi_ssid', 'current_datetime'
+    'ip_address', 'wifi_ssid'
 ];
 
 // Helper to insert text at cursor position in a textarea/input
@@ -3663,6 +3695,25 @@ function normalizeLogicData(actions) {
             if (block.name === undefined) block.name = 'myVar';
             if (block.operation === undefined) block.operation = '=';
             if (block.value === undefined) block.value = 0;
+            if (block.var_type === undefined) block.var_type = 'number';
+            
+            // Set defaults based on type
+            if (block.var_type === 'duration' && !block.unit) {
+                block.unit = 'seconds';
+            }
+        } else if (block.type === 'time_calc') {
+            if (block.result_var === undefined) block.result_var = 'timeResult';
+            if (block.time_op === undefined) block.time_op = 'diff';
+            if (block.output_unit === undefined) block.output_unit = 'seconds';
+            if (block.value_a === undefined) block.value_a = 'now';
+            if (block.value_b === undefined && (block.time_op === 'diff' || block.time_op === 'add')) {
+                block.value_b = '';
+            }
+        } else if (block.type === 'weather_fetch') {
+            if (block.provider === undefined) block.provider = 'open-meteo';
+            if (block.api_key === undefined) block.api_key = '';
+            if (block.latitude === undefined) block.latitude = 0;
+            if (block.longitude === undefined) block.longitude = 0;
         } else if (block.type === 'if') {
             if (!block.condition) block.condition = { left: '', operator: '==', right: '' };
             
@@ -3702,6 +3753,14 @@ function collectUserVariables(actions) {
     actions.forEach(block => {
         if (block.type === 'variable_op' && block.name) {
             vars.push(block.name);
+        }
+        if (block.type === 'time_calc' && block.result_var) {
+            vars.push(block.result_var);
+        }
+        if (block.type === 'weather_fetch') {
+            // Weather fetch creates multiple variables
+            vars.push('sunrise', 'sunset', 'weather_temp', 'weather_humidity', 
+                      'weather_wind_speed', 'weather_clouds');
         }
         if (block.then) vars = vars.concat(collectUserVariables(block.then));
         if (block.else) vars = vars.concat(collectUserVariables(block.else));
@@ -3743,6 +3802,16 @@ function validateLogic(actions, path = "") {
     let errors = [];
     if (!actions) return errors;
     
+    // Helper to check if a value is a valid number or variable reference
+    const isValidNumberOrVariable = (val) => {
+        if (val === undefined || val === null || val === '') return false;
+        // Allow numbers
+        if (!isNaN(parseFloat(val)) && parseFloat(val) >= 0) return true;
+        // Allow variable names (alphanumeric + underscore, must start with letter or underscore)
+        if (typeof val === 'string' && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(val)) return true;
+        return false;
+    };
+    
     actions.forEach((block, idx) => {
         const blockName = block.type.toUpperCase() + (path ? ` (in ${path})` : ` #${idx + 1}`);
         
@@ -3757,7 +3826,13 @@ function validateLogic(actions, path = "") {
         } else if (block.type === 'gpio_write' || block.type === 'gpio_read' || block.type === 'set_pump' || block.type === 'set_solenoid' || block.type === 'set_led' || block.type === 'set_fan' || block.type === 'read_soil_moisture') {
             if (block.pin === undefined || block.pin === null || block.pin === "") errors.push(`${blockName}: Missing Pin`);
         } else if (block.type === 'delay') {
-            if (!block.ms || block.ms < 0) errors.push(`${blockName}: Invalid duration`);
+            if (!isValidNumberOrVariable(block.ms)) {
+                errors.push(`${blockName}: Duration must be a number or variable name`);
+            }
+        } else if (block.type === 'hibernate') {
+            if (!isValidNumberOrVariable(block.duration)) {
+                errors.push(`${blockName}: Duration must be a number or variable name`);
+            }
         }
     });
     return errors;
@@ -3871,6 +3946,10 @@ function renderToolbox() {
     // Variables & Math
     addBtn('Set Variable / Math', 'variable_op', 'fa-calculator', 'btn-outline-secondary');
     addBtn('Initialize Variable (Safe)', 'init_variable', 'fa-shield-alt', 'btn-outline-success');
+    addBtn('Time Calculation', 'time_calc', 'fa-clock', 'btn-outline-info');
+    
+    // Weather & External Data
+    addBtn('Fetch Weather Data', 'weather_fetch', 'fa-cloud-sun', 'btn-outline-primary');
     
     // 2. GPIO Control
     if (caps.digital_output && caps.digital_output.length > 0) {
@@ -4300,8 +4379,10 @@ function renderLogicCanvas() {
                         <label class="form-label small fw-bold">Condition</label>
                         <div class="input-group input-group-sm">
                             <input type="text" class="form-control" placeholder="Left (e.g. temp)" value="${cond.left || ''}" 
+                                   id="if-left-${index}"
                                    list="logicVariables"
                                    onchange="updateIfCondition(${index}, 'left', this.value)">
+                            ${generateVariablePickerDropdown(`if-left-${index}`)}
                             <select class="form-select" style="max-width: 80px;" 
                                     onchange="updateIfCondition(${index}, 'operator', this.value)">
                                 <option value="==" ${cond.operator === '==' ? 'selected' : ''}>==</option>
@@ -4312,8 +4393,10 @@ function renderLogicCanvas() {
                                 <option value="<=" ${cond.operator === '<=' ? 'selected' : ''}>&lt;=</option>
                             </select>
                             <input type="text" class="form-control" placeholder="Right (e.g. 25)" value="${cond.right || ''}" 
+                                   id="if-right-${index}"
                                    list="logicVariables"
                                    onchange="updateIfCondition(${index}, 'right', this.value)">
+                            ${generateVariablePickerDropdown(`if-right-${index}`)}
                         </div>
                     </div>
                     <div class="col-6">
@@ -4328,8 +4411,12 @@ function renderLogicCanvas() {
                     </div>
                 `;
             } else if (block.type === 'variable_op') {
+                 // Determine if we're dealing with a special type
+                 const varType = block.var_type || 'number';
+                 const isTimeType = ['duration', 'datetime', 'timestamp'].includes(varType);
+                 
                  contentHtml += `
-                    <div class="col-md-4 mb-2">
+                    <div class="col-md-3 mb-2">
                         <label class="form-label small mb-0 fw-bold text-primary">Variable Name</label>
                         <input type="text" class="form-control form-control-sm" 
                                value="${block.name}" placeholder="e.g. counter"
@@ -4337,22 +4424,201 @@ function renderLogicCanvas() {
                                onchange="updateBlockProperty(${index}, 'name', this.value, 'text', false)">
                     </div>
                     <div class="col-md-3 mb-2">
+                        <label class="form-label small mb-0">Type</label>
+                        <select class="form-select form-select-sm" 
+                                onchange="updateVariableType(${index}, this.value)">
+                            <option value="number" ${varType === 'number' ? 'selected' : ''}>Number</option>
+                            <option value="duration" ${varType === 'duration' ? 'selected' : ''}>Duration</option>
+                            <option value="datetime" ${varType === 'datetime' ? 'selected' : ''}>DateTime</option>
+                            <option value="timestamp" ${varType === 'timestamp' ? 'selected' : ''}>Timestamp (ms)</option>
+                            <option value="string" ${varType === 'string' ? 'selected' : ''}>Text</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 mb-2">
                         <label class="form-label small mb-0">Operation</label>
                         <select class="form-select form-select-sm" 
                                 onchange="updateBlockProperty(${index}, 'operation', this.value, 'text', false)">
                             <option value="=" ${block.operation === '=' ? 'selected' : ''}>= (Set)</option>
-                            <option value="+=" ${block.operation === '+=' ? 'selected' : ''}>+= (Add)</option>
-                            <option value="-=" ${block.operation === '-=' ? 'selected' : ''}>-= (Sub)</option>
-                            <option value="*=" ${block.operation === '*=' ? 'selected' : ''}>*= (Mult)</option>
-                            <option value="/=" ${block.operation === '/=' ? 'selected' : ''}>/= (Div)</option>
+                            <option value="+=" ${block.operation === '+=' ? 'selected' : ''}>+=</option>
+                            <option value="-=" ${block.operation === '-=' ? 'selected' : ''}>-=</option>
+                            <option value="*=" ${block.operation === '*=' ? 'selected' : ''}>*=</option>
+                            <option value="/=" ${block.operation === '/=' ? 'selected' : ''}>/=</option>
                         </select>
                     </div>
-                    <div class="col-md-5 mb-2">
+                    <div class="col-md-4 mb-2">
                         <label class="form-label small mb-0">Value / Operand</label>
+                        ${isTimeType && varType === 'duration' && block.operation === '=' ? `
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control form-control-sm" 
+                                       id="var-value-${index}"
+                                       value="${block.value || ''}" placeholder="e.g. 60"
+                                       list="logicVariables"
+                                       onchange="updateBlockProperty(${index}, 'value', this.value, 'text', false)">
+                                ${generateVariablePickerDropdown(`var-value-${index}`)}
+                                <select class="form-select form-select-sm" style="max-width: 90px;"
+                                        onchange="updateBlockProperty(${index}, 'unit', this.value, 'text', false)">
+                                    <option value="ms" ${block.unit === 'ms' ? 'selected' : ''}>ms</option>
+                                    <option value="seconds" ${block.unit === 'seconds' || !block.unit ? 'selected' : ''}>sec</option>
+                                    <option value="minutes" ${block.unit === 'minutes' ? 'selected' : ''}>min</option>
+                                    <option value="hours" ${block.unit === 'hours' ? 'selected' : ''}>hrs</option>
+                                    <option value="days" ${block.unit === 'days' ? 'selected' : ''}>days</option>
+                                </select>
+                            </div>
+                        ` : `
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control form-control-sm" 
+                                       id="var-value-${index}"
+                                       value="${block.value || ''}" placeholder="Number or Variable"
+                                       list="logicVariables"
+                                       onchange="updateBlockProperty(${index}, 'value', this.value, 'text', false)">
+                                ${generateVariablePickerDropdown(`var-value-${index}`)}
+                            </div>
+                        `}
+                        ${varType === 'datetime' ? `
+                            <div class="alert alert-warning py-1 px-2 mb-1 small">
+                                <i class="fas fa-exclamation-triangle"></i> <strong>Note:</strong> Use <code>time_calc</code> block to get current time. This field is for existing variables or static values only.
+                            </div>
+                        ` : varType === 'timestamp' ? `
+                            <div class="alert alert-info py-1 px-2 mb-1 small">
+                                <i class="fas fa-info-circle"></i> <strong>Supported:</strong> <code>millis</code>, <code>uptime</code>, or variable names
+                            </div>
+                            <div class="btn-group btn-group-sm mt-1" role="group">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                        onclick="setInputValue('var-value-${index}', 'millis'); return false;">
+                                    <i class="fas fa-stopwatch"></i> millis
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                        onclick="setInputValue('var-value-${index}', 'uptime'); return false;">
+                                    <i class="fas fa-hourglass-half"></i> uptime
+                                </button>
+                            </div>
+                        ` : varType === 'duration' ? `
+                            <div class="form-text x-small text-muted">
+                                <i class="fas fa-info-circle"></i> Duration in specified unit (for calculations use numbers)
+                            </div>
+                        ` : varType === 'timestamp' ? `
+                            <div class="form-text x-small text-muted">
+                                <i class="fas fa-info-circle"></i> Unix timestamp in milliseconds
+                            </div>
+                        ` : ''}
+                    </div>
+                 `;
+            } else if (block.type === 'time_calc') {
+                 // Special block for time calculations
+                 contentHtml += `
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label small mb-0 fw-bold text-info"><i class="fas fa-clock"></i> Result Variable</label>
                         <input type="text" class="form-control form-control-sm" 
-                               value="${block.value}" placeholder="Number or Variable"
+                               value="${block.result_var || 'timeResult'}" placeholder="e.g. hoursUntil"
                                list="logicVariables"
-                               onchange="updateBlockProperty(${index}, 'value', this.value, 'text', false)">
+                               onchange="updateBlockProperty(${index}, 'result_var', this.value, 'text', false)">
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label small mb-0">Operation</label>
+                        <select class="form-select form-select-sm" 
+                                onchange="updateBlockProperty(${index}, 'time_op', this.value, 'text', false)">
+                            <option value="diff" ${block.time_op === 'diff' || !block.time_op ? 'selected' : ''}>Difference (A - B)</option>
+                            <option value="add" ${block.time_op === 'add' ? 'selected' : ''}>Add (A + B)</option>
+                            <option value="now" ${block.time_op === 'now' ? 'selected' : ''}>Current Time</option>
+                            <option value="convert" ${block.time_op === 'convert' ? 'selected' : ''}>Convert Unit</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label small mb-0">Output Unit</label>
+                        <select class="form-select form-select-sm" 
+                                onchange="updateBlockProperty(${index}, 'output_unit', this.value, 'text', false)">
+                            <option value="ms" ${block.output_unit === 'ms' ? 'selected' : ''}>Milliseconds</option>
+                            <option value="seconds" ${block.output_unit === 'seconds' || !block.output_unit ? 'selected' : ''}>Seconds</option>
+                            <option value="minutes" ${block.output_unit === 'minutes' ? 'selected' : ''}>Minutes</option>
+                            <option value="hours" ${block.output_unit === 'hours' ? 'selected' : ''}>Hours</option>
+                            <option value="days" ${block.output_unit === 'days' ? 'selected' : ''}>Days</option>
+                        </select>
+                    </div>
+                    ${block.time_op !== 'now' ? `
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label small mb-0">Value A (Start/From)</label>
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control form-control-sm" 
+                                       id="time-value-a-${index}"
+                                       value="${block.value_a || ''}" placeholder="Variable name or timestamp"
+                                       list="logicVariables"
+                                       onchange="updateBlockProperty(${index}, 'value_a', this.value, 'text', false)">
+                                ${generateVariablePickerDropdown(`time-value-a-${index}`)}
+                            </div>
+                            <div class="form-text x-small">Variable name, timestamp number, or system vars: <code>millis</code>, <code>uptime</code></div>
+                        </div>
+                    ` : ''}
+                    ${block.time_op === 'diff' || block.time_op === 'add' ? `
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label small mb-0">Value B (End/To)</label>
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control form-control-sm" 
+                                       id="time-value-b-${index}"
+                                       value="${block.value_b || ''}" placeholder="Variable name or timestamp"
+                                       list="logicVariables"
+                                       onchange="updateBlockProperty(${index}, 'value_b', this.value, 'text', false)">
+                                ${generateVariablePickerDropdown(`time-value-b-${index}`)}
+                            </div>
+                            <div class="form-text x-small">Variable name, timestamp number, or system vars: <code>millis</code>, <code>uptime</code></div>
+                        </div>
+                    ` : ''}
+                    <div class="col-12">
+                        <div class="alert alert-info py-1 px-2 mb-0 small">
+                            <strong>Examples:</strong><br>
+                            • <strong>Diff:</strong> Calculate hours until a future datetime<br>
+                            • <strong>Add:</strong> Add duration to current time<br>
+                            • <strong>Now:</strong> Get current timestamp<br>
+                            • <strong>Convert:</strong> Change time units (e.g., hours to seconds)
+                        </div>
+                    </div>
+                 `;
+            } else if (block.type === 'weather_fetch') {
+                 // Weather data fetch block
+                 contentHtml += `
+                    <div class="col-md-12 mb-2">
+                        <label class="form-label small mb-0 fw-bold"><i class="fas fa-cloud-sun"></i> Weather Provider</label>
+                        <select class="form-select form-select-sm" 
+                                onchange="updateBlockProperty(${index}, 'provider', this.value, 'text', false); renderLogicCanvas();">
+                            <option value="open-meteo" ${block.provider === 'open-meteo' || !block.provider ? 'selected' : ''}>Open-Meteo (FREE - No API Key)</option>
+                            <option value="openweathermap" ${block.provider === 'openweathermap' ? 'selected' : ''}>OpenWeatherMap (Requires API Key)</option>
+                        </select>
+                        <div class="form-text x-small">
+                            ${block.provider === 'openweathermap' ? 
+                                'Get a free API key at <a href="https://openweathermap.org/api" target="_blank">openweathermap.org/api</a>' :
+                                'Open-Meteo is completely free with no registration required!'}
+                        </div>
+                    </div>
+                    ${block.provider === 'openweathermap' ? `
+                        <div class="col-md-12 mb-2">
+                            <label class="form-label small mb-0 fw-bold text-primary"><i class="fas fa-key"></i> API Key</label>
+                            <input type="text" class="form-control form-control-sm" 
+                                   value="${block.api_key || ''}" placeholder="Enter your OpenWeatherMap API key"
+                                   onchange="updateBlockProperty(${index}, 'api_key', this.value, 'text', false)">
+                        </div>
+                    ` : ''}
+                    <div class="col-md-6 mb-2">
+                        <label class="form-label small mb-0"><i class="fas fa-map-marker-alt"></i> Latitude</label>
+                        <input type="number" step="0.000001" class="form-control form-control-sm" 
+                               value="${block.latitude || 0}" placeholder="e.g. 51.5074"
+                               onchange="updateBlockProperty(${index}, 'latitude', this.value, 'number', false)">
+                        <div class="form-text x-small">Get coordinates from <a href="https://www.latlong.net/" target="_blank">latlong.net</a></div>
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <label class="form-label small mb-0"><i class="fas fa-map-marker-alt"></i> Longitude</label>
+                        <input type="number" step="0.000001" class="form-control form-control-sm" 
+                               value="${block.longitude || 0}" placeholder="e.g. -0.1278"
+                               onchange="updateBlockProperty(${index}, 'longitude', this.value, 'number', false)">
+                    </div>
+                    <div class="col-12">
+                        <div class="alert alert-success py-2 px-2 mb-0 small">
+                            <strong><i class="fas fa-info-circle"></i> Variables Created:</strong><br>
+                            • <code>sunrise</code> - Unix timestamp of today's sunrise<br>
+                            • <code>sunset</code> - Unix timestamp of today's sunset<br>
+                            • <code>weather_temp</code> - Current temperature (°C)<br>
+                            • <code>weather_humidity</code> - Humidity (%)<br>
+                            • <code>weather_wind_speed</code> - Wind speed ${block.provider === 'open-meteo' || !block.provider ? '(km/h)' : '(m/s)'}<br>
+                            • <code>weather_clouds</code> - Cloudiness (%)
+                        </div>
                     </div>
                  `;
             } else if (block.type === 'configure_pin') {
@@ -4414,12 +4680,146 @@ function renderLogicCanvas() {
                         </select>
                     </div>
                  `;
+            } else if (block.type === 'delay') {
+                 // Special handling for delay block with variable support
+                 // Build variable options for dropdown
+                 let delayVarOptions = '';
+                 if (uniqueVars.length > 0) {
+                     delayVarOptions += '<li><h6 class="dropdown-header">Variables</h6></li>';
+                     uniqueVars.forEach(v => {
+                         delayVarOptions += `<li><a class="dropdown-item small" href="#" onclick="document.getElementById('delay-ms-${index}').value = '${v}'; updateBlockProperty(${index}, 'ms', '${v}', 'text', false); return false;">${v}</a></li>`;
+                     });
+                 }
+                 const systemVars = SYSTEM_VARIABLES || [];
+                 if (systemVars.length > 0) {
+                     delayVarOptions += '<li><h6 class="dropdown-header">System</h6></li>';
+                     systemVars.forEach(v => {
+                         delayVarOptions += `<li><a class="dropdown-item small" href="#" onclick="document.getElementById('delay-ms-${index}').value = '${v}'; updateBlockProperty(${index}, 'ms', '${v}', 'text', false); return false;">${v}</a></li>`;
+                     });
+                 }
+                 
+                 contentHtml += `
+                    <div class="col-12 mb-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label small mb-0 fw-bold text-primary"><i class="fas fa-clock"></i> Duration (ms)</label>
+                            ${delayVarOptions ? `<div class="dropdown">
+                                <button class="btn btn-xs btn-outline-secondary dropdown-toggle py-0" type="button" data-bs-toggle="dropdown">
+                                    Insert Variable
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end" style="max-height: 200px; overflow-y: auto;">
+                                    ${delayVarOptions}
+                                </ul>
+                            </div>` : ''}
+                        </div>
+                        <input id="delay-ms-${index}" type="text" class="form-control form-control-sm" 
+                               value="${block.ms || ''}" placeholder="1000 or variable name"
+                               list="logicVariables"
+                               onchange="updateBlockProperty(${index}, 'ms', this.value, 'text', false)">
+                        <div class="form-text x-small text-muted">
+                            <i class="fas fa-info-circle"></i> Enter a number (milliseconds) or a variable name (e.g., delayTime)
+                        </div>
+                    </div>
+                 `;
+            } else if (block.type === 'hibernate') {
+                 // Special handling for hibernate block with variable support and mode toggle
+                 // Determine if we're in variable mode or numeric+unit mode
+                 // If duration is a non-numeric string, assume variable mode
+                 const isVariableMode = block.duration && isNaN(parseFloat(block.duration));
+                 
+                 // Build variable options for dropdown
+                 let hibernateVarOptions = '';
+                 if (uniqueVars.length > 0) {
+                     hibernateVarOptions += '<li><h6 class="dropdown-header">Variables</h6></li>';
+                     uniqueVars.forEach(v => {
+                         hibernateVarOptions += `<li><a class="dropdown-item small" href="#" onclick="setHibernateVariable(${index}, '${v}'); return false;">${v}</a></li>`;
+                     });
+                 }
+                 const systemVars = SYSTEM_VARIABLES || [];
+                 if (systemVars.length > 0) {
+                     hibernateVarOptions += '<li><h6 class="dropdown-header">System</h6></li>';
+                     systemVars.forEach(v => {
+                         hibernateVarOptions += `<li><a class="dropdown-item small" href="#" onclick="setHibernateVariable(${index}, '${v}'); return false;">${v}</a></li>`;
+                     });
+                 }
+                 
+                 contentHtml += `
+                    <div class="col-12 mb-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label small mb-0 fw-bold text-primary"><i class="fas fa-bed"></i> Sleep Duration</label>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <input type="radio" class="btn-check" name="hibernate-mode-${index}" id="hibernate-numeric-${index}" 
+                                       ${!isVariableMode ? 'checked' : ''} onchange="toggleHibernateMode(${index}, false)">
+                                <label class="btn btn-outline-secondary btn-sm py-0" for="hibernate-numeric-${index}" title="Use number with time unit">
+                                    <i class="fas fa-clock"></i> Numeric
+                                </label>
+                                <input type="radio" class="btn-check" name="hibernate-mode-${index}" id="hibernate-variable-${index}" 
+                                       ${isVariableMode ? 'checked' : ''} onchange="toggleHibernateMode(${index}, true)">
+                                <label class="btn btn-outline-secondary btn-sm py-0" for="hibernate-variable-${index}" title="Use variable name">
+                                    <i class="fas fa-calculator"></i> Variable
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div id="hibernate-numeric-container-${index}" style="display: ${!isVariableMode ? 'block' : 'none'}">
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <input type="number" class="form-control form-control-sm" 
+                                           value="${isVariableMode ? '60' : (block.duration || '60')}" 
+                                           placeholder="60"
+                                           onchange="updateBlockProperty(${index}, 'duration', this.value, 'text', false)">
+                                </div>
+                                <div class="col-6">
+                                    <select class="form-select form-select-sm" 
+                                            onchange="updateBlockProperty(${index}, 'unit', this.value, 'text', false)">
+                                        <option value="seconds" ${block.unit === 'seconds' ? 'selected' : ''}>Seconds</option>
+                                        <option value="minutes" ${block.unit === 'minutes' ? 'selected' : ''}>Minutes</option>
+                                        <option value="hours" ${block.unit === 'hours' ? 'selected' : ''}>Hours</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-text x-small text-muted">
+                                <i class="fas fa-info-circle"></i> Enter a number and select the time unit
+                            </div>
+                        </div>
+                        
+                        <div id="hibernate-variable-container-${index}" style="display: ${isVariableMode ? 'block' : 'none'}">
+                            <div class="d-flex gap-1">
+                                <input id="hibernate-duration-${index}" type="text" class="form-control form-control-sm" 
+                                       value="${isVariableMode ? block.duration : ''}" 
+                                       placeholder="Variable name (e.g., sleepTime)"
+                                       list="logicVariables"
+                                       onchange="updateBlockProperty(${index}, 'duration', this.value, 'text', false)">
+                                ${hibernateVarOptions ? `<div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" title="Insert Variable">
+                                        <i class="fas fa-list"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end" style="max-height: 200px; overflow-y: auto;">
+                                        ${hibernateVarOptions}
+                                    </ul>
+                                </div>` : ''}
+                            </div>
+                            <div class="form-text x-small text-muted">
+                                <i class="fas fa-info-circle"></i> Variable should contain time in <strong>${block.unit || 'seconds'}</strong>. 
+                                Unit: <select class="form-select form-select-sm d-inline-block" style="width: auto;" 
+                                        onchange="updateBlockProperty(${index}, 'unit', this.value, 'text', false)">
+                                    <option value="seconds" ${block.unit === 'seconds' || !block.unit ? 'selected' : ''}>seconds</option>
+                                    <option value="minutes" ${block.unit === 'minutes' ? 'selected' : ''}>minutes</option>
+                                    <option value="hours" ${block.unit === 'hours' ? 'selected' : ''}>hours</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                 `;
             } else {
                 // Standard rendering for other blocks
                 Object.keys(block).forEach(key => {
                     if (key === 'type') return;
                     if (key === 'then' || key === 'else') return; 
                     if (key === 'condition') return; // Handled above if type is 'if'
+                    
+                    // Skip fields that are handled specially above
+                    if (block.type === 'delay' && key === 'ms') return;
+                    if (block.type === 'hibernate' && (key === 'duration' || key === 'unit')) return;
                     
                     const val = block[key];
                     
@@ -4919,6 +5319,168 @@ function updateIfCondition(index, field, value) {
     if (!block.condition) block.condition = { left: '', operator: '==', right: '' };
     block.condition[field] = value;
     
+    syncVisualToJson();
+}
+
+function toggleHibernateMode(index, isVariableMode) {
+    const currentArray = getCurrentLogicArray();
+    const block = currentArray[index];
+    
+    // Show/hide appropriate container
+    const numericContainer = document.getElementById(`hibernate-numeric-container-${index}`);
+    const variableContainer = document.getElementById(`hibernate-variable-container-${index}`);
+    
+    if (numericContainer && variableContainer) {
+        if (isVariableMode) {
+            numericContainer.style.display = 'none';
+            variableContainer.style.display = 'block';
+            // Set duration to empty string or existing variable
+            if (block.duration && !isNaN(parseFloat(block.duration))) {
+                block.duration = '';
+            }
+        } else {
+            numericContainer.style.display = 'block';
+            variableContainer.style.display = 'none';
+            // Set duration to default numeric value
+            if (block.duration && isNaN(parseFloat(block.duration))) {
+                block.duration = 60;
+            }
+        }
+    }
+    
+    syncVisualToJson();
+}
+
+function setHibernateVariable(index, varName) {
+    const input = document.getElementById(`hibernate-duration-${index}`);
+    if (input) {
+        input.value = varName;
+        updateBlockProperty(index, 'duration', varName, 'text', false);
+    }
+}
+
+// Helper to get all available variables for dropdowns
+function getAvailableVariables() {
+    let vars = [];
+    
+    // 1. System Variables
+    const systemVars = SYSTEM_VARIABLES || [];
+    systemVars.forEach(v => {
+        vars.push({ name: v, type: 'system', icon: 'fa-cog', color: 'secondary' });
+    });
+    
+    // 2. Sensor Capabilities (Hardware Pins/Sensors)
+    if (currentSensorCapabilities && currentSensorCapabilities.sensors) {
+        currentSensorCapabilities.sensors.forEach(s => {
+            if (s.name) {
+                vars.push({ name: s.name, type: 'sensor', icon: 'fa-microchip', color: 'info' });
+            }
+        });
+    }
+    
+    // 3. User Aliases from Logic
+    const userAliases = collectUserAliases(currentLogicData.actions || []);
+    const uniqueAliases = [...new Set(userAliases.map(a => a.name))];
+    uniqueAliases.forEach(a => {
+        vars.push({ name: a, type: 'alias', icon: 'fa-tag', color: 'success' });
+    });
+    
+    // 4. User Variables from Logic
+    const userVars = collectUserVariables(currentLogicData.actions || []);
+    const uniqueVars = [...new Set(userVars)];
+    uniqueVars.forEach(v => {
+        vars.push({ name: v, type: 'variable', icon: 'fa-calculator', color: 'primary' });
+    });
+    
+    return vars;
+}
+
+// Helper to generate variable picker dropdown HTML
+function generateVariablePickerDropdown(inputId, placeholder = 'Select variable...') {
+    const vars = getAvailableVariables();
+    
+    if (vars.length === 0) {
+        return '';
+    }
+    
+    let html = `
+        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" 
+                data-bs-toggle="dropdown" aria-expanded="false" title="Pick a variable">
+            <i class="fas fa-list"></i>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end" style="max-height: 300px; overflow-y: auto;">
+    `;
+    
+    // Group by type
+    const groupedVars = {
+        system: vars.filter(v => v.type === 'system'),
+        sensor: vars.filter(v => v.type === 'sensor'),
+        alias: vars.filter(v => v.type === 'alias'),
+        variable: vars.filter(v => v.type === 'variable')
+    };
+    
+    const labels = {
+        system: 'System Variables',
+        sensor: 'Sensors',
+        alias: 'Aliases',
+        variable: 'User Variables'
+    };
+    
+    Object.keys(groupedVars).forEach(groupType => {
+        if (groupedVars[groupType].length > 0) {
+            html += `<li><h6 class="dropdown-header">${labels[groupType]}</h6></li>`;
+            groupedVars[groupType].forEach(v => {
+                html += `
+                    <li>
+                        <a class="dropdown-item small" href="#" 
+                           onclick="setInputValue('${inputId}', '${v.name}'); return false;">
+                            <i class="fas ${v.icon} text-${v.color} me-2"></i>${v.name}
+                        </a>
+                    </li>
+                `;
+            });
+        }
+    });
+    
+    html += '</ul>';
+    return html;
+}
+
+// Helper to set input value and trigger change event
+function setInputValue(inputId, value) {
+    const input = document.getElementById(inputId);
+    if (input) {
+        input.value = value;
+        input.dispatchEvent(new Event('change'));
+    }
+}
+
+function updateVariableType(index, newType) {
+    const currentArray = getCurrentLogicArray();
+    const block = currentArray[index];
+    
+    if (!block) return;
+    
+    // Update the type
+    block.var_type = newType;
+    
+    // Set defaults based on type
+    if (newType === 'duration') {
+        if (!block.unit) block.unit = 'seconds';
+        if (block.operation === '=' && !block.value) block.value = '60';
+    } else if (newType === 'datetime') {
+        if (block.operation === '=' && !block.value) block.value = 'now';
+    } else if (newType === 'timestamp') {
+        if (block.operation === '=' && !block.value) block.value = 'millis';
+    } else if (newType === 'string') {
+        if (block.operation === '=' && !block.value) block.value = '';
+    } else { // number
+        if (!block.value) block.value = '0';
+        delete block.unit; // Remove unit if exists
+    }
+    
+    // Re-render to show appropriate UI
+    renderLogicCanvas();
     syncVisualToJson();
 }
 

@@ -2285,3 +2285,98 @@ def get_sensor_variables(sensor_id):
         return jsonify({'error': 'Failed to retrieve variables'}), 500
 
 
+@sensor_master_api_bp.route('/sensor-master/weather', methods=['GET'])
+def get_weather_proxy():
+    """
+    Weather API proxy for ESP32 devices
+    
+    This endpoint proxies weather requests from ESP32 devices to Open-Meteo API,
+    eliminating the need for ESP32 to handle HTTPS/TLS/certificates.
+    
+    Query parameters:
+    - latitude: Location latitude (required)
+    - longitude: Location longitude (required)
+    - provider: Weather provider (optional, default: 'open-meteo')
+    - api_key: API key for providers that require it (optional)
+    
+    Returns:
+    {
+        "status": "success",
+        "data": {
+            "sunrise": "2026-01-04T05:45:00",
+            "sunset": "2026-01-04T20:30:00",
+            "temperature": 25.5,
+            "humidity": 65,
+            "wind_speed": 3.2,
+            "clouds": 20
+        }
+    }
+    """
+    try:
+        import requests
+        
+        # Get query parameters
+        latitude = request.args.get('latitude')
+        longitude = request.args.get('longitude')
+        provider = request.args.get('provider', 'open-meteo')
+        api_key = request.args.get('api_key', '')
+        
+        # Validate required parameters
+        if not latitude or not longitude:
+            return jsonify({
+                'status': 'error',
+                'error': 'latitude and longitude are required'
+            }), 400
+        
+        try:
+            lat = float(latitude)
+            lon = float(longitude)
+        except ValueError:
+            return jsonify({
+                'status': 'error',
+                'error': 'latitude and longitude must be valid numbers'
+            }), 400
+        
+        logger.info(f"Weather request: lat={lat}, lon={lon}, provider={provider}")
+        
+        # Fetch from Open-Meteo (free, no API key required)
+        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=sunrise,sunset&current=temperature_2m,relative_humidity_2m,wind_speed_10m,cloud_cover&timezone=auto"
+        
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        
+        data = response.json()
+        
+        # Extract data from Open-Meteo response
+        result = {
+            'sunrise': data.get('daily', {}).get('sunrise', [''])[0],
+            'sunset': data.get('daily', {}).get('sunset', [''])[0],
+            'temperature': data.get('current', {}).get('temperature_2m', 0),
+            'humidity': data.get('current', {}).get('relative_humidity_2m', 0),
+            'wind_speed': data.get('current', {}).get('wind_speed_10m', 0),
+            'clouds': data.get('current', {}).get('cloud_cover', 0)
+        }
+        
+        logger.info(f"Weather data fetched successfully: sunrise={result['sunrise']}, sunset={result['sunset']}")
+        
+        return jsonify({
+            'status': 'success',
+            'data': result
+        }), 200
+    
+    except requests.RequestException as e:
+        logger.error(f"Weather API request failed: {e}", exc_info=True)
+        return jsonify({
+            'status': 'error',
+            'error': f'Failed to fetch weather data: {str(e)}'
+        }), 500
+    
+    except Exception as e:
+        logger.error(f"Error in weather proxy: {e}", exc_info=True)
+        return jsonify({
+            'status': 'error',
+            'error': 'Internal server error'
+        }), 500
+
+
+
