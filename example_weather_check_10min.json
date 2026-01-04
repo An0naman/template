@@ -1,0 +1,86 @@
+{
+  "name": "Weather Check - Every 10 Minutes",
+  "version": "1.1.0",
+  "description": "Checks weather every 10 minutes using intuitive time calculations",
+  "target_sensor_type": "generic",
+  "actions": [
+    {
+      "type": "time_calc",
+      "result_var": "CurrentTime",
+      "time_op": "now",
+      "output_unit": "seconds"
+    },
+    {
+      "type": "if",
+      "condition": {
+        "left": "NextWeatherCheck",
+        "operator": "==",
+        "right": "0"
+      },
+      "then": [
+        {
+          "type": "variable_op",
+          "name": "NextWeatherCheck",
+          "operation": "=",
+          "value": "CurrentTime"
+        },
+        {
+          "type": "log",
+          "message": "First run - initialized NextWeatherCheck to {NextWeatherCheck}"
+        }
+      ],
+      "else": []
+    },
+    {
+      "type": "log",
+      "message": "Current time: {CurrentTime}, Next check at: {NextWeatherCheck}"
+    },
+    {
+      "type": "if",
+      "condition": {
+        "left": "CurrentTime",
+        "operator": ">=",
+        "right": "NextWeatherCheck"
+      },
+      "then": [
+        {
+          "type": "log",
+          "message": "✅ Time to check weather!"
+        },
+        {
+          "type": "variable_op",
+          "name": "LastWeatherCheck",
+          "operation": "=",
+          "value": "CurrentTime"
+        },
+        {
+          "type": "time_calc",
+          "result_var": "NextWeatherCheck",
+          "time_op": "add",
+          "value_a": "CurrentTime",
+          "value_b": "600",
+          "value_b_raw": "10",
+          "value_b_unit": "minutes",
+          "output_unit": "seconds"
+        },
+        {
+          "type": "weather_fetch",
+          "provider": "open-meteo",
+          "api_key": "",
+          "latitude": -34.08183,
+          "longitude": 151.004129
+        },
+        {
+          "type": "log",
+          "message": "🌤️ Weather updated! Last check: {LastWeatherCheck}, Next check: {NextWeatherCheck}"
+        }
+      ],
+      "else": [
+        {
+          "type": "log",
+          "message": "⏳ Not yet time to check weather. Will check at {NextWeatherCheck}"
+        }
+      ]
+    }
+  ]
+}

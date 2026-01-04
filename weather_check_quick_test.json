@@ -1,0 +1,176 @@
+{
+  "name": "Weather Check - Quick Test",
+  "version": "1.0.19",
+  "description": "30-second delays for rapid testing - no long hibernation",
+  "target_sensor_type": "generic",
+  "actions": [
+    {
+      "type": "time_calc",
+      "result_var": "CurrentTime",
+      "time_op": "now",
+      "output_unit": "seconds"
+    },
+    {
+      "type": "log",
+      "message": "🔌 Device online! Time: {CurrentTime}"
+    },
+    {
+      "type": "log",
+      "message": "📊 Debug - NextWeatherCheck={NextWeatherCheck}, sunset={sunset}, sunrise={sunrise}"
+    },
+    {
+      "type": "if",
+      "condition": {
+        "left": "NextWeatherCheck",
+        "operator": "==",
+        "right": "0"
+      },
+      "then": [
+        {
+          "type": "variable_op",
+          "name": "NextWeatherCheck",
+          "operation": "=",
+          "value": "CurrentTime",
+          "var_type": "number"
+        },
+        {
+          "type": "log",
+          "message": "🆕 First run - will fetch weather"
+        }
+      ],
+      "else": [
+        {
+          "type": "log",
+          "message": "✅ Variables loaded"
+        }
+      ]
+    },
+    {
+      "type": "if",
+      "condition": {
+        "left": "CurrentTime",
+        "operator": ">=",
+        "right": "NextWeatherCheck"
+      },
+      "then": [
+        {
+          "type": "log",
+          "message": "⏰ Fetching weather..."
+        },
+        {
+          "type": "time_calc",
+          "result_var": "NextWeatherCheck",
+          "time_op": "add",
+          "value_a": "CurrentTime",
+          "value_b": "1800",
+          "output_unit": "seconds",
+          "value_b_unit": "minutes",
+          "value_b_raw": "30"
+        },
+        {
+          "type": "weather_fetch",
+          "provider": "open-meteo",
+          "api_key": "",
+          "latitude": -34.08183,
+          "longitude": 151.004129
+        },
+        {
+          "type": "log",
+          "message": "🌤️ Weather OK! Sunrise: {sunrise}, Sunset: {sunset}"
+        }
+      ],
+      "else": [
+        {
+          "type": "log",
+          "message": "⏳ Next weather check at: {NextWeatherCheck}"
+        }
+      ]
+    },
+    {
+      "type": "if",
+      "condition": {
+        "left": "sunset",
+        "operator": ">",
+        "right": "0"
+      },
+      "then": [
+        {
+          "type": "log",
+          "message": "✅ Weather data available"
+        },
+        {
+          "type": "if",
+          "condition": {
+            "left": "CurrentTime",
+            "operator": ">=",
+            "right": "sunset"
+          },
+          "then": [
+            {
+              "type": "time_calc",
+              "result_var": "TomorrowSunrise",
+              "time_op": "add",
+              "output_unit": "seconds",
+              "value_a": "sunrise",
+              "value_b": "86400",
+              "value_b_unit": "days",
+              "value_b_raw": "1"
+            },
+            {
+              "type": "time_calc",
+              "result_var": "HoursUntilSunrise",
+              "time_op": "diff",
+              "output_unit": "hours",
+              "value_a": "TomorrowSunrise",
+              "value_b": "CurrentTime"
+            },
+            {
+              "type": "log",
+              "message": "🌙 Nighttime - {HoursUntilSunrise}h until sunrise"
+            },
+            {
+              "type": "log",
+              "message": "[TEST MODE] Would hibernate, using 30s delay instead"
+            },
+            {
+              "type": "delay",
+              "ms": "30000"
+            }
+          ],
+          "else": [
+            {
+              "type": "time_calc",
+              "result_var": "MinutesUntilSunset",
+              "time_op": "diff",
+              "output_unit": "minutes",
+              "value_a": "sunset",
+              "value_b": "CurrentTime"
+            },
+            {
+              "type": "log",
+              "message": "☀️ Daytime - {MinutesUntilSunset}min until sunset"
+            },
+            {
+              "type": "log",
+              "message": "[TEST MODE] Using 30s delay"
+            },
+            {
+              "type": "delay",
+              "ms": "30000"
+            }
+          ]
+        }
+      ],
+      "else": [
+        {
+          "type": "log",
+          "message": "⚠️ No weather data yet - waiting 30s"
+        },
+        {
+          "type": "delay",
+          "ms": "30000"
+        }
+      ]
+    }
+  ]
+}

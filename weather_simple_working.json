@@ -1,0 +1,75 @@
+{
+  "name": "Weather Sleep Simple",
+  "version": "1.2.0",
+  "description": "Simplified hibernation logic",
+  "target_sensor_type": "generic",
+  "actions": [
+    {
+      "type": "time_calc",
+      "result_var": "CurrentTime",
+      "time_op": "now",
+      "output_unit": "seconds"
+    },
+    {
+      "type": "weather_fetch",
+      "provider": "open-meteo",
+      "api_key": "",
+      "latitude": -34.08183,
+      "longitude": 151.004129
+    },
+    {
+      "type": "log",
+      "message": "Current: {CurrentTime}, Sunset: {sunset}"
+    },
+    {
+      "type": "time_calc",
+      "result_var": "TomorrowSunrise",
+      "time_op": "add",
+      "value_a": "sunrise",
+      "value_b": "86400",
+      "output_unit": "seconds"
+    },
+    {
+      "type": "time_calc",
+      "result_var": "HoursUntilSunrise",
+      "time_op": "diff",
+      "value_a": "TomorrowSunrise",
+      "value_b": "CurrentTime",
+      "output_unit": "hours"
+    },
+    {
+      "type": "log",
+      "message": "Hours until sunrise: {HoursUntilSunrise}"
+    },
+    {
+      "type": "if",
+      "condition": {
+        "left": "CurrentTime",
+        "operator": ">=",
+        "right": "sunset"
+      },
+      "then": [
+        {
+          "type": "log",
+          "message": "Night time - sleeping 2 hours"
+        },
+        {
+          "type": "hibernate",
+          "duration": "2",
+          "unit": "hours"
+        }
+      ],
+      "else": [
+        {
+          "type": "log",
+          "message": "Day time - sleeping 30 min"
+        },
+        {
+          "type": "hibernate",
+          "duration": "30",
+          "unit": "minutes"
+        }
+      ]
+    }
+  ]
+}

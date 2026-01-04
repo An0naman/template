@@ -3709,6 +3709,10 @@ function normalizeLogicData(actions) {
             if (block.value_b === undefined && (block.time_op === 'diff' || block.time_op === 'add')) {
                 block.value_b = '';
             }
+            // Set default unit for value_b conversion (for "add" operations)
+            if (block.time_op === 'add' && block.value_b_unit === undefined) {
+                block.value_b_unit = 'seconds';
+            }
         } else if (block.type === 'weather_fetch') {
             if (block.provider === undefined) block.provider = 'open-meteo';
             if (block.api_key === undefined) block.api_key = '';
@@ -4550,25 +4554,61 @@ function renderLogicCanvas() {
                     ` : ''}
                     ${block.time_op === 'diff' || block.time_op === 'add' ? `
                         <div class="col-md-6 mb-2">
-                            <label class="form-label small mb-0">Value B (End/To)</label>
+                            <label class="form-label small mb-0">Value B ${block.time_op === 'add' ? '(Duration to Add)' : '(End/To)'}</label>
                             <div class="input-group input-group-sm">
                                 <input type="text" class="form-control form-control-sm" 
                                        id="time-value-b-${index}"
-                                       value="${block.value_b || ''}" placeholder="Variable name or timestamp"
+                                       value="${block.time_op === 'add' && block.value_b_raw !== undefined ? block.value_b_raw : (block.value_b || '')}" 
+                                       placeholder="${block.time_op === 'add' ? 'e.g. 10 (see unit selector →)' : 'Variable name or timestamp'}"
                                        list="logicVariables"
-                                       onchange="updateBlockProperty(${index}, 'value_b', this.value, 'text', false)">
-                                ${generateVariablePickerDropdown(`time-value-b-${index}`)}
+                                       onchange="updateTimeCalcValueB(${index}, this.value)">
+                                ${block.time_op === 'add' ? '' : generateVariablePickerDropdown(`time-value-b-${index}`)}
                             </div>
-                            <div class="form-text x-small">Variable name, timestamp number, or system vars: <code>millis</code>, <code>uptime</code></div>
+                            ${block.time_op === 'add' ? `
+                                <div class="form-text x-small text-primary">
+                                    <i class="fas fa-magic"></i> Enter a number or variable. ${block.value_b_raw && block.value_b && block.value_b !== block.value_b_raw && !isNaN(parseFloat(block.value_b_raw)) ? `Will use: <code>${block.value_b}</code> seconds` : 'Select unit below to auto-convert.'}
+                                </div>
+                            ` : `
+                                <div class="form-text x-small">Variable name, timestamp number, or system vars: <code>millis</code>, <code>uptime</code></div>
+                            `}
                         </div>
+                        ${block.time_op === 'add' ? `
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label small mb-0">Value B Unit <span class="text-muted">(for conversion)</span></label>
+                                <select class="form-select form-select-sm" 
+                                        onchange="updateTimeCalcValueBUnit(${index}, this.value)">
+                                    <option value="seconds" ${!block.value_b_unit || block.value_b_unit === 'seconds' ? 'selected' : ''}>Seconds</option>
+                                    <option value="minutes" ${block.value_b_unit === 'minutes' ? 'selected' : ''}>Minutes</option>
+                                    <option value="hours" ${block.value_b_unit === 'hours' ? 'selected' : ''}>Hours</option>
+                                    <option value="days" ${block.value_b_unit === 'days' ? 'selected' : ''}>Days</option>
+                                    <option value="raw" ${block.value_b_unit === 'raw' ? 'selected' : ''}>Raw (No Conversion)</option>
+                                </select>
+                                <div class="form-text x-small text-info">
+                                    <i class="fas fa-info-circle"></i> Auto-converts Value B to seconds. Use "Raw" for variables that are already in seconds.
+                                </div>
+                            </div>
+                        ` : ''}
                     ` : ''}
                     <div class="col-12">
                         <div class="alert alert-info py-1 px-2 mb-0 small">
                             <strong>Examples:</strong><br>
-                            • <strong>Diff:</strong> Calculate hours until a future datetime<br>
-                            • <strong>Add:</strong> Add duration to current time<br>
-                            • <strong>Now:</strong> Get current timestamp<br>
-                            • <strong>Convert:</strong> Change time units (e.g., hours to seconds)
+                            ${block.time_op === 'add' ? `
+                                • Add 10 minutes: Set Value B = <code>10</code>, Unit = <code>minutes</code> (auto-converts to 600 seconds)<br>
+                                • Add 2 hours: Set Value B = <code>2</code>, Unit = <code>hours</code> (auto-converts to 7200 seconds)<br>
+                                • Add variable: Set Value B = <code>myDuration</code>, Unit = <code>raw</code> (uses variable value as-is)
+                            ` : block.time_op === 'diff' ? `
+                                • Calculate time until: Value A = <code>futureTimestamp</code>, Value B = <code>CurrentTime</code><br>
+                                • Time since: Value A = <code>CurrentTime</code>, Value B = <code>LastCheck</code><br>
+                                • Both values should be timestamps in seconds (Unix epoch time)
+                            ` : block.time_op === 'now' ? `
+                                • Get current timestamp in seconds (Unix epoch time)<br>
+                                • No Value A or Value B needed - just set output unit
+                            ` : `
+                                • <strong>Diff:</strong> Calculate difference between two timestamps<br>
+                                • <strong>Add:</strong> Add duration to a timestamp (with auto-conversion!)<br>
+                                • <strong>Now:</strong> Get current timestamp<br>
+                                • <strong>Convert:</strong> Change time units (e.g., hours to seconds)
+                            `}
                         </div>
                     </div>
                  `;
@@ -5510,6 +5550,62 @@ function updateBlockProperty(index, key, value, type, checked) {
         }
     } catch (e) {
         console.error("Error updating block property:", e);
+    }
+}
+
+function updateTimeCalcValueB(index, value) {
+    try {
+        const currentArray = getCurrentLogicArray();
+        if (currentArray && currentArray[index]) {
+            const block = currentArray[index];
+            
+            // Store the raw value (user-entered)
+            block.value_b_raw = value;
+            
+            // Convert based on unit if operation is "add"
+            if (block.time_op === 'add' && block.value_b_unit && block.value_b_unit !== 'raw') {
+                const numValue = parseFloat(value);
+                if (!isNaN(numValue)) {
+                    // Convert to seconds
+                    let convertedValue = numValue;
+                    if (block.value_b_unit === 'minutes') convertedValue = numValue * 60;
+                    else if (block.value_b_unit === 'hours') convertedValue = numValue * 3600;
+                    else if (block.value_b_unit === 'days') convertedValue = numValue * 86400;
+                    
+                    block.value_b = convertedValue.toString();
+                } else {
+                    // Not a number, probably a variable name - use as-is
+                    block.value_b = value;
+                }
+            } else {
+                // No conversion needed
+                block.value_b = value;
+            }
+            
+            syncVisualToJson();
+        }
+    } catch (e) {
+        console.error("Error updating time_calc value_b:", e);
+    }
+}
+
+function updateTimeCalcValueBUnit(index, unit) {
+    try {
+        const currentArray = getCurrentLogicArray();
+        if (currentArray && currentArray[index]) {
+            const block = currentArray[index];
+            block.value_b_unit = unit;
+            
+            // Re-calculate value_b if we have a raw value
+            if (block.value_b_raw) {
+                updateTimeCalcValueB(index, block.value_b_raw);
+            }
+            
+            // Re-render to update help text
+            renderLogicCanvas();
+        }
+    } catch (e) {
+        console.error("Error updating time_calc value_b_unit:", e);
     }
 }
 

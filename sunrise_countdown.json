@@ -1,0 +1,75 @@
+{
+  "name": "Sunrise Countdown Test",
+  "version": "1.0.0",
+  "description": "Simple test to calculate time until tomorrow's sunrise",
+  "target_sensor_type": "generic",
+  "actions": [
+    {
+      "type": "time_calc",
+      "result_var": "CurrentTime",
+      "time_op": "now",
+      "output_unit": "seconds"
+    },
+    {
+      "type": "log",
+      "message": "🕐 Current time: {CurrentTime}"
+    },
+    {
+      "type": "weather_fetch",
+      "provider": "open-meteo",
+      "api_key": "",
+      "latitude": -34.08183,
+      "longitude": 151.004129
+    },
+    {
+      "type": "log",
+      "message": "🌤️ Today's sunrise: {sunrise}, sunset: {sunset}"
+    },
+    {
+      "type": "time_calc",
+      "result_var": "TomorrowSunrise",
+      "time_op": "add",
+      "output_unit": "seconds",
+      "value_a": "sunrise",
+      "value_b": "86400",
+      "value_b_unit": "days",
+      "value_b_raw": "1"
+    },
+    {
+      "type": "log",
+      "message": "🌅 Tomorrow's sunrise timestamp: {TomorrowSunrise}"
+    },
+    {
+      "type": "time_calc",
+      "result_var": "SecondsUntilSunrise",
+      "time_op": "diff",
+      "output_unit": "seconds",
+      "value_a": "TomorrowSunrise",
+      "value_b": "CurrentTime"
+    },
+    {
+      "type": "log",
+      "message": "⏱️ Seconds until tomorrow's sunrise: {SecondsUntilSunrise}"
+    },
+    {
+      "type": "time_calc",
+      "result_var": "HoursUntilSunrise",
+      "time_op": "diff",
+      "output_unit": "hours",
+      "value_a": "TomorrowSunrise",
+      "value_b": "CurrentTime"
+    },
+    {
+      "type": "log",
+      "message": "⏰ Hours until tomorrow's sunrise: {HoursUntilSunrise}"
+    },
+    {
+      "type": "log",
+      "message": "✅ Done! Waiting 10 seconds before looping..."
+    },
+    {
+      "type": "delay",
+      "ms": "10000"
+    }
+  ]
+}
