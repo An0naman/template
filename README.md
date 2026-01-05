@@ -20,9 +20,9 @@ A sophisticated Flask-based content management system with dynamic theming, rela
 - 🔍 **Advanced Filtering**: Multi-dimensional search and filtering
 - 📊 **Dashboards**: Customizable widgets and data visualization
 
-### **Technical Excellence**
+### Technical Excellence
 - 🏗️ **Modular Architecture**: Blueprint-based Flask application
-- 🔌 **Comprehensive REST API**: 10+ specialized API endpoints
+- 🔌 **Comprehensive REST API**: 30+ specialized API endpoints
 - 🐳 **Docker Support**: Production-ready containerization
 - 📊 **Database Management**: SQLite with all config in SQL (framework-ready)
 - 🔄 **Framework Design**: Reusable across multiple independent applications
@@ -89,15 +89,18 @@ template/
 │   ├── __init__.py             # Application factory
 │   ├── config.py               # Configuration management
 │   ├── db.py                   # Database utilities
-│   ├── api/                    # REST API modules (10+ endpoints)
+│   ├── api/                    # REST API modules (30+ endpoints)
 │   ├── routes/                 # Flask route handlers
 │   ├── services/               # Business logic layer
 │   ├── templates/              # Jinja2 HTML templates
 │   └── static/                 # CSS, JS, and uploads
 ├── data/                       # Database & uploaded files
 ├── docs/                       # 📚 Documentation
-│   ├── setup/                  # Installation & deployment guides
 │   ├── features/               # Feature-specific documentation
+│   ├── guides/                 # User guides & tutorials
+│   ├── development/            # Development notes & testing
+│   ├── framework/              # Framework documentation
+│   └── api/                    # API references
 │   ├── guides/                 # User & API guides
 │   ├── development/            # Technical documentation
 │   └── framework/              # Framework usage guide
