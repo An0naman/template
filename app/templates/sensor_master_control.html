@@ -2680,7 +2680,97 @@ async function viewSensorDetails(sensorId) {
                        </div>`
                     : (sensor.last_battery_voltage ? sensor.last_battery_voltage.toFixed(2) + ' V' : 'N/A')}
             </dd>
-
+        </dl>
+        
+        <!-- Battery Calibration Section -->
+        <div class="card bg-light border-warning mb-3">
+            <div class="card-header bg-warning bg-opacity-10">
+                <h6 class="mb-0"><i class="fas fa-sliders-h"></i> Battery Voltage Calibration</h6>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    <i class="fas fa-info-circle"></i> <strong>Simple calibration:</strong> Measure your battery voltage with a multimeter and enter it below. 
+                    The system will automatically calculate the correction needed for accurate readings.
+                </p>
+                
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Current Device Reading</label>
+                        <div class="input-group input-group-sm">
+                            <input type="text" class="form-control bg-light" id="calibCurrentReading_${sensor.sensor_id}" 
+                                   value="${sensor.last_battery_voltage ? sensor.last_battery_voltage.toFixed(2) : 'N/A'}" readonly>
+                            <span class="input-group-text">V</span>
+                        </div>
+                        <small class="text-muted">What device reports now</small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Actual Voltage (Multimeter)</label>
+                        <div class="input-group input-group-sm">
+                            <input type="number" step="0.01" class="form-control" id="calibActual_${sensor.sensor_id}" 
+                                   placeholder="4.03" value="${sensor.battery_calibrated_voltage || ''}">
+                            <span class="input-group-text">V</span>
+                        </div>
+                        <small class="text-muted">Measured with multimeter</small>
+                    </div>
+                </div>
+                
+                ${sensor.battery_calibration_date ? `
+                    <div class="alert alert-info alert-sm mb-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="fas fa-check-circle"></i> <strong>Calibrated</strong>
+                                <br><small>Date: ${new Date(sensor.battery_calibration_date).toLocaleString()}</small>
+                                <br><small>Reference: ${sensor.battery_calibrated_voltage ? sensor.battery_calibrated_voltage.toFixed(2) : 'N/A'}V → Correction Factor: ${sensor.battery_r1 && sensor.battery_r2 ? ((sensor.battery_r1 + sensor.battery_r2) / sensor.battery_r2).toFixed(3) : 'N/A'}x</small>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <div class="d-flex gap-2">
+                    <button class="btn btn-warning btn-sm" onclick="autoCalibrateBattery('${sensor.sensor_id}')">
+                        <i class="fas fa-magic"></i> Auto-Calibrate
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="resetCalibration('${sensor.sensor_id}')">
+                        <i class="fas fa-undo"></i> Reset
+                    </button>
+                </div>
+                
+                <div class="mt-3">
+                    <details class="small text-muted">
+                        <summary style="cursor: pointer;"><strong>Advanced (Manual R1/R2)</strong></summary>
+                        <div class="row g-2 mt-2">
+                            <div class="col-md-6">
+                                <label class="form-label small">R1 (Top Resistor)</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control" id="calibR1_${sensor.sensor_id}" 
+                                           value="${sensor.battery_r1 || 100000}" placeholder="100000">
+                                    <span class="input-group-text">Ω</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small">R2 (Bottom Resistor)</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control" id="calibR2_${sensor.sensor_id}" 
+                                           value="${sensor.battery_r2 || 100000}" placeholder="100000">
+                                    <span class="input-group-text">Ω</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-warning mt-2" onclick="manualCalibrateBattery('${sensor.sensor_id}')">
+                            <i class="fas fa-save"></i> Save Manual R1/R2
+                        </button>
+                    </details>
+                </div>
+                
+                <div class="mt-2">
+                    <small class="text-muted">
+                        <strong>How it works:</strong> The system calculates a correction factor based on the difference between your multimeter reading and what the device reports.
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <dl class="row mb-0">
             <dt class="col-sm-3">Last Check-in:</dt>
             <dd class="col-sm-9">${sensor.last_check_in ? new Date(sensor.last_check_in).toLocaleString() : 'Never'}</td>
             
@@ -2725,6 +2815,158 @@ async function deleteSensor(sensorId) {
     } catch (error) {
         console.error('Error deleting sensor:', error);
         showAlert('Failed to delete sensor', 'danger');
+    }
+}
+
+async function autoCalibrateBattery(sensorId) {
+    const actualVoltage = parseFloat(document.getElementById(`calibActual_${sensorId}`).value);
+    const currentReading = parseFloat(document.getElementById(`calibCurrentReading_${sensorId}`).value);
+    
+    if (!actualVoltage || actualVoltage <= 0) {
+        showAlert('Please enter the voltage measured with your multimeter', 'warning');
+        return;
+    }
+    
+    if (!currentReading || currentReading <= 0 || currentReading === 'N/A') {
+        showAlert('Device must report a battery voltage first. Please wait for next reading or trigger a manual read.', 'warning');
+        return;
+    }
+    
+    // Calculate correction factor
+    // If device reads X but actual is Y, then correction = Y/X
+    // This translates to adjusting the R1/R2 ratio
+    const correctionFactor = actualVoltage / currentReading;
+    
+    // Current ratio is stored or default (2.0 for 100k/100k)
+    const sensor = sensors.find(s => s.sensor_id === sensorId);
+    const currentR1 = sensor?.battery_r1 || 100000;
+    const currentR2 = sensor?.battery_r2 || 100000;
+    const currentRatio = (currentR1 + currentR2) / currentR2;
+    
+    // New ratio needed
+    const newRatio = currentRatio * correctionFactor;
+    
+    // Keep R2 at 100kΩ, adjust R1
+    const r2 = 100000;
+    const r1 = (newRatio * r2) - r2;
+    
+    console.log(`Auto-calibration: Current=${currentReading}V, Actual=${actualVoltage}V, Correction=${correctionFactor.toFixed(3)}x, New R1=${r1.toFixed(0)}Ω`);
+    
+    try {
+        const response = await fetch(`/api/sensor-master/calibrate/${sensorId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                battery_r1: r1,
+                battery_r2: r2,
+                battery_calibrated_voltage: actualVoltage
+            })
+        });
+        
+        if (!response.ok) throw new Error('Failed to save calibration');
+        
+        showAlert(`✓ Calibration saved! Correction factor: ${correctionFactor.toFixed(3)}x (R1=${Math.round(r1)}Ω, R2=${r2}Ω). Device will use these values on next script fetch.`, 'success');
+        
+        // Reload sensors to show updated calibration data
+        await loadSensors();
+        
+        // Close and reopen the modal to refresh the display
+        const modalEl = document.getElementById('sensorDetailModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) {
+            modal.hide();
+            setTimeout(() => {
+                const updatedSensor = sensors.find(s => s.sensor_id === sensorId);
+                if (updatedSensor) showSensorDetails(updatedSensor);
+            }, 300);
+        }
+    } catch (error) {
+        console.error('Error saving calibration:', error);
+        showAlert('Failed to save calibration', 'danger');
+    }
+}
+
+async function manualCalibrateBattery(sensorId) {
+    const actualVoltage = parseFloat(document.getElementById(`calibActual_${sensorId}`).value);
+    const r1 = parseFloat(document.getElementById(`calibR1_${sensorId}`).value);
+    const r2 = parseFloat(document.getElementById(`calibR2_${sensorId}`).value);
+    
+    if (!r1 || r1 <= 0 || !r2 || r2 <= 0) {
+        showAlert('Please enter valid resistor values', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/sensor-master/calibrate/${sensorId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                battery_r1: r1,
+                battery_r2: r2,
+                battery_calibrated_voltage: actualVoltage || null
+            })
+        });
+        
+        if (!response.ok) throw new Error('Failed to save calibration');
+        
+        showAlert('Manual calibration saved! Device will use these R1/R2 values on next script fetch.', 'success');
+        
+        // Reload sensors to show updated calibration data
+        await loadSensors();
+        
+        // Close and reopen the modal to refresh the display
+        const modalEl = document.getElementById('sensorDetailModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) {
+            modal.hide();
+            setTimeout(() => {
+                const sensor = sensors.find(s => s.sensor_id === sensorId);
+                if (sensor) showSensorDetails(sensor);
+            }, 300);
+        }
+    } catch (error) {
+        console.error('Error saving calibration:', error);
+        showAlert('Failed to save calibration', 'danger');
+    }
+}
+
+async function resetCalibration(sensorId) {
+    if (!confirm('Reset calibration to default values (R1=100kΩ, R2=100kΩ, no correction)?')) return;
+    
+    try {
+        const response = await fetch(`/api/sensor-master/calibrate/${sensorId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                battery_r1: 100000,
+                battery_r2: 100000,
+                battery_calibrated_voltage: null
+            })
+        });
+        
+        if (!response.ok) throw new Error('Failed to reset calibration');
+        
+        showAlert('Calibration reset to defaults', 'success');
+        await loadSensors();
+        
+        const modalEl = document.getElementById('sensorDetailModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) {
+            modal.hide();
+            setTimeout(() => {
+                const sensor = sensors.find(s => s.sensor_id === sensorId);
+                if (sensor) showSensorDetails(sensor);
+            }, 300);
+        }
+    } catch (error) {
+        console.error('Error resetting calibration:', error);
+        showAlert('Failed to reset calibration', 'danger');
     }
 }
 

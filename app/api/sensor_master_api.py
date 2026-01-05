@@ -717,6 +717,89 @@ def update_sensor(sensor_id):
         return jsonify({'error': 'Failed to update sensor'}), 500
 
 
+@sensor_master_api_bp.route('/sensor-master/calibrate/<sensor_id>', methods=['POST'])
+def calibrate_battery(sensor_id):
+    """
+    Save battery calibration data for a sensor
+    
+    Expected payload:
+    {
+        "battery_r1": 100000.0,
+        "battery_r2": 100000.0,
+        "battery_calibrated_voltage": 4.15
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        r1 = data.get('battery_r1')
+        r2 = data.get('battery_r2')
+        calibrated_voltage = data.get('battery_calibrated_voltage')
+        
+        if r1 is None or r2 is None:
+            return jsonify({'error': 'battery_r1 and battery_r2 are required'}), 400
+        
+        # Validate values
+        try:
+            r1 = float(r1)
+            r2 = float(r2)
+            if r1 <= 0 or r2 <= 0:
+                return jsonify({'error': 'Resistor values must be positive'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid resistor values'}), 400
+        
+        if calibrated_voltage is not None:
+            try:
+                calibrated_voltage = float(calibrated_voltage)
+                if calibrated_voltage <= 0:
+                    return jsonify({'error': 'Calibrated voltage must be positive'}), 400
+            except (ValueError, TypeError):
+                return jsonify({'error': 'Invalid calibrated voltage'}), 400
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Check if sensor exists
+        cursor.execute('SELECT id FROM SensorRegistration WHERE sensor_id = ?', (sensor_id,))
+        sensor = cursor.fetchone()
+        
+        if not sensor:
+            return jsonify({'error': 'Sensor not found'}), 404
+        
+        # Update calibration data
+        timestamp = datetime.now(timezone.utc).isoformat()
+        cursor.execute('''
+            UPDATE SensorRegistration 
+            SET battery_r1 = ?, 
+                battery_r2 = ?, 
+                battery_calibrated_voltage = ?,
+                battery_calibration_date = ?,
+                updated_at = ?
+            WHERE sensor_id = ?
+        ''', (r1, r2, calibrated_voltage, timestamp, timestamp, sensor_id))
+        
+        conn.commit()
+        
+        logger.info(f"Battery calibration saved for sensor {sensor_id}: R1={r1}Ω, R2={r2}Ω, Vs={calibrated_voltage}V")
+        
+        return jsonify({
+            'message': 'Calibration saved successfully',
+            'calibration': {
+                'battery_r1': r1,
+                'battery_r2': r2,
+                'battery_calibrated_voltage': calibrated_voltage,
+                'calibration_date': timestamp
+            }
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error saving battery calibration: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to save calibration'}), 500
+
+
 @sensor_master_api_bp.route('/sensor-master/sensors/<sensor_id>', methods=['DELETE'])
 def delete_sensor(sensor_id):
     """Delete a registered sensor"""
@@ -1122,12 +1205,54 @@ def get_sensor_script(sensor_id):
         script_row = cursor.fetchone()
         
         if script_row:
+            # Parse script content
+            script_content = script_row['script_content']
+            
+            # If script is JSON, inject calibration data into battery actions
+            if script_row['script_type'] == 'json':
+                try:
+                    script_data = json.loads(script_content) if isinstance(script_content, str) else script_content
+                    
+                    # Check if sensor has calibration data
+                    if sensor['battery_r1'] and sensor['battery_r2']:
+                        # Recursively update battery actions with calibration data
+                        def update_battery_actions(actions):
+                            if not isinstance(actions, list):
+                                return
+                            for action in actions:
+                                if isinstance(action, dict):
+                                    if action.get('type') == 'read_battery':
+                                        # Inject calibrated R1/R2 values
+                                        action['r1'] = sensor['battery_r1']
+                                        action['r2'] = sensor['battery_r2']
+                                        logger.info(f"Injected battery calibration into script for {sensor_id}: R1={sensor['battery_r1']}, R2={sensor['battery_r2']}")
+                                    
+                                    # Recurse into conditional blocks
+                                    if 'then' in action and isinstance(action['then'], list):
+                                        update_battery_actions(action['then'])
+                                    if 'else' in action and isinstance(action['else'], list):
+                                        update_battery_actions(action['else'])
+                        
+                        if 'actions' in script_data:
+                            update_battery_actions(script_data['actions'])
+                        
+                        # Convert back to string if needed
+                        script_content = json.dumps(script_data) if isinstance(script_content, str) else script_data
+                
+                except Exception as e:
+                    logger.warning(f"Failed to inject calibration data into script for {sensor_id}: {e}")
+            
             return jsonify({
                 'script_available': True,
-                'script': script_row['script_content'],
+                'script': script_content,
                 'version': script_row['script_version'],
                 'type': script_row['script_type'],
-                'updated_at': script_row['updated_at']
+                'updated_at': script_row['updated_at'],
+                'calibration': {
+                    'battery_r1': sensor['battery_r1'],
+                    'battery_r2': sensor['battery_r2'],
+                    'battery_calibrated_voltage': sensor['battery_calibrated_voltage']
+                } if sensor['battery_r1'] else None
             }), 200
         
         return jsonify({
