@@ -9,6 +9,10 @@ on:
   pull_request:
     branches:
       - main
+  workflow_run:
+    workflows: ["Auto Version Bump"]
+    types:
+      - completed
   workflow_dispatch:
 
 env:
@@ -25,6 +29,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && 'main' || '' }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
