@@ -963,7 +963,7 @@
 
 <!-- Sensor Plotter Modal -->
 <div class="modal fade" id="sensorPlotterModal" tabindex="-1">
-    <div class="modal-dialog modal-fullscreen">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title"><i class="fas fa-microchip me-2"></i>Interactive Board Monitor: <span id="plotterSensorId"></span></h5>
@@ -971,36 +971,8 @@
             </div>
             <div class="modal-body p-0">
                 <div class="row g-0 h-100">
-                    <!-- Board Visualization Column -->
-                    <div class="col-md-5 bg-light border-end position-relative" style="height: calc(100vh - 120px); overflow-y: auto;">
-                        <div class="p-3">
-                            <h6 class="mb-3"><i class="fas fa-microchip"></i> Board Visualization</h6>
-                            
-                            <!-- Board Image Container -->
-                            <div id="boardContainer" class="position-relative mx-auto" style="width: 340px; height: 580px; overflow: visible;">
-                                <img id="boardImage" src="" alt="Board" class="img-fluid" style="width: 100%; height: auto; position: relative; z-index: 1;">
-                                
-                                <!-- Pin overlays will be dynamically added here -->
-                                <div id="pinOverlays" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none;"></div>
-                                
-                                <!-- Log overlay on chip -->
-                                <div id="chipLogOverlay" class="position-absolute bg-dark text-light font-monospace p-2 border rounded" 
-                                     style="font-size: 0.55rem; line-height: 1.1; overflow-y: auto; display: none; opacity: 0.95; z-index: 15; word-wrap: break-word;">
-                                </div>
-                            </div>
-                            
-                            <!-- Pin Controls Section -->
-                            <div id="pinControlsSection" class="mt-4">
-                                <h6 class="mb-3"><i class="fas fa-sliders-h"></i> Pin Controls</h6>
-                                <div id="pinControlsList" class="list-group">
-                                    <!-- Dynamic pin controls will be added here -->
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
                     <!-- Logs Column -->
-                    <div class="col-md-7 d-flex flex-column" style="height: calc(100vh - 120px);">
+                    <div class="col-12 d-flex flex-column" style="height: calc(100vh - 120px);">
                         <div class="p-3 border-bottom">
                             <div class="d-flex justify-content-between align-items-center">
                                 <h6 class="mb-0"><i class="fas fa-terminal"></i> Live Logs</h6>
@@ -1008,10 +980,6 @@
                                     <div class="form-check form-switch d-inline-block me-3">
                                         <input class="form-check-input" type="checkbox" id="autoScrollToggle" checked>
                                         <label class="form-check-label" for="autoScrollToggle">Auto-scroll</label>
-                                    </div>
-                                    <div class="form-check form-switch d-inline-block me-3">
-                                        <input class="form-check-input" type="checkbox" id="chipLogToggle" checked onchange="toggleChipLog()">
-                                        <label class="form-check-label" for="chipLogToggle">Chip Overlay</label>
                                     </div>
                                     <button class="btn btn-outline-warning btn-sm me-2" onclick="sendTestLog()">
                                         <i class="fas fa-bug"></i> Test
@@ -1321,6 +1289,15 @@ async function openSensorPlotter(sensorId) {
                 // Display these logs
                 updatePlotterLogs(historyLogs);
                 
+                // Force scroll to bottom to ensure most recent log is visible
+                // We use multiple timeouts to ensure it catches the end of the modal transition
+                const scrollToBottom = () => {
+                    logsContainer.scrollTop = logsContainer.scrollHeight;
+                };
+                setTimeout(scrollToBottom, 100);
+                setTimeout(scrollToBottom, 300);
+                setTimeout(scrollToBottom, 600);
+                
                 // Set lastLogId to the newest log we found
                 lastLogId = historyLogs[historyLogs.length - 1].id;
                 
@@ -1362,7 +1339,7 @@ function initializeBoardVisualization() {
     const boardImage = document.getElementById('boardImage');
     
     if (!boardImage) {
-        console.error('Board image element not found!');
+        // Board visualization elements removed - skipping initialization
         return;
     }
 
@@ -2971,22 +2948,31 @@ async function resetCalibration(sensorId) {
 }
 
 function showAlert(message, type) {
-    const alertHtml = `
-        <div class="alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3" 
-             role="alert" style="z-index: 9999; min-width: 300px;">
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
+    // Create alert element
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+    alertDiv.role = 'alert';
+    alertDiv.style.zIndex = '9999';
+    alertDiv.style.minWidth = '300px';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
-    document.body.insertAdjacentHTML('beforeend', alertHtml);
     
+    document.body.appendChild(alertDiv);
+    
+    // Auto-dismiss after 3 seconds
     setTimeout(() => {
-        const alert = document.querySelector('.alert');
-       
-        if (alert) {
-            bootstrap.Alert.getInstance(alert)?.close();
+        if (alertDiv && document.body.contains(alertDiv)) {
+            // Try to use Bootstrap's close method if available
+            const bsAlert = bootstrap.Alert.getOrCreateInstance(alertDiv);
+            if (bsAlert) {
+                bsAlert.close();
+            } else {
+                alertDiv.remove();
+            }
         }
-    }, 5000);
+    }, 3000);
 }
 
 // ============================================================================
