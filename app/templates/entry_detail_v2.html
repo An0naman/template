@@ -131,6 +131,8 @@
             box-shadow: var(--section-shadow, var(--shadow-sm));
             backdrop-filter: var(--section-backdrop-filter, none);
             overflow: hidden;
+            position: relative;
+            z-index: 0;
             margin-bottom: var(--section-margin-bottom, var(--content-spacing));
             transition: var(--transition-base);
         }
@@ -138,6 +140,7 @@
         .content-section:hover {
             box-shadow: var(--shadow-md);
             transform: translateY(-1px);
+            z-index: 3;
         }
 
         /* Theme Section Styles */
@@ -163,15 +166,18 @@
         .section-wrapper {
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             transform-origin: top;
-            overflow: hidden;
+            overflow: visible;
+            padding-top: 2px;
         }
 
         .section-wrapper.hiding {
             animation: slideOut 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            overflow: hidden;
         }
 
         .section-wrapper.showing {
             animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            overflow: hidden;
         }
 
         @keyframes slideOut {

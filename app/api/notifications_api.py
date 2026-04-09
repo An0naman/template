@@ -192,29 +192,38 @@ def create_notification():
         conn.commit()
         notification_id = cursor.lastrowid
         
-        # Send push notification via ntfy if configured
+        # Send push notification via ntfy only when the notification is due now
         try:
-            # Check if ntfy is configured in the database
-            from app.services.ntfy_service import NtfyService
-            ntfy_service = NtfyService.from_database()
-            
-            if ntfy_service and ntfy_service.server_url and ntfy_service.topic:
-                # Get app base URL for creating action links
-                app_base_url = request.host_url.rstrip('/')
-                
-                # Prepare notification data for ntfy
-                notification_data = {
-                    'title': title,
-                    'message': message,
-                    'type': notification_type,
-                    'priority': priority,
-                    'entry_id': entry_id,
-                    'notification_id': notification_id
-                }
-                
-                send_app_notification_via_ntfy(notification_data)
-                logger.info(f"Successfully sent ntfy push notification for notification {notification_id}")
-                    
+            should_send_immediately = scheduled_for is None
+
+            if scheduled_for:
+                try:
+                    scheduled_dt = datetime.fromisoformat(scheduled_for.replace('Z', '+00:00'))
+                    comparison_now = datetime.now(scheduled_dt.tzinfo) if scheduled_dt.tzinfo else datetime.now()
+                    should_send_immediately = scheduled_dt <= comparison_now
+                except ValueError:
+                    logger.warning(f"Invalid scheduled_for value for notification {notification_id}: {scheduled_for}. Sending immediately.")
+                    should_send_immediately = True
+
+            if should_send_immediately:
+                from app.services.ntfy_service import NtfyService
+                ntfy_service = NtfyService.from_database()
+
+                if ntfy_service and ntfy_service.server_url and ntfy_service.topic:
+                    notification_data = {
+                        'title': title,
+                        'message': message,
+                        'type': notification_type,
+                        'priority': priority,
+                        'entry_id': entry_id,
+                        'notification_id': notification_id
+                    }
+
+                    send_app_notification_via_ntfy(notification_data)
+                    logger.info(f"Successfully sent ntfy push notification for notification {notification_id}")
+            else:
+                logger.info(f"Notification {notification_id} scheduled for future delivery at {scheduled_for}; skipping immediate ntfy push")
+
         except Exception as e:
             logger.error(f"Error sending ntfy push notification: {e}", exc_info=True)
             # Don't fail the notification creation if push notification fails

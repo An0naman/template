@@ -5,6 +5,7 @@ class NotificationManager {
         this.isVisible = false; // Start collapsed
         this.autoOpened = false; // Track if notifications were auto-opened
         this.hasUserDismissed = false; // Track if user has manually dismissed
+        this.autoOpenEnabled = false; // Keep persistent notifications user-controlled by default
         this.pollInterval = 30000; // Check for new notifications every 30 seconds
         this.init();
     }
@@ -31,44 +32,59 @@ class NotificationManager {
 
     setupTouchSupport() {
         let startY = 0;
-        let currentY = 0;
+        let startX = 0;
         let isDragging = false;
+        let canDismissBySwipe = false;
 
         document.addEventListener('touchstart', (e) => {
             const container = document.getElementById('notification-container');
-            if (container && container.style.display !== 'none' && this.isVisible) {
-                startY = e.touches[0].clientY;
-                isDragging = true;
+            if (!container || container.style.display === 'none' || !this.isVisible) {
+                return;
             }
-        });
+
+            const startedInHeader = !!e.target.closest('.notification-header-bar');
+            startY = e.touches[0].clientY;
+            startX = e.touches[0].clientX;
+            isDragging = true;
+            canDismissBySwipe = startedInHeader;
+        }, { passive: true });
 
         document.addEventListener('touchmove', (e) => {
-            if (!isDragging) return;
-            currentY = e.touches[0].clientY;
+            if (!isDragging || !canDismissBySwipe) return;
+
+            const currentY = e.touches[0].clientY;
+            const currentX = e.touches[0].clientX;
             const deltaY = startY - currentY;
-            
-            // If swiping up significantly, close notifications
-            if (deltaY > 50) {
+            const deltaX = Math.abs(startX - currentX);
+
+            // Only close on a deliberate upward swipe from the header area.
+            if (deltaY > 80 && deltaX < 40) {
                 this.hideNotifications();
                 isDragging = false;
+                canDismissBySwipe = false;
             }
-        });
+        }, { passive: true });
 
         document.addEventListener('touchend', () => {
             isDragging = false;
-        });
+            canDismissBySwipe = false;
+        }, { passive: true });
     }
 
     handleResize() {
-        // Adjust notification container position on mobile orientation change
+        // Adjust notification container behavior on mobile orientation change
         const container = document.getElementById('notification-container');
-        const indicator = document.getElementById('notification-indicator');
-        
-        if (window.innerWidth <= 480) {
-            // Very small screens - make notifications fullscreen-like
-            if (container && this.isVisible) {
-                container.style.maxHeight = 'calc(100vh - 10px)';
-            }
+
+        if (!container || !this.isVisible) {
+            return;
+        }
+
+        if (window.innerWidth <= 768) {
+            container.style.maxHeight = '100dvh';
+            container.style.height = '100dvh';
+        } else {
+            container.style.maxHeight = 'calc(100vh - 40px)';
+            container.style.height = 'auto';
         }
     }
 
@@ -253,13 +269,16 @@ class NotificationManager {
 
     async dismissNotification(notificationId) {
         try {
-            const response = await fetch(`/api/notifications/${notificationId}`, {
-                method: 'DELETE'
+            const response = await fetch(`/api/notifications/${notificationId}/dismiss`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
             });
 
             if (!response.ok) throw new Error('Failed to dismiss notification');
 
-            // Remove from local state
+            // Remove dismissed item from local state without deleting it from history
             this.notifications = this.notifications.filter(n => n.id !== notificationId);
             this.renderNotifications();
             this.updateBadgeCount();
@@ -274,10 +293,15 @@ class NotificationManager {
         if (!confirm('Are you sure you want to dismiss all notifications?')) return;
 
         try {
-            const promises = this.notifications.map(n => 
-                fetch(`/api/notifications/${n.id}`, { method: 'DELETE' })
+            const promises = this.notifications.map(n =>
+                fetch(`/api/notifications/${n.id}/dismiss`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
             );
-            
+
             await Promise.all(promises);
             this.notifications = [];
             this.renderNotifications();
@@ -297,8 +321,9 @@ class NotificationManager {
 
     showNotifications() {
         const container = document.getElementById('notification-container');
-        container.style.display = 'block';
+        container.style.display = 'flex';
         this.isVisible = true;
+        document.body.classList.add('notifications-open');
         
         // Mark as auto-opened if there are unread notifications
         const unreadCount = this.notifications.filter(n => !n.is_read).length;
@@ -311,6 +336,7 @@ class NotificationManager {
         const container = document.getElementById('notification-container');
         container.style.display = 'none';
         this.isVisible = false;
+        document.body.classList.remove('notifications-open');
         this.hasUserDismissed = true; // Mark that user has dismissed
     }
 
@@ -318,37 +344,46 @@ class NotificationManager {
         const indicator = document.getElementById('notification-indicator');
         const countText = document.getElementById('notification-count-text');
         const unreadCount = this.notifications.filter(n => !n.is_read).length;
-        
-        // Update count text
+
+        // Update count text with unread-first emphasis
         if (countText) {
-            countText.textContent = this.notifications.length > 0 ? this.notifications.length : '0';
+            if (unreadCount > 0) {
+                countText.textContent = `${unreadCount} new`;
+            } else {
+                countText.textContent = this.notifications.length > 0 ? `${this.notifications.length}` : '0';
+            }
         }
-        
+
         // Show/hide indicator based on unread notifications
         if (indicator) {
             if (unreadCount > 0) {
                 indicator.style.display = 'flex';
-                indicator.className = 'notification-indicator pulse'; // Add pulse animation for new notifications
+                indicator.className = 'notification-indicator pulse';
             } else if (this.notifications.length > 0) {
                 indicator.style.display = 'flex';
-                indicator.className = 'notification-indicator'; // Remove pulse when all read
+                indicator.className = 'notification-indicator';
             } else {
                 indicator.style.display = 'none';
             }
         }
-        
-        // Auto-show notifications if there are unread ones (but less aggressively)
+
+        // Keep the notification tray user-controlled unless explicitly enabled.
+        if (!this.autoOpenEnabled) {
+            if (this.notifications.length === 0 && this.isVisible) {
+                this.hideNotifications();
+            }
+            this.autoOpened = false;
+            return;
+        }
+
         if (unreadCount > 0 && !this.isVisible && !this.hasUserDismissed) {
-            // Only auto-show after a brief delay to be less intrusive
             setTimeout(() => {
                 if (unreadCount > 0 && !this.isVisible) {
                     this.showNotifications();
                     this.autoOpened = true;
                 }
             }, 2000);
-        }
-        // Auto-hide if all notifications are read and user hasn't manually opened them
-        else if (unreadCount === 0 && this.isVisible && this.autoOpened) {
+        } else if (unreadCount === 0 && this.isVisible && this.autoOpened) {
             setTimeout(() => {
                 if (this.autoOpened && this.isVisible) {
                     this.hideNotifications();
@@ -401,7 +436,7 @@ class NotificationManager {
                 body: JSON.stringify({
                     title,
                     message,
-                    type,
+                    notification_type: type,
                     priority,
                     entry_id: entryId,
                     scheduled_for: scheduledFor
@@ -432,23 +467,29 @@ function showQuickNotification(title, message, type = 'manual', priority = 'medi
 }
 
 // Wrapper function for compatibility with other scripts
-function showNotification(message, type = 'info') {
-    // Map type to priority and create notification
+function showNotification(message, type = 'info', options = {}) {
+    const normalizedType = type === 'danger' ? 'error' : type;
+
+    // Routine UI feedback should stay temporary unless persistence is explicitly requested.
+    if (!options.persistent) {
+        showBanner(message, normalizedType, options.duration || 3000);
+        return;
+    }
+
     const typeMap = {
         'success': 'low',
         'error': 'high',
         'warning': 'medium',
         'info': 'low'
     };
-    
-    const priority = typeMap[type] || 'medium';
-    const title = type.charAt(0).toUpperCase() + type.slice(1);
-    
+
+    const priority = options.priority || typeMap[normalizedType] || 'medium';
+    const title = options.title || (normalizedType.charAt(0).toUpperCase() + normalizedType.slice(1));
+
     if (notificationManager) {
-        notificationManager.createNotification(title, message, 'manual', priority);
+        notificationManager.createNotification(title, message, 'manual', priority, options.entryId || null, options.scheduledFor || null);
     } else {
-        // Fallback to console if notification manager isn't ready
-        console.log(`[${type.toUpperCase()}] ${message}`);
+        console.log(`[${normalizedType.toUpperCase()}] ${message}`);
     }
 }
 

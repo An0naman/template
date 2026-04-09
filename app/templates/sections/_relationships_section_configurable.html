@@ -1984,8 +1984,8 @@
                 const treeContent = renderTreeNode(rootNode, 0);
                 return `
                     <div class="relationship-tree-section mb-4">
-                        <div class="tree-header mb-3 p-2" style="background-color: var(--bs-light); border-left: 3px solid var(--bs-primary); border-radius: 0.25rem;">
-                            <h6 class="text-primary mb-0">
+                        <div class="tree-header mb-3 p-2">
+                            <h6 class="mb-0">
                                 <i class="fas fa-sitemap me-2"></i>${escapeHtml(relationshipTypeName)}
                             </h6>
                         </div>
@@ -1998,8 +1998,8 @@
             const rootNode = hierarchy[0];
             const relationshipTypeName = rootNode.relationship_type_name;
             const headerHtml = relationshipTypeName ? `
-                <div class="tree-header mb-3 p-2" style="background-color: var(--bs-light); border-left: 3px solid var(--bs-primary); border-radius: 0.25rem;">
-                    <h6 class="text-primary mb-0">
+                <div class="tree-header mb-3 p-2">
+                    <h6 class="mb-0">
                         <i class="fas fa-sitemap me-2"></i>${escapeHtml(relationshipTypeName)}
                     </h6>
                 </div>

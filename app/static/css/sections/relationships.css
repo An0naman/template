@@ -10,9 +10,15 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
-    background: var(--bs-body-bg, #fff);
+    border-bottom: 1px solid var(--theme-border, var(--bs-border-color, #dee2e6));
+    background: var(--section-bg, var(--theme-bg-surface, var(--bs-body-bg, #fff))) !important;
+    color: var(--theme-text, var(--bs-body-color)) !important;
     margin-bottom: 0;
+}
+
+.relationships-section .section-header h5,
+.relationships-section .section-header h5 i {
+    color: var(--theme-text, var(--bs-body-color)) !important;
 }
 
 .relationships-section .section-title {
@@ -34,35 +40,112 @@
     align-items: center;
 }
 
+.relationships-section .btn {
+    border-radius: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.relationships-section .btn-outline-primary,
+.relationships-section .btn-outline-secondary,
+.relationships-section .btn-outline-info {
+    background: var(--theme-bg-card, var(--bs-body-bg, #fff));
+    color: var(--theme-text, var(--bs-body-color));
+    border-color: var(--theme-border, var(--bs-border-color, #dee2e6));
+}
+
+.relationships-section .btn-outline-primary {
+    color: var(--theme-primary, var(--bs-primary, #0d6efd));
+    border-color: var(--theme-primary, var(--bs-primary, #0d6efd));
+}
+
+.relationships-section .btn-outline-secondary {
+    color: var(--theme-text-muted, var(--bs-secondary, #6c757d));
+    border-color: var(--theme-border, var(--bs-border-color, #dee2e6));
+}
+
+.relationships-section .btn-outline-info {
+    color: var(--theme-info, var(--bs-info, #0dcaf0));
+    border-color: var(--theme-info, var(--bs-info, #0dcaf0));
+}
+
+.relationships-section .btn-outline-primary:hover,
+.relationships-section .btn-outline-primary:focus,
+.relationships-section .btn-outline-primary.active {
+    background: var(--theme-primary, var(--bs-primary, #0d6efd));
+    border-color: var(--theme-primary, var(--bs-primary, #0d6efd));
+    color: var(--theme-primary-text, #fff);
+}
+
+.relationships-section .btn-outline-secondary:hover,
+.relationships-section .btn-outline-secondary:focus,
+.relationships-section .btn-outline-secondary.active {
+    background: var(--theme-bg-surface, var(--bs-secondary-bg, #f8f9fa));
+    border-color: var(--theme-border, var(--bs-border-color, #dee2e6));
+    color: var(--theme-text, var(--bs-body-color));
+}
+
+.relationships-section .btn-outline-info:hover,
+.relationships-section .btn-outline-info:focus,
+.relationships-section .btn-outline-info.active {
+    background: var(--theme-info, var(--bs-info, #0dcaf0));
+    border-color: var(--theme-info, var(--bs-info, #0dcaf0));
+    color: var(--theme-primary-text, #fff);
+}
+
+.relationships-section .btn-primary,
+.relationships-section .btn-add-relationship {
+    background: var(--theme-primary, var(--bs-primary, #0d6efd));
+    border-color: var(--theme-primary, var(--bs-primary, #0d6efd));
+    color: var(--theme-primary-text, #fff);
+}
+
+.relationships-section .btn-primary:hover,
+.relationships-section .btn-primary:focus,
+.relationships-section .btn-add-relationship:hover,
+.relationships-section .btn-add-relationship:focus {
+    background: var(--theme-primary-hover, var(--theme-primary, var(--bs-primary, #0d6efd)));
+    border-color: var(--theme-primary-hover, var(--theme-primary, var(--bs-primary, #0d6efd)));
+    color: var(--theme-primary-text, #fff);
+}
+
+.relationships-section .btn-primary:disabled,
+.relationships-section .btn-add-relationship:disabled {
+    background: var(--theme-bg-surface, var(--bs-secondary-bg, #f8f9fa));
+    border-color: var(--theme-border, var(--bs-border-color, #dee2e6));
+    color: var(--theme-text-muted, var(--bs-secondary-color, #6c757d));
+    opacity: 0.65;
+}
+
 .relationships-section .section-content {
     padding: 0;
 }
 
 /* Tabs - Compact */
 .relationships-tabs {
-    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+    border-bottom: 1px solid var(--theme-border, var(--bs-border-color, #dee2e6));
     margin-bottom: 0;
-    background: var(--bs-body-bg, #fff);
+    background: var(--theme-bg-card, var(--bs-body-bg, #fff)) !important;
 }
 
 .relationships-tabs .nav-link {
     padding: 0.5rem 1rem;
     border: none;
-    color: var(--bs-secondary, #6c757d);
+    color: var(--theme-text-muted, var(--bs-secondary, #6c757d));
     font-size: 0.875rem;
     border-bottom: 2px solid transparent;
     transition: all 0.2s ease;
 }
 
 .relationships-tabs .nav-link:hover {
-    border-color: var(--bs-border-color, #dee2e6);
-    background: var(--bs-tertiary-bg, #f8f9fa);
+    border-color: var(--theme-border, var(--bs-border-color, #dee2e6));
+    background: var(--theme-bg-surface, var(--bs-tertiary-bg, #f8f9fa));
+    color: var(--theme-text, var(--bs-body-color));
 }
 
 .relationships-tabs .nav-link.active {
-    color: var(--bs-primary, #0d6efd);
-    border-bottom-color: var(--bs-primary, #0d6efd);
-    background: transparent;
+    color: var(--theme-primary, var(--bs-primary, #0d6efd));
+    border-bottom-color: var(--theme-primary, var(--bs-primary, #0d6efd));
+    background: var(--theme-bg-surface, transparent);
 }
 
 .relationships-tabs .badge {
@@ -74,7 +157,8 @@
 /* Tab Content */
 .relationships-tab-content {
     padding: 0.75rem 1rem 1rem;
-    background: var(--bs-body-bg, #fff);
+    background: var(--theme-bg-card, var(--bs-body-bg, #fff)) !important;
+    color: var(--theme-text, var(--bs-body-color));
 }
 
 /* Relationship Groups - Compact */
@@ -91,7 +175,7 @@
 .relationship-group-title {
     font-size: 0.875rem;
     font-weight: 600;
-    color: var(--bs-body-color, #212529);
+    color: var(--theme-text, var(--bs-body-color, #212529));
     margin-bottom: 0.5rem;
     padding: 0.25rem 0;
     display: flex;
@@ -121,14 +205,14 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.5rem 0.75rem;
-    background: var(--bs-body-bg, #fff);
-    border: 1px solid var(--bs-border-color, #dee2e6);
+    background: var(--theme-bg-card, var(--bs-body-bg, #fff));
+    border: 1px solid var(--theme-border, var(--bs-border-color, #dee2e6));
     border-radius: 0.375rem;
     transition: all 0.2s ease;
 }
 
 .relationship-card:hover {
-    border-color: var(--bs-primary, #0d6efd);
+    border-color: var(--theme-primary, var(--bs-primary, #0d6efd));
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     transform: translateY(-1px);
 }
@@ -181,7 +265,7 @@
     align-items: center;
     gap: 0.25rem;
     font-size: 0.75rem;
-    color: var(--bs-secondary, #6c757d);
+    color: var(--theme-text-muted, var(--bs-secondary, #6c757d));
     white-space: nowrap;
 }
 
@@ -197,16 +281,20 @@
     flex-wrap: wrap;
 }
 
-.relationship-entry-link {
-    color: var(--bs-body-color, #212529);
+.relationship-entry-link,
+.relationship-link,
+.relationship-item-row a:not(.btn) {
+    color: var(--theme-text, var(--bs-body-color, #212529)) !important;
     text-decoration: none;
     font-size: 0.875rem;
     font-weight: 500;
     transition: color 0.2s ease;
 }
 
-.relationship-entry-link:hover {
-    color: var(--bs-primary, #0d6efd);
+.relationship-entry-link:hover,
+.relationship-link:hover,
+.relationship-item-row a:not(.btn):hover {
+    color: var(--theme-primary, var(--bs-primary, #0d6efd)) !important;
     text-decoration: underline;
 }
 
@@ -227,7 +315,7 @@
 /* Relationship Metadata - Compact */
 .relationship-metadata {
     font-size: 0.75rem;
-    color: var(--bs-secondary, #6c757d);
+    color: var(--theme-text-muted, var(--bs-secondary, #6c757d));
 }
 
 .relationship-metadata i {
@@ -268,6 +356,17 @@
 /* Tree View - Compact */
 .relationship-tree {
     padding: 0.5rem 0;
+}
+
+.tree-header {
+    background: var(--theme-bg-surface, var(--bs-secondary-bg));
+    border-left: 3px solid var(--theme-primary, var(--bs-primary));
+    border-radius: 0.25rem;
+    color: var(--theme-text, var(--bs-body-color));
+}
+
+.tree-header h6 {
+    color: var(--theme-primary, var(--bs-primary)) !important;
 }
 
 .tree-node {
@@ -463,49 +562,35 @@
     }
 }
 
-/* Dark Mode Support */
+/* Theme-aware dark mode support */
 @media (prefers-color-scheme: dark) {
-    .relationship-card {
-        background: #161b22;
-        border-color: #30363d;
-    }
-
-    .relationship-card:hover {
-        border-color: #0d6efd;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    }
-
-    .tree-node-content:hover {
-        background: #21262d;
-    }
-    
-    .relationships-tabs {
-        background: #0d1117;
-    }
-    
-    .relationships-tab-content {
-        background: #0d1117;
-    }
-    
+    .relationship-card,
+    .relationships-tabs,
+    .relationships-tab-content,
     .relationships-section .section-header {
-        background: #0d1117;
-        border-bottom-color: #30363d;
+        background: var(--theme-bg-card, var(--bs-body-bg)) !important;
+        border-color: var(--theme-border, var(--bs-border-color)) !important;
+    }
+
+    .tree-node-content:hover,
+    .relationship-card-actions .btn-icon:hover {
+        background: var(--theme-bg-surface, var(--bs-secondary-bg)) !important;
     }
 }
 
-/* Bootstrap Dark Theme Support (fallback) */
-[data-bs-theme="dark"] .relationship-card {
-    background: #2b3035;
-    border-color: #495057;
+/* Bootstrap/theme dark mode support */
+[data-bs-theme="dark"] .relationship-card,
+[data-bs-theme="dark"] .relationships-tabs,
+[data-bs-theme="dark"] .relationships-tab-content,
+[data-bs-theme="dark"] .relationships-section .section-header {
+    background: var(--theme-bg-card, var(--bs-body-bg)) !important;
+    border-color: var(--theme-border, var(--bs-border-color)) !important;
+    color: var(--theme-text, var(--bs-body-color)) !important;
 }
 
-[data-bs-theme="dark"] .relationship-card:hover {
-    border-color: #0d6efd;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-[data-bs-theme="dark"] .tree-node-content:hover {
-    background: #343a40;
+[data-bs-theme="dark"] .tree-node-content:hover,
+[data-bs-theme="dark"] .relationship-card-actions .btn-icon:hover {
+    background: var(--theme-bg-surface, var(--bs-secondary-bg)) !important;
 }
 
 /* Modal Fixes - Ensure modals are interactive and above backdrop */
