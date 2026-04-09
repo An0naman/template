@@ -27,6 +27,20 @@ def get_db():
 
 class EntryLayoutService:
     """Service for managing entry type layouts"""
+
+    DRAWIO_TAB_ID = 'drawio'
+    DRAWIO_TAB_LABEL = 'Draw.io'
+    DRAWIO_TAB_ICON = 'fa-project-diagram'
+    HIDDEN_FROM_SECTION_PALETTE = {'drawio'}
+
+    @staticmethod
+    def _get_normalized_tab_id(section_type: str, tab_id: Optional[str]) -> str:
+        """Keep system-managed sections on their required tab."""
+        if section_type == 'drawio':
+            return EntryLayoutService.DRAWIO_TAB_ID
+        if tab_id == EntryLayoutService.DRAWIO_TAB_ID:
+            return 'main'
+        return tab_id or 'main'
     
     # Default section configurations - ONLY showing sections visible in layout builder
     DEFAULT_SECTIONS = {
@@ -50,27 +64,27 @@ class EntryLayoutService:
         'ai_assistant': {
             'title': 'AI Assistant',
             'section_type': 'ai_assistant',
-            'position_x': 0,
-            'position_y': 1,  # Row 1
-            'width': 12,
-            'height': 4,
+            'position_x': 7,
+            'position_y': 3,
+            'width': 5,
+            'height': 5,
             'is_visible': 1,
             'is_collapsible': 1,
             'default_collapsed': 0,
-            'display_order': 2,
+            'display_order': 3,
             'config': {}
         },
         'sensors': {
             'title': 'Sensor Data',
             'section_type': 'sensors',
             'position_x': 0,
-            'position_y': 2,  # Row 2, left side
-            'width': 7,
-            'height': 5,
+            'position_y': 8,
+            'width': 12,
+            'height': 4,
             'is_visible': 1,
             'is_collapsible': 1,
             'default_collapsed': 0,
-            'display_order': 3,
+            'display_order': 4,
             'config': {
                 'default_chart_type': 'line',
                 'default_time_range': '7d'
@@ -79,14 +93,14 @@ class EntryLayoutService:
         'notes': {
             'title': 'Notes',
             'section_type': 'notes',
-            'position_x': 7,
-            'position_y': 2,  # Row 2, right side
-            'width': 5,
+            'position_x': 0,
+            'position_y': 3,
+            'width': 7,
             'height': 5,
             'is_visible': 1,
             'is_collapsible': 1,
             'default_collapsed': 0,
-            'display_order': 4,
+            'display_order': 2,
             'config': {
                 'default_note_type': 'General',
                 'show_note_relationships': True
@@ -207,9 +221,9 @@ class EntryLayoutService:
             'title': 'Draw.io Diagram',
             'section_type': 'drawio',
             'position_x': 0,
-            'position_y': 109,
+            'position_y': 0,
             'width': 12,
-            'height': 6,
+            'height': 8,
             'is_visible': 0,
             'is_collapsible': 1,
             'default_collapsed': 0,
@@ -282,6 +296,11 @@ class EntryLayoutService:
             
             sections = []
             for row in cursor.fetchall():
+                normalized_tab_id = EntryLayoutService._get_normalized_tab_id(
+                    row['section_type'],
+                    row['tab_id']
+                )
+
                 sections.append({
                     'id': row['id'],
                     'layout_id': row['layout_id'],
@@ -296,7 +315,7 @@ class EntryLayoutService:
                     'default_collapsed': bool(row['default_collapsed']),
                     'config': json.loads(row['config'] or '{}'),
                     'display_order': row['display_order'],
-                    'tab_id': row['tab_id'] or 'main',
+                    'tab_id': normalized_tab_id,
                     'tab_order': row['tab_order'],
                     'created_at': row['created_at'],
                     'updated_at': row['updated_at']
@@ -353,26 +372,35 @@ class EntryLayoutService:
             
             layout_id = cursor.lastrowid
             
-            # Create default 'main' tab
+            # Create default tabs
             cursor.execute("""
                 INSERT INTO EntryLayoutTab (
                     layout_id, tab_id, tab_label, tab_icon, display_order, is_visible
                 ) VALUES (?, ?, ?, ?, ?, ?)
             """, (layout_id, 'main', 'Overview', 'fa-home', 0, 1))
+
+            cursor.execute("""
+                INSERT INTO EntryLayoutTab (
+                    layout_id, tab_id, tab_label, tab_icon, display_order, is_visible
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                layout_id,
+                EntryLayoutService.DRAWIO_TAB_ID,
+                EntryLayoutService.DRAWIO_TAB_LABEL,
+                EntryLayoutService.DRAWIO_TAB_ICON,
+                100,
+                0
+            ))
             
-            # Determine which sections to include
-            sections_to_add = ['header', 'notes', 'relationships', 'attachments']
-            
-            if entry_type['show_labels_section']:
-                sections_to_add.append('label_printing')
-            
+            # Determine which sections to include in the default layout
+            sections_to_add = ['header', 'notes', 'ai_assistant']
+
             if entry_type['has_sensors']:
                 sections_to_add.append('sensors')
-            
-            sections_to_add.extend([
-                'reminders', 'ai_assistant', 'form_fields',
-                'qr_code', 'relationship_opportunities', 'timeline', 'drawio'
-            ])
+
+            # Keep Draw.io available as a dedicated optional tab, but avoid loading
+            # the default layout with every secondary section.
+            sections_to_add.append('drawio')
             
             # Create sections
             for section_key in sections_to_add:
@@ -404,7 +432,7 @@ class EntryLayoutService:
                         section_data['default_collapsed'],
                         json.dumps(section_data['config']),
                         section_data['display_order'],
-                        'main',  # Default to 'main' tab
+                        EntryLayoutService.DRAWIO_TAB_ID if section_key == 'drawio' else 'main',
                         section_data['display_order']  # Use display_order as tab_order
                     ))
             
@@ -485,6 +513,15 @@ class EntryLayoutService:
         try:
             conn = get_db()
             cursor = conn.cursor()
+
+            cursor.execute("SELECT section_type FROM EntryLayoutSection WHERE id = ?", (section_id,))
+            section_row = cursor.fetchone()
+            if not section_row:
+                return False
+
+            if section_row['section_type'] == 'drawio':
+                updates = {**updates, 'tab_id': EntryLayoutService.DRAWIO_TAB_ID}
+                updates.setdefault('tab_order', 0)
             
             # Build UPDATE query dynamically
             allowed_fields = [
@@ -554,6 +591,12 @@ class EntryLayoutService:
             conn = get_db()
             cursor = conn.cursor()
             
+            normalized_tab_id = EntryLayoutService._get_normalized_tab_id(
+                section_data['section_type'],
+                section_data.get('tab_id', 'main')
+            )
+            normalized_tab_order = 0 if section_data['section_type'] == 'drawio' else section_data.get('tab_order', 0)
+
             cursor.execute("""
                 INSERT INTO EntryLayoutSection (
                     layout_id, section_type, title, position_x, position_y,
@@ -573,8 +616,8 @@ class EntryLayoutService:
                 section_data.get('default_collapsed', 0),
                 json.dumps(section_data.get('config', {})),
                 section_data.get('display_order', 0),
-                section_data.get('tab_id', 'main'),  # Default to 'main' tab
-                section_data.get('tab_order', 0)
+                normalized_tab_id,
+                normalized_tab_order
             ))
             
             conn.commit()
@@ -684,6 +727,7 @@ class EntryLayoutService:
                 'default_config': config['config']
             }
             for key, config in EntryLayoutService.DEFAULT_SECTIONS.items()
+            if key not in EntryLayoutService.HIDDEN_FROM_SECTION_PALETTE
         ]
     
     # ============================================================================
@@ -726,7 +770,51 @@ class EntryLayoutService:
                     'created_at': row['created_at'],
                     'updated_at': row['updated_at']
                 })
-            
+
+            cursor.execute("""
+                SELECT COUNT(*) AS drawio_count, MAX(is_visible) AS drawio_visible
+                FROM EntryLayoutSection
+                WHERE layout_id = ? AND section_type = 'drawio'
+            """, (layout_id,))
+            drawio_row = cursor.fetchone()
+            has_drawio_section = bool(drawio_row and drawio_row['drawio_count'])
+            drawio_tab_should_be_visible = bool(drawio_row and drawio_row['drawio_visible'])
+
+            if has_drawio_section:
+                existing_drawio_tab = next((tab for tab in tabs if tab['tab_id'] == EntryLayoutService.DRAWIO_TAB_ID), None)
+
+                if existing_drawio_tab:
+                    existing_drawio_tab['tab_label'] = existing_drawio_tab.get('tab_label') or EntryLayoutService.DRAWIO_TAB_LABEL
+                    existing_drawio_tab['tab_icon'] = existing_drawio_tab.get('tab_icon') or EntryLayoutService.DRAWIO_TAB_ICON
+                    existing_drawio_tab['is_visible'] = drawio_tab_should_be_visible
+                else:
+                    next_display_order = max((tab.get('display_order', 0) for tab in tabs), default=0) + 1
+                    cursor.execute("""
+                        INSERT INTO EntryLayoutTab (
+                            layout_id, tab_id, tab_label, tab_icon, display_order, is_visible
+                        ) VALUES (?, ?, ?, ?, ?, ?)
+                    """, (
+                        layout_id,
+                        EntryLayoutService.DRAWIO_TAB_ID,
+                        EntryLayoutService.DRAWIO_TAB_LABEL,
+                        EntryLayoutService.DRAWIO_TAB_ICON,
+                        next_display_order,
+                        1 if drawio_tab_should_be_visible else 0
+                    ))
+                    conn.commit()
+                    tabs.append({
+                        'id': cursor.lastrowid,
+                        'layout_id': layout_id,
+                        'tab_id': EntryLayoutService.DRAWIO_TAB_ID,
+                        'tab_label': EntryLayoutService.DRAWIO_TAB_LABEL,
+                        'tab_icon': EntryLayoutService.DRAWIO_TAB_ICON,
+                        'display_order': next_display_order,
+                        'is_visible': drawio_tab_should_be_visible,
+                        'created_at': None,
+                        'updated_at': None
+                    })
+
+            tabs.sort(key=lambda tab: (tab.get('display_order', 0), tab.get('id') or 0, tab['tab_id']))
             return tabs
             
         except Exception as e:
@@ -898,7 +986,10 @@ class EntryLayoutService:
             
             sections_by_tab = {}
             for row in cursor.fetchall():
-                tab_id = row['tab_id'] or 'main'
+                tab_id = EntryLayoutService._get_normalized_tab_id(
+                    row['section_type'],
+                    row['tab_id']
+                )
                 
                 section = {
                     'id': row['id'],

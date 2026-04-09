@@ -584,6 +584,23 @@
         intendedEndDate: '{{ entry.intended_end_date }}',
         showEndDates: {{ 'true' if entry.show_end_dates else 'false' }}
     };
+    const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+    function getProgressStartDate() {
+        const preferredStart = entryData.commencedAt || entryData.createdAt;
+        const parsed = new Date(preferredStart);
+        return Number.isNaN(parsed.getTime()) ? new Date(entryData.createdAt) : parsed;
+    }
+
+    function getProgressComparisonDate() {
+        {% if entry.actual_end_date %}
+        const actualEndDate = new Date('{{ entry.actual_end_date }}');
+        if (!Number.isNaN(actualEndDate.getTime())) {
+            return actualEndDate;
+        }
+        {% endif %}
+        return new Date();
+    }
     
     // Initialize timeline
     async function initTimeline() {
@@ -675,8 +692,13 @@
         if (milestones.length === 0) return;
         
         // Use commenced_at if available, otherwise use created_at
-        const startDate = new Date(entryData.commencedAt);
+        const startDate = getProgressStartDate();
         const now = new Date();
+
+        if (Number.isNaN(startDate.getTime())) {
+            console.error('Invalid progress start date for milestone rendering');
+            return;
+        }
         
         // Use actual_end_date if entry is complete, otherwise use today
         {% if entry.actual_end_date %}
@@ -890,11 +912,11 @@
         }
         
         // Use commenced_at if available, otherwise use created_at
-        const startDate = new Date(entryData.commencedAt);
-        const endDate = new Date();
+        const startDate = getProgressStartDate();
+        const endDate = getProgressComparisonDate();
         const totalDuration = endDate - startDate;
         
-        if (totalDuration <= 0) {
+        if (Number.isNaN(startDate.getTime()) || totalDuration <= 0) {
             container.innerHTML = '<p class="text-muted text-center py-2 mb-0">Not enough data for progression</p>';
             return;
         }
@@ -1126,39 +1148,38 @@
     // Calculate progress
     {% if entry.show_end_dates and entry.intended_end_date %}
     function calculateProgress() {
-        const startDate = new Date(entryData.createdAt);
+        const startDate = getProgressStartDate();
         const endDate = new Date(entryData.intendedEndDate);
-        const now = new Date();
-        
-        const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
-        const daysElapsed = Math.ceil((now - startDate) / (1000 * 60 * 60 * 24));
-        const daysRemaining = totalDays - daysElapsed;
-        const percentage = Math.min(100, Math.max(0, (daysElapsed / totalDays) * 100));
-        const actualPercentage = (daysElapsed / totalDays) * 100; // Can exceed 100%
-        
-        // Update unified progress percentage text
-        const progressPercentage = document.getElementById('unified-progress-percentage');
-        const progressText = document.getElementById('unified-progress-text');
-        if (progressPercentage) {
-            progressPercentage.textContent = Math.round(percentage);
+        const comparisonDate = getProgressComparisonDate();
+
+        if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate <= startDate) {
+            console.error('Invalid dates for progress calculation', { startDate, endDate, comparisonDate });
+            return;
         }
         
-        // Update progress text styling based on overdue status
+        const totalDays = Math.max(1, Math.ceil((endDate - startDate) / MS_PER_DAY));
+        const elapsedDaysRaw = Math.max(0, (comparisonDate - startDate) / MS_PER_DAY);
+        const daysElapsed = Math.max(0, Math.floor(elapsedDaysRaw));
+        const daysRemaining = Math.ceil((endDate - comparisonDate) / MS_PER_DAY);
+        const percentage = Math.min(100, Math.max(0, (elapsedDaysRaw / totalDays) * 100));
+        const actualPercentage = Math.max(0, (elapsedDaysRaw / totalDays) * 100);
+        
+        // Update unified progress percentage text
+        const progressText = document.getElementById('unified-progress-text');
         if (progressText) {
             if (daysRemaining < 0) {
-                progressText.classList.add('text-danger');
-                progressText.classList.remove('fw-bold');
-                progressText.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i><span id="unified-progress-percentage">' + Math.round(percentage) + '</span>% - OVERDUE';
+                progressText.classList.add('text-danger', 'fw-bold');
+                progressText.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i><span id="unified-progress-percentage">' + Math.round(actualPercentage) + '</span>% - OVERDUE';
             } else {
                 progressText.classList.remove('text-danger');
                 progressText.classList.add('fw-bold');
+                progressText.innerHTML = '<span id="unified-progress-percentage">' + Math.round(percentage) + '</span>% Complete';
             }
         }
         
         // Update time-based progress bar
         const timeProgressFill = document.getElementById('timeProgressFill');
         const timeProgressOverdue = document.getElementById('timeProgressOverdue');
-        const timeProgressTrack = document.querySelector('.time-progress-track');
         
         // Set the status color on the progress fill
         const statusColor = '{{ entry.status_color }}';
@@ -1166,48 +1187,23 @@
             timeProgressFill.style.setProperty('--status-color', statusColor);
         }
         
-        if (timeProgressFill && timeProgressOverdue && timeProgressTrack) {
+        if (timeProgressFill && timeProgressOverdue) {
             if (daysRemaining < 0) {
-                // Entry is overdue
                 const overdueDays = Math.abs(daysRemaining);
-                
-                // Look for any milestone element with "Overdue" in its label
-                const overdueMilestone = Array.from(timeProgressTrack.querySelectorAll('.time-progress-milestone'))
-                    .find(el => el.getAttribute('data-label')?.includes('Overdue'));
-                
-                console.log('Looking for overdue milestone:', overdueMilestone);
-                console.log('All milestones:', timeProgressTrack.querySelectorAll('.time-progress-milestone'));
-                
-                if (overdueMilestone) {
-                    // Use the exact computed width from the milestone element
-                    const computedStyle = window.getComputedStyle(overdueMilestone);
-                    const overdueWidth = computedStyle.width;
-                    const trackWidth = timeProgressTrack.offsetWidth;
-                    const overduePercentage = (parseFloat(overdueWidth) / trackWidth) * 100;
-                    
-                    console.log('Found overdue milestone! Width:', overdueWidth, 'Percentage:', overduePercentage);
-                    
-                    // Set the overdue bar to match the milestone's size
-                    timeProgressFill.style.width = (100 - overduePercentage) + '%';
-                    timeProgressOverdue.style.width = overduePercentage + '%';
-                } else {
-                    console.log('Overdue milestone NOT found, using fallback calculation');
-                    // Fallback calculation if milestone not found
-                    const totalDisplayDays = totalDays + overdueDays;
-                    const intendedPercentage = (totalDays / totalDisplayDays) * 100;
-                    const overduePercentage = (overdueDays / totalDisplayDays) * 100;
-                    
-                    timeProgressFill.style.width = intendedPercentage + '%';
-                    timeProgressOverdue.style.width = overduePercentage + '%';
-                }
-                
+                const totalDisplayDays = totalDays + overdueDays;
+                const intendedPercentage = (totalDays / totalDisplayDays) * 100;
+                const overduePercentage = (overdueDays / totalDisplayDays) * 100;
+
+                timeProgressFill.style.width = intendedPercentage + '%';
+                timeProgressOverdue.style.width = overduePercentage + '%';
                 timeProgressOverdue.setAttribute('data-label', `Overdue (${overdueDays}d)`);
                 timeProgressOverdue.title = `${overdueDays} days overdue`;
             } else {
-                // Entry is on track - show progress within intended timeline
                 const fillPercentage = Math.min(100, percentage);
                 timeProgressFill.style.width = fillPercentage + '%';
                 timeProgressOverdue.style.width = '0%';
+                timeProgressOverdue.removeAttribute('data-label');
+                timeProgressOverdue.title = '';
             }
         }
         

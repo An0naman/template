@@ -9,6 +9,12 @@ let selectedSection = null;
 let availableSectionTypes = [];
 let currentTabs = [];
 let activeTab = 'main';
+let autoSaveTimer = null;
+let sectionAutoSaveTimer = null;
+let autoSaveInFlight = null;
+let isRenderingLayout = false;
+let hasPendingLayoutChanges = false;
+const AUTO_SAVE_DELAY = 700;
 
 // Section type icons mapping
 const SECTION_ICONS = {
@@ -42,6 +48,15 @@ function initializeLayoutBuilder(entryTypeId, entryTypeData) {
         disableDrag: true,
         animate: true,
         handle: '.section-header'
+    });
+
+    gridStack.on('change', (_event, items) => {
+        if (!editMode || isRenderingLayout || !Array.isArray(items) || items.length === 0) {
+            return;
+        }
+
+        hasPendingLayoutChanges = true;
+        scheduleLayoutAutoSave();
     });
     
     // Load available section types
@@ -134,16 +149,188 @@ function renderLayout() {
     if (!currentLayout || !currentLayout.sections) {
         return;
     }
-    
-    // Clear grid
-    gridStack.removeAll();
-    
-    // Filter sections by active tab
-    const sectionsInTab = currentLayout.sections.filter(s => (s.tab_id || 'main') === activeTab);
-    
-    // Add sections to grid
-    sectionsInTab.forEach(section => {
-        addSectionToGrid(section);
+
+    isRenderingLayout = true;
+
+    try {
+        // Clear grid
+        gridStack.removeAll();
+
+        // Filter sections by active tab
+        const sectionsInTab = currentLayout.sections.filter(s => (s.tab_id || 'main') === activeTab);
+
+        // Add sections to grid
+        sectionsInTab.forEach(section => {
+            addSectionToGrid(section);
+        });
+    } finally {
+        isRenderingLayout = false;
+    }
+
+    applyEditModeState();
+}
+
+function updateEditModeIndicator(message, icon = 'fa-edit') {
+    const indicator = document.getElementById('editModeIndicator');
+    if (!indicator) {
+        return;
+    }
+
+    indicator.innerHTML = `<i class="fas ${icon} me-2"></i>${message}`;
+}
+
+function collectGridChanges() {
+    const items = gridStack?.engine?.nodes || [];
+
+    return items.map(item => ({
+        id: parseInt(item.el.querySelector('[data-section-id]').getAttribute('data-section-id')),
+        position_x: item.x,
+        position_y: item.y,
+        width: item.w,
+        height: item.h
+    }));
+}
+
+function applyEditModeState() {
+    const toggleBtn = document.getElementById('toggleEditBtn');
+    const saveBtn = document.getElementById('saveLayoutBtn');
+    const indicator = document.getElementById('editModeIndicator');
+
+    if (!toggleBtn || !saveBtn || !indicator || !gridStack) {
+        return;
+    }
+
+    gridStack.enableMove(editMode);
+    gridStack.enableResize(editMode);
+
+    if (editMode) {
+        toggleBtn.innerHTML = '<i class="fas fa-check me-1"></i>Done';
+        toggleBtn.classList.remove('btn-outline-primary', 'btn-outline-danger');
+        toggleBtn.classList.add('btn-outline-success');
+        saveBtn.style.display = 'inline-block';
+        if (!saveBtn.disabled) {
+            saveBtn.innerHTML = '<i class="fas fa-save me-1"></i>Save Now';
+        }
+        indicator.style.display = 'block';
+        updateEditModeIndicator(
+            (hasPendingLayoutChanges || autoSaveInFlight)
+                ? 'Edit Mode Active • saving changes automatically…'
+                : 'Edit Mode Active • changes auto-save',
+            (hasPendingLayoutChanges || autoSaveInFlight) ? 'fa-spinner fa-spin' : 'fa-edit'
+        );
+    } else {
+        toggleBtn.innerHTML = '<i class="fas fa-edit me-1"></i>Edit Layout';
+        toggleBtn.classList.remove('btn-outline-success', 'btn-outline-danger');
+        toggleBtn.classList.add('btn-outline-primary');
+        saveBtn.style.display = 'none';
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="fas fa-save me-1"></i>Save Now';
+        indicator.style.display = 'none';
+    }
+
+    document.querySelectorAll('.delete-section-btn').forEach(btn => {
+        btn.style.display = editMode ? 'inline-block' : 'none';
+    });
+}
+
+function applySectionUpdatesLocally(sectionId, updates) {
+    if (!currentLayout?.sections) {
+        return null;
+    }
+
+    const normalizedUpdates = { ...updates };
+
+    if (typeof normalizedUpdates.is_visible !== 'undefined') {
+        normalizedUpdates.is_visible = Boolean(Number(normalizedUpdates.is_visible));
+    }
+    if (typeof normalizedUpdates.is_collapsible !== 'undefined') {
+        normalizedUpdates.is_collapsible = Boolean(Number(normalizedUpdates.is_collapsible));
+    }
+    if (typeof normalizedUpdates.default_collapsed !== 'undefined') {
+        normalizedUpdates.default_collapsed = Boolean(Number(normalizedUpdates.default_collapsed));
+    }
+    if (typeof normalizedUpdates.config === 'string') {
+        try {
+            normalizedUpdates.config = JSON.parse(normalizedUpdates.config);
+        } catch {
+            // Leave as-is if not valid JSON
+        }
+    }
+
+    const sectionIndex = currentLayout.sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) {
+        return null;
+    }
+
+    currentLayout.sections[sectionIndex] = {
+        ...currentLayout.sections[sectionIndex],
+        ...normalizedUpdates
+    };
+
+    if (selectedSection?.id === sectionId) {
+        selectedSection = currentLayout.sections[sectionIndex];
+    }
+
+    return currentLayout.sections[sectionIndex];
+}
+
+function scheduleLayoutAutoSave() {
+    if (!editMode) {
+        return;
+    }
+
+    updateEditModeIndicator('Edit Mode Active • saving changes automatically…', 'fa-spinner fa-spin');
+
+    if (autoSaveTimer) {
+        clearTimeout(autoSaveTimer);
+    }
+
+    autoSaveTimer = setTimeout(() => {
+        saveLayout({ silent: true });
+    }, AUTO_SAVE_DELAY);
+}
+
+function scheduleSectionPropertyAutoSave() {
+    if (!editMode || !selectedSection) {
+        return;
+    }
+
+    if (sectionAutoSaveTimer) {
+        clearTimeout(sectionAutoSaveTimer);
+    }
+
+    sectionAutoSaveTimer = setTimeout(() => {
+        saveSectionProperties({ silent: true, keepSelection: true });
+    }, 250);
+}
+
+function attachPropertyAutosave(section) {
+    const fieldIds = [
+        'sectionTitleInput',
+        'sectionTabSelect',
+        'sectionWidthInput',
+        'sectionHeightInput',
+        'sectionVisibleSwitch',
+        'sectionCollapsibleSwitch',
+        'sectionCollapsedSwitch',
+        'promptGeneralChat',
+        'promptDescription',
+        'promptNoteComposer',
+        'promptDiagram',
+        'promptPlanning'
+    ];
+
+    fieldIds.forEach(fieldId => {
+        const element = document.getElementById(fieldId);
+        if (!element) {
+            return;
+        }
+
+        element.addEventListener('change', () => {
+            if (selectedSection?.id === section.id) {
+                scheduleSectionPropertyAutoSave();
+            }
+        });
     });
 }
 
@@ -187,7 +374,7 @@ function addSectionToGrid(sectionData) {
                     <button class="btn btn-sm btn-outline-danger delete-section-btn" 
                             onclick="deleteSection(${sectionData.id})" 
                             title="Delete"
-                            style="display: none;">
+                            style="display: ${editMode ? 'inline-block' : 'none'};">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -213,101 +400,92 @@ function addSectionToGrid(sectionData) {
 }
 
 // Toggle edit mode
-function toggleEditMode() {
-    editMode = !editMode;
-    
-    const toggleBtn = document.getElementById('toggleEditBtn');
-    const saveBtn = document.getElementById('saveLayoutBtn');
-    const indicator = document.getElementById('editModeIndicator');
-    
-    if (editMode) {
-        // Enable editing
-        gridStack.enableMove(true);
-        gridStack.enableResize(true);
-        toggleBtn.innerHTML = '<i class="fas fa-times me-1"></i>Cancel';
-        toggleBtn.classList.remove('btn-outline-primary');
-        toggleBtn.classList.add('btn-outline-danger');
-        saveBtn.style.display = 'inline-block';
-        indicator.style.display = 'block';
-        
-        // Show delete buttons
-        document.querySelectorAll('.delete-section-btn').forEach(btn => {
-            btn.style.display = 'inline-block';
-        });
-        
-    } else {
-        // Disable editing
-        gridStack.enableMove(false);
-        gridStack.enableResize(false);
-        toggleBtn.innerHTML = '<i class="fas fa-edit me-1"></i>Edit Layout';
-        toggleBtn.classList.remove('btn-outline-danger');
-        toggleBtn.classList.add('btn-outline-primary');
-        saveBtn.style.display = 'none';
-        indicator.style.display = 'none';
-        
-        // Hide delete buttons
-        document.querySelectorAll('.delete-section-btn').forEach(btn => {
-            btn.style.display = 'none';
-        });
-        
-        // Reload layout to discard changes
-        loadLayout(currentLayout.entry_type_id);
+async function toggleEditMode() {
+    if (!editMode) {
+        editMode = true;
+        applyEditModeState();
+        return;
     }
+
+    if (autoSaveTimer) {
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = null;
+    }
+
+    if (sectionAutoSaveTimer) {
+        clearTimeout(sectionAutoSaveTimer);
+        sectionAutoSaveTimer = null;
+        await saveSectionProperties({ silent: true, keepSelection: true });
+    }
+
+    await saveLayout({ silent: true });
+
+    editMode = false;
+    applyEditModeState();
 }
 
 // Save layout
-async function saveLayout() {
+async function saveLayout(options = {}) {
+    const { silent = false } = options;
+
     try {
-        if (!editMode) {
+        if (!editMode && !silent) {
             showNotification('Enable edit mode first', 'warning');
-            return;
+            return false;
         }
-        
-        // Collect current grid positions
-        const sections = [];
-        const items = gridStack.engine.nodes;
-        
-        items.forEach(item => {
-            const sectionId = parseInt(item.el.querySelector('[data-section-id]').getAttribute('data-section-id'));
-            
-            console.log(`Section ${sectionId}: x=${item.x}, y=${item.y}, w=${item.w}, h=${item.h}`);
-            
-            sections.push({
-                id: sectionId,
-                position_x: item.x,
-                position_y: item.y,
-                width: item.w,
-                height: item.h
-            });
-        });
-        
-        console.log('Saving sections:', sections);
-        
-        // Update section positions
-        const response = await fetch(`/api/entry-layouts/${currentLayout.id}/sections/positions`, {
+
+        if (autoSaveInFlight) {
+            await autoSaveInFlight;
+            return true;
+        }
+
+        const sections = collectGridChanges();
+        if (sections.length === 0) {
+            hasPendingLayoutChanges = false;
+            return true;
+        }
+
+        const saveBtn = document.getElementById('saveLayoutBtn');
+        if (saveBtn && editMode) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `<i class="fas fa-spinner fa-spin me-1"></i>${silent ? 'Saving…' : 'Saving Now'}`;
+        }
+
+        autoSaveInFlight = fetch(`/api/entry-layouts/${currentLayout.id}/sections/positions`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sections: sections })
+            body: JSON.stringify({ sections })
         });
-        
+
+        const response = await autoSaveInFlight;
+
         if (!response.ok) {
             throw new Error('Failed to save layout');
         }
-        
-        const result = await response.json();
-        console.log('Save response:', result);
-        
-        showBanner('Layout saved successfully', 'success');
-        
-        // Exit edit mode
-        toggleEditMode();
-        
-        // Reload layout
-        await loadLayout(currentLayout.entry_type_id);
-        
+
+        sections.forEach(section => applySectionUpdatesLocally(section.id, section));
+        hasPendingLayoutChanges = false;
+
+        if (editMode) {
+            updateEditModeIndicator('Edit Mode Active • changes auto-save');
+        }
+
+        if (!silent) {
+            showBanner('Layout saved successfully', 'success');
+        }
+
+        return true;
     } catch (error) {
         console.error('Error saving layout:', error);
         showBanner('Failed to save layout', 'error');
+        return false;
+    } finally {
+        autoSaveInFlight = null;
+        const saveBtn = document.getElementById('saveLayoutBtn');
+        if (saveBtn && editMode) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fas fa-save me-1"></i>Save Now';
+        }
     }
 }
 
@@ -438,8 +616,12 @@ async function deleteSection(sectionId) {
         }
         
         showBanner('Section deleted', 'success');
+
+        if (selectedSection?.id === sectionId) {
+            clearSectionSelection();
+        }
         
-        // Reload layout
+        // Reload layout while preserving edit mode
         await loadLayout(currentLayout.entry_type_id);
         
     } catch (error) {
@@ -542,6 +724,9 @@ function renderSectionProperties(section) {
                 <span>${section.title}</span>
             </h6>
             <small class="text-muted">${section.section_type}</small>
+            <div class="small text-success mt-2">
+                <i class="fas fa-wand-magic-sparkles me-1"></i>Changes auto-save when you update a field.
+            </div>
         </div>
         
         <div class="mb-3">
@@ -615,21 +800,26 @@ function renderSectionProperties(section) {
         
         <div class="d-grid gap-2">
             <button class="btn btn-primary btn-sm" onclick="saveSectionProperties()">
-                <i class="fas fa-save me-1"></i>Save Properties
+                <i class="fas fa-save me-1"></i>Save Now
             </button>
             <button class="btn btn-outline-secondary btn-sm" onclick="clearSectionSelection()">
-                <i class="fas fa-times me-1"></i>Cancel
+                <i class="fas fa-times me-1"></i>Close
             </button>
         </div>
     `;
+
+    attachPropertyAutosave(section);
 }
 
 // Save section properties
-async function saveSectionProperties() {
+async function saveSectionProperties(options = {}) {
     if (!selectedSection) {
         return;
     }
-    
+
+    const { silent = false, keepSelection = true } = options;
+    const originalSection = { ...selectedSection };
+
     const updates = {
         title: document.getElementById('sectionTitleInput').value,
         tab_id: document.getElementById('sectionTabSelect').value,
@@ -638,38 +828,43 @@ async function saveSectionProperties() {
         width: parseInt(document.getElementById('sectionWidthInput').value),
         height: parseInt(document.getElementById('sectionHeightInput').value)
     };
-    
-    if (selectedSection.is_collapsible) {
+
+    if (document.getElementById('sectionCollapsedSwitch')) {
         updates.default_collapsed = document.getElementById('sectionCollapsedSwitch').checked ? 1 : 0;
     }
-    
+
     // If AI Assistant section, save custom prompts in config
     if (selectedSection.section_type === 'ai_assistant') {
-        const config = typeof selectedSection.config === 'string' ? 
+        const config = typeof selectedSection.config === 'string' ?
             JSON.parse(selectedSection.config || '{}') : (selectedSection.config || {});
-        
+
         config.prompt_general_chat = document.getElementById('promptGeneralChat')?.value || '';
         config.prompt_description = document.getElementById('promptDescription')?.value || '';
         config.prompt_note_composer = document.getElementById('promptNoteComposer')?.value || '';
         config.prompt_diagram = document.getElementById('promptDiagram')?.value || '';
         config.prompt_planning = document.getElementById('promptPlanning')?.value || '';
-        
+
         updates.config = JSON.stringify(config);
     }
-    
+
     try {
         const response = await fetch(`/api/entry-layouts/${currentLayout.id}/sections/${selectedSection.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updates)
         });
-        
+
         if (!response.ok) {
             throw new Error('Failed to save section properties');
         }
-        
-        // Update the grid item size if width or height changed
-        if (updates.width || updates.height) {
+
+        const updatedSection = applySectionUpdatesLocally(selectedSection.id, updates);
+        const changedTab = originalSection.tab_id !== updatedSection?.tab_id;
+        const changedVisibility = Boolean(originalSection.is_visible) !== Boolean(updatedSection?.is_visible);
+        const changedSize = originalSection.width !== updatedSection?.width || originalSection.height !== updatedSection?.height;
+        const changedTitle = originalSection.title !== updatedSection?.title;
+
+        if (changedSize) {
             const gridItem = document.getElementById(`section-${selectedSection.id}`);
             if (gridItem) {
                 gridStack.update(gridItem, {
@@ -678,13 +873,25 @@ async function saveSectionProperties() {
                 });
             }
         }
-        
-        showBanner('Section properties saved', 'success');
-        
-        // Reload layout
-        await loadLayout(currentLayout.entry_type_id);
-        clearSectionSelection();
-        
+
+        if (changedTab) {
+            activeTab = updatedSection?.tab_id || activeTab;
+        }
+
+        if (changedTab || changedVisibility || changedTitle) {
+            renderLayout();
+        }
+
+        if (!silent) {
+            showBanner('Section properties saved', 'success');
+        }
+
+        if (keepSelection && updatedSection) {
+            renderSectionProperties(updatedSection);
+        } else if (!silent) {
+            clearSectionSelection();
+        }
+
     } catch (error) {
         console.error('Error saving section properties:', error);
         showBanner('Failed to save section properties', 'error');
@@ -719,12 +926,21 @@ function renderTabs() {
              onclick="switchTab('${tab.tab_id}')">
             <i class="fas ${tab.tab_icon || 'fa-folder'} me-2"></i>
             <span>${tab.tab_label}</span>
-            ${tab.tab_id !== 'main' && editMode ? `
-                <button class="btn btn-sm btn-link p-0 ms-2 text-danger" 
-                        onclick="deleteTab(event, ${tab.id})" 
-                        title="Delete tab">
-                    <i class="fas fa-times"></i>
-                </button>
+            ${editMode ? `
+                <div class="d-inline-flex align-items-center gap-1 ms-2">
+                    <button class="btn btn-sm btn-link p-0 text-primary"
+                            onclick="renameTab(event, '${tab.tab_id}')"
+                            title="Rename tab">
+                        <i class="fas fa-pen"></i>
+                    </button>
+                    ${tab.tab_id !== 'main' && tab.tab_id !== 'drawio' ? `
+                        <button class="btn btn-sm btn-link p-0 text-danger" 
+                                onclick="deleteTab(event, ${tab.id})" 
+                                title="Delete tab">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    ` : ''}
+                </div>
             ` : ''}
         </div>
     `).join('');
@@ -741,10 +957,38 @@ function renderTabs() {
 }
 
 // Switch active tab
-function switchTab(tabId) {
+async function switchTab(tabId) {
+    if (tabId === activeTab) {
+        return;
+    }
+
+    if (sectionAutoSaveTimer) {
+        clearTimeout(sectionAutoSaveTimer);
+        sectionAutoSaveTimer = null;
+        await saveSectionProperties({ silent: true, keepSelection: true });
+    }
+
+    if (editMode && (hasPendingLayoutChanges || autoSaveTimer || autoSaveInFlight)) {
+        if (autoSaveTimer) {
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = null;
+        }
+
+        await saveLayout({ silent: true });
+    }
+
     activeTab = tabId;
     renderTabs();
     renderLayout();
+
+    if (selectedSection) {
+        const refreshedSection = currentLayout.sections.find(s => s.id === selectedSection.id);
+        if (refreshedSection && (refreshedSection.tab_id || 'main') === activeTab) {
+            renderSectionProperties(refreshedSection);
+        } else {
+            clearSectionSelection();
+        }
+    }
 }
 
 // Create new tab
@@ -769,6 +1013,50 @@ async function createTab(tabData) {
         console.error('Error creating tab:', error);
         showBanner('Failed to create tab', 'error');
     }
+}
+
+// Update a tab
+async function updateTab(tabId, tabData) {
+    try {
+        const response = await fetch(`/api/entry-layout-tabs/${tabId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(tabData)
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to update tab');
+        }
+
+        showBanner('Tab updated successfully', 'success');
+        await loadLayout(currentLayout.entry_type_id);
+    } catch (error) {
+        console.error('Error updating tab:', error);
+        showBanner('Failed to update tab', 'error');
+    }
+}
+
+// Rename tab
+function renameTab(event, tabKey) {
+    event.stopPropagation();
+
+    const tab = currentTabs.find(t => t.tab_id === tabKey);
+    if (!tab || !tab.id) {
+        showBanner('This tab cannot be renamed right now', 'error');
+        return;
+    }
+
+    const newLabel = prompt('Rename tab:', tab.tab_label || '');
+    if (!newLabel) {
+        return;
+    }
+
+    const trimmedLabel = newLabel.trim();
+    if (!trimmedLabel || trimmedLabel === tab.tab_label) {
+        return;
+    }
+
+    updateTab(tab.id, { tab_label: trimmedLabel });
 }
 
 // Delete tab
