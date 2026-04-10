@@ -65,17 +65,20 @@ cp "$TEMPLATE_DIR/.gitignore" "$APP_DIR/"
 cp "$TEMPLATE_DIR/backup.sh" "$APP_DIR/"
 cp "$TEMPLATE_DIR/update.sh" "$APP_DIR/"
 cp "$TEMPLATE_DIR/run-migrations.sh" "$APP_DIR/"
+cp "$TEMPLATE_DIR/sync-instance-config.py" "$APP_DIR/"
 cp "$TEMPLATE_DIR/README.md" "$APP_DIR/"
 
 # Make scripts executable
 chmod +x "$APP_DIR/backup.sh"
 chmod +x "$APP_DIR/update.sh"
 chmod +x "$APP_DIR/run-migrations.sh"
+chmod +x "$APP_DIR/sync-instance-config.py"
 
 # Configure .env file
 echo -e "${GREEN}→ Configuring environment...${NC}"
 sed -i "s/^APP_NAME=.*/APP_NAME=${APP_NAME}/" "$APP_DIR/.env"
 sed -i "s/^PORT=.*/PORT=${PORT}/" "$APP_DIR/.env"
+sed -i "s|^TEMPLATE_SOURCE_DIR=.*|TEMPLATE_SOURCE_DIR=${TEMPLATE_DIR}|" "$APP_DIR/.env"
 
 # Create data and uploads directories
 mkdir -p "$APP_DIR/data"

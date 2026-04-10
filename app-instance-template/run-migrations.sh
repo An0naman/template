@@ -2,7 +2,7 @@
 # Run Database Migrations Script
 # Executes all pending database migrations for an app instance
 
-set -e
+set -euo pipefail
 
 # Colors
 GREEN='\033[0;32m'
@@ -15,11 +15,35 @@ echo -e "${BLUE}Database Migration Runner${NC}"
 echo "=========================="
 echo ""
 
-# Check if docker-compose is available
-if ! command -v docker-compose &> /dev/null; then
-    echo -e "${RED}Error: docker-compose not found${NC}"
+if command -v docker-compose >/dev/null 2>&1; then
+    COMPOSE_CMD=(docker-compose)
+elif docker compose version >/dev/null 2>&1; then
+    COMPOSE_CMD=(docker compose)
+else
+    echo -e "${RED}Error: docker-compose / docker compose not found${NC}"
     exit 1
 fi
+
+compose() {
+    "${COMPOSE_CMD[@]}" "$@"
+}
+
+detect_app_service() {
+    local services
+    services="$(compose config --services 2>/dev/null || true)"
+
+    if echo "$services" | grep -qx "app"; then
+        echo "app"
+        return 0
+    fi
+
+    if [ -n "${APP_NAME:-}" ] && echo "$services" | grep -qx "${APP_NAME}"; then
+        echo "${APP_NAME}"
+        return 0
+    fi
+
+    echo "$services" | grep -v '^watchtower$' | head -n1
+}
 
 # Check if we're in the right directory
 if [ ! -f "docker-compose.yml" ]; then
@@ -30,25 +54,34 @@ fi
 
 # Load environment variables
 if [ -f ".env" ]; then
+    set -a
     source .env
+    set +a
 else
     echo -e "${YELLOW}Warning: .env file not found, using defaults${NC}"
 fi
 
-APP_NAME=${APP_NAME:-myapp}
+APP_NAME=${APP_NAME:-$(basename "$PWD")}
+APP_SERVICE="$(detect_app_service)"
 
 echo "App Name: ${APP_NAME}"
+echo "Compose Service: ${APP_SERVICE}"
 echo ""
 
+if [ -z "$APP_SERVICE" ]; then
+    echo -e "${RED}Error: could not determine the app service name${NC}"
+    exit 1
+fi
+
 # Check if container is running
-if ! docker-compose ps | grep -q "Up"; then
+if ! compose ps --status running | grep -q "$APP_SERVICE"; then
     echo -e "${RED}Error: Container is not running${NC}"
-    echo "Start the container first with: docker-compose up -d"
+    echo "Start the container first with: ${COMPOSE_CMD[*]} up -d"
     exit 1
 fi
 
 # Check if migrations directory exists in container
-if ! docker-compose exec -T ${APP_NAME} test -d /app/migrations 2>/dev/null; then
+if ! compose exec -T "$APP_SERVICE" test -d /app/migrations 2>/dev/null; then
     echo -e "${YELLOW}No migrations directory found in container${NC}"
     echo "This framework version may not have any migrations."
     exit 0
@@ -72,8 +105,7 @@ echo ""
 echo -e "${YELLOW}Step 2: Running database migrations...${NC}"
 echo ""
 
-# Get list of all Python migration files
-MIGRATIONS=$(docker-compose exec -T ${APP_NAME} sh -c "find /app/migrations -name '*.py' -not -path '*/\.*' -not -path '*/__pycache__/*' | sort" 2>/dev/null || echo "")
+MIGRATIONS=$(compose exec -T "$APP_SERVICE" sh -c "find /app/migrations -name '*.py' -not -path '*/.*' -not -path '*/__pycache__/*' | sort" 2>/dev/null || echo "")
 
 if [ -z "$MIGRATIONS" ]; then
     echo -e "${GREEN}✓ No migration files found${NC}"
@@ -85,17 +117,14 @@ APPLIED_COUNT=0
 SKIPPED_COUNT=0
 FAILED_COUNT=0
 
-# Process each migration
 while IFS= read -r migration; do
     if [ -n "$migration" ]; then
         MIGRATION_COUNT=$((MIGRATION_COUNT + 1))
         MIGRATION_NAME=$(basename "$migration")
-        
+
         echo -e "${BLUE}[$MIGRATION_COUNT] ${MIGRATION_NAME}${NC}"
-        
-        # Run the migration and capture output
-        if docker-compose exec -T ${APP_NAME} python "$migration" 2>&1 | tee /tmp/migration_output_${MIGRATION_COUNT}.txt; then
-            # Check if migration was skipped or applied
+
+        if compose exec -T "$APP_SERVICE" python "$migration" 2>&1 | tee /tmp/migration_output_${MIGRATION_COUNT}.txt; then
             if grep -qE "already exists|Skipping migration|Migration not needed" /tmp/migration_output_${MIGRATION_COUNT}.txt; then
                 echo -e "    ${GREEN}↳ Already applied / Skipped${NC}"
                 SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
@@ -122,13 +151,11 @@ while IFS= read -r migration; do
             fi
         fi
         echo ""
-        
-        # Clean up temp file
+
         rm -f /tmp/migration_output_${MIGRATION_COUNT}.txt
     fi
 done <<< "$MIGRATIONS"
 
-# Summary
 echo "=========================="
 echo -e "${BLUE}Migration Summary${NC}"
 echo "=========================="
@@ -153,5 +180,5 @@ fi
 
 echo ""
 echo "To verify database changes:"
-echo "  docker-compose exec ${APP_NAME} python -c \"import sqlite3; conn = sqlite3.connect('/app/data/homebrew.db'); cursor = conn.cursor(); cursor.execute('SELECT name FROM sqlite_master WHERE type=\\\"table\\\"'); print([r[0] for r in cursor.fetchall()])\""
+echo "  ${COMPOSE_CMD[*]} exec ${APP_SERVICE} python -c \"import sqlite3; conn = sqlite3.connect('/app/data/homebrew.db'); cursor = conn.cursor(); cursor.execute('SELECT name FROM sqlite_master WHERE type=\\\"table\\\"'); print([r[0] for r in cursor.fetchall()])\""
 echo ""
