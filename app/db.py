@@ -947,8 +947,11 @@ def get_system_parameters():
             'allowed_file_types': 'txt,pdf,png,jpg,jpeg,gif,webp,svg,doc,docx,xls,xlsx,ppt,pptx,mp4,avi,mov,wmv,flv,webm,mkv,mp3,wav,flac,aac,ogg,zip,rar,7z,tar,gz',
             'max_file_size': '50',
             'custom_note_types': '{"custom_types":[],"default_prompts":{}}',
+            'primary_ai_provider': 'gemini',  # Primary text AI provider: gemini or ollama
             'gemini_api_key': '',  # Google Gemini API key for AI features
             'gemini_model_name': 'gemini-1.5-flash',  # Google Gemini model name
+            'ollama_base_url': 'http://localhost:11434',  # Ollama server URL
+            'ollama_model_name': 'llama3.2:latest',  # Ollama model name
             'groq_model_name': 'llama-3.3-70b-versatile',  # Groq model name for diagram generation
             'groq_api_key': '',  # Groq API key for diagram generation
             'huggingface_api_key': '',  # Hugging Face API key for image generation

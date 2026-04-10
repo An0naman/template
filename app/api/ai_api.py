@@ -4,9 +4,16 @@ Provides endpoints for AI-powered writing assistance
 """
 
 from flask import Blueprint, request, jsonify, current_app, g
-from app.services.ai_service import get_ai_service
+from app.services.ai_service import (
+    OllamaModelWrapper,
+    fetch_ollama_models,
+    get_ai_service,
+    normalize_ollama_base_url,
+)
 import sqlite3
 import logging
+import os
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -121,10 +128,45 @@ def get_available_models():
 def ai_status():
     """Check if AI service is available"""
     ai_service = get_ai_service()
+    available = ai_service.is_available()
     return jsonify({
-        'available': ai_service.is_available(),
-        'service': 'Google Gemini' if ai_service.is_available() else 'Not configured'
+        'available': available,
+        'service': ai_service.provider_label if available else 'Not configured',
+        'provider': getattr(ai_service, 'provider', 'gemini')
     })
+
+
+@ai_api_bp.route('/ai/ollama/models', methods=['GET'])
+def get_ollama_models():
+    """Fetch installed models from a configured Ollama server."""
+    try:
+        from app.db import get_system_parameters
+
+        params = get_system_parameters()
+        base_url = normalize_ollama_base_url(
+            request.args.get('base_url')
+            or os.getenv('OLLAMA_BASE_URL')
+            or params.get('ollama_base_url', 'http://localhost:11434')
+            or 'http://localhost:11434'
+        )
+
+        if not base_url:
+            return jsonify({'error': 'Ollama base URL is required'}), 400
+
+        models, api_style = fetch_ollama_models(base_url, timeout=10)
+
+        return jsonify({
+            'models': models,
+            'default': params.get('ollama_model_name', 'llama3.2:latest') or 'llama3.2:latest',
+            'base_url': base_url,
+            'api_style': api_style
+        })
+    except Exception as e:
+        logger.error(f"Failed to fetch Ollama models: {str(e)}")
+        return jsonify({
+            'error': f'Failed to fetch Ollama models: {str(e)}',
+            'models': []
+        }), 500
 
 @ai_api_bp.route('/ai/reconfigure', methods=['POST'])
 def reconfigure_ai():
@@ -203,6 +245,37 @@ def test_connection():
                 return jsonify({
                     'success': False,
                     'error': f"Groq connection failed: {str(e)}"
+                }), 500
+
+        # --- OLLAMA TESTING ---
+        elif service == 'ollama':
+            import requests
+
+            from app.db import get_system_parameters
+            params = get_system_parameters()
+
+            base_url = normalize_ollama_base_url(
+                data.get('base_url') or os.getenv('OLLAMA_BASE_URL') or params.get('ollama_base_url', 'http://localhost:11434')
+            )
+            model_to_use = data.get('model_name') or params.get('ollama_model_name', 'llama3.2:latest')
+
+            try:
+                _, api_style = fetch_ollama_models(base_url, timeout=10)
+                response = OllamaModelWrapper(base_url=base_url, model_name=model_to_use, timeout=30).generate_content(
+                    "Reply with exactly 'OK'"
+                )
+
+                return jsonify({
+                    'success': True,
+                    'message': 'Ollama connection successful',
+                    'response': (response.text or 'OK').strip(),
+                    'api_style': api_style
+                })
+            except Exception as e:
+                logger.error(f"Ollama connection test failed: {str(e)}")
+                return jsonify({
+                    'success': False,
+                    'error': f"Ollama connection failed: {str(e)}"
                 }), 500
 
         # --- HUGGING FACE TESTING ---

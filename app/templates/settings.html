@@ -262,6 +262,20 @@
                             </div>
                         </div>
 
+                        <!-- Primary AI Provider -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="primaryAiProvider" class="form-label">
+                                    <i class="fas fa-bullseye me-1"></i>Primary AI Provider:
+                                </label>
+                                <select class="form-select" id="primaryAiProvider">
+                                    <option value="gemini" {{ 'selected' if params.primary_ai_provider == 'gemini' or not params.primary_ai_provider else '' }}>Google Gemini</option>
+                                    <option value="ollama" {{ 'selected' if params.primary_ai_provider == 'ollama' else '' }}>Ollama (Local / Self-hosted)</option>
+                                </select>
+                                <small class="text-muted">Used for writing assistance, descriptions, notes, chat, and other general AI features.</small>
+                            </div>
+                        </div>
+
                         <!-- AI Service Selector -->
                         <div class="row mb-4">
                             <div class="col-md-6">
@@ -269,11 +283,12 @@
                                     <i class="fas fa-robot me-1"></i>Select AI Service to Configure:
                                 </label>
                                 <select class="form-select" id="aiServiceSelector" onchange="switchAiServiceSettings()">
-                                    <option value="gemini">Google Gemini (Primary AI Service)</option>
+                                    <option value="gemini" {{ 'selected' if params.primary_ai_provider == 'gemini' or not params.primary_ai_provider else '' }}>Google Gemini</option>
+                                    <option value="ollama" {{ 'selected' if params.primary_ai_provider == 'ollama' else '' }}>Ollama (Local / Self-hosted)</option>
                                     <option value="groq">Groq (Diagram Generation - Optional)</option>
                                     <option value="huggingface">Hugging Face (Image Generation - Free!)</option>
                                 </select>
-                                <small class="text-muted">Choose which AI service you want to configure</small>
+                                <small class="text-muted">Choose which AI service settings you want to view or update</small>
                             </div>
                         </div>
 
@@ -340,6 +355,51 @@
                             </div>
                         </div>
                         
+                    </div>
+
+                    <!-- Ollama Settings -->
+                    <div id="ollamaSettings" class="ai-service-settings" style="display: none;">
+                        <div class="alert alert-info">
+                            <i class="fas fa-server me-2"></i>
+                            <strong>Ollama</strong> lets you use a local or self-hosted LLM instead of a cloud API key for the main AI features.
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="ollamaBaseUrl" class="form-label">
+                                        <i class="fas fa-network-wired me-1"></i>Ollama Server URL:
+                                    </label>
+                                    <input type="text" class="form-control" id="ollamaBaseUrl"
+                                           value="{{ params.ollama_base_url if params.ollama_base_url else 'http://localhost:11434' }}"
+                                           placeholder="http://localhost:8080, http://host.docker.internal:8080, or https://ollama.example.com">
+                                    <small class="text-muted">Use <code>http://host:11434</code> for native Ollama, <code>http://localhost:8080</code> for a local proxy, or <code>http://host.docker.internal:8080</code> when the app runs in Docker.</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="ollamaModelName" class="form-label">
+                                        <i class="fas fa-brain me-1"></i>Ollama Model:
+                                    </label>
+                                    <div class="input-group">
+                                        <select class="form-select" id="ollamaModelName">
+                                            <option value="{{ params.ollama_model_name if params.ollama_model_name else 'llama3.2:latest' }}" selected>
+                                                {{ params.ollama_model_name if params.ollama_model_name else 'llama3.2:latest' }}
+                                            </option>
+                                        </select>
+                                        <button class="btn btn-outline-secondary" type="button" onclick="loadOllamaModels()" title="Detect installed models">
+                                            <i class="fas fa-rotate"></i>
+                                        </button>
+                                    </div>
+                                    <small class="text-muted" id="ollamaModelHelp">Detect installed models from your Ollama server and choose one here.</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-secondary">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>No API key required.</strong> The app will connect directly to your configured Ollama endpoint.
+                        </div>
                     </div>
 
                     <!-- Groq Settings -->
@@ -1475,6 +1535,26 @@
             }
         }
 
+        async function refreshAiServiceStatus() {
+            const aiStatus = document.getElementById('aiServiceStatus');
+            if (!aiStatus) return;
+
+            aiStatus.innerHTML = '<span class="badge bg-secondary"><i class="fas fa-spinner fa-spin me-1"></i>Checking...</span>';
+
+            try {
+                const response = await fetch('/api/ai/status');
+                const data = await response.json();
+
+                if (response.ok && data.available) {
+                    aiStatus.innerHTML = `<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>${data.service}</span>`;
+                } else {
+                    aiStatus.innerHTML = '<span class="badge bg-warning text-dark"><i class="fas fa-exclamation-triangle me-1"></i>Not Configured</span>';
+                }
+            } catch (error) {
+                aiStatus.innerHTML = '<span class="badge bg-danger"><i class="fas fa-times-circle me-1"></i>Status Unavailable</span>';
+            }
+        }
+
         // Test AI Service
         async function testAiService() {
             const statusDiv = document.getElementById('aiStatusMessage');
@@ -1487,11 +1567,16 @@
             const service = serviceSelector ? serviceSelector.value : 'gemini';
             
             // Get current values based on service
-            let apiKey, modelName;
+            let apiKey = '';
+            let modelName = '';
+            let baseUrl = '';
             
             if (service === 'gemini') {
                 apiKey = document.getElementById('geminiApiKey').value;
                 modelName = document.getElementById('geminiModelName').value;
+            } else if (service === 'ollama') {
+                baseUrl = document.getElementById('ollamaBaseUrl').value;
+                modelName = document.getElementById('ollamaModelName').value;
             } else if (service === 'groq') {
                 apiKey = document.getElementById('groqApiKey').value;
                 modelName = document.getElementById('groqModelName').value;
@@ -1509,6 +1594,7 @@
                     body: JSON.stringify({
                         service: service,
                         api_key: apiKey,
+                        base_url: baseUrl,
                         model_name: modelName
                     })
                 });
@@ -1603,6 +1689,81 @@
             }
         }
 
+        window.loadOllamaModels = async function() {
+            const modelSelect = document.getElementById('ollamaModelName');
+            const baseUrlInput = document.getElementById('ollamaBaseUrl');
+            const helpText = document.getElementById('ollamaModelHelp');
+            if (!modelSelect || !baseUrlInput) return;
+
+            const baseUrl = (baseUrlInput.value || '').trim();
+            const configuredModel = "{{ params.ollama_model_name if params.ollama_model_name else 'llama3.2:latest' }}";
+            const preferredModel = modelSelect.value || configuredModel;
+
+            if (!baseUrl) {
+                modelSelect.innerHTML = `<option value="${configuredModel}">${configuredModel}</option>`;
+                if (helpText) helpText.textContent = 'Enter an Ollama URL to detect installed models.';
+                return;
+            }
+
+            if (helpText) helpText.textContent = 'Detecting installed models...';
+
+            try {
+                const response = await fetch(`/api/ai/ollama/models?base_url=${encodeURIComponent(baseUrl)}`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || `HTTP error ${response.status}`);
+                }
+
+                const models = Array.isArray(data.models) ? data.models : [];
+                modelSelect.innerHTML = '';
+
+                if (!models.length) {
+                    modelSelect.innerHTML = `<option value="${preferredModel}">${preferredModel}</option>`;
+                    if (helpText) helpText.textContent = 'No models were reported by this Ollama server.';
+                    return;
+                }
+
+                let foundPreferred = false;
+                models.forEach(model => {
+                    const modelId = model.id || model.name;
+                    const option = document.createElement('option');
+                    option.value = modelId;
+                    option.textContent = model.name || modelId;
+
+                    if (model.size) {
+                        const approxGb = (Number(model.size) / (1024 ** 3)).toFixed(1);
+                        option.title = `Approx. ${approxGb} GB`;
+                    }
+
+                    if (modelId === preferredModel) {
+                        option.selected = true;
+                        foundPreferred = true;
+                    }
+
+                    modelSelect.appendChild(option);
+                });
+
+                if (!foundPreferred && preferredModel) {
+                    const option = document.createElement('option');
+                    option.value = preferredModel;
+                    option.textContent = `${preferredModel} (saved)`;
+                    option.selected = true;
+                    modelSelect.appendChild(option);
+                }
+
+                const apiStyleLabel = data.api_style === 'openai' ? 'OpenAI-compatible' : 'native Ollama';
+                if (helpText) {
+                    const count = models.length;
+                    helpText.textContent = `Detected ${count} installed model${count === 1 ? '' : 's'} from the ${apiStyleLabel} endpoint.`;
+                }
+            } catch (error) {
+                console.error('Error loading Ollama models:', error);
+                modelSelect.innerHTML = `<option value="${preferredModel}">${preferredModel}</option>`;
+                if (helpText) helpText.textContent = error.message || 'Unable to load Ollama models.';
+            }
+        };
+
         document.addEventListener('DOMContentLoaded', function() {
             // --- Initialization from Server Params ---
             const params = {
@@ -1694,6 +1855,10 @@
                 document.querySelectorAll('.ai-service-settings').forEach(el => el.style.display = 'none');
                 const target = document.getElementById(service + 'Settings');
                 if (target) target.style.display = 'block';
+
+                if (service === 'ollama') {
+                    loadOllamaModels();
+                }
             };
             
             window.switchPromptEditor = function() {
@@ -1708,19 +1873,27 @@
             // Initialize AI Views
             if (document.getElementById('aiServiceSelector')) switchAiServiceSettings();
             if (document.getElementById('promptSelector')) switchPromptEditor();
+
+            const primaryAiProvider = document.getElementById('primaryAiProvider');
+            if (primaryAiProvider) {
+                primaryAiProvider.addEventListener('change', function() {
+                    const serviceSelector = document.getElementById('aiServiceSelector');
+                    if (serviceSelector) {
+                        serviceSelector.value = this.value;
+                        switchAiServiceSettings();
+                    }
+                });
+            }
             
-            // Load Gemini Models
+            // Load provider model lists
             loadGeminiModels();
-            
-            // Update AI Status
-            const aiStatus = document.getElementById('aiServiceStatus');
-            if (aiStatus) {
-                const hasKey = "{{ params.gemini_api_key }}" !== "";
-                if (hasKey) {
-                    aiStatus.innerHTML = '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Active</span>';
-                } else {
-                    aiStatus.innerHTML = '<span class="badge bg-warning text-dark"><i class="fas fa-exclamation-triangle me-1"></i>Not Configured</span>';
-                }
+            loadOllamaModels();
+            refreshAiServiceStatus();
+
+            const ollamaBaseUrl = document.getElementById('ollamaBaseUrl');
+            if (ollamaBaseUrl) {
+                ollamaBaseUrl.addEventListener('change', loadOllamaModels);
+                ollamaBaseUrl.addEventListener('blur', loadOllamaModels);
             }
 
             // AI Form Submit
@@ -1734,8 +1907,11 @@
                     for (let i = 0; i < elements.length; i++) {
                         const el = elements[i];
                         if (el.id) {
-                            if (el.id === 'geminiApiKey') formData.gemini_api_key = el.value;
+                            if (el.id === 'primaryAiProvider') formData.primary_ai_provider = el.value;
+                            else if (el.id === 'geminiApiKey') formData.gemini_api_key = el.value;
                             else if (el.id === 'geminiModelName') formData.gemini_model_name = el.value;
+                            else if (el.id === 'ollamaBaseUrl') formData.ollama_base_url = el.value;
+                            else if (el.id === 'ollamaModelName') formData.ollama_model_name = el.value;
                             else if (el.id === 'groqApiKey') formData.groq_api_key = el.value;
                             else if (el.id === 'groqModelName') formData.groq_model_name = el.value;
                             else if (el.id === 'huggingfaceApiKey') formData.huggingface_api_key = el.value;
@@ -1761,6 +1937,7 @@
                         });
                         if (response.ok) {
                             displayStatus('aiStatusMessage', '✅ AI settings saved successfully!', 'alert-success');
+                            refreshAiServiceStatus();
                         } else {
                             displayStatus('aiStatusMessage', '❌ Failed to save AI settings.', 'alert-danger');
                         }

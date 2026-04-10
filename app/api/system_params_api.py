@@ -57,8 +57,8 @@ def api_update_system_params():
             'strava_enabled', 'strava_client_id', 'strava_client_secret', 'strava_refresh_token', 'strava_activity_mapping',
             'project_logo_path', 'label_font_size', 'label_include_qr_code', 'label_include_logo',
             'label_qr_code_prefix', 'allowed_file_types', 'max_file_size', 'custom_note_types',
-            'gemini_api_key', 'groq_api_key', 'huggingface_api_key',
-            'gemini_model_name', 'groq_model_name', 'huggingface_model', 'huggingface_image_size',
+            'primary_ai_provider', 'gemini_api_key', 'groq_api_key', 'huggingface_api_key',
+            'gemini_model_name', 'ollama_base_url', 'ollama_model_name', 'groq_model_name', 'huggingface_model', 'huggingface_image_size',
             'gemini_base_prompt',
             'prompt_description', 'prompt_note', 'prompt_sql', 'prompt_theme', 'prompt_chat', 'prompt_diagram', 'prompt_diagram_rules', 'prompt_summary',
             'default_search_term', 'default_type_filter', 'default_status_filter', 
@@ -67,8 +67,8 @@ def api_update_system_params():
         
         for param_name, param_value in data.items():
             # Track if AI-related parameters are being updated
-            if param_name in ['gemini_api_key', 'groq_api_key', 'huggingface_api_key',
-                             'gemini_model_name', 'groq_model_name', 'huggingface_model', 'huggingface_image_size',
+            if param_name in ['primary_ai_provider', 'gemini_api_key', 'groq_api_key', 'huggingface_api_key',
+                             'gemini_model_name', 'ollama_base_url', 'ollama_model_name', 'groq_model_name', 'huggingface_model', 'huggingface_image_size',
                              'gemini_base_prompt', 
                              'prompt_description', 'prompt_note', 'prompt_sql', 'prompt_theme', 'prompt_chat', 'prompt_diagram', 'prompt_diagram_rules', 'prompt_summary']:
                 ai_params_updated = True

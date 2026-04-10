@@ -1,27 +1,245 @@
 """
-AI Service for Google Gemini and Groq API Integration
+AI Service for Google Gemini, Ollama, and Groq integration.
 Provides writing assistance for descriptions, notes, SQL queries, and diagrams.
 """
 
 import os
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, Tuple
+import json
+
 import google.generativeai as genai
 import google.generativeai.types as genai_types
+import requests
 from flask import current_app
-import json
-import json
 
 logger = logging.getLogger(__name__)
 
+# Cache of base_url -> known-working api_style (in-process cache, resets on restart)
+_ollama_style_cache: Dict[str, str] = {}
+
+
+def normalize_ollama_base_url(base_url: str) -> str:
+    """Normalize a user-provided Ollama base URL or full endpoint URL."""
+    cleaned = (base_url or '').strip().rstrip('/')
+    for suffix in ('/api/tags', '/api/generate', '/api/chat', '/v1/models', '/v1/chat/completions'):
+        if cleaned.endswith(suffix):
+            cleaned = cleaned[:-len(suffix)]
+            break
+    return cleaned.rstrip('/')
+
+
+def _get_ollama_endpoint_candidates(base_url: str, endpoint_type: str, preferred_style: str = None) -> List[Tuple[str, str]]:
+    """Return native-Ollama and OpenAI-compatible endpoint candidates for a base URL.
+    
+    If preferred_style is given (from cache), that candidate is moved to front.
+    """
+    normalized = normalize_ollama_base_url(base_url)
+    if not normalized:
+        return []
+
+    native_base = normalized[:-3] if normalized.endswith('/v1') else normalized
+    openai_base = normalized[:-4] if normalized.endswith('/api') else normalized
+
+    if endpoint_type == 'models':
+        candidates = [
+            ('ollama', f"{native_base.rstrip('/')}/api/tags"),
+            ('openai', f"{openai_base.rstrip('/')}/v1/models"),
+        ]
+    elif endpoint_type == 'generate':
+        candidates = [
+            ('ollama', f"{native_base.rstrip('/')}/api/generate"),
+            ('ollama-chat', f"{native_base.rstrip('/')}/api/chat"),
+            ('openai', f"{openai_base.rstrip('/')}/v1/chat/completions"),
+        ]
+    else:
+        raise ValueError(f'Unsupported Ollama endpoint type: {endpoint_type}')
+
+    unique_candidates: List[Tuple[str, str]] = []
+    seen_urls = set()
+    for api_style, candidate_url in candidates:
+        if candidate_url not in seen_urls:
+            unique_candidates.append((api_style, candidate_url))
+            seen_urls.add(candidate_url)
+
+    # Move preferred style to front so we skip fallback on repeated calls
+    if preferred_style:
+        preferred = [(s, u) for s, u in unique_candidates if s == preferred_style]
+        others = [(s, u) for s, u in unique_candidates if s != preferred_style]
+        unique_candidates = preferred + others
+
+    return unique_candidates
+
+
+def extract_ollama_models(payload: Dict[str, Any], api_style: str) -> List[Dict[str, Any]]:
+    """Normalize model listing payloads from native Ollama and OpenAI-compatible endpoints."""
+    raw_models = payload.get('models', []) if api_style == 'ollama' else payload.get('data', [])
+    models: List[Dict[str, Any]] = []
+
+    for model in raw_models:
+        name = (model.get('name') or model.get('id') or '').strip()
+        if not name:
+            continue
+        models.append({
+            'id': name,
+            'name': name,
+            'size': model.get('size'),
+            'modified_at': model.get('modified_at') or model.get('created'),
+        })
+
+    models.sort(key=lambda item: item['name'].lower())
+    return models
+
+
+def fetch_ollama_models(base_url: str, timeout: int = 6) -> Tuple[List[Dict[str, Any]], str]:
+    """Fetch installed models, supporting both native Ollama and OpenAI-compatible URLs."""
+    normalized = normalize_ollama_base_url(base_url)
+    preferred_style = _ollama_style_cache.get(normalized)
+    last_error = None
+    for api_style, candidate_url in _get_ollama_endpoint_candidates(base_url, 'models', preferred_style):
+        try:
+            response = requests.get(candidate_url, timeout=timeout)
+            response.raise_for_status()
+            _ollama_style_cache[normalized] = api_style
+            return extract_ollama_models(response.json(), api_style), api_style
+        except requests.HTTPError as exc:
+            last_error = exc
+            status = exc.response.status_code if exc.response is not None else 0
+            if status != 404:
+                # 502/503/500/401/403 etc. — server is reachable but can't handle the request;
+                # no point trying the next endpoint style.
+                logger.debug("Ollama model fetch got HTTP %s via %s %s — aborting fallback", status, api_style, candidate_url)
+                raise
+            logger.debug("Ollama model fetch got 404 via %s %s — trying next endpoint", api_style, candidate_url)
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            last_error = exc
+            logger.debug("Ollama model fetch network error via %s %s: %s — trying next endpoint", api_style, candidate_url, exc)
+        except Exception as exc:
+            last_error = exc
+            logger.debug("Failed Ollama model fetch via %s endpoint %s: %s", api_style, candidate_url, exc)
+
+    if last_error:
+        raise last_error
+    raise ValueError('Ollama base URL is required')
+
+
+class OllamaResponse:
+    """Lightweight response object matching the `.text` access pattern used by Gemini responses."""
+
+    def __init__(self, text: str, raw: Optional[Dict[str, Any]] = None):
+        self.text = text
+        self.raw = raw or {}
+
+
+class OllamaModelWrapper:
+    """Minimal wrapper that exposes a Gemini-like `generate_content` API for Ollama."""
+
+    def __init__(self, base_url: str, model_name: str, timeout: int = 30):
+        self.base_url = normalize_ollama_base_url(base_url)
+        self.model_name = model_name
+        self.timeout = timeout
+
+    def _normalize_prompt(self, prompt: Any) -> str:
+        if isinstance(prompt, str):
+            return prompt
+
+        if isinstance(prompt, list):
+            parts = []
+            for item in prompt:
+                if isinstance(item, str):
+                    parts.append(item)
+                elif isinstance(item, dict):
+                    text = item.get('text')
+                    if text:
+                        parts.append(text)
+                elif hasattr(item, 'text'):
+                    parts.append(getattr(item, 'text'))
+            return '\n\n'.join(part for part in parts if part)
+
+        return str(prompt)
+
+    def generate_content(self, prompt: Any, request_options=None):
+        prompt_text = self._normalize_prompt(prompt)
+        native_payload = {
+            'model': self.model_name,
+            'prompt': prompt_text,
+            'stream': False,
+            'options': {
+                'temperature': 0.7
+            }
+        }
+        openai_payload = {
+            'model': self.model_name,
+            'messages': [{'role': 'user', 'content': prompt_text}],
+            'temperature': 0.7,
+            'stream': False,
+        }
+
+        timeout = getattr(request_options, 'timeout', self.timeout) if request_options else self.timeout
+        last_error = None
+        normalized = normalize_ollama_base_url(self.base_url)
+        # Use cached generate style (may differ from models style, but often correlates)
+        preferred_style = _ollama_style_cache.get(f"{normalized}:generate")
+
+        for api_style, candidate_url in _get_ollama_endpoint_candidates(self.base_url, 'generate', preferred_style):
+            try:
+                if api_style == 'ollama':
+                    request_payload = native_payload
+                else:
+                    request_payload = openai_payload
+
+                response = requests.post(
+                    candidate_url,
+                    json=request_payload,
+                    timeout=timeout,
+                )
+                response.raise_for_status()
+                data = response.json()
+
+                if api_style == 'ollama':
+                    text = (data.get('response') or '').strip()
+                elif api_style == 'ollama-chat':
+                    text = ((data.get('message') or {}).get('content') or '').strip()
+                else:
+                    choices = data.get('choices') or []
+                    message = choices[0].get('message', {}) if choices else {}
+                    text = (message.get('content') or '').strip()
+
+                _ollama_style_cache[f"{normalized}:generate"] = api_style
+                return OllamaResponse(text, raw=data)
+            except requests.HTTPError as exc:
+                last_error = exc
+                status = exc.response.status_code if exc.response is not None else 0
+                if status != 404:
+                    logger.debug("Ollama generation got HTTP %s via %s %s — aborting fallback", status, api_style, candidate_url)
+                    raise
+                logger.debug("Ollama generation got 404 via %s %s — trying next endpoint", api_style, candidate_url)
+            except (requests.Timeout, requests.ConnectionError) as exc:
+                last_error = exc
+                logger.debug("Ollama generation network error via %s %s: %s — trying next endpoint", api_style, candidate_url, exc)
+            except Exception as exc:
+                last_error = exc
+                logger.debug("Failed Ollama generation via %s endpoint %s: %s", api_style, candidate_url, exc)
+
+        if last_error:
+            raise last_error
+        raise ValueError('Ollama base URL is required')
+
+
 class AIService:
-    """Service for interacting with Google's Gemini and Groq AI APIs"""
+    """Service for interacting with Gemini, Ollama, and Groq AI backends"""
     
     def __init__(self):
         self.model = None
         self.is_configured = False
+        self.provider = 'gemini'
+        self.provider_label = 'Google Gemini'
+        self._last_provider = None
         self._last_api_key = None
         self._last_model_name = None
+        self.ollama_base_url = 'http://localhost:11434'
+        self.ollama_model_name = 'llama3.2:latest'
+        self.ollama_configured = False
         self.groq_client = None
         self.groq_model_name = 'llama-3.3-70b-versatile'  # Default Groq model
         self.groq_configured = False
@@ -37,69 +255,103 @@ class AIService:
         return self.model.generate_content(prompt, request_options=request_options)
     
     def _configure(self):
-        """Configure the Gemini AI model"""
+        """Configure the primary AI provider."""
         try:
-            # Check environment variable first, then system parameters
-            api_key = os.getenv('GEMINI_API_KEY')
-            model_name = 'gemini-1.5-flash'  # Default model name
-            
+            from flask import has_app_context
+
+            params = {}
+            try:
+                if has_app_context():
+                    from ..db import get_system_parameters
+                    params = get_system_parameters()
+            except Exception as e:
+                logger.debug(f"Could not access system parameters for AI configuration: {e}")
+
+            provider = (os.getenv('AI_PROVIDER') or params.get('primary_ai_provider', 'gemini') or 'gemini').strip().lower()
+            if provider not in {'gemini', 'ollama'}:
+                provider = 'gemini'
+
+            self.provider = provider
+            self.provider_label = 'Ollama' if provider == 'ollama' else 'Google Gemini'
+
+            if provider == 'ollama':
+                base_url = normalize_ollama_base_url(
+                    os.getenv('OLLAMA_BASE_URL') or params.get('ollama_base_url', 'http://localhost:11434') or 'http://localhost:11434'
+                )
+                model_name = (os.getenv('OLLAMA_MODEL_NAME') or params.get('ollama_model_name', 'llama3.2:latest') or 'llama3.2:latest').strip()
+
+                if not base_url or not model_name:
+                    logger.warning("Ollama is selected but the base URL or model name is missing. AI features will be disabled.")
+                    self.is_configured = False
+                    self.model = None
+                    self.ollama_configured = False
+                    self._last_provider = provider
+                    return
+
+                config_changed = (
+                    provider != self._last_provider
+                    or base_url != self._last_api_key
+                    or model_name != self._last_model_name
+                    or not isinstance(self.model, OllamaModelWrapper)
+                )
+
+                if config_changed or not self.is_configured:
+                    _, api_style = fetch_ollama_models(base_url, timeout=5)
+
+                    self.model = OllamaModelWrapper(base_url=base_url, model_name=model_name, timeout=self.default_timeout)
+                    self.is_configured = True
+                    self.ollama_configured = True
+                    self._last_provider = provider
+                    self._last_api_key = base_url
+                    self._last_model_name = model_name
+                    self.ollama_base_url = base_url
+                    self.ollama_model_name = model_name
+                    logger.info(f"Ollama AI successfully configured with model: {model_name} @ {base_url} using {api_style} endpoints")
+                return
+
+            self.ollama_configured = False
+
+            api_key = os.getenv('GEMINI_API_KEY') or params.get('gemini_api_key', '')
+            model_name = params.get('gemini_model_name', 'gemini-1.5-flash')
+
             if not api_key:
-                # Try to get from system parameters (only works within app context)
-                try:
-                    from flask import has_app_context
-                    if has_app_context():
-                        from ..db import get_system_parameters
-                        params = get_system_parameters()
-                        api_key = params.get('gemini_api_key', '')
-                        model_name = params.get('gemini_model_name', 'gemini-1.5-flash')
-                    else:
-                        logger.debug("No app context available for Gemini configuration, will retry later")
-                except Exception as e:
-                    logger.debug(f"Could not access system parameters for Gemini: {e}")
-            else:
-                # If API key from environment, still try to get model name from system parameters
-                try:
-                    from flask import has_app_context
-                    if has_app_context():
-                        from ..db import get_system_parameters
-                        params = get_system_parameters()
-                        model_name = params.get('gemini_model_name', 'gemini-1.5-flash')
-                except Exception as e:
-                    logger.debug(f"Could not access system parameters for Gemini model name: {e}")
-            
-            if not api_key:
-                logger.warning("GEMINI_API_KEY not found in environment or system parameters. AI features will be disabled.")
+                logger.warning("Gemini API key not found in environment or system parameters. AI features will be disabled.")
                 self.is_configured = False
                 self.model = None
                 self._last_api_key = None
                 self._last_model_name = None
+                self._last_provider = provider
                 return
-            
-            # Check if configuration has changed
-            config_changed = (api_key != self._last_api_key or model_name != self._last_model_name)
-            
+
+            config_changed = (
+                provider != self._last_provider
+                or api_key != self._last_api_key
+                or model_name != self._last_model_name
+                or isinstance(self.model, OllamaModelWrapper)
+            )
+
             if config_changed or not self.is_configured:
                 genai.configure(api_key=api_key)
-                
-                # Configure with timeout to prevent hanging
+
                 generation_config = {
                     "temperature": 0.7,
                     "top_p": 0.95,
                     "top_k": 40,
                     "max_output_tokens": 8192,
                 }
-                
+
                 self.model = genai.GenerativeModel(
                     model_name=model_name,
                     generation_config=generation_config
                 )
                 self.is_configured = True
+                self._last_provider = provider
                 self._last_api_key = api_key
                 self._last_model_name = model_name
                 logger.info(f"Gemini AI successfully configured with model: {model_name}")
-            
+
         except Exception as e:
-            logger.error(f"Failed to configure Gemini AI: {str(e)}")
+            logger.error(f"Failed to configure primary AI provider: {str(e)}")
             self.is_configured = False
             self.model = None
     
@@ -2037,7 +2289,7 @@ Respond ONLY with the JSON object, no additional text.
             return self._generate_diagram_with_gemini(user_request, current_diagram, entry_id)
         else:
             logger.error("No AI service available for diagram generation")
-            return {'error': 'No AI service configured. Please configure Groq or Gemini API keys.'}
+            return {'error': 'No AI service configured. Please configure Groq, Ollama, or Gemini in settings.'}
     
     def _extract_diagram_xml(self, text: str) -> Optional[str]:
         """Extract mxGraph XML from AI response"""

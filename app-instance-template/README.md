@@ -33,8 +33,11 @@ Required settings:
 
 Optional settings:
 - `NETWORK_RANGE`: For ESP32 device discovery
-- `GEMINI_API_KEY`: For AI features
+- `GEMINI_API_KEY`: For Gemini-based AI features
+- `AI_PROVIDER`, `OLLAMA_BASE_URL`, `OLLAMA_MODEL_NAME`: For Ollama via local proxy or Tailscale
 - `NTFY_TOPIC`: For push notifications
+
+> **Ollama/Tailscale ready:** the template now includes Docker defaults for `host.docker.internal` and Tailscale MagicDNS (`100.100.100.100`), so new app instances can reach a local Ollama proxy or a `*.ts.net` Ollama server without manual compose edits.
 
 ### 3. Start Your App
 

@@ -8,6 +8,7 @@ services:
     image: template:local
     container_name: development-environment
     restart: always
+    # Use host networking and the host resolver so Tailscale/MagicDNS endpoints work inside the app
     network_mode: host
     
     labels:
@@ -21,6 +22,10 @@ services:
       - SYS_ADMIN
       - NET_RAW
     privileged: true
+
+    # Allow direct resolution of the Ollama Tailscale host from inside the container
+    extra_hosts:
+      - "andrews-macbook-pro.taile4ced3.ts.net:100.106.14.60"
     
     volumes:
       - ./app:/app/app # Mount source code for live updates
@@ -39,12 +44,11 @@ services:
       - PYTHONUNBUFFERED=1
       # - GEMINI_API_KEY=${GEMINI_API_KEY}
 
-    
-    # DNS servers to fix Google API connectivity issues
+    # Use Tailscale MagicDNS first so tailnet hostnames resolve inside the container
     dns:
-      - 8.8.8.8
-      - 8.8.4.4
+      - 100.100.100.100
       - 1.1.1.1
+      - 8.8.8.8
 
     x-casaos:
       envs:

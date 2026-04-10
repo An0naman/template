@@ -40,6 +40,11 @@ services:
     # Privileged mode for full Bluetooth access
     # Set to false if you don't need Bluetooth
     privileged: true
+
+    # Make the host machine reachable as `host.docker.internal` on Linux too
+    # Useful for local Ollama/OpenWebUI proxy setups on port 8080
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     
     # Volume mounts
     volumes:
@@ -71,7 +76,10 @@ services:
       - PYTHONUNBUFFERED=1
       
       # Optional: AI features
+      - AI_PROVIDER=${AI_PROVIDER:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
+      - OLLAMA_MODEL_NAME=${OLLAMA_MODEL_NAME:-}
       
       # Optional: Notifications
       - NTFY_SERVER_URL=${NTFY_SERVER_URL:-https://ntfy.sh}
@@ -81,11 +89,11 @@ services:
       # Optional: Security
       - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
     
-    # DNS servers (Google Public DNS + Cloudflare)
+    # DNS servers with Tailscale MagicDNS first so `*.ts.net` Ollama hosts resolve in Docker
     dns:
-      - 8.8.8.8
-      - 8.8.4.4
+      - 100.100.100.100
       - 1.1.1.1
+      - 8.8.8.8
     
     # DNS options to prevent IPv6 timeout issues
     dns_opt:
