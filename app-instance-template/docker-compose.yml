@@ -51,10 +51,17 @@ services:
     # Volume mounts
     volumes:
       # App data (database)
-      - ./data:/app/data
+      # Defaults to ./data beside this file. Override DATA_DIR in .env to use a NAS path.
+      - ${DATA_DIR:-./data}:/app/data
       
       # Uploaded files (logos, attachments, etc.)
-      - ./uploads:/app/uploads
+      # Defaults to ./uploads beside this file. Override UPLOADS_DIR in .env to use a NAS path.
+      - ${UPLOADS_DIR:-./uploads}:/app/uploads
+      
+      # Database backups.
+      # Defaults to ./backups beside this file. Set BACKUP_DIR in .env to point at your NAS, e.g.:
+      #   BACKUP_DIR=/mnt/192.168.68.106/NAS/docker-apps/myapp/backups
+      - ${BACKUP_DIR:-./backups}:/app/backups
       
       # D-Bus for Bluetooth (remove if not needed)
       - /var/run/dbus:/var/run/dbus
@@ -90,6 +97,11 @@ services:
       
       # Optional: Security
       - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      
+      # Optional: MariaDB (leave unset to use local SQLite)
+      # Set this to point at your CasaOS MariaDB instance, e.g.:
+      #   DATABASE_URL=mysql://appuser:password@100.84.208.29:3306/myapp
+      - DATABASE_URL=${DATABASE_URL:-}
     
     # DNS servers with Tailscale MagicDNS first so `*.ts.net` Ollama hosts resolve in Docker
     dns:

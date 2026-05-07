@@ -10,7 +10,7 @@ from app.services.ai_service import (
     get_ai_service,
     normalize_ollama_base_url,
 )
-import sqlite3
+from app.db import get_connection
 import logging
 import os
 import requests
@@ -19,9 +19,7 @@ logger = logging.getLogger(__name__)
 
 def get_db():
     if 'db' not in g:
-        db_path = current_app.config['DATABASE_PATH']
-        g.db = sqlite3.connect(db_path)
-        g.db.row_factory = sqlite3.Row
+        g.db = get_connection()
     return g.db
 
 ai_api_bp = Blueprint('ai_api', __name__)
@@ -762,9 +760,7 @@ def entry_chat():
         try:
             from flask import g
             if 'db' not in g:
-                db_path = current_app.config['DATABASE_PATH']
-                g.db = sqlite3.connect(db_path)
-                g.db.row_factory = sqlite3.Row
+                g.db = get_connection()
             
             cursor = g.db.cursor()
             cursor.execute('SELECT et.singular_label, et.custom_chat_prompt FROM Entry e JOIN EntryType et ON e.entry_type_id = et.id WHERE e.id = ?', (entry_id,))
@@ -980,9 +976,7 @@ User's message: {original_message}"""
             try:
                 from flask import g
                 if 'db' not in g:
-                    db_path = current_app.config['DATABASE_PATH']
-                    g.db = sqlite3.connect(db_path)
-                    g.db.row_factory = sqlite3.Row
+                    g.db = get_connection()
                 
                 cursor = g.db.cursor()
                 cursor.execute('SELECT et.singular_label FROM Entry e JOIN EntryType et ON e.entry_type_id = et.id WHERE e.id = ?', (entry_id,))
@@ -1309,9 +1303,7 @@ Do not generate diagram XML in this chat - just discuss the concept."""
             try:
                 from flask import g
                 if 'db' not in g:
-                    db_path = current_app.config['DATABASE_PATH']
-                    g.db = sqlite3.connect(db_path)
-                    g.db.row_factory = sqlite3.Row
+                    g.db = get_connection()
                 
                 cursor = g.db.cursor()
                 cursor.execute('SELECT et.singular_label, et.diagram_examples FROM Entry e JOIN EntryType et ON e.entry_type_id = et.id WHERE e.id = ?', (entry_id,))

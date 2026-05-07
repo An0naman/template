@@ -1,6 +1,5 @@
 # template_app/app/api/entry_api.py
 from flask import Blueprint, request, jsonify, g, url_for, current_app
-import sqlite3
 from datetime import datetime, timezone
 import logging
 from ..utils.sensor_type_manager import auto_register_sensor_types
@@ -13,9 +12,8 @@ logger = logging.getLogger(__name__)
 
 def get_db():
     if 'db' not in g:
-        db_path = current_app.config['DATABASE_PATH']
-        g.db = sqlite3.connect(db_path)
-        g.db.row_factory = sqlite3.Row
+        from ..db import get_connection
+        g.db = get_connection()
     return g.db
 
 @entry_api_bp.route('/entries', methods=['GET'])
@@ -26,12 +24,14 @@ def get_all_entries():
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT e.id, e.title, e.description, e.intended_end_date, e.actual_end_date, 
-                   e.status, e.created_at, e.commenced_at, e.entry_type_id, et.singular_label AS entry_type_label
-            FROM Entry e
-            JOIN EntryType et ON e.entry_type_id = et.id
-            ORDER BY e.created_at DESC
-        ''')
+                 SELECT e.id, e.title, e.description, e.intended_end_date, e.actual_end_date,
+                     e.status, e.created_at, e.commenced_at, e.entry_type_id, et.singular_label AS entry_type_label,
+                     COALESCE(e.is_archived, 0) AS is_archived, e.archived_at
+                 FROM Entry e
+                 JOIN EntryType et ON e.entry_type_id = et.id
+                 WHERE COALESCE(e.is_archived, 0) = 0
+                 ORDER BY e.created_at DESC
+             ''')
         
         rows = cursor.fetchall()
         entries = []
@@ -47,7 +47,9 @@ def get_all_entries():
                 'created_at': row['created_at'],
                 'commenced_at': row['commenced_at'],
                 'entry_type_id': row['entry_type_id'],
-                'entry_type_label': row['entry_type_label']
+                 'entry_type_label': row['entry_type_label'],
+                 'is_archived': bool(row['is_archived']),
+                 'archived_at': row['archived_at'],
             })
         
         return jsonify(entries)
@@ -309,6 +311,77 @@ def delete_entry(entry_id):
         logger.error(f"Error deleting entry {entry_id}: {e}", exc_info=True)
         conn.rollback()
         return jsonify({'error': 'An internal error occurred.'}), 500
+
+@entry_api_bp.route('/entries/<int:entry_id>/archive', methods=['POST'])
+def archive_entry(entry_id):
+    """Soft-delete an entry by marking it archived."""
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        now = datetime.now(timezone.utc).isoformat()
+        cursor.execute(
+            "UPDATE Entry SET is_archived = 1, archived_at = ? WHERE id = ? AND COALESCE(is_archived, 0) = 0",
+            (now, entry_id)
+        )
+        conn.commit()
+        if cursor.rowcount == 0:
+            return jsonify({'error': 'Entry not found or already archived.'}), 404
+        return jsonify({'message': 'Entry archived successfully.', 'archived_at': now}), 200
+    except Exception as e:
+        logger.error(f"Error archiving entry {entry_id}: {e}", exc_info=True)
+        conn.rollback()
+        return jsonify({'error': 'An internal error occurred.'}), 500
+
+@entry_api_bp.route('/entries/<int:entry_id>/restore', methods=['POST'])
+def restore_entry(entry_id):
+    """Restore a previously archived entry."""
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "UPDATE Entry SET is_archived = 0, archived_at = NULL WHERE id = ? AND COALESCE(is_archived, 0) = 1",
+            (entry_id,)
+        )
+        conn.commit()
+        if cursor.rowcount == 0:
+            return jsonify({'error': 'Entry not found or not archived.'}), 404
+        return jsonify({'message': 'Entry restored successfully.'}), 200
+    except Exception as e:
+        logger.error(f"Error restoring entry {entry_id}: {e}", exc_info=True)
+        conn.rollback()
+        return jsonify({'error': 'An internal error occurred.'}), 500
+
+@entry_api_bp.route('/entries/archived', methods=['GET'])
+def get_archived_entries():
+    """Return all archived entries."""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT e.id, e.title, e.description, e.status, e.created_at,
+                   e.archived_at, e.entry_type_id, et.singular_label AS entry_type_label
+            FROM Entry e
+            JOIN EntryType et ON e.entry_type_id = et.id
+            WHERE COALESCE(e.is_archived, 0) = 1
+            ORDER BY e.archived_at DESC
+        ''')
+        rows = cursor.fetchall()
+        entries = []
+        for row in rows:
+            entries.append({
+                'id': row['id'],
+                'title': row['title'],
+                'description': row['description'],
+                'status': row['status'],
+                'created_at': row['created_at'],
+                'archived_at': row['archived_at'],
+                'entry_type_id': row['entry_type_id'],
+                'entry_type_label': row['entry_type_label'],
+            })
+        return jsonify(entries)
+    except Exception as e:
+        logger.error(f"Error fetching archived entries: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 @entry_api_bp.route('/search_entries', methods=['GET'])
 @entry_api_bp.route('/entries/search', methods=['GET'])
@@ -730,7 +803,8 @@ def custom_sql_filter():
             logger.info(f"Executing custom SQL query from fragment: {final_query}")
         
         # Execute the query
-        cursor = get_db().execute(final_query)
+        cursor = get_db().cursor()
+        cursor.execute(final_query)
         results = cursor.fetchall()
         
         entry_ids = [row[0] for row in results]

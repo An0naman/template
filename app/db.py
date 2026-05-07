@@ -1,5 +1,7 @@
 # template_app/app/db.py
 import sqlite3
+import re
+from urllib.parse import urlparse
 from flask import current_app, g
 import os
 import json
@@ -9,16 +11,154 @@ from datetime import datetime
 # Get the logger for this module
 logger = logging.getLogger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# MySQL / MariaDB compatibility layer
+# Wraps PyMySQL to behave like sqlite3 so all route code works unchanged.
+# ---------------------------------------------------------------------------
+
+def _adapt_ddl(sql):
+    """Convert SQLite DDL to MariaDB-compatible DDL (called inside MySQL wrapper)."""
+    sql = sql.replace('AUTOINCREMENT', 'AUTO_INCREMENT')
+    sql = re.sub(r'DEFAULT "([^"]*)"', r"DEFAULT '\1'", sql)
+    return sql
+
+
+class _MySQLCursorWrapper:
+    """Wraps a PyMySQL DictCursor to be interface-compatible with sqlite3.Cursor."""
+    db_type = 'mysql'
+
+    def __init__(self, cursor):
+        self._c = cursor
+
+    def execute(self, sql, params=None):
+        # Adapt DDL (CREATE TABLE, ALTER TABLE)
+        if re.match(r'\s*(CREATE|ALTER)\s', sql, re.IGNORECASE):
+            sql = _adapt_ddl(sql)
+        # Translate SQLite-specific DML patterns
+        sql = sql.replace('?', '%s')
+        sql = re.sub(r'\bINSERT\s+OR\s+REPLACE\s+INTO\b', 'REPLACE INTO', sql, flags=re.IGNORECASE)
+        sql = re.sub(r'\bINSERT\s+OR\s+IGNORE\s+INTO\b', 'INSERT IGNORE INTO', sql, flags=re.IGNORECASE)
+        if params is not None:
+            self._c.execute(sql, params)
+        else:
+            self._c.execute(sql)
+
+    def executemany(self, sql, params):
+        sql = sql.replace('?', '%s')
+        sql = re.sub(r'\bINSERT\s+OR\s+REPLACE\s+INTO\b', 'REPLACE INTO', sql, flags=re.IGNORECASE)
+        sql = re.sub(r'\bINSERT\s+OR\s+IGNORE\s+INTO\b', 'INSERT IGNORE INTO', sql, flags=re.IGNORECASE)
+        self._c.executemany(sql, params)
+
+    def fetchone(self):
+        return self._c.fetchone()
+
+    def fetchall(self):
+        return self._c.fetchall()
+
+    @property
+    def rowcount(self):
+        return self._c.rowcount
+
+    @property
+    def lastrowid(self):
+        return self._c.lastrowid
+
+    def __iter__(self):
+        return iter(self._c)
+
+
+class _MySQLConnWrapper:
+    """Wraps a PyMySQL connection to be interface-compatible with sqlite3.Connection."""
+    db_type = 'mysql'
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def cursor(self):
+        import pymysql.cursors
+        return _MySQLCursorWrapper(self._conn.cursor(pymysql.cursors.DictCursor))
+
+    def commit(self):
+        self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
+
+    def close(self):
+        self._conn.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type:
+            self.rollback()
+        else:
+            self.commit()
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def get_db_type():
+    """Return 'sqlite', 'postgresql', or 'mysql' based on current config."""
+    url = current_app.config.get('DATABASE_URL', '')
+    if url.startswith(('postgresql://', 'postgres://')):
+        return 'postgresql'
+    if url.startswith(('mysql://', 'mariadb://')):
+        return 'mysql'
+    return 'sqlite'
+
+
+def _get_columns(cursor, table_name):
+    """Return list of column names for a table. Works for both SQLite and MySQL."""
+    if isinstance(cursor, _MySQLCursorWrapper):
+        cursor._c.execute(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s",
+            (table_name,)
+        )
+        return [row['COLUMN_NAME'] for row in cursor._c.fetchall()]
+    else:
+        cursor.execute(f"PRAGMA table_info({table_name})")
+        return [col[1] for col in cursor.fetchall()]
+
+
 def get_connection():
-    db_path = current_app.config['DATABASE_PATH']
-    try:
-        conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row # Return rows as dict-like objects
-        logger.debug(f"Connected to database: {db_path}")
-        return conn
-    except sqlite3.Error as e:
-        logger.error(f"Error connecting to database at {db_path}: {e}")
-        raise
+    db_type = get_db_type()
+    if db_type == 'mysql':
+        import pymysql
+        db_url = current_app.config.get('DATABASE_URL', '')
+        parsed = urlparse(db_url)
+        try:
+            conn = pymysql.connect(
+                host=parsed.hostname,
+                port=parsed.port or 3306,
+                user=parsed.username,
+                password=parsed.password,
+                database=parsed.path.lstrip('/'),
+                charset='utf8mb4',
+                autocommit=False,
+                connect_timeout=10,
+            )
+            logger.debug(f"Connected to MariaDB: {parsed.hostname}/{parsed.path.lstrip('/')}")
+            return _MySQLConnWrapper(conn)
+        except Exception as e:
+            logger.error(f"Error connecting to MariaDB: {e}")
+            raise
+    else:
+        db_path = current_app.config['DATABASE_PATH']
+        try:
+            conn = sqlite3.connect(db_path)
+            conn.row_factory = sqlite3.Row
+            logger.debug(f"Connected to database: {db_path}")
+            return conn
+        except sqlite3.Error as e:
+            logger.error(f"Error connecting to database at {db_path}: {e}")
+            raise
 
 def init_db():
     # This function is now called from run.py (or create_app in __init__.py for testing)
@@ -48,8 +188,7 @@ def init_db():
 
         # Migration: Add has_sensors column if it doesn't exist
         try:
-            cursor.execute("PRAGMA table_info(EntryType)")
-            columns = [col[1] for col in cursor.fetchall()]
+            columns = _get_columns(cursor, 'EntryType')
             if 'has_sensors' not in columns:
                 cursor.execute("ALTER TABLE EntryType ADD COLUMN has_sensors BOOLEAN NOT NULL DEFAULT 0")
             if 'enabled_sensor_types' not in columns:
@@ -151,11 +290,12 @@ def init_db():
         
         # Migration: Add is_default column if it doesn't exist
         try:
-            cursor.execute("ALTER TABLE SavedSearch ADD COLUMN is_default INTEGER DEFAULT 0")
-            conn.commit()
-            logger.info("Added is_default column to SavedSearch table")
-        except sqlite3.OperationalError:
-            pass  # Column already exists
+            if 'is_default' not in _get_columns(cursor, 'SavedSearch'):
+                cursor.execute("ALTER TABLE SavedSearch ADD COLUMN is_default INTEGER DEFAULT 0")
+                conn.commit()
+                logger.info("Added is_default column to SavedSearch table")
+        except Exception:
+            pass  # Column already exists or table not yet created
 
         # Create Dashboard Table for storing dashboard configurations
         cursor.execute('''
@@ -257,8 +397,7 @@ def init_db():
 
         # Migration: Add is_hierarchical column to RelationshipDefinition if it doesn't exist
         try:
-            cursor.execute("PRAGMA table_info(RelationshipDefinition)")
-            rd_columns = [col[1] for col in cursor.fetchall()]
+            rd_columns = _get_columns(cursor, 'RelationshipDefinition')
             
             if 'is_hierarchical' not in rd_columns:
                 cursor.execute('''
@@ -278,14 +417,15 @@ def init_db():
         
         # Migration: Add label printing columns to Entry table if they don't exist
         try:
-            cursor.execute("PRAGMA table_info(Entry)")
-            columns = [col[1] for col in cursor.fetchall()]
+            columns = _get_columns(cursor, 'Entry')
             
             # Add missing label printing columns
             for column_name, column_def in [
-                ('intended_end_date', 'TEXT'),
-                ('actual_end_date', 'TEXT'),
-                ('status', 'TEXT DEFAULT "active"')
+                 ('intended_end_date', 'TEXT'),
+                 ('actual_end_date', 'TEXT'),
+                 ('status', 'TEXT DEFAULT "active"'),
+                 ('is_archived', 'INTEGER DEFAULT 0'),
+                 ('archived_at', 'TEXT'),
             ]:
                 if column_name not in columns:
                     cursor.execute(f'ALTER TABLE Entry ADD COLUMN {column_name} {column_def}')
@@ -295,8 +435,7 @@ def init_db():
 
         # Migration: Rename image_paths to file_paths in Note table
         try:
-            cursor.execute("PRAGMA table_info(Note)")
-            columns = [col[1] for col in cursor.fetchall()]
+            columns = _get_columns(cursor, 'Note')
             
             if 'image_paths' in columns and 'file_paths' not in columns:
                 # SQLite doesn't support renaming columns directly, so we need to:
@@ -341,8 +480,7 @@ def init_db():
                 logger.info("Added file_paths column to Note table")
         
             # Migration for associated_entry_ids column
-            cursor.execute("PRAGMA table_info(Note)")
-            columns = [col[1] for col in cursor.fetchall()]
+            columns = _get_columns(cursor, 'Note')
             
             if 'associated_entry_ids' not in columns:
                 # Add associated_entry_ids column if it doesn't exist
@@ -350,8 +488,7 @@ def init_db():
                 logger.info("Added associated_entry_ids column to Note table")
             
             # Migration for url_bookmarks column
-            cursor.execute("PRAGMA table_info(Note)")
-            columns = [col[1] for col in cursor.fetchall()]
+            columns = _get_columns(cursor, 'Note')
             
             if 'url_bookmarks' not in columns:
                 # Add url_bookmarks column if it doesn't exist
@@ -591,14 +728,16 @@ def init_db():
         ''')
         
         # Add missing columns to RegisteredDevices if they don't exist
+        rd_cols = _get_columns(cursor, 'RegisteredDevices')
         try:
-            cursor.execute('ALTER TABLE RegisteredDevices ADD COLUMN last_poll_success TIMESTAMP')
-        except sqlite3.OperationalError:
+            if 'last_poll_success' not in rd_cols:
+                cursor.execute('ALTER TABLE RegisteredDevices ADD COLUMN last_poll_success TIMESTAMP')
+        except Exception:
             pass  # Column already exists
-        
         try:
-            cursor.execute('ALTER TABLE RegisteredDevices ADD COLUMN last_poll_error TEXT')
-        except sqlite3.OperationalError:
+            if 'last_poll_error' not in rd_cols:
+                cursor.execute('ALTER TABLE RegisteredDevices ADD COLUMN last_poll_error TEXT')
+        except Exception:
             pass  # Column already exists
         
         # Create DeviceEntryLinks table
@@ -617,9 +756,10 @@ def init_db():
         
         # Add missing column to DeviceEntryLinks if it doesn't exist
         try:
-            cursor.execute('ALTER TABLE DeviceEntryLinks ADD COLUMN auto_record BOOLEAN DEFAULT 1')
-            logger.info("Added auto_record column to DeviceEntryLinks table")
-        except sqlite3.OperationalError:
+            if 'auto_record' not in _get_columns(cursor, 'DeviceEntryLinks'):
+                cursor.execute('ALTER TABLE DeviceEntryLinks ADD COLUMN auto_record BOOLEAN DEFAULT 1')
+                logger.info("Added auto_record column to DeviceEntryLinks table")
+        except Exception:
             pass  # Column already exists
         
         # Create DeviceSensorMapping table
@@ -981,7 +1121,7 @@ def get_system_parameters():
                     conn.commit()
                     params[name] = value
                     logger.info(f"Added missing system parameter: {name}")
-                except sqlite3.IntegrityError:
+                except Exception:
                     # Parameter was just added by another process
                     cursor.execute("SELECT parameter_value FROM SystemParameters WHERE parameter_name = ?", (name,))
                     fetched_value = cursor.fetchone()
@@ -1016,7 +1156,7 @@ def get_user_preference(preference_name, default_value=None):
             )
             result = cursor.fetchone()
             return result['preference_value'] if result else default_value
-    except sqlite3.Error as e:
+    except Exception as e:
         logger.error(f"Error getting user preference {preference_name}: {e}")
         return default_value
 
@@ -1025,17 +1165,26 @@ def set_user_preference(preference_name, preference_value):
     try:
         with get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO UserPreferences (preference_name, preference_value, updated_at)
-                VALUES (?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(preference_name) DO UPDATE SET
-                    preference_value = excluded.preference_value,
-                    updated_at = CURRENT_TIMESTAMP
-            ''', (preference_name, preference_value))
+            if get_db_type() == 'mysql':
+                cursor.execute('''
+                    INSERT INTO UserPreferences (preference_name, preference_value, updated_at)
+                    VALUES (?, ?, CURRENT_TIMESTAMP)
+                    ON DUPLICATE KEY UPDATE
+                        preference_value = VALUES(preference_value),
+                        updated_at = CURRENT_TIMESTAMP
+                ''', (preference_name, preference_value))
+            else:
+                cursor.execute('''
+                    INSERT INTO UserPreferences (preference_name, preference_value, updated_at)
+                    VALUES (?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(preference_name) DO UPDATE SET
+                        preference_value = excluded.preference_value,
+                        updated_at = CURRENT_TIMESTAMP
+                ''', (preference_name, preference_value))
             conn.commit()
             logger.debug(f"Set user preference {preference_name} = {preference_value}")
             return True
-    except sqlite3.Error as e:
+    except Exception as e:
         logger.error(f"Error setting user preference {preference_name}: {e}")
         return False
 
@@ -1046,6 +1195,6 @@ def get_all_user_preferences():
             cursor = conn.cursor()
             cursor.execute("SELECT preference_name, preference_value FROM UserPreferences")
             return {row['preference_name']: row['preference_value'] for row in cursor.fetchall()}
-    except sqlite3.Error as e:
+    except Exception as e:
         logger.error(f"Error getting all user preferences: {e}")
         return {}

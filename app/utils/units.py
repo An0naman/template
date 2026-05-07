@@ -2,20 +2,20 @@
 Unit suggestions and validation for relationships
 """
 
-import sqlite3
-import os
 import logging
 
 def get_db_connection_direct():
     """Get database connection without Flask context dependency"""
     try:
-        # Try to use Flask context first
         from app.db import get_connection
         return get_connection()
     except RuntimeError:
-        # Fall back to direct connection if outside Flask context
+        # Fall back to direct SQLite connection if outside Flask context
+        import sqlite3
         from app.config import DATABASE_PATH
-        return sqlite3.connect(DATABASE_PATH)
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        return conn
 
 def get_unit_suggestions():
     """
@@ -23,7 +23,6 @@ def get_unit_suggestions():
     """
     try:
         conn = get_db_connection_direct()
-        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         cursor.execute("""
@@ -48,7 +47,6 @@ def get_unit_suggestions_by_category():
     """
     try:
         conn = get_db_connection_direct()
-        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         cursor.execute("""

@@ -127,6 +127,7 @@ def create_app():
     from .api.theme_api import theme_api
     from .api.device_api import device_api_bp
     from .api.sql_api import sql_api_bp
+    from .api.backup_api import backup_api_bp
     from .api.ntfy_api import ntfy_api_bp
     from .api.ai_api import ai_api_bp
     from .api.user_preferences_api import user_preferences_api_bp
@@ -170,6 +171,7 @@ def create_app():
     app.register_blueprint(theme_api, url_prefix='/api')
     app.register_blueprint(device_api_bp, url_prefix='/api')
     app.register_blueprint(sql_api_bp, url_prefix='/api')
+    app.register_blueprint(backup_api_bp, url_prefix='/api')
     app.register_blueprint(ntfy_api_bp, url_prefix='/api')
     app.register_blueprint(ai_api_bp, url_prefix='/api')
     app.register_blueprint(user_preferences_api_bp, url_prefix='/api')

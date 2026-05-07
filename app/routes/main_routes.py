@@ -151,13 +151,14 @@ def entry_detail_v2(entry_id):
             et.name AS entry_type_name,
             et.note_types, et.has_sensors, et.enabled_sensor_types, et.show_labels_section, 
             et.show_end_dates, e.created_at, e.commenced_at,
+            COALESCE(e.is_archived, 0) AS is_archived, e.archived_at,
             COALESCE(es.category, 'active') AS status_category,
             COALESCE(es.color, '#28a745') AS status_color
         FROM Entry e
         JOIN EntryType et ON e.entry_type_id = et.id
         LEFT JOIN EntryState es ON es.entry_type_id = e.entry_type_id AND es.name = e.status
         WHERE e.id = ?
-    ''', (entry_id,))
+    ''', (entry_id,))  # noqa: allow archived entries to be viewed directly
     entry = cursor.fetchone()
     
     if entry is None:
@@ -181,7 +182,9 @@ def entry_detail_v2(entry_id):
         'status_category': entry['status_category'] if 'status_category' in entry.keys() else 'active',
         'status_color': entry['status_color'] if 'status_color' in entry.keys() else '#28a745',
         'created_at': entry['created_at'],
-        'commenced_at': entry['commenced_at']
+        'commenced_at': entry['commenced_at'],
+        'is_archived': bool(entry['is_archived']) if 'is_archived' in entry.keys() and entry['is_archived'] else False,
+        'archived_at': entry['archived_at'] if 'archived_at' in entry.keys() else None,
     }
     
     # Get layout configuration

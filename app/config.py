@@ -8,6 +8,17 @@ PROJECT_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 DATABASE = 'template.db'
 DATABASE_PATH = os.path.join(PROJECT_ROOT, 'data', DATABASE)
 
+# Override with DATABASE_URL env var for MariaDB/PostgreSQL
+# e.g. DATABASE_URL=mysql://user:pass@host:3306/dbname
+DATABASE_URL = os.environ.get('DATABASE_URL', '')
+
+# Backup directory — override via BACKUP_DIR env var or volume mount /app/backups
+if os.path.exists('/app/backups'):
+    BACKUP_DIR = '/app/backups'
+else:
+    BACKUP_DIR = os.path.join(PROJECT_ROOT, 'backups')
+os.makedirs(BACKUP_DIR, exist_ok=True)
+
 # Ensure data directory exists
 os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
 

@@ -1,11 +1,11 @@
 from flask import Blueprint, request, jsonify, render_template, session, g, current_app, send_from_directory
-import sqlite3
 import json
 import logging
 import os
 import base64
 from datetime import datetime, time
 from werkzeug.utils import secure_filename
+from ..db import get_connection
 
 logger = logging.getLogger(__name__)
 
@@ -78,14 +78,7 @@ def _darken_color(hex_color, factor):
 def get_db():
     """Get database connection using flexible configuration approach"""
     if 'db' not in g:
-        # Try DATABASE_PATH first (Docker/production), then DATABASE (local dev)
-        db_path = current_app.config.get('DATABASE_PATH')
-        if not db_path:
-            db_path = current_app.config.get('DATABASE', 'template.db')
-        
-        current_app.logger.info(f"Theme API connecting to database: {db_path}")
-        g.db = sqlite3.connect(db_path)
-        g.db.row_factory = sqlite3.Row
+        g.db = get_connection()
     return g.db
 
 @theme_api.route('/theme_settings', methods=['GET', 'POST'])
@@ -365,13 +358,7 @@ def handle_theme_settings():
 def get_current_theme_settings():
     """Helper function to get current theme settings for template rendering"""
     try:
-        # Try DATABASE_PATH first (Docker/production), then DATABASE (local dev)
-        db_path = current_app.config.get('DATABASE_PATH')
-        if not db_path:
-            db_path = current_app.config.get('DATABASE', 'template.db')
-            
-        conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row
+        conn = get_connection()
         cursor = conn.cursor()
         
         cursor.execute("""

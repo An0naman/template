@@ -1,0 +1,30 @@
+# MariaDB instance for CasaOS
+# Place this on your CasaOS server (100.84.208.29) and run:
+#   docker compose -f docker-compose-mariadb.yml up -d
+#
+# Each app gets its own database inside this single MariaDB instance.
+# The databases are created by the migration script (scripts/migrate_to_mariadb.py).
+
+services:
+  mariadb:
+    image: mariadb:10.11
+    container_name: mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme}
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./mariadb-init:/docker-entrypoint-initdb.d  # optional: place .sql init files here
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mariadb_data:
+    driver: local

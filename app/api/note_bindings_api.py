@@ -1,6 +1,5 @@
 # template_app/app/api/note_bindings_api.py
 from flask import Blueprint, request, jsonify, g
-import sqlite3
 from datetime import datetime
 import logging
 from ..db import get_connection

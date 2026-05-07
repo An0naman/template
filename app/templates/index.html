@@ -1135,6 +1135,28 @@ LIMIT 100</textarea>
     </div>
 
     <!-- Add Entry Modal -->
+        <!-- Archived Entries Section -->
+        <div class="mt-4" id="archivedSection">
+            <button class="btn btn-outline-secondary btn-sm mb-3" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#archivedEntriesCollapse"
+                    aria-expanded="false" aria-controls="archivedEntriesCollapse"
+                    id="toggleArchivedBtn"
+                    onclick="loadArchivedEntries()">
+                <i class="fas fa-archive me-1"></i>Show Archived
+            </button>
+            <div class="collapse" id="archivedEntriesCollapse">
+                <div class="content-card theme-section">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0"><i class="fas fa-archive me-2 text-secondary"></i>Archived Entries</h6>
+                    </div>
+                    <div id="archived-entries-list">
+                        <p class="text-muted small">Loading...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- End Archived Entries Section -->
+
     <div class="modal fade" id="addEntryModal" tabindex="-1" aria-labelledby="addEntryModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -3219,5 +3241,59 @@ LIMIT 100</textarea>
     
     <!-- About Modal -->
     {% include 'components/about_modal.html' %}
+    <script>
+    let archivedLoaded = false;
+
+    function loadArchivedEntries() {
+        if (archivedLoaded) return;
+        archivedLoaded = true;
+        fetch('/api/entries/archived')
+            .then(r => r.json())
+            .then(entries => {
+                const container = document.getElementById('archived-entries-list');
+                if (!entries.length) {
+                    container.innerHTML = '<p class="text-muted small">No archived entries.</p>';
+                    return;
+                }
+                container.innerHTML = entries.map(e => `
+                    <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                        <div>
+                            <a href="/entry/${e.id}" class="fw-semibold text-decoration-none">${e.title}</a>
+                            <span class="badge bg-secondary ms-2">${e.entry_type_label}</span>
+                            <small class="text-muted ms-2">Archived ${e.archived_at ? new Date(e.archived_at).toLocaleDateString() : ''}</small>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a href="/entry/${e.id}" class="btn btn-sm btn-outline-secondary">View</a>
+                            <button class="btn btn-sm btn-outline-success" onclick="restoreArchivedEntry(${e.id}, this)">
+                                <i class="fas fa-box-open me-1"></i>Restore
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            })
+            .catch(() => {
+                document.getElementById('archived-entries-list').innerHTML =
+                    '<p class="text-danger small">Failed to load archived entries.</p>';
+            });
+    }
+
+    function restoreArchivedEntry(entryId, btn) {
+        btn.disabled = true;
+        fetch(`/api/entries/${entryId}/restore`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) { alert('Restore failed: ' + data.error); btn.disabled = false; }
+            else {
+                // Remove from archived list and reload main list
+                btn.closest('.d-flex.justify-content-between').remove();
+                window.location.reload();
+            }
+        })
+        .catch(() => { alert('An error occurred.'); btn.disabled = false; });
+    }
+    </script>
 </body>
 </html>

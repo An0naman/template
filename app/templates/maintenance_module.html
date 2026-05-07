@@ -336,8 +336,77 @@
                     <div class="setting-title">SQL IDE</div>
                     <p class="setting-description">Query and explore your database with a built-in SQL editor and browser.</p>
                 </a>
+
+                <a href="#" class="setting-card" data-bs-toggle="modal" data-bs-target="#backupRestoreModal">
+                    <div class="setting-icon bg-warning">
+                        <i class="fas fa-database"></i>
+                    </div>
+                    <div class="setting-title">Backup &amp; Restore</div>
+                    <p class="setting-description">Create on-demand database backups and restore from a previous snapshot.</p>
+                </a>
             </div>
         </section>
+    </div>
+
+    <!-- Backup & Restore Modal -->
+    <div class="modal fade" id="backupRestoreModal" tabindex="-1" aria-labelledby="backupRestoreModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="backupRestoreModalLabel">
+                        <i class="fas fa-database me-2"></i>Backup &amp; Restore
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Create backup -->
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div>
+                            <strong>Create a backup now</strong>
+                            <p class="text-muted mb-0 small">Saves a copy of the current database to the backup directory.</p>
+                        </div>
+                        <button class="btn btn-primary btn-sm" id="btnCreateBackup">
+                            <i class="fas fa-save me-1"></i>Back up now
+                        </button>
+                    </div>
+                    <div id="backupMsg" class="alert d-none mb-3"></div>
+
+                    <hr>
+
+                    <!-- Backup list -->
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <strong>Available backups</strong>
+                        <button class="btn btn-outline-secondary btn-sm" id="btnRefreshBackups">
+                            <i class="fas fa-sync-alt me-1"></i>Refresh
+                        </button>
+                    </div>
+                    <div id="backupList">
+                        <p class="text-muted small">Loading…</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Restore Modal -->
+    <div class="modal fade" id="confirmRestoreModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-exclamation-triangle text-warning me-2"></i>Confirm Restore</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>This will <strong>replace the live database</strong> with the backup:</p>
+                    <p class="font-monospace small" id="confirmRestoreFilename"></p>
+                    <p class="text-danger mb-0">Any changes made since this backup was taken will be lost. The app will restart automatically.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="btnConfirmRestore">Restore &amp; Restart</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- About Modal -->
@@ -363,6 +432,122 @@
         
         // Load state on page load
         document.addEventListener('DOMContentLoaded', updateSensorSectionVisibility);
+
+        // ── Backup & Restore ────────────────────────────────────────────────
+        let pendingRestoreFilename = null;
+
+        async function loadBackups() {
+            const container = document.getElementById('backupList');
+            container.innerHTML = '<p class="text-muted small">Loading…</p>';
+            try {
+                const res = await fetch('/api/backup/list');
+                const data = await res.json();
+                if (!data.success) { container.innerHTML = `<p class="text-danger small">${data.error}</p>`; return; }
+                if (data.backups.length === 0) {
+                    container.innerHTML = '<p class="text-muted small">No backups yet.</p>';
+                    return;
+                }
+                const rows = data.backups.map(b => `
+                    <tr>
+                        <td class="font-monospace small">${b.filename}</td>
+                        <td class="small text-muted">${b.size_human}</td>
+                        <td class="small text-muted">${new Date(b.created_at).toLocaleString()}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-success me-1" onclick="startRestore('${b.filename}')">
+                                <i class="fas fa-undo me-1"></i>Restore
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteBackup('${b.filename}', this)">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>`).join('');
+                container.innerHTML = `
+                    <div class="small text-muted mb-1">Storage: ${data.backup_dir}</div>
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead><tr><th>File</th><th>Size</th><th>Created</th><th></th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>`;
+            } catch (e) {
+                container.innerHTML = `<p class="text-danger small">Error: ${e.message}</p>`;
+            }
+        }
+
+        document.getElementById('btnCreateBackup').addEventListener('click', async () => {
+            const btn = document.getElementById('btnCreateBackup');
+            const msg = document.getElementById('backupMsg');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Backing up…';
+            msg.className = 'alert d-none mb-3';
+            try {
+                const res = await fetch('/api/backup/create', { method: 'POST' });
+                const data = await res.json();
+                msg.className = `alert mb-3 ${data.success ? 'alert-success' : 'alert-danger'}`;
+                msg.textContent = data.message || data.error;
+                if (data.success) loadBackups();
+            } catch (e) {
+                msg.className = 'alert alert-danger mb-3';
+                msg.textContent = e.message;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save me-1"></i>Back up now';
+            }
+        });
+
+        document.getElementById('btnRefreshBackups').addEventListener('click', loadBackups);
+
+        function startRestore(filename) {
+            pendingRestoreFilename = filename;
+            document.getElementById('confirmRestoreFilename').textContent = filename;
+            new bootstrap.Modal(document.getElementById('confirmRestoreModal')).show();
+        }
+
+        document.getElementById('btnConfirmRestore').addEventListener('click', async () => {
+            const btn = document.getElementById('btnConfirmRestore');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Restoring…';
+            try {
+                const res = await fetch('/api/backup/restore', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename: pendingRestoreFilename })
+                });
+                const data = await res.json();
+                bootstrap.Modal.getInstance(document.getElementById('confirmRestoreModal')).hide();
+                if (data.success) {
+                    // App is restarting — show a countdown then reload
+                    const msg = document.getElementById('backupMsg');
+                    msg.className = 'alert alert-info mb-3';
+                    let secs = 8;
+                    const tick = () => {
+                        msg.textContent = `${data.message} Reloading in ${secs}s…`;
+                        if (secs-- > 0) setTimeout(tick, 1000); else location.reload();
+                    };
+                    tick();
+                    bootstrap.Modal.getInstance(document.getElementById('backupRestoreModal'))?.hide();
+                } else {
+                    alert('Restore failed: ' + data.error);
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        });
+
+        async function deleteBackup(filename, btn) {
+            if (!confirm(`Delete backup ${filename}?`)) return;
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/backup/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename })
+                });
+                const data = await res.json();
+                if (data.success) loadBackups(); else alert(data.error);
+            } catch (e) { alert(e.message); } finally { btn.disabled = false; }
+        }
+
+        // Open modal → load backups
+        document.getElementById('backupRestoreModal').addEventListener('show.bs.modal', loadBackups);
     </script>
 </body>
 </html>

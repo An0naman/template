@@ -46,6 +46,19 @@
     </div>
 </div>
 
+        <!-- Archive / Restore -->
+        {% if entry.is_archived %}
+        <button type="button" class="btn btn-sm btn-outline-success" id="restoreEntryBtn"
+                onclick="restoreEntry({{ entry.id }})">
+            <i class="fas fa-box-open me-1"></i>Restore
+        </button>
+        {% else %}
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="archiveEntryBtn"
+                onclick="archiveEntry({{ entry.id }})">
+            <i class="fas fa-archive me-1"></i>Archive
+        </button>
+        {% endif %}
+
 <div class="row g-3">
     <div class="col-md-4">
         <div class="info-card">
@@ -597,6 +610,38 @@ document.getElementById('deleteEntryBtn')?.addEventListener('click', function() 
 });
 
 // Note: toggleSection function is now defined globally in entry_detail_v2.html
+
+// Archive / Restore entry
+function archiveEntry(entryId) {
+    if (confirm('Archive this entry? It will be hidden from the main list but can be restored later.')) {
+        fetch(`/api/entries/${entryId}/archive`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) { alert('Failed to archive entry: ' + data.error); }
+            else { window.location.href = '/'; }
+        })
+        .catch(() => alert('An error occurred while archiving the entry'));
+    }
+}
+
+function restoreEntry(entryId) {
+    if (confirm('Restore this entry? It will appear in the main list again.')) {
+        fetch(`/api/entries/${entryId}/restore`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) { alert('Failed to restore entry: ' + data.error); }
+            else { window.location.reload(); }
+        })
+        .catch(() => alert('An error occurred while restoring the entry'));
+    }
+}
+
 
 // Format the created_at timestamp to locale string on page load
 document.addEventListener('DOMContentLoaded', function() {

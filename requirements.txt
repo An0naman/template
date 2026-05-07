@@ -2,6 +2,9 @@
 Flask==3.0.3
 Werkzeug>=2.0.0
 
+# MariaDB / MySQL support (optional — only needed when DATABASE_URL=mysql://...)
+PyMySQL>=1.1.0
+
 # Data handling
 PyYAML>=6.0
 requests>=2.28.0
