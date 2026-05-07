@@ -10,7 +10,7 @@ import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from flask import g
-import sqlite3
+from app.db import get_connection
 
 logger = logging.getLogger(__name__)
 
@@ -18,10 +18,7 @@ logger = logging.getLogger(__name__)
 def get_db():
     """Get database connection"""
     if 'db' not in g:
-        from flask import current_app
-        db_path = current_app.config['DATABASE_PATH']
-        g.db = sqlite3.connect(db_path)
-        g.db.row_factory = sqlite3.Row
+        g.db = get_connection()
     return g.db
 
 

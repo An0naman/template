@@ -1,6 +1,5 @@
 # template_app/app/api/entry_state_api.py
 from flask import Blueprint, request, jsonify, g, current_app
-import sqlite3
 from datetime import datetime, timezone
 import logging
 
@@ -12,9 +11,7 @@ logger = logging.getLogger(__name__)
 
 def get_db():
     if 'db' not in g:
-        db_path = current_app.config['DATABASE_PATH']
-        g.db = sqlite3.connect(db_path)
-        g.db.row_factory = sqlite3.Row
+        g.db = get_connection()
     return g.db
 
 @entry_state_api_bp.route('/entry_types/<int:entry_type_id>/states', methods=['GET'])

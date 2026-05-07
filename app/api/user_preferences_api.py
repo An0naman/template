@@ -1,6 +1,5 @@
 # template_app/app/api/user_preferences_api.py
 from flask import Blueprint, request, jsonify, g, current_app
-import sqlite3
 import json
 import logging
 from datetime import datetime
@@ -14,9 +13,7 @@ logger = logging.getLogger(__name__)
 
 def get_db():
     if 'db' not in g:
-        db_path = current_app.config['DATABASE_PATH']
-        g.db = sqlite3.connect(db_path)
-        g.db.row_factory = sqlite3.Row
+        g.db = get_connection()
     return g.db
 
 @user_preferences_api_bp.route('/user_preferences', methods=['GET'])

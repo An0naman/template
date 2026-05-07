@@ -1,6 +1,5 @@
 # template_app/app/api/relationships_api.py
 from flask import Blueprint, request, jsonify, g, current_app
-import sqlite3
 import logging
 import json
 from ..serializers import serialize_relationship_definition, serialize_entry_relationship # Import serializers
@@ -13,9 +12,7 @@ logger = logging.getLogger(__name__)
 
 def get_db():
     if 'db' not in g:
-        db_path = current_app.config['DATABASE_PATH']
-        g.db = sqlite3.connect(db_path)
-        g.db.row_factory = sqlite3.Row
+        g.db = get_connection()
     return g.db
 
 # --- API Endpoints: Relationship Definitions ---

@@ -1,8 +1,8 @@
 # app/api/health_api.py
 from flask import Blueprint, jsonify
 import os
-import sqlite3
 from datetime import datetime
+from app.db import get_connection
 
 health_api_bp = Blueprint('health_api', __name__)
 
@@ -22,8 +22,7 @@ def health_check():
     
     # Check 1: Database connectivity
     try:
-        from app.config import DATABASE_PATH
-        conn = sqlite3.connect(DATABASE_PATH)
+        conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT 1")
         cursor.close()

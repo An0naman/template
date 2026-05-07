@@ -4,8 +4,8 @@ Kanban API Blueprint
 Provides endpoints for managing kanban boards and columns
 """
 
+from ..db import get_connection
 from flask import Blueprint, request, jsonify, g, current_app
-import sqlite3
 import json
 import logging
 from datetime import datetime
@@ -17,11 +17,8 @@ kanban_api_bp = Blueprint('kanban_api', __name__)
 logger = logging.getLogger(__name__)
 
 def get_db():
-    """Get database connection"""
     if 'db' not in g:
-        db_path = current_app.config['DATABASE_PATH']
-        g.db = sqlite3.connect(db_path)
-        g.db.row_factory = sqlite3.Row
+        g.db = get_connection()
     return g.db
 
 # ============================================================================

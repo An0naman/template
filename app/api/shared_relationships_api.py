@@ -1,6 +1,5 @@
 # template_app/app/api/shared_relationships_api.py
 from flask import Blueprint, request, jsonify, g, current_app
-import sqlite3
 import logging
 
 # Define a Blueprint for Shared Relationships API
@@ -11,9 +10,7 @@ logger = logging.getLogger(__name__)
 
 def get_db():
     if 'db' not in g:
-        db_path = current_app.config['DATABASE_PATH']
-        g.db = sqlite3.connect(db_path)
-        g.db.row_factory = sqlite3.Row
+        g.db = get_connection()
     return g.db
 
 @shared_relationships_api_bp.route('/entries/<int:entry_id>/shared_relationship_opportunities', methods=['GET'])

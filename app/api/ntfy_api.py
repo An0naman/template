@@ -1,6 +1,5 @@
 # ntfy_api.py - API endpoints for ntfy configuration and testing
 from flask import Blueprint, request, jsonify, g, current_app
-import sqlite3
 import logging
 from ..services.ntfy_service import NtfyService, send_app_notification_via_ntfy
 
@@ -12,9 +11,7 @@ logger = logging.getLogger(__name__)
 
 def get_db():
     if 'db' not in g:
-        db_path = current_app.config['DATABASE_PATH']
-        g.db = sqlite3.connect(db_path)
-        g.db.row_factory = sqlite3.Row
+        g.db = get_connection()
     return g.db
 
 @ntfy_api_bp.route('/ntfy/test', methods=['POST'])

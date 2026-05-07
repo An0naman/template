@@ -1,6 +1,5 @@
 # template_app/app/api/notes_api.py
 from flask import Blueprint, request, jsonify, g, current_app
-import sqlite3
 from datetime import datetime
 import json
 import logging
@@ -120,9 +119,7 @@ logger = logging.getLogger(__name__)
 
 def get_db():
     if 'db' not in g:
-        db_path = current_app.config['DATABASE_PATH']
-        g.db = sqlite3.connect(db_path)
-        g.db.row_factory = sqlite3.Row
+        g.db = get_connection()
     return g.db
 
 # Define allowed file extensions from system parameters
