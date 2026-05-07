@@ -1,15 +1,13 @@
 # template_app/app/routes/main_routes.py
 from flask import Blueprint, render_template, request, g, current_app, redirect, url_for
-import sqlite3
+from ..db import get_connection
 
 # Define a Blueprint for main routes
 main_bp = Blueprint('main', __name__, template_folder='../templates')
 
 def get_db():
     if 'db' not in g:
-        db_path = current_app.config['DATABASE_PATH']
-        g.db = sqlite3.connect(db_path)
-        g.db.row_factory = sqlite3.Row
+        g.db = get_connection()
     return g.db
 
 @main_bp.route('/')

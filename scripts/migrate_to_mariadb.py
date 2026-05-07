@@ -49,7 +49,20 @@ def mysql_connect(url):
 def adapt_ddl(sql):
     """Convert SQLite DDL to MariaDB DDL."""
     sql = sql.replace('AUTOINCREMENT', 'AUTO_INCREMENT')
+    # Strip inline SQL comments (-- comment) which confuse MySQL parser
+    sql = re.sub(r'--[^\n]*', '', sql)
+    # Convert DEFAULT "x" → DEFAULT 'x' (string literals) before touching other quotes
     sql = re.sub(r'DEFAULT "([^"]*)"', r"DEFAULT '\1'", sql)
+    # Convert double-quoted identifiers → backtick-quoted (SQLite → MySQL)
+    sql = re.sub(r'"([A-Za-z_][A-Za-z0-9_]*)"', r'`\1`', sql)
+    # Remove inline CHECK(...) from column definitions (handles one level of nested parens)
+    sql = re.sub(r'\s+CHECK\s*\((?:[^()]*|\([^()]*\))*\)', '', sql, flags=re.IGNORECASE)
+    # Remove standalone FOREIGN KEY lines (line-based, preserves previous line's comma)
+    lines = sql.split('\n')
+    filtered = [line for line in lines if not line.upper().strip().startswith('FOREIGN KEY')]
+    sql = '\n'.join(filtered)
+    # Clean up any trailing commas before the closing paren (left over after FK removal)
+    sql = re.sub(r',(\s*\))', r'\1', sql)
     return sql
 
 

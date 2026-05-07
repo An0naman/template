@@ -5,11 +5,11 @@ Provides data aggregation and analysis for dashboard widgets
 """
 
 import logging
-import sqlite3
 import json
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Any, Optional
 from flask import current_app
+from app.db import get_connection
 
 logger = logging.getLogger(__name__)
 
@@ -19,10 +19,7 @@ class DashboardService:
     @staticmethod
     def get_db():
         """Get database connection"""
-        db_path = current_app.config['DATABASE_PATH']
-        conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return get_connection()
 
     @staticmethod
     def get_saved_search_entries(search_id: int, ignore_limit: bool = False) -> Dict[str, Any]:

@@ -2103,13 +2103,11 @@ Respond ONLY with the JSON object, no additional text.
     def _get_entry_note_types(self, entry_id: int) -> list:
         """Get available note types for an entry"""
         try:
-            from flask import g, current_app
-            import sqlite3
+            from flask import g
+            from app.db import get_connection
             
             if 'db' not in g:
-                db_path = current_app.config['DATABASE_PATH']
-                g.db = sqlite3.connect(db_path)
-                g.db.row_factory = sqlite3.Row
+                g.db = get_connection()
             
             cursor = g.db.cursor()
             cursor.execute('''
@@ -2133,13 +2131,11 @@ Respond ONLY with the JSON object, no additional text.
     def _get_related_entries_summary(self, entry_id: int) -> str:
         """Get a summary of related entries for context"""
         try:
-            from flask import g, current_app
-            import sqlite3
+            from flask import g
+            from app.db import get_connection
             
             if 'db' not in g:
-                db_path = current_app.config['DATABASE_PATH']
-                g.db = sqlite3.connect(db_path)
-                g.db.row_factory = sqlite3.Row
+                g.db = get_connection()
             
             cursor = g.db.cursor()
             cursor.execute('''

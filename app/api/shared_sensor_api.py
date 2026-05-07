@@ -4,11 +4,11 @@ Provides REST API for managing sensor data that can be shared across multiple en
 """
 
 from flask import Blueprint, request, jsonify, g, current_app
-import sqlite3
 import json
 import logging
 from datetime import datetime, timezone
 from ..services.shared_sensor_service import SharedSensorDataService
+from ..db import get_connection
 
 # Define a Blueprint for Shared Sensor Data API
 shared_sensor_api_bp = Blueprint('shared_sensor_api', __name__)
@@ -17,9 +17,7 @@ logger = logging.getLogger(__name__)
 
 def get_db():
     if 'db' not in g:
-        db_path = current_app.config['DATABASE_PATH']
-        g.db = sqlite3.connect(db_path)
-        g.db.row_factory = sqlite3.Row
+        g.db = get_connection()
     return g.db
 
 @shared_sensor_api_bp.route('/shared_sensor_data', methods=['POST'])

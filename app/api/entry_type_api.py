@@ -1,7 +1,7 @@
 # template_app/app/api/entry_type_api.py
 from flask import Blueprint, request, jsonify, g, current_app
-import sqlite3
 import logging
+from ..db import get_connection
 
 # Define a Blueprint for EntryType API
 entry_type_api_bp = Blueprint('entry_type_api', __name__)
@@ -11,9 +11,7 @@ logger = logging.getLogger(__name__)
 
 def get_db():
     if 'db' not in g:
-        db_path = current_app.config['DATABASE_PATH']
-        g.db = sqlite3.connect(db_path)
-        g.db.row_factory = sqlite3.Row
+        g.db = get_connection()
     return g.db
 
 @entry_type_api_bp.route('/entry_types', methods=['GET'])

@@ -324,13 +324,11 @@ class NtfyService:
             NtfyService: Configured service instance
         """
         from flask import g
-        import sqlite3
+        from app.db import get_connection
         
         # Get database connection
         if 'db' not in g:
-            db_path = current_app.config['DATABASE_PATH']
-            g.db = sqlite3.connect(db_path)
-            g.db.row_factory = sqlite3.Row
+            g.db = get_connection()
         
         cursor = g.db.cursor()
         cursor.execute("SELECT parameter_name, parameter_value FROM SystemParameters WHERE parameter_name IN ('ntfy_server_url', 'ntfy_topic', 'ntfy_auth_token')")

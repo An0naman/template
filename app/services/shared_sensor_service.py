@@ -4,20 +4,18 @@ Handles sensor data that can be linked to multiple entries efficiently
 """
 
 from flask import current_app, g
-import sqlite3
 import json
 import logging
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
+from app.db import get_connection
 
 logger = logging.getLogger(__name__)
 
 def get_db():
     """Get database connection"""
     if 'db' not in g:
-        db_path = current_app.config['DATABASE_PATH']
-        g.db = sqlite3.connect(db_path)
-        g.db.row_factory = sqlite3.Row
+        g.db = get_connection()
     return g.db
 
 class SharedSensorDataService:
