@@ -57,6 +57,11 @@ class _MySQLCursorWrapper:
         return self._c.fetchall()
 
     @property
+    def description(self):
+        # Keep DB-API metadata available for callers that map tuples by column name.
+        return getattr(self._c, 'description', None)
+
+    @property
     def rowcount(self):
         return self._c.rowcount
 
