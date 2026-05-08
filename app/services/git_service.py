@@ -6,6 +6,7 @@ import git
 from git import Repo, InvalidGitRepositoryError, GitCommandError
 import os
 import logging
+import base64
 from datetime import datetime
 from typing import Optional, Dict, List, Tuple
 import sqlite3
@@ -32,6 +33,66 @@ class GitService:
         self.conn = db_connection
         self.github_client = None
         self.gitlab_client = None
+
+    @staticmethod
+    def _row_to_dict(row, columns=None):
+        """Normalize sqlite tuple rows and MariaDB dict rows into a plain dict."""
+        if isinstance(row, dict):
+            return dict(row)
+        if row is None:
+            return {}
+        if columns is not None:
+            return dict(zip(columns, row))
+        return {}
+
+    @staticmethod
+    def _first_col(row):
+        """Return first column value from either tuple or dict DB row."""
+        if isinstance(row, dict):
+            return next(iter(row.values()), None)
+        if isinstance(row, (list, tuple)) and row:
+            return row[0]
+        return None
+
+    def decrypt_credentials(self, credentials_encrypted):
+        """Backward-compatible credentials reader.
+
+        Older records may be plain text, JSON string, or base64-encoded text.
+        """
+        if credentials_encrypted is None:
+            return None
+        if isinstance(credentials_encrypted, (dict, list)):
+            return credentials_encrypted
+        if isinstance(credentials_encrypted, bytes):
+            try:
+                credentials_encrypted = credentials_encrypted.decode('utf-8')
+            except Exception:
+                return None
+
+        value = str(credentials_encrypted).strip()
+        if not value:
+            return None
+
+        # JSON payload stored directly
+        if value.startswith('{') or value.startswith('['):
+            try:
+                return json.loads(value)
+            except Exception:
+                return value
+
+        # Try URL-safe/base64 encoded payload
+        try:
+            padded = value + ('=' * ((4 - len(value) % 4) % 4))
+            decoded = base64.urlsafe_b64decode(padded.encode('utf-8')).decode('utf-8')
+            if decoded.startswith('{') or decoded.startswith('['):
+                try:
+                    return json.loads(decoded)
+                except Exception:
+                    return decoded
+            return decoded
+        except Exception:
+            # Fall back to raw value when it isn't encoded.
+            return value
     
     @staticmethod
     def _safe_rmtree(path: str):
@@ -187,7 +248,7 @@ class GitService:
             return None
         
         columns = [desc[0] for desc in cursor.description]
-        repo = dict(zip(columns, row))
+        repo = self._row_to_dict(row, columns)
         
         # Decrypt credentials if present
         if repo.get('credentials_encrypted'):
@@ -205,7 +266,7 @@ class GitService:
         repositories = []
         
         for row in rows:
-            repo = dict(zip(columns, row))
+            repo = self._row_to_dict(row, columns)
             repositories.append(repo)
         
         return repositories
@@ -536,7 +597,9 @@ class GitService:
             LIMIT 1
         ''', (entry_type_id,))
         default_state = cursor.fetchone()
-        status = default_state[0] if default_state else 'active'
+        status = self._first_col(default_state) if default_state else 'active'
+        if not status:
+            status = 'active'
         
         cursor.execute('''
             INSERT INTO Entry (entry_type_id, title, description, status, created_at)
@@ -602,33 +665,41 @@ class GitService:
         
         # Total commits
         cursor.execute('SELECT COUNT(*) FROM GitCommit WHERE repository_id = ?', (repo_id,))
-        total_commits = cursor.fetchone()[0]
+        total_commits = self._first_col(cursor.fetchone()) or 0
         
         # Commits today
         cursor.execute('''
             SELECT COUNT(*) FROM GitCommit 
             WHERE repository_id = ? AND DATE(commit_date) = DATE('now')
         ''', (repo_id,))
-        commits_today = cursor.fetchone()[0]
+        commits_today = self._first_col(cursor.fetchone()) or 0
         
         # Unique authors
         cursor.execute('''
             SELECT COUNT(DISTINCT author) FROM GitCommit WHERE repository_id = ?
         ''', (repo_id,))
-        unique_authors = cursor.fetchone()[0]
+        unique_authors = self._first_col(cursor.fetchone()) or 0
         
         # Total lines changed
         cursor.execute('''
             SELECT SUM(insertions), SUM(deletions) FROM GitCommit WHERE repository_id = ?
         ''', (repo_id,))
         lines = cursor.fetchone()
+
+        if isinstance(lines, dict):
+            line_values = list(lines.values())
+            insertions = line_values[0] if len(line_values) > 0 and line_values[0] is not None else 0
+            deletions = line_values[1] if len(line_values) > 1 and line_values[1] is not None else 0
+        else:
+            insertions = lines[0] if lines and lines[0] is not None else 0
+            deletions = lines[1] if lines and lines[1] is not None else 0
         
         return {
             'total_commits': total_commits,
             'commits_today': commits_today,
             'unique_authors': unique_authors,
-            'total_insertions': lines[0] or 0,
-            'total_deletions': lines[1] or 0
+            'total_insertions': insertions,
+            'total_deletions': deletions
         }
 
 
