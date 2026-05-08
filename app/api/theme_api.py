@@ -44,6 +44,25 @@ def is_dark_mode_time(start_time_str, end_time_str):
 
 theme_api = Blueprint('theme_api', __name__)
 
+
+def _extract_param_row(row):
+    """Normalize DB row to (parameter_name, parameter_value) across sqlite/mysql wrappers."""
+    if isinstance(row, dict):
+        return row.get('parameter_name'), row.get('parameter_value')
+    if isinstance(row, (list, tuple)) and len(row) >= 2:
+        return row[0], row[1]
+    return None, None
+
+
+def _extract_first_col(row):
+    """Get first column value from tuple/list/dict row."""
+    if isinstance(row, dict):
+        # DictCursor uses column labels as keys
+        return next(iter(row.values()), 0)
+    if isinstance(row, (list, tuple)) and len(row) > 0:
+        return row[0]
+    return 0
+
 def _hex_to_rgb(hex_color):
     """Convert hex color to RGB tuple"""
     hex_color = hex_color.lstrip('#')
@@ -198,7 +217,7 @@ def handle_theme_settings():
                 
                 # Check if theme settings exist
                 cursor.execute("SELECT COUNT(*) FROM SystemParameters WHERE parameter_name LIKE 'theme_%'")
-                existing_count = cursor.fetchone()[0]
+                existing_count = _extract_first_col(cursor.fetchone())
                 
                 # Save or update theme settings
                 theme_settings = [
@@ -291,7 +310,8 @@ def handle_theme_settings():
                 section_styles = {}
                 background_image = {}
                 
-                for parameter_name, parameter_value in cursor.fetchall():
+                for row in cursor.fetchall():
+                    parameter_name, parameter_value = _extract_param_row(row)
                     if parameter_name == 'theme_color_scheme':
                         settings['theme'] = parameter_value
                     elif parameter_name == 'theme_dark_mode':
@@ -376,7 +396,8 @@ def get_current_theme_settings():
         dark_mode_start = '18:00'
         dark_mode_end = '06:00'
         
-        for parameter_name, parameter_value in cursor.fetchall():
+        for row in cursor.fetchall():
+            parameter_name, parameter_value = _extract_param_row(row)
             if parameter_name == 'theme_color_scheme':
                 settings['current_theme'] = parameter_value
             elif parameter_name == 'theme_dark_mode':
