@@ -16,6 +16,25 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
+def _get_conn(db_path):
+    """Return a DB connection — MariaDB if DATABASE_URL is set, else SQLite."""
+    database_url = os.environ.get('DATABASE_URL', '')
+    if database_url.startswith('mysql'):
+        from app.db import get_connection
+        return get_connection()
+    return sqlite3.connect(db_path)
+
+
+def _placeholder(database_url=None):
+    """Return the correct placeholder for the active DB driver."""
+    url = database_url or os.environ.get('DATABASE_URL', '')
+    return '%s' if url.startswith('mysql') else '?'
+
+
+def _is_mysql():
+    return os.environ.get('DATABASE_URL', '').startswith('mysql')
+
+
 class AutoMigration:
     """Simple auto-migration system that runs on app startup"""
     
@@ -36,25 +55,36 @@ class AutoMigration:
     def ensure_migration_table(self):
         """Create schema_migrations table if it doesn't exist"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = _get_conn(self.db_path)
             cursor = conn.cursor()
-            
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS schema_migrations (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    migration_name TEXT UNIQUE NOT NULL,
-                    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    success BOOLEAN DEFAULT TRUE,
-                    error_message TEXT,
-                    execution_time_ms INTEGER
-                )
-            """)
-            
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_migration_name 
-                ON schema_migrations(migration_name)
-            """)
-            
+
+            if _is_mysql():
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS schema_migrations (
+                        id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                        migration_name VARCHAR(500) UNIQUE NOT NULL,
+                        applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        success BOOLEAN DEFAULT TRUE,
+                        error_message LONGTEXT,
+                        execution_time_ms INTEGER
+                    )
+                """)
+            else:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS schema_migrations (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        migration_name TEXT UNIQUE NOT NULL,
+                        applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        success BOOLEAN DEFAULT TRUE,
+                        error_message TEXT,
+                        execution_time_ms INTEGER
+                    )
+                """)
+                cursor.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_migration_name 
+                    ON schema_migrations(migration_name)
+                """)
+
             conn.commit()
             conn.close()
             return True
@@ -65,13 +95,15 @@ class AutoMigration:
     def is_migration_applied(self, migration_name):
         """Check if migration was already applied"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = _get_conn(self.db_path)
             cursor = conn.cursor()
-            cursor.execute("""
+            ph = _placeholder()
+            cursor.execute(f"""
                 SELECT COUNT(*) FROM schema_migrations 
-                WHERE migration_name = ? AND success = TRUE
+                WHERE migration_name = {ph} AND success = TRUE
             """, (migration_name,))
-            count = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            count = row[0] if row else 0
             conn.close()
             return count > 0
         except:
@@ -80,13 +112,23 @@ class AutoMigration:
     def record_migration(self, migration_name, success=True, error_msg=None, exec_time=0):
         """Record migration in tracking table"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = _get_conn(self.db_path)
             cursor = conn.cursor()
-            cursor.execute("""
-                INSERT OR REPLACE INTO schema_migrations 
-                (migration_name, success, error_message, execution_time_ms, applied_at)
-                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-            """, (migration_name, success, error_msg, exec_time))
+            ph = _placeholder()
+            if _is_mysql():
+                cursor.execute(f"""
+                    INSERT INTO schema_migrations 
+                    (migration_name, success, error_message, execution_time_ms, applied_at)
+                    VALUES ({ph}, {ph}, {ph}, {ph}, CURRENT_TIMESTAMP)
+                    ON DUPLICATE KEY UPDATE
+                        success={ph}, error_message={ph}, execution_time_ms={ph}, applied_at=CURRENT_TIMESTAMP
+                """, (migration_name, success, error_msg, exec_time, success, error_msg, exec_time))
+            else:
+                cursor.execute(f"""
+                    INSERT OR REPLACE INTO schema_migrations 
+                    (migration_name, success, error_message, execution_time_ms, applied_at)
+                    VALUES ({ph}, {ph}, {ph}, {ph}, CURRENT_TIMESTAMP)
+                """, (migration_name, success, error_msg, exec_time))
             conn.commit()
             conn.close()
         except Exception as e:
@@ -95,13 +137,22 @@ class AutoMigration:
     def check_table_exists(self, table_name):
         """Check if a table exists"""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = _get_conn(self.db_path)
             cursor = conn.cursor()
-            cursor.execute("""
-                SELECT name FROM sqlite_master 
-                WHERE type='table' AND name=?
-            """, (table_name,))
-            result = cursor.fetchone() is not None
+            ph = _placeholder()
+            if _is_mysql():
+                cursor.execute(f"""
+                    SELECT COUNT(*) FROM information_schema.tables
+                    WHERE table_schema = DATABASE() AND table_name = {ph}
+                """, (table_name,))
+                row = cursor.fetchone()
+                result = (row[0] if row else 0) > 0
+            else:
+                cursor.execute(f"""
+                    SELECT name FROM sqlite_master 
+                    WHERE type='table' AND name={ph}
+                """, (table_name,))
+                result = cursor.fetchone() is not None
             conn.close()
             return result
         except:
@@ -113,126 +164,139 @@ class AutoMigration:
         This ensures Dashboard and other essential tables exist.
         """
         logger.info("Checking for critical schema updates...")
-        
+
+        mysql = _is_mysql()
+        pk = "INTEGER PRIMARY KEY AUTO_INCREMENT" if mysql else "INTEGER PRIMARY KEY AUTOINCREMENT"
+        text = "LONGTEXT" if mysql else "TEXT"
+
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = _get_conn(self.db_path)
             cursor = conn.cursor()
-            
+
             # Migration: Add Dashboard tables
             migration_name = "add_dashboard_tables.py"
             if not self.is_migration_applied(migration_name):
                 if not self.check_table_exists('Dashboard'):
                     logger.info("Creating Dashboard tables...")
                     start_time = datetime.now()
-                    
-                    cursor.execute('''
+
+                    cursor.execute(f'''
                         CREATE TABLE IF NOT EXISTS Dashboard (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            name TEXT NOT NULL UNIQUE,
-                            description TEXT,
+                            id {pk},
+                            name VARCHAR(500) NOT NULL UNIQUE,
+                            description {text},
                             is_default INTEGER DEFAULT 0,
-                            layout_config TEXT DEFAULT '{"cols": 12, "rowHeight": 100}',
+                            layout_config {text},
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                        );
+                        )
                     ''')
-                    
-                    cursor.execute('''
+
+                    cursor.execute(f'''
                         CREATE TABLE IF NOT EXISTS DashboardWidget (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            id {pk},
                             dashboard_id INTEGER NOT NULL,
-                            widget_type TEXT NOT NULL,
-                            title TEXT NOT NULL,
+                            widget_type {text} NOT NULL,
+                            title {text} NOT NULL,
                             position_x INTEGER DEFAULT 0,
                             position_y INTEGER DEFAULT 0,
                             width INTEGER DEFAULT 4,
                             height INTEGER DEFAULT 2,
-                            config TEXT DEFAULT '{}',
-                            data_source_type TEXT,
+                            config {text},
+                            data_source_type {text},
                             data_source_id INTEGER,
                             refresh_interval INTEGER DEFAULT 300,
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            FOREIGN KEY (dashboard_id) REFERENCES Dashboard(id) ON DELETE CASCADE
-                        );
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
                     ''')
-                    
+
                     conn.commit()
                     exec_time = int((datetime.now() - start_time).total_seconds() * 1000)
                     self.record_migration(migration_name, success=True, exec_time=exec_time)
                     logger.info(f"✓ Dashboard tables created ({exec_time}ms)")
                 else:
-                    # Tables exist, just record the migration
                     self.record_migration(migration_name, success=True, exec_time=0)
                     logger.info("✓ Dashboard tables already exist")
-            
-            # Add more critical migrations here as needed
-            # Example: Add EntryState, SavedSearch, etc.
-            
+
             # Migration: Add EntryState table
             migration_name = "add_entry_state_table.py"
             if not self.is_migration_applied(migration_name):
                 if not self.check_table_exists('EntryState'):
                     logger.info("Creating EntryState table...")
                     start_time = datetime.now()
-                    
-                    cursor.execute('''
-                        CREATE TABLE IF NOT EXISTS EntryState (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            entry_type_id INTEGER NOT NULL,
-                            name TEXT NOT NULL,
-                            category TEXT NOT NULL CHECK(category IN ('active', 'inactive')),
-                            color TEXT DEFAULT '#6c757d',
-                            display_order INTEGER DEFAULT 0,
-                            is_default INTEGER DEFAULT 0,
-                            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                            UNIQUE(entry_type_id, name),
-                            FOREIGN KEY (entry_type_id) REFERENCES EntryType(id) ON DELETE CASCADE
-                        );
-                    ''')
-                    
+
+                    if mysql:
+                        cursor.execute(f'''
+                            CREATE TABLE IF NOT EXISTS EntryState (
+                                id {pk},
+                                entry_type_id INTEGER NOT NULL,
+                                name {text} NOT NULL,
+                                category {text} NOT NULL,
+                                color {text} DEFAULT '#6c757d',
+                                display_order INTEGER DEFAULT 0,
+                                is_default INTEGER DEFAULT 0,
+                                created_at {text} DEFAULT CURRENT_TIMESTAMP,
+                                UNIQUE KEY uq_entry_type_name (entry_type_id, name(191))
+                            )
+                        ''')
+                    else:
+                        cursor.execute(f'''
+                            CREATE TABLE IF NOT EXISTS EntryState (
+                                id {pk},
+                                entry_type_id INTEGER NOT NULL,
+                                name TEXT NOT NULL,
+                                category TEXT NOT NULL CHECK(category IN ('active', 'inactive')),
+                                color TEXT DEFAULT '#6c757d',
+                                display_order INTEGER DEFAULT 0,
+                                is_default INTEGER DEFAULT 0,
+                                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                                UNIQUE(entry_type_id, name)
+                            )
+                        ''')
+
                     conn.commit()
                     exec_time = int((datetime.now() - start_time).total_seconds() * 1000)
                     self.record_migration(migration_name, success=True, exec_time=exec_time)
                     logger.info(f"✓ EntryState table created ({exec_time}ms)")
                 else:
                     self.record_migration(migration_name, success=True, exec_time=0)
-            
+
             # Migration: Add SavedSearch table
             migration_name = "add_saved_search_table.py"
             if not self.is_migration_applied(migration_name):
                 if not self.check_table_exists('SavedSearch'):
                     logger.info("Creating SavedSearch table...")
                     start_time = datetime.now()
-                    
-                    cursor.execute('''
+
+                    cursor.execute(f'''
                         CREATE TABLE IF NOT EXISTS SavedSearch (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            name TEXT NOT NULL UNIQUE,
-                            search_term TEXT DEFAULT '',
-                            type_filter TEXT DEFAULT '',
-                            status_filter TEXT DEFAULT '',
-                            specific_states TEXT DEFAULT '',
-                            date_range TEXT DEFAULT '',
-                            sort_by TEXT DEFAULT 'created_desc',
-                            content_display TEXT DEFAULT '',
-                            result_limit TEXT DEFAULT '50',
+                            id {pk},
+                            name VARCHAR(500) NOT NULL UNIQUE,
+                            search_term {text} DEFAULT '',
+                            type_filter {text} DEFAULT '',
+                            status_filter {text} DEFAULT '',
+                            specific_states {text} DEFAULT '',
+                            date_range {text} DEFAULT '',
+                            sort_by {text} DEFAULT 'created_desc',
+                            content_display {text} DEFAULT '',
+                            result_limit {text} DEFAULT '50',
                             is_default INTEGER DEFAULT 0,
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                        );
+                        )
                     ''')
-                    
+
                     conn.commit()
                     exec_time = int((datetime.now() - start_time).total_seconds() * 1000)
                     self.record_migration(migration_name, success=True, exec_time=exec_time)
                     logger.info(f"✓ SavedSearch table created ({exec_time}ms)")
                 else:
                     self.record_migration(migration_name, success=True, exec_time=0)
-            
+
             conn.close()
             return True
-            
+
         except Exception as e:
             logger.error(f"Error applying critical migrations: {e}")
             if 'conn' in locals():
@@ -242,7 +306,7 @@ class AutoMigration:
     
     def run(self):
         """Run auto-migration process"""
-        if not self.db_path.exists():
+        if not _is_mysql() and not self.db_path.exists():
             logger.info(f"Database not found: {self.db_path}")
             return False
         

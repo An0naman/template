@@ -63,6 +63,32 @@ def adapt_ddl(sql):
     sql = '\n'.join(filtered)
     # Clean up any trailing commas before the closing paren (left over after FK removal)
     sql = re.sub(r',(\s*\))', r'\1', sql)
+
+    # Find column names that need VARCHAR (can't index TEXT in MariaDB)
+    # 1. Columns in table-level UNIQUE(...) constraints
+    keyed_cols = set()
+    for m in re.finditer(r'(?:UNIQUE|PRIMARY\s+KEY)\s*\(([^)]+)\)', sql, re.IGNORECASE):
+        for col in m.group(1).split(','):
+            keyed_cols.add(col.strip().strip('`').strip('"').strip())
+    # 2. Columns with inline PRIMARY KEY or UNIQUE column constraint
+    for m in re.finditer(
+        r'[`"]?(\w+)[`"]?\s+(?:LONGTEXT|TEXT)\b[^,\n]*(?:PRIMARY\s+KEY|UNIQUE)\b',
+        sql, re.IGNORECASE
+    ):
+        keyed_cols.add(m.group(1))
+
+    # Convert TEXT/LONGTEXT → VARCHAR(500) for key/unique columns
+    for col in keyed_cols:
+        sql = re.sub(
+            r'(`' + re.escape(col) + r'`|(?<![`\w])' + re.escape(col) + r'(?![`\w]))'
+            r'(\s+)(?:LONG)?TEXT\b',
+            r'\1\2VARCHAR(500)',
+            sql
+        )
+
+    # Convert remaining TEXT → LONGTEXT (SQLite TEXT is unlimited; MySQL TEXT is 65KB)
+    sql = re.sub(r'\bTEXT\b', 'LONGTEXT', sql)
+
     return sql
 
 
@@ -106,6 +132,20 @@ def create_database(root_url, db_name, app_user, app_password):
     print(f"Created database `{db_name}` and user `{app_user}`")
 
 
+_DATETIME_TZ_RE = re.compile(
+    r'^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?[+-]\d{2}:?\d{2}$'
+)
+
+def _sanitize_value(v):
+    """Strip timezone from ISO datetime strings so MariaDB accepts them."""
+    if isinstance(v, str) and _DATETIME_TZ_RE.match(v):
+        # Remove timezone offset: keep up to +/- sign
+        v = re.sub(r'([+-]\d{2}:?\d{2})$', '', v).strip()
+        # Normalise T separator → space
+        v = v.replace('T', ' ')
+    return v
+
+
 def migrate_table(sqlite_conn, mysql_conn, table, verbose=True):
     ddl = get_create_statement(sqlite_conn, table)
     if not ddl:
@@ -115,7 +155,6 @@ def migrate_table(sqlite_conn, mysql_conn, table, verbose=True):
     ddl = adapt_ddl(ddl)
 
     with mysql_conn.cursor() as cur:
-        # Drop and recreate (migration is destructive — run on fresh DB only)
         cur.execute(f"DROP TABLE IF EXISTS `{table}`")
         try:
             cur.execute(ddl)
@@ -136,7 +175,7 @@ def migrate_table(sqlite_conn, mysql_conn, table, verbose=True):
     col_names = ', '.join(f'`{c}`' for c in cols)
     insert_sql = f"INSERT INTO `{table}` ({col_names}) VALUES ({placeholders})"
 
-    batch = [[row[c] for c in cols] for row in rows]
+    batch = [[_sanitize_value(row[c]) for c in cols] for row in rows]
     with mysql_conn.cursor() as cur:
         cur.executemany(insert_sql, batch)
     mysql_conn.commit()

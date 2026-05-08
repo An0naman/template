@@ -77,13 +77,25 @@ class DevicePollingScheduler:
                 WHERE rd.polling_enabled = 1 
                 AND rd.status != 'disabled'
                 AND e.status != 'inactive'
-                AND (
-                    rd.last_poll_success IS NULL 
-                    OR datetime(rd.last_poll_success, '+' || rd.polling_interval || ' seconds') <= datetime('now')
-                )
             ''')
             
-            devices_to_poll = cursor.fetchall()
+            all_devices = cursor.fetchall()
+            # Filter in Python: include devices never polled, or past their polling interval
+            now = datetime.now(timezone.utc)
+            devices_to_poll = []
+            for device in all_devices:
+                last_poll = device['last_poll_success']
+                if last_poll is None:
+                    devices_to_poll.append(device)
+                else:
+                    if isinstance(last_poll, str):
+                        last_poll = datetime.fromisoformat(last_poll.replace('Z', '+00:00'))
+                    if last_poll.tzinfo is None:
+                        last_poll = last_poll.replace(tzinfo=timezone.utc)
+                    interval = device.get('polling_interval') or 300
+                    if (now - last_poll).total_seconds() >= interval:
+                        devices_to_poll.append(device)
+            devices_to_poll = list({d['id']: d for d in devices_to_poll}.values())
             logger.debug(f"Found {len(devices_to_poll)} devices due for polling")
             
             for device in devices_to_poll:
