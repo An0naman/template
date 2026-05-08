@@ -71,6 +71,10 @@ run_migrations() {
 echo ""
 echo "=== Running Database Migrations ==="
 
+# Skip SQLite migration scripts when using an external database (MariaDB)
+if [ -n "$DATABASE_URL" ]; then
+    echo "ℹ️  DATABASE_URL is set — skipping SQLite migration scripts (schema managed by MariaDB)"
+else
 # Check for migrations in /app/migrations (root level)
 if [ -d "/app/migrations" ]; then
     echo "📍 Checking root migrations..."
@@ -81,6 +85,7 @@ fi
 if [ -d "/app/app/migrations" ]; then
     echo "📍 Checking app package migrations..."
     run_migrations "/app/app/migrations"
+fi
 fi
 
 echo ""
