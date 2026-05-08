@@ -8,6 +8,24 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+
+def _row_to_dict(row, columns=None):
+    """Normalize sqlite tuples and MariaDB dict rows into one dict shape."""
+    if isinstance(row, dict):
+        return dict(row)
+    if columns is not None:
+        return dict(zip(columns, row))
+    return {}
+
+
+def _serialize_datetime_fields(data, field_names):
+    """Convert native datetime values to ISO strings for JSON responses."""
+    for field_name in field_names:
+        value = data.get(field_name)
+        if hasattr(value, 'isoformat'):
+            data[field_name] = value.isoformat()
+    return data
+
 git_api_bp = Blueprint('git_api', __name__)
 
 def require_auth(f):
@@ -397,14 +415,11 @@ def get_commits(repo_id):
         cursor.execute(query, params)
         rows = cursor.fetchall()
         
-        columns = [desc[0] for desc in cursor.description]
         commits = []
         
         for row in rows:
-            commit = dict(zip(columns, row))
-            # Format date
-            if commit.get('commit_date'):
-                commit['commit_date'] = commit['commit_date']
+            commit = _row_to_dict(row, getattr(cursor, 'description', None) and [desc[0] for desc in cursor.description])
+            _serialize_datetime_fields(commit, ['commit_date', 'created_at', 'updated_at'])
             commits.append(commit)
         
         return jsonify({
@@ -476,8 +491,8 @@ def create_entry_from_commit(commit_hash):
                 'error': 'Commit not found'
             }), 404
         
-        columns = [desc[0] for desc in cursor.description]
-        commit = dict(zip(columns, row))
+        commit = _row_to_dict(row, getattr(cursor, 'description', None) and [desc[0] for desc in cursor.description])
+        _serialize_datetime_fields(commit, ['commit_date', 'created_at', 'updated_at'])
         
         # Check if entry already exists
         if commit.get('entry_id'):
@@ -720,8 +735,8 @@ def get_entry_commits(entry_id):
                 ORDER BY c.commit_date DESC
             ''', (entry_id,))
             
-            columns = [desc[0] for desc in cursor.description]
-            commits = [dict(zip(columns, row)) for row in cursor.fetchall()]
+            columns = getattr(cursor, 'description', None) and [desc[0] for desc in cursor.description]
+            commits = [_serialize_datetime_fields(_row_to_dict(row, columns), ['commit_date', 'created_at', 'updated_at']) for row in cursor.fetchall()]
             logger.info(f"Found {len(commits)} commits for entry {entry_id}")
         except Exception as query_error:
             logger.error(f"Error querying commits for entry {entry_id}: {query_error}", exc_info=True)

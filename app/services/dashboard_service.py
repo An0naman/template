@@ -13,6 +13,23 @@ from app.db import get_connection
 
 logger = logging.getLogger(__name__)
 
+
+def _coerce_datetime(value):
+    """Accept either ISO strings or native datetime objects from the DB layer."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        return datetime.fromisoformat(value.replace('Z', '+00:00'))
+    raise TypeError(f"Unsupported datetime value type: {type(value).__name__}")
+
+
+def _serialize_datetime(value):
+    """Return ISO string for JSON-friendly widget payloads."""
+    dt = _coerce_datetime(value)
+    return dt.isoformat() if dt else None
+
 class DashboardService:
     """Service for aggregating dashboard data from various sources"""
     
@@ -977,7 +994,7 @@ Please incorporate these specific instructions into your analysis and summary.""
                     'commit_hash': row['commit_hash'],
                     'author': row['author'],
                     'message': row['message'],
-                    'commit_date': row['commit_date'],
+                    'commit_date': _serialize_datetime(row['commit_date']),
                     'branch': row['branch'],
                     'default_entry_type_id': row['default_entry_type_id'],
                     'repo_allowed_statuses': row['repo_allowed_statuses']
@@ -1093,7 +1110,7 @@ Please incorporate these specific instructions into your analysis and summary.""
             timeline_data = defaultdict(int)
             
             for row in commits:
-                commit_date = datetime.fromisoformat(row['commit_date'])
+                commit_date = _coerce_datetime(row['commit_date'])
                 
                 if grouping == 'day':
                     period_key = commit_date.strftime('%Y-%m-%d')
