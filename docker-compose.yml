@@ -41,6 +41,7 @@ services:
       - FLASK_APP=run.py
       - PORT=5001
       - NETWORK_RANGE=192.168.68.0/24
+      - DATABASE_URL=mysql://appuser:App_2026!@100.84.208.29:3306/template_dev
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
       - PYTHONUNBUFFERED=1
       # - GEMINI_API_KEY=${GEMINI_API_KEY}
@@ -101,7 +102,7 @@ x-casaos:
   author: an0naman
   category: Productivity
   description:
-    en_us: "Project management and tracking application with entry management, sensor data monitoring, label printing, and push notifications. Built with Flask and SQLite."
+    en_us: "Project management and tracking application with entry management, sensor data monitoring, label printing, and push notifications. Built with Flask and MariaDB support."
   developer: an0naman
   icon: http://homeserver.taile4ced3.ts.net:5001/api/logo
   tagline:

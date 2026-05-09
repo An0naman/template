@@ -229,10 +229,28 @@ def create_app():
                     app_version = f.read().strip()
             else:
                 app_version = '1.0.0'
-            return {'app_version': app_version}
+
+            database_url = app.config.get('DATABASE_URL', '') or ''
+            db_url_lower = database_url.lower()
+            if db_url_lower.startswith('mysql://') or db_url_lower.startswith('mariadb://'):
+                database_type = 'MariaDB/MySQL'
+            elif db_url_lower.startswith('postgres://') or db_url_lower.startswith('postgresql://'):
+                database_type = 'PostgreSQL'
+            elif db_url_lower.startswith('sqlite://'):
+                database_type = 'SQLite'
+            else:
+                database_type = 'SQLite'
+
+            return {
+                'app_version': app_version,
+                'database_type': database_type
+            }
         except Exception as e:
             app.logger.error(f"Error reading version file: {e}")
-            return {'app_version': '1.0.0'}
+            return {
+                'app_version': '1.0.0',
+                'database_type': 'SQLite'
+            }
 
     # Initialize and start the task scheduler
     from .scheduler import scheduler

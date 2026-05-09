@@ -21,6 +21,9 @@ def _adapt_ddl(sql):
     """Convert SQLite DDL to MariaDB-compatible DDL (called inside MySQL wrapper)."""
     sql = sql.replace('AUTOINCREMENT', 'AUTO_INCREMENT')
     sql = re.sub(r'DEFAULT "([^"]*)"', r"DEFAULT '\1'", sql)
+    # MySQL/MariaDB cannot index TEXT columns without a key length.
+    # For SQLite schemas that use TEXT PRIMARY KEY, map to VARCHAR(255) PRIMARY KEY.
+    sql = re.sub(r'\b(\w+)\s+TEXT\s+PRIMARY\s+KEY\b', r'\1 VARCHAR(255) PRIMARY KEY', sql, flags=re.IGNORECASE)
     return sql
 
 
@@ -71,6 +74,9 @@ class _MySQLCursorWrapper:
 
     def __iter__(self):
         return iter(self._c)
+
+    def close(self):
+        return self._c.close()
 
 
 class _MySQLConnWrapper:
