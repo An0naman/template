@@ -367,6 +367,42 @@
         div.textContent = text;
         return div.innerHTML;
     }
+
+    function normalizeCardinality(value) {
+        if (value === -1 || value === '-1' || value === 'many' || value === null || value === undefined || value === '') {
+            return -1;
+        }
+
+        if (value === 1 || value === '1' || value === 'one') {
+            return 1;
+        }
+
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : -1;
+    }
+
+    function getCurrentSideRelationshipCount(definition, relationships) {
+        const isFromSide = definition.entry_type_id_from === entryTypeId;
+        const currentSideCardinality = normalizeCardinality(
+            isFromSide ? definition.cardinality_from : definition.cardinality_to
+        );
+
+        if (currentSideCardinality === -1 || definition.entry_type_id_from !== definition.entry_type_id_to) {
+            return {
+                currentCount: relationships.length,
+                canAddMore: currentSideCardinality === -1 || relationships.length < currentSideCardinality
+            };
+        }
+
+        const matchingRelationships = relationships.filter(rel =>
+            normalizeCardinality(rel.current_entry_cardinality) === currentSideCardinality
+        );
+
+        return {
+            currentCount: matchingRelationships.length,
+            canAddMore: matchingRelationships.length < currentSideCardinality
+        };
+    }
     
     // Load relationships on page load
     loadRelationships();
@@ -484,8 +520,7 @@
             const relationships = groupedRelationships[def.id] || [];
             
             const displayLabel = isFromSide ? def.label_from_side : def.label_to_side;
-            const relevantCardinality = isFromSide ? def.cardinality_from : def.cardinality_to;
-            const canAddMore = relevantCardinality === -1 || relationships.length < relevantCardinality;
+            const { currentCount, canAddMore } = getCurrentSideRelationshipCount(def, relationships);
             
             const isEmpty = relationships.length === 0;
             if (isEmpty) hasEmptyCards = true;
@@ -500,7 +535,7 @@
                                style="display: none;"
                                title="Drag to reorder"></i>
                             <h6 class="mb-0">${escapeHtml(displayLabel || def.name)}</h6>
-                            <span class="badge bg-secondary">${relationships.length}</span>
+                                     <span class="badge bg-secondary">${currentCount}</span>
                         </div>
                         <div class="d-flex gap-2 align-items-center flex-wrap">
                             <select class="form-select form-select-sm relationship-state-filter" 
@@ -1555,7 +1590,8 @@
                             </button>
                             <button type="button" 
                                     class="btn btn-primary" 
-                                    id="btnSubmit_${definitionId}">
+                                    id="btnSubmit_${definitionId}"
+                                    disabled>
                                 <i class="fas fa-check me-1"></i>
                                 Add Relationship
                             </button>
@@ -1585,6 +1621,14 @@
         const newEntryFields = document.getElementById(`newEntryFields_${definitionId}`);
         const selectedEntryIdInput = document.getElementById(`selectedEntryId_${definitionId}`);
         const submitBtn = document.getElementById(`btnSubmit_${definitionId}`);
+        const newEntryTitleInput = document.getElementById(`newEntryTitle_${definitionId}`);
+
+        function updateSubmitState() {
+            const hasExistingSelection = Boolean(selectedEntryIdInput.value);
+            const hasNewTitle = newEntryTitleInput && newEntryTitleInput.value.trim().length > 0;
+
+            submitBtn.disabled = createNewCheckbox.checked ? !hasNewTitle : !hasExistingSelection;
+        }
         
         // Get already related entry IDs for this definition to exclude them
         const alreadyRelatedIds = new Set();
@@ -1610,6 +1654,9 @@
         searchInput.addEventListener('input', function() {
             clearTimeout(searchTimeout);
             const query = this.value.trim();
+
+            selectedEntryIdInput.value = '';
+            updateSubmitState();
             
             if (query.length < 2) {
                 searchResults.style.display = 'none';
@@ -1649,6 +1696,7 @@
                                 // Uncheck create new
                                 createNewCheckbox.checked = false;
                                 newEntryFields.style.display = 'none';
+                                updateSubmitState();
                             });
                         });
                     }
@@ -1673,7 +1721,15 @@
                 newEntryFields.style.display = 'none';
                 searchInput.disabled = false;
             }
+
+            updateSubmitState();
         });
+
+        if (newEntryTitleInput) {
+            newEntryTitleInput.addEventListener('input', updateSubmitState);
+        }
+
+        updateSubmitState();
         
         // Submit
         submitBtn.addEventListener('click', async function() {

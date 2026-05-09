@@ -456,6 +456,19 @@
         const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
         return luminance > 0.5 ? '#000' : '#fff';
     }
+
+    function normalizeCardinality(value) {
+        if (value === -1 || value === '-1' || value === 'many' || value === null || value === undefined || value === '') {
+            return -1;
+        }
+
+        if (value === 1 || value === '1' || value === 'one') {
+            return 1;
+        }
+
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : -1;
+    }
     
     // Store custom grid order
     let customGridOrder = {};
@@ -548,7 +561,7 @@
             
             // Determine the appropriate label and cardinality
             const displayLabel = isFromSide ? def.label_from_side : def.label_to_side;
-            const relevantCardinality = isFromSide ? def.cardinality_from : def.cardinality_to;
+            const relevantCardinality = normalizeCardinality(isFromSide ? def.cardinality_from : def.cardinality_to);
             const canAddMore = relevantCardinality === -1 || relationships.length < relevantCardinality;
             
             // Check if this card is empty
