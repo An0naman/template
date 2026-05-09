@@ -72,19 +72,12 @@ def api_update_system_params():
             
             # Allow any parameter in the whitelist OR any parameter starting with 'label_'
             if param_name in allowed_params or param_name.startswith('label_'):
+                # Use REPLACE INTO which handles both insert and update atomically
                 cursor.execute(
-                    "UPDATE SystemParameters SET parameter_value = ? WHERE parameter_name = ?",
-                    (param_value, param_name)
+                    "INSERT OR REPLACE INTO SystemParameters (parameter_name, parameter_value) VALUES (?, ?)",
+                    (param_name, param_value)
                 )
-                if cursor.rowcount > 0:
-                    updated_count += 1
-                else:
-                    # If parameter doesn't exist, insert it
-                    cursor.execute(
-                        "INSERT INTO SystemParameters (parameter_name, parameter_value) VALUES (?, ?)",
-                        (param_name, param_value)
-                    )
-                    updated_count += 1
+                updated_count += 1
         conn.commit()
         
         # If AI parameters were updated, reconfigure the AI services

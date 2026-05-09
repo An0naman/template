@@ -1718,6 +1718,10 @@
                 const models = Array.isArray(data.models) ? data.models : [];
                 modelSelect.innerHTML = '';
 
+                if (helpText && data.warning) {
+                    helpText.textContent = data.warning;
+                }
+
                 if (!models.length) {
                     modelSelect.innerHTML = `<option value="${preferredModel}">${preferredModel}</option>`;
                     if (helpText) helpText.textContent = 'No models were reported by this Ollama server.';
@@ -1887,7 +1891,6 @@
             
             // Load provider model lists
             loadGeminiModels();
-            loadOllamaModels();
             refreshAiServiceStatus();
 
             const ollamaBaseUrl = document.getElementById('ollamaBaseUrl');

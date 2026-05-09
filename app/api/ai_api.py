@@ -141,6 +141,7 @@ def get_ollama_models():
         from app.db import get_system_parameters
 
         params = get_system_parameters()
+        default_model = params.get('ollama_model_name', 'llama3.2:latest') or 'llama3.2:latest'
         base_url = normalize_ollama_base_url(
             request.args.get('base_url')
             or os.getenv('OLLAMA_BASE_URL')
@@ -151,11 +152,22 @@ def get_ollama_models():
         if not base_url:
             return jsonify({'error': 'Ollama base URL is required'}), 400
 
-        models, api_style = fetch_ollama_models(base_url, timeout=10)
+        try:
+            models, api_style = fetch_ollama_models(base_url, timeout=6)
+        except (requests.Timeout, requests.ConnectionError) as e:
+            logger.warning("Ollama model discovery unreachable for %s: %s", base_url, e)
+            # Non-fatal: keep settings usable by returning the currently saved model.
+            return jsonify({
+                'models': [{'id': default_model, 'name': default_model}],
+                'default': default_model,
+                'base_url': base_url,
+                'api_style': None,
+                'warning': f'Ollama server is unreachable from this app ({base_url}). Showing saved model only.'
+            }), 200
 
         return jsonify({
             'models': models,
-            'default': params.get('ollama_model_name', 'llama3.2:latest') or 'llama3.2:latest',
+            'default': default_model,
             'base_url': base_url,
             'api_style': api_style
         })
