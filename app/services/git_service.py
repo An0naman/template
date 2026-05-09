@@ -7,6 +7,7 @@ from git import Repo, InvalidGitRepositoryError, GitCommandError
 import os
 import logging
 import base64
+import json
 from datetime import datetime
 from typing import Optional, Dict, List, Tuple
 import sqlite3
@@ -110,6 +111,16 @@ class GitService:
         except Exception as e:
             logger.warning(f"Failed to remove {path}: {e}, trying with ignore_errors")
             shutil.rmtree(path, ignore_errors=True)
+
+    @staticmethod
+    def _clone_error_needs_cleanup(clone_error: Exception) -> bool:
+        """Return True when git failed because the target path already exists."""
+        message = str(clone_error)
+        return (
+            'already exists and is not an empty directory' in message
+            or 'could not create work tree dir' in message
+            or 'File exists' in message
+        )
     
     def connect_github(self, token: str) -> bool:
         """Connect to GitHub using Personal Access Token"""
@@ -307,10 +318,13 @@ class GitService:
                 repo = Repo.clone_from(clone_url, local_path)
                 logger.info(f"Cloned repository to {local_path}")
             except GitCommandError as clone_error:
-                # If clone fails because directory exists, clean it up and retry
-                if 'already exists and is not an empty directory' in str(clone_error):
+                # If clone fails because the path already exists, clean it up and retry.
+                if self._clone_error_needs_cleanup(clone_error):
                     logger.warning(f"Directory {local_path} exists but is not empty, cleaning up")
-                    self._safe_rmtree(local_path)
+                    if os.path.isdir(local_path):
+                        self._safe_rmtree(local_path)
+                    elif os.path.exists(local_path):
+                        os.remove(local_path)
                     repo = Repo.clone_from(clone_url, local_path)
                     logger.info(f"Cloned repository to {local_path} after cleanup")
                 else:
