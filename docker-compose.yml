@@ -13,6 +13,7 @@ services:
     
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
+      - "com.centurylinklabs.watchtower.scope=development-environment"
     
     # Bluetooth support for Niimbot printers
     devices:
@@ -84,12 +85,13 @@ services:
     
     environment:
       - WATCHTOWER_POLL_INTERVAL=300
+      - DOCKER_API_VERSION=1.41
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_INCLUDE_STOPPED=false
       - WATCHTOWER_LABEL_ENABLE=true
       - TZ=UTC
     
-    command: --label-enable
+    command: --label-enable --scope development-environment
 
 x-casaos:
   architectures:

@@ -12,6 +12,7 @@ services:
     # Watchtower label - enables automatic updates
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
+      - "com.centurylinklabs.watchtower.scope=${APP_NAME:-myapp}"
     
     # Restart policy
     restart: always
@@ -151,6 +152,9 @@ services:
     environment:
       # Check for updates every 5 minutes (300 seconds)
       - WATCHTOWER_POLL_INTERVAL=${WATCHTOWER_POLL_INTERVAL:-300}
+
+      # Force modern Docker API compatibility for newer Docker daemons
+      - DOCKER_API_VERSION=${DOCKER_API_VERSION:-1.41}
       
       # Remove old images after updating
       - WATCHTOWER_CLEANUP=true
@@ -169,7 +173,7 @@ services:
       - TZ=${TZ:-UTC}
     
     # Only monitor containers with the watchtower label
-    command: --label-enable
+    command: --label-enable --scope ${APP_NAME:-myapp}
 
 # Optional: Named volume for data persistence
 # volumes:

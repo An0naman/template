@@ -81,6 +81,7 @@ sync_template_defaults() {
     append_if_missing "SECRET_KEY" "change-this-in-production"
     append_if_missing "DEBUG" "false"
     append_if_missing "WATCHTOWER_POLL_INTERVAL" "300"
+    append_if_missing "DOCKER_API_VERSION" "1.41"
     append_if_missing "WATCHTOWER_NOTIFICATIONS" ""
     append_if_missing "WATCHTOWER_NOTIFICATION_URL" ""
     append_if_missing "TZ" "UTC"

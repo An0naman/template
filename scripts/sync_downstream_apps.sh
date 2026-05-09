@@ -55,6 +55,7 @@ for app_dir in "$APPS_DIR"/*; do
     append_if_missing "$env_file" "SECRET_KEY" "change-this-in-production"
     append_if_missing "$env_file" "DEBUG" "false"
     append_if_missing "$env_file" "WATCHTOWER_POLL_INTERVAL" "300"
+    append_if_missing "$env_file" "DOCKER_API_VERSION" "1.41"
     append_if_missing "$env_file" "WATCHTOWER_NOTIFICATIONS" ""
     append_if_missing "$env_file" "WATCHTOWER_NOTIFICATION_URL" ""
     append_if_missing "$env_file" "TZ" "UTC"

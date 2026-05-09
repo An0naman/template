@@ -56,6 +56,30 @@ def _ensure_env(service: dict, key: str, value: str) -> None:
     service["environment"] = {key: value}
 
 
+def _ensure_label(service: dict, key: str, value: str) -> None:
+    labels = service.get("labels")
+    target = f"{key}={value}"
+
+    if labels is None:
+        service["labels"] = [target]
+        return
+
+    if isinstance(labels, dict):
+        labels.setdefault(key, value)
+        return
+
+    if isinstance(labels, list):
+        existing_keys = set()
+        for item in labels:
+            if isinstance(item, str) and "=" in item:
+                existing_keys.add(item.split("=", 1)[0])
+        if key not in existing_keys:
+            labels.append(target)
+        return
+
+    service["labels"] = [target]
+
+
 def main() -> int:
     if not COMPOSE_PATH.exists():
         print("docker-compose.yml not found", file=sys.stderr)
@@ -97,10 +121,14 @@ def main() -> int:
     _ensure_env(app_service, "AI_PROVIDER", "${AI_PROVIDER:-}")
     _ensure_env(app_service, "OLLAMA_BASE_URL", "${OLLAMA_BASE_URL:-}")
     _ensure_env(app_service, "OLLAMA_MODEL_NAME", "${OLLAMA_MODEL_NAME:-}")
+    _ensure_label(app_service, "com.centurylinklabs.watchtower.enable", "true")
+    _ensure_label(app_service, "com.centurylinklabs.watchtower.scope", "${APP_NAME:-myapp}")
 
     watchtower_service = services.get("watchtower")
     if isinstance(watchtower_service, dict):
         _ensure_env(watchtower_service, "TZ", "${TZ:-UTC}")
+        _ensure_env(watchtower_service, "DOCKER_API_VERSION", "${DOCKER_API_VERSION:-1.41}")
+        watchtower_service["command"] = "--label-enable --scope ${APP_NAME:-myapp}"
 
     COMPOSE_PATH.write_text(
         yaml.safe_dump(data, sort_keys=False, default_flow_style=False),

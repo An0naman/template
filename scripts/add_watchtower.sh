@@ -57,6 +57,9 @@ else
     environment:
       # Check for updates every 5 minutes (300 seconds)
       - WATCHTOWER_POLL_INTERVAL=${WATCHTOWER_POLL_INTERVAL:-300}
+
+            # Force modern Docker API compatibility for newer Docker daemons
+            - DOCKER_API_VERSION=${DOCKER_API_VERSION:-1.41}
       
       # Remove old images after updating
       - WATCHTOWER_CLEANUP=true
@@ -98,6 +101,9 @@ if [ -f "$APP_DIR/.env" ]; then
 # Default: 300 (5 minutes)
 # Options: 60 (1 min), 300 (5 min), 3600 (1 hour), 86400 (daily)
 WATCHTOWER_POLL_INTERVAL=300
+
+# Docker API compatibility for watchtower
+DOCKER_API_VERSION=1.41
 
 # Notification service for update alerts (optional)
 # Leave empty to disable notifications
