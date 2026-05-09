@@ -225,12 +225,19 @@ def create_app():
     @app.context_processor
     def inject_version():
         try:
+            def to_bool(value):
+                return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
+
             version_file = os.path.join(PROJECT_ROOT, 'VERSION')
             if os.path.exists(version_file):
                 with open(version_file, 'r') as f:
                     app_version = f.read().strip()
             else:
                 app_version = '1.0.0'
+
+            app_env = os.environ.get('APP_ENV', os.environ.get('FLASK_ENV', '')).strip().lower()
+            manual_controls_enabled = to_bool(os.environ.get('ENABLE_MANUAL_VERSION_CONTROL', 'false'))
+            is_dev_environment = bool(app.config.get('DEBUG', False)) or app_env in ('dev', 'development', 'local') or manual_controls_enabled
 
             database_url = app.config.get('DATABASE_URL', '') or ''
             db_url_lower = database_url.lower()
@@ -245,13 +252,15 @@ def create_app():
 
             return {
                 'app_version': app_version,
-                'database_type': database_type
+                'database_type': database_type,
+                'is_dev_environment': is_dev_environment
             }
         except Exception as e:
             app.logger.error(f"Error reading version file: {e}")
             return {
                 'app_version': '1.0.0',
-                'database_type': 'SQLite'
+                'database_type': 'SQLite',
+                'is_dev_environment': False
             }
 
     # Initialize and start the task scheduler

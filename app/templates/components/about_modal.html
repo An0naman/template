@@ -75,6 +75,7 @@
                         </div>
                     </div>
 
+                    {% if is_dev_environment %}
                     <!-- Version Management -->
                     <div class="about-section mt-4">
                         <h6 class="about-section-title">
@@ -100,6 +101,7 @@
                             <div id="aboutVersionMsg" class="alert d-none mb-0 py-2" role="alert"></div>
                         </div>
                     </div>
+                    {% endif %}
                 </div>
             </div>
             <div class="modal-footer">
@@ -157,6 +159,7 @@
     }
 </style>
 
+{% if is_dev_environment %}
 <script>
 (function() {
     const modal = document.getElementById('aboutModal');
@@ -251,3 +254,4 @@
     });
 })();
 </script>
+{% endif %}

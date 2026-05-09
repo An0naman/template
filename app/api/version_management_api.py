@@ -8,6 +8,15 @@ version_management_api_bp = Blueprint('version_management_api', __name__)
 SEMVER_RE = re.compile(r'^\d+\.\d+\.\d+$')
 
 
+def _to_bool(value):
+    return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def _manual_controls_allowed():
+    app_env = os.environ.get('APP_ENV', os.environ.get('FLASK_ENV', '')).strip().lower()
+    return _to_bool(os.environ.get('DEBUG', 'false')) or app_env in ('dev', 'development', 'local') or _to_bool(os.environ.get('ENABLE_MANUAL_VERSION_CONTROL', 'false'))
+
+
 def _project_root():
     return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
@@ -104,6 +113,9 @@ def get_version():
 
 @version_management_api_bp.route('/version/manage/set', methods=['POST'])
 def set_version():
+    if not _manual_controls_allowed():
+        return jsonify({'error': 'Manual version changes are only enabled in development environments.'}), 403
+
     data = request.get_json(silent=True) or {}
     version = str(data.get('version', '')).strip()
 
@@ -120,6 +132,9 @@ def set_version():
 
 @version_management_api_bp.route('/version/manage/bump', methods=['POST'])
 def bump_version():
+    if not _manual_controls_allowed():
+        return jsonify({'error': 'Manual version changes are only enabled in development environments.'}), 403
+
     data = request.get_json(silent=True) or {}
     bump_type = str(data.get('type', 'patch')).strip().lower()
 
