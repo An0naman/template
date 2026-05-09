@@ -2,6 +2,7 @@
 from flask import Blueprint, request, jsonify, g, current_app
 import logging
 import json
+import sqlite3
 from ..serializers import serialize_relationship_definition, serialize_entry_relationship # Import serializers
 from ..db import get_connection
 

@@ -378,6 +378,10 @@
         try {
             // Fetch relationship definitions
             const defsResponse = await fetch('/api/relationship_definitions');
+            if (!defsResponse.ok) {
+                const errorText = await defsResponse.text();
+                throw new Error(`relationship_definitions failed (${defsResponse.status}): ${errorText.slice(0, 200)}`);
+            }
             const definitions = await defsResponse.json();
             
             // Filter to relevant definitions for this entry type
@@ -403,11 +407,18 @@
             
             // Fetch existing relationships
             const relsResponse = await fetch(`/api/entries/${entryId}/relationships`);
+            if (!relsResponse.ok) {
+                const errorText = await relsResponse.text();
+                throw new Error(`entry relationships failed (${relsResponse.status}): ${errorText.slice(0, 200)}`);
+            }
             const relationships = await relsResponse.json();
             
             // Fetch custom grid order for this SECTION (not entry type)
             try {
                 const orderResponse = await fetch(`/api/sections/{{ section_id }}/relationship_grid_order`);
+                if (!orderResponse.ok) {
+                    throw new Error(`grid order fetch failed (${orderResponse.status})`);
+                }
                 customGridOrder = await orderResponse.json();
             } catch (error) {
                 console.warn('Could not load section grid order, using default:', error);
