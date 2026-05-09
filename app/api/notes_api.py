@@ -6,7 +6,7 @@ import logging
 import os
 from werkzeug.utils import secure_filename
 from ..serializers import serialize_note # Import the serializer
-from ..db import get_system_parameters # Import system parameters
+from ..db import get_system_parameters, get_connection # Import system parameters and db connection
 
 def get_allowed_file_types():
     """Get allowed file types from system parameters"""

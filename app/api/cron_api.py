@@ -4,6 +4,7 @@ import subprocess
 import os
 import logging
 from tempfile import NamedTemporaryFile
+from ..db import get_connection
 
 # Define a Blueprint for Cron Management API
 cron_api_bp = Blueprint('cron_api', __name__)

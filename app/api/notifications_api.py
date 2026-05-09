@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import logging
 from ..utils.sensor_type_manager import ensure_sensor_type_exists
 from ..services.ntfy_service import send_app_notification_via_ntfy
+from ..db import get_connection
 
 # Define a Blueprint for Notifications API
 notifications_api_bp = Blueprint('notifications_api', __name__)

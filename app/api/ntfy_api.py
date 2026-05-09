@@ -2,6 +2,7 @@
 from flask import Blueprint, request, jsonify, g, current_app
 import logging
 from ..services.ntfy_service import NtfyService, send_app_notification_via_ntfy
+from ..db import get_connection
 
 # Define a Blueprint for ntfy API
 ntfy_api_bp = Blueprint('ntfy_api', __name__)

@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify, g, current_app
 import json
 import logging
 from datetime import datetime
-from ..db import get_user_preference, set_user_preference, get_all_user_preferences
+from ..db import get_user_preference, set_user_preference, get_all_user_preferences, get_connection
 
 # Define a Blueprint for User Preferences API
 user_preferences_api_bp = Blueprint('user_preferences_api', __name__)

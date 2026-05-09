@@ -1,7 +1,7 @@
 # template_app/app/api/search_params_api.py
 from flask import Blueprint, request, jsonify, g, current_app
 import logging
-from ..db import get_system_parameters
+from ..db import get_system_parameters, get_connection
 
 # Define a Blueprint for Search Parameters API
 search_params_api_bp = Blueprint('search_params_api', __name__)

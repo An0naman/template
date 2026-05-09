@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify, g, current_app
 import logging
 import json
 from ..serializers import serialize_relationship_definition, serialize_entry_relationship # Import serializers
+from ..db import get_connection
 
 # Define a Blueprint for Relationships API
 relationships_api_bp = Blueprint('relationships_api', __name__)

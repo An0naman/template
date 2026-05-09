@@ -8,7 +8,7 @@ import qrcode
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 import os
 from datetime import datetime
-from ..db import get_system_parameters
+from ..db import get_system_parameters, get_connection
 
 # Define a Blueprint for Labels API
 labels_api_bp = Blueprint('labels_api', __name__)

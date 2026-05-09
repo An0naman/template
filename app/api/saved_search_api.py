@@ -2,6 +2,7 @@
 from flask import Blueprint, request, jsonify, g, current_app
 import logging
 from datetime import datetime
+from ..db import get_connection
 
 # Define a Blueprint for Saved Search API
 saved_search_api_bp = Blueprint('saved_search_api', __name__)

@@ -1,6 +1,7 @@
 # template_app/app/api/shared_relationships_api.py
 from flask import Blueprint, request, jsonify, g, current_app
 import logging
+from ..db import get_connection
 
 # Define a Blueprint for Shared Relationships API
 shared_relationships_api_bp = Blueprint('shared_relationships_api', __name__)

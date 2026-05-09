@@ -1,7 +1,7 @@
 # template_app/app/api/system_params_api.py
 from flask import Blueprint, request, jsonify, g, current_app
 import logging
-from ..db import get_system_parameters # Import the helper function
+from ..db import get_system_parameters, get_connection # Import the helper functions
 from ..utils.sensor_type_manager import get_sensor_types_from_device_data
 
 # Define a Blueprint for System Parameters API
