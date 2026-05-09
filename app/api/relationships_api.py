@@ -377,7 +377,7 @@ def add_new_entry_relationship(entry_id):
         # Create the new entry with the correct entry_type_id and default status
         cursor.execute('''
             INSERT INTO Entry (title, description, entry_type_id, status, created_at) 
-            VALUES (?, ?, ?, ?, datetime('now'))
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
         ''', (new_entry_title, new_entry_description, target_entry_type_id, status))
         new_entry_id = cursor.lastrowid
 
