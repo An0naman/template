@@ -140,6 +140,7 @@ def create_app():
     from .api.entry_layout_api import entry_layout_api_bp
     from .api.milestone_api import milestone_api_bp
     from .api.health_api import health_api_bp
+    from .api.version_management_api import version_management_api_bp
     from .api.milestone_template_api import milestone_template_api_bp
     from .api.entry_type_relationship_api import entry_type_relationship_api_bp
     from .api.planning_api import planning_api_bp
@@ -184,6 +185,7 @@ def create_app():
     app.register_blueprint(entry_layout_api_bp, url_prefix='/api')
     app.register_blueprint(milestone_api_bp, url_prefix='/api')
     app.register_blueprint(health_api_bp, url_prefix='/api')
+    app.register_blueprint(version_management_api_bp, url_prefix='/api')
     app.register_blueprint(milestone_template_api_bp, url_prefix='/api')
     app.register_blueprint(entry_type_relationship_api_bp, url_prefix='/api')
     app.register_blueprint(planning_api_bp)

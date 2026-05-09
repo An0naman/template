@@ -23,7 +23,7 @@
                             <div class="about-row">
                                 <span class="about-label">Version:</span>
                                 <span class="about-value">
-                                    <span class="badge bg-primary">v{{ app_version }}</span>
+                                    <span class="badge bg-primary" id="aboutCurrentVersion">v{{ app_version }}</span>
                                 </span>
                             </div>
                             {% if project_subtitle %}
@@ -72,6 +72,32 @@
                                 <span class="about-label">Framework:</span>
                                 <span class="about-value">Flask</span>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Version Management -->
+                    <div class="about-section mt-4">
+                        <h6 class="about-section-title">
+                            <i class="fas fa-code-branch me-2"></i>Version Management
+                        </h6>
+                        <div class="about-info">
+                            <div class="about-row align-items-start" style="flex-direction: column; gap: 0.5rem;">
+                                <label for="aboutVersionInput" class="about-label mb-0">Set exact version:</label>
+                                <div class="d-flex w-100 gap-2">
+                                    <input type="text" class="form-control form-control-sm" id="aboutVersionInput" placeholder="e.g. 3.1.0">
+                                    <button type="button" class="btn btn-sm btn-primary" id="aboutSetVersionBtn">Set</button>
+                                </div>
+                                <small class="text-muted">Use semantic format: major.minor.patch</small>
+                            </div>
+                            <div class="about-row align-items-start" style="flex-direction: column; gap: 0.5rem;">
+                                <span class="about-label">Quick bump:</span>
+                                <div class="d-flex flex-wrap gap-2 w-100">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bump-type="patch">Patch +1</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bump-type="minor">Minor +1</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bump-type="major">Major +1</button>
+                                </div>
+                            </div>
+                            <div id="aboutVersionMsg" class="alert d-none mb-0 py-2" role="alert"></div>
                         </div>
                     </div>
                 </div>
@@ -130,3 +156,98 @@
         background-color: var(--theme-bg-surface, var(--bs-gray-800));
     }
 </style>
+
+<script>
+(function() {
+    const modal = document.getElementById('aboutModal');
+    if (!modal) return;
+
+    const versionBadge = document.getElementById('aboutCurrentVersion');
+    const versionInput = document.getElementById('aboutVersionInput');
+    const setBtn = document.getElementById('aboutSetVersionBtn');
+    const msg = document.getElementById('aboutVersionMsg');
+
+    function setMessage(text, type) {
+        if (!msg) return;
+        msg.className = `alert mb-0 py-2 alert-${type}`;
+        msg.textContent = text;
+    }
+
+    function clearMessage() {
+        if (!msg) return;
+        msg.className = 'alert d-none mb-0 py-2';
+        msg.textContent = '';
+    }
+
+    function setVersionUI(version) {
+        if (versionBadge) versionBadge.textContent = `v${version}`;
+        if (versionInput) versionInput.value = version;
+    }
+
+    async function refreshVersion() {
+        try {
+            const res = await fetch('/api/version/manage');
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to load version');
+            if (data.version) setVersionUI(data.version);
+        } catch (error) {
+            setMessage(error.message, 'danger');
+        }
+    }
+
+    async function postJson(url, payload) {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Request failed');
+        return data;
+    }
+
+    if (setBtn) {
+        setBtn.addEventListener('click', async function() {
+            clearMessage();
+            const version = (versionInput?.value || '').trim();
+            if (!version) {
+                setMessage('Enter a semantic version, e.g. 3.1.0', 'warning');
+                return;
+            }
+
+            setBtn.disabled = true;
+            try {
+                const data = await postJson('/api/version/manage/set', { version });
+                setVersionUI(data.version);
+                setMessage(data.message || 'Version updated', 'success');
+            } catch (error) {
+                setMessage(error.message, 'danger');
+            } finally {
+                setBtn.disabled = false;
+            }
+        });
+    }
+
+    modal.querySelectorAll('[data-bump-type]').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            clearMessage();
+            const bumpType = this.getAttribute('data-bump-type');
+            this.disabled = true;
+            try {
+                const data = await postJson('/api/version/manage/bump', { type: bumpType });
+                setVersionUI(data.version);
+                setMessage(data.message || 'Version bumped', 'success');
+            } catch (error) {
+                setMessage(error.message, 'danger');
+            } finally {
+                this.disabled = false;
+            }
+        });
+    });
+
+    modal.addEventListener('show.bs.modal', function() {
+        clearMessage();
+        refreshVersion();
+    });
+})();
+</script>
