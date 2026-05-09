@@ -72,34 +72,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update CHANGELOG.md
-        run: |
-          DATE=$(date +%Y-%m-%d)
-          VERSION=${{ github.ref_name }}
-          
-          # Create new changelog entry
-          cat > NEW_CHANGELOG.md << EOF
-          # Changelog
-          
-          All notable changes to this project will be documented in this file.
-          
-          ## [${VERSION}] - ${DATE}
-          
-          $(cat RELEASE_CHANGELOG.md)
-          
-          EOF
-          
-          # Append existing changelog if it exists
-          if [ -f CHANGELOG.md ]; then
-            tail -n +3 CHANGELOG.md >> NEW_CHANGELOG.md
-          fi
-          
-          mv NEW_CHANGELOG.md CHANGELOG.md
-
-      - name: Commit updated CHANGELOG
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add CHANGELOG.md
-          git commit -m "Update CHANGELOG for ${{ github.ref_name }}" || echo "No changes to commit"
-          git push origin HEAD:main || echo "No changes to push"
