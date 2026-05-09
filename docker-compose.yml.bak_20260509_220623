@@ -31,8 +31,8 @@ services:
     volumes:
       - ./app:/app/app # Mount source code for live updates
       - ./VERSION:/app/VERSION # Mount version file for live updates
-      - /mnt/100.84.208.29/NAS/docker-apps/development-environment/data:/app/data  # Bind mount to use the same data directory
-      - /mnt/100.84.208.29/NAS/docker-apps/development-environment/uploads:/app/uploads  # Persist uploaded files (logos, attachments, etc.)
+      - ./data:/app/data  # Bind mount to use the same data directory
+      - ./uploads:/app/uploads  # Persist uploaded files (logos, attachments, etc.)
       - /var/run/dbus:/var/run/dbus
       - /run/dbus:/run/dbus
       - /sys/class/bluetooth:/sys/class/bluetooth
