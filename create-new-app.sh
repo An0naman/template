@@ -59,14 +59,14 @@ TEMPLATE_DIR="$(cd "$(dirname "$0")/app-instance-template" && pwd)"
 
 # Copy files
 echo -e "${GREEN}→ Copying template files...${NC}"
-cp "$TEMPLATE_DIR/docker-compose.yml" "$APP_DIR/"
-cp "$TEMPLATE_DIR/.env.example" "$APP_DIR/.env"
-cp "$TEMPLATE_DIR/.gitignore" "$APP_DIR/"
-cp "$TEMPLATE_DIR/backup.sh" "$APP_DIR/"
-cp "$TEMPLATE_DIR/update.sh" "$APP_DIR/"
-cp "$TEMPLATE_DIR/run-migrations.sh" "$APP_DIR/"
-cp "$TEMPLATE_DIR/sync-instance-config.py" "$APP_DIR/"
-cp "$TEMPLATE_DIR/README.md" "$APP_DIR/"
+# Copy the entire template skeleton so new helper files are included automatically.
+cp -a "$TEMPLATE_DIR/." "$APP_DIR/"
+
+# Remove cache artifacts that should never be scaffolded.
+rm -rf "$APP_DIR/__pycache__"
+
+# Initialize .env from template example.
+cp "$APP_DIR/.env.example" "$APP_DIR/.env"
 
 # Make scripts executable
 chmod +x "$APP_DIR/backup.sh"
@@ -80,9 +80,11 @@ sed -i "s/^APP_NAME=.*/APP_NAME=${APP_NAME}/" "$APP_DIR/.env"
 sed -i "s/^PORT=.*/PORT=${PORT}/" "$APP_DIR/.env"
 sed -i "s|^TEMPLATE_SOURCE_DIR=.*|TEMPLATE_SOURCE_DIR=${TEMPLATE_DIR}|" "$APP_DIR/.env"
 
-# Create data and uploads directories
+# Create expected runtime directories
 mkdir -p "$APP_DIR/data"
 mkdir -p "$APP_DIR/uploads"
+mkdir -p "$APP_DIR/backups"
+mkdir -p "$APP_DIR/migration-backups"
 
 echo ""
 echo -e "${GREEN}✓ App created successfully!${NC}"

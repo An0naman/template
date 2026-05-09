@@ -102,7 +102,7 @@ services:
       # Optional: MariaDB (leave unset to use local SQLite)
       # Set this to point at your CasaOS MariaDB instance, e.g.:
       #   DATABASE_URL=mysql://appuser:password@100.84.208.29:3306/myapp
-      - DATABASE_URL=mysql://appuser:App_2026!@100.84.208.29:3306/template_dev
+      - DATABASE_URL=${DATABASE_URL:-}
     
     # DNS servers with Tailscale MagicDNS first so `*.ts.net` Ollama hosts resolve in Docker
     dns:

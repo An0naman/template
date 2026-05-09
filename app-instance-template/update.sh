@@ -75,6 +75,7 @@ sync_template_defaults() {
     append_if_missing "GEMINI_API_KEY" ""
     append_if_missing "OLLAMA_BASE_URL" ""
     append_if_missing "OLLAMA_MODEL_NAME" ""
+    append_if_missing "DATABASE_URL" ""
     append_if_missing "NTFY_TOPIC" ""
     append_if_missing "NTFY_SERVER_URL" "https://ntfy.sh"
     append_if_missing "NTFY_AUTH_TOKEN" ""
@@ -94,15 +95,17 @@ sync_template_defaults() {
         echo -e "${GREEN}✓ docker-compose.yml synced with current template defaults${NC}"
     fi
 
-    for helper in backup.sh run-migrations.sh README.md .gitignore; do
-        if [ -f "$template_dir/$helper" ]; then
-            cp "$template_dir/$helper" "./$helper"
-        fi
-    done
+    while IFS= read -r -d '' template_file; do
+        helper="$(basename "$template_file")"
+        case "$helper" in
+            .env.example|docker-compose.yml)
+                continue
+                ;;
+        esac
+        cp "$template_file" "./$helper"
+    done < <(find "$template_dir" -maxdepth 1 -type f -print0)
 
-    if [ -f "$template_dir/update.sh" ]; then
-        cp "$template_dir/update.sh" ./update.sh
-    fi
+    mkdir -p ./data ./uploads ./backups ./migration-backups
 
     chmod +x ./backup.sh ./run-migrations.sh ./update.sh ./sync-instance-config.py 2>/dev/null || true
     echo ""
