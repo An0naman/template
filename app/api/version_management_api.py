@@ -256,6 +256,14 @@ def trigger_deploy():
     except Exception as e:
         return jsonify({'error': f'Failed to sync VERSION file: {str(e)}'}), 500
 
+    # Keep local runtime files in sync with the committed VERSION bump so
+    # dev environment reads reflect the latest increment after deploy trigger.
+    try:
+        _write_version(new_version)
+        _sync_app_json_version(new_version)
+    except Exception as e:
+        current_app.logger.warning(f'Failed to sync local version files after deploy bump: {e}')
+
     # Step 3: Dispatch workflow
     try:
         dispatch_url = f'https://api.github.com/repos/{github_repo}/actions/workflows/{workflow}/dispatches'

@@ -689,24 +689,33 @@ def get_entry_commits(entry_id):
                 'error': 'Entry not found'
             }), 404
         
-        # Check if GitCommit table exists
+        # Check if GitCommit table exists (supports SQLite and MariaDB/MySQL)
         try:
-            cursor.execute("""
-                SELECT name FROM sqlite_master 
-                WHERE type='table' AND name='GitCommit'
-            """)
+            db_type = getattr(cursor, 'db_type', 'sqlite')
+            if db_type == 'mysql':
+                cursor.execute('''
+                    SELECT 1
+                    FROM INFORMATION_SCHEMA.TABLES
+                    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'GitCommit'
+                    LIMIT 1
+                ''')
+            else:
+                cursor.execute('''
+                    SELECT 1
+                    FROM sqlite_master
+                    WHERE type = 'table' AND name = 'GitCommit'
+                    LIMIT 1
+                ''')
             table_exists = cursor.fetchone()
         except Exception as table_check_error:
             logger.error(f"Error checking for GitCommit table: {table_check_error}")
-            # If we can't even check for the table, return empty
             return jsonify({
                 'success': True,
                 'commits': [],
                 'count': 0
             })
-        
+
         if not table_exists:
-            # Git integration tables don't exist yet
             return jsonify({
                 'success': True,
                 'commits': [],
@@ -730,7 +739,7 @@ def get_entry_commits(entry_id):
                     r.name as repository_name,
                     r.url as repository_url
                 FROM GitCommit c
-                JOIN GitRepository r ON c.repository_id = r.id
+                LEFT JOIN GitRepository r ON c.repository_id = r.id
                 WHERE c.entry_id = ?
                 ORDER BY c.commit_date DESC
             ''', (entry_id,))
