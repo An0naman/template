@@ -126,6 +126,46 @@
         width: 3rem;
         height: 3rem;
     }
+    
+    .commit-item.selected {
+        background-color: #e7f3ff !important;
+        border-left-color: #0a58ca !important;
+    }
+    
+    .bulk-actions-panel {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        border-top: 2px solid #dee2e6;
+        padding: 15px 20px;
+        box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+        display: none;
+        z-index: 1000;
+    }
+    
+    .bulk-actions-panel.show {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .bulk-actions-content {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        flex: 1;
+    }
+    
+    .bulk-actions-buttons {
+        display: flex;
+        gap: 10px;
+    }
+    
+    body.bulk-actions-open {
+        padding-bottom: 80px;
+    }
 </style>
 </head>
 <body>
@@ -203,6 +243,26 @@
                 </div>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Bulk Actions Panel -->
+<div class="bulk-actions-panel" id="bulkActionsPanel">
+    <div class="bulk-actions-content">
+        <span id="bulkSelectCount">0 commits selected</span>
+        <div class="flex-grow-1">
+            <select class="form-select form-select-sm" id="bulkLinkEntrySelect" style="width: 250px;">
+                <option value="">-- Select an entry to link --</option>
+            </select>
+        </div>
+    </div>
+    <div class="bulk-actions-buttons">
+        <button class="btn btn-sm btn-primary" id="bulkLinkBtn" onclick="performBulkLink()">
+            <i class="fas fa-link me-1"></i>Link Commits
+        </button>
+        <button class="btn btn-sm btn-secondary" id="bulkClearBtn" onclick="clearBulkSelection()">
+            <i class="fas fa-times me-1"></i>Clear
+        </button>
     </div>
 </div>
 </div>
@@ -387,6 +447,7 @@ async function loadRepositoryStats(repoId) {
 
 // Load commits for repository
 async function loadCommits(repoId) {
+    clearBulkSelection();
     const timeline = document.getElementById('commitTimeline');
     timeline.innerHTML = '<div class="loading"><div class="spinner-border text-primary"></div></div>';
     
@@ -429,17 +490,21 @@ async function loadCommits(repoId) {
 function createCommitElement(commit) {
     const div = document.createElement('div');
     div.className = 'commit-item';
+    div.id = `commit-${commit.commit_hash}`;
     
     const date = new Date(commit.commit_date);
     const hasEntry = commit.entry_id !== null;
     
     div.innerHTML = `
         <div class="d-flex justify-content-between align-items-start mb-2">
-            <div>
-                <strong>${escapeHtml(commit.message)}</strong>
-                <div class="text-muted small mt-1">
-                    <span class="commit-hash">${commit.commit_hash.substring(0, 7)}</span>
-                    by ${escapeHtml(commit.author)}
+            <div class="d-flex align-items-start gap-2" style="flex: 1;">
+                <input type="checkbox" class="form-check-input commit-checkbox" value="${commit.commit_hash}" style="margin-top: 2px;">
+                <div>
+                    <strong>${escapeHtml(commit.message)}</strong>
+                    <div class="text-muted small mt-1">
+                        <span class="commit-hash">${commit.commit_hash.substring(0, 7)}</span>
+                        by ${escapeHtml(commit.author)}
+                    </div>
                 </div>
             </div>
             <div class="text-end">
@@ -463,7 +528,123 @@ function createCommitElement(commit) {
         `}
     `;
     
+    // Add click handler for checkbox
+    const checkbox = div.querySelector('.commit-checkbox');
+    div.addEventListener('click', (e) => {
+        if (e.target === checkbox || e.target.closest('button') || e.target.closest('a')) {
+            return;
+        }
+        checkbox.checked = !checkbox.checked;
+        updateBulkSelection();
+    });
+    
+    checkbox.addEventListener('change', updateBulkSelection);
+    
     return div;
+}
+
+// Bulk selection management
+function updateBulkSelection() {
+    const checkboxes = document.querySelectorAll('.commit-checkbox:checked');
+    const panel = document.getElementById('bulkActionsPanel');
+    const countSpan = document.getElementById('bulkSelectCount');
+    
+    const count = checkboxes.length;
+    countSpan.textContent = `${count} commit${count !== 1 ? 's' : ''} selected`;
+    
+    // Update visual state
+    document.querySelectorAll('.commit-item').forEach(item => {
+        const checkbox = item.querySelector('.commit-checkbox');
+        if (checkbox && checkbox.checked) {
+            item.classList.add('selected');
+        } else {
+            item.classList.remove('selected');
+        }
+    });
+    
+    // Show/hide panel
+    if (count > 0) {
+        panel.classList.add('show');
+        document.body.classList.add('bulk-actions-open');
+        loadEntriesForBulkLink();
+    } else {
+        panel.classList.remove('show');
+        document.body.classList.remove('bulk-actions-open');
+    }
+}
+
+function clearBulkSelection() {
+    document.querySelectorAll('.commit-checkbox').forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    updateBulkSelection();
+}
+
+async function loadEntriesForBulkLink() {
+    try {
+        const response = await fetch('/api/entries');
+        const data = await response.json();
+        
+        if (!data.success || !data.entries) return;
+        
+        const select = document.getElementById('bulkLinkEntrySelect');
+        const existingOptions = select.querySelectorAll('option[value!=""]');
+        existingOptions.forEach(opt => opt.remove());
+        
+        data.entries.forEach(entry => {
+            const option = document.createElement('option');
+            option.value = entry.id;
+            option.textContent = `${entry.name || `Entry #${entry.id}`}`;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Failed to load entries:', error);
+    }
+}
+
+async function performBulkLink() {
+    const checkboxes = document.querySelectorAll('.commit-checkbox:checked');
+    const entryId = document.getElementById('bulkLinkEntrySelect').value;
+    
+    if (!entryId) {
+        showAlert('Please select an entry to link to', 'warning');
+        return;
+    }
+    
+    const commitHashes = Array.from(checkboxes).map(cb => cb.value);
+    
+    if (commitHashes.length === 0) {
+        showAlert('Please select at least one commit', 'warning');
+        return;
+    }
+    
+    const btn = document.getElementById('bulkLinkBtn');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Linking...';
+    
+    try {
+        const response = await fetch(`/api/entries/${entryId}/git/bulk-link`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ commit_hashes: commitHashes })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert(`Successfully linked ${data.linked_count} commits to entry`, 'success');
+            clearBulkSelection();
+            await loadCommits(currentRepoId);
+        } else {
+            throw new Error(data.error);
+        }
+    } catch (error) {
+        showAlert('Failed to link commits: ' + error.message, 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
 }
 
 // Show commit details in modal

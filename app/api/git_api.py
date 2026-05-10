@@ -630,6 +630,75 @@ def link_git_commit(entry_id):
             'error': str(e)
         }), 500
 
+@git_api_bp.route('/api/entries/<int:entry_id>/git/bulk-link', methods=['POST'])
+def bulk_link_commits(entry_id):
+    """Link multiple commits to a single entry in one operation"""
+    try:
+        data = request.get_json()
+        commit_hashes = data.get('commit_hashes', [])
+        
+        if not commit_hashes or not isinstance(commit_hashes, list):
+            return jsonify({
+                'success': False,
+                'error': 'commit_hashes array is required'
+            }), 400
+        
+        from app.db import get_connection
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Verify entry exists
+        cursor.execute('SELECT id FROM Entry WHERE id = ?', (entry_id,))
+        if not cursor.fetchone():
+            return jsonify({
+                'success': False,
+                'error': 'Entry not found'
+            }), 404
+        
+        # Validate and link commits
+        linked_count = 0
+        failed_hashes = []
+        
+        for commit_hash in commit_hashes:
+            try:
+                # Verify commit exists
+                cursor.execute('SELECT id FROM GitCommit WHERE commit_hash = ?', (commit_hash,))
+                if not cursor.fetchone():
+                    failed_hashes.append({
+                        'hash': commit_hash,
+                        'reason': 'Commit not found'
+                    })
+                    continue
+                
+                # Link it
+                cursor.execute('''
+                    UPDATE GitCommit SET entry_id = ? WHERE commit_hash = ?
+                ''', (entry_id, commit_hash))
+                
+                linked_count += 1
+            except Exception as e:
+                failed_hashes.append({
+                    'hash': commit_hash,
+                    'reason': str(e)
+                })
+        
+        conn.commit()
+        
+        return jsonify({
+            'success': True,
+            'linked_count': linked_count,
+            'total_count': len(commit_hashes),
+            'failed': failed_hashes,
+            'message': f'Successfully linked {linked_count} of {len(commit_hashes)} commits'
+        })
+    
+    except Exception as e:
+        logger.error(f"Failed to bulk link commits to entry {entry_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @git_api_bp.route('/api/git/commits/<commit_hash>/unlink', methods=['POST'])
 def unlink_commit_from_entry(commit_hash):
     """Unlink a commit from its entry"""
