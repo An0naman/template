@@ -175,23 +175,20 @@ def trigger_deploy():
 
     data = request.get_json(silent=True) or {}
     workflow = str(data.get('workflow', 'docker-build.yml')).strip()
-    version = str(data.get('version', '')).strip()
+    bump_type = str(data.get('bump_type', '')).strip().lower()
 
     if workflow not in ('docker-build.yml',):
         return jsonify({'error': 'Invalid workflow. Only docker-build.yml is allowed.'}), 400
-    
-    if not version:
-        return jsonify({'error': 'Version parameter is required.'}), 400
-    
-    if not SEMVER_RE.match(version):
-        return jsonify({'error': 'Invalid version format. Use semantic version like 3.1.0'}), 400
+
+    if bump_type not in ('major', 'minor', 'patch'):
+        return jsonify({'error': 'bump_type is required and must be major, minor, or patch.'}), 400
 
     import urllib.request
     import urllib.error
     import base64
 
-    # The version to deploy is passed from the frontend
-    local_version = version
+    current_version = '1.0.0'
+    current_sha = None
 
     # Step 1: Sync VERSION file to GitHub repo (main branch) via API
     try:
@@ -208,21 +205,32 @@ def trigger_deploy():
         with urllib.request.urlopen(get_req) as resp:
             file_data = json.loads(resp.read().decode('utf-8'))
             current_sha = file_data.get('sha')
+            encoded_content = file_data.get('content', '')
+            if encoded_content:
+                decoded = base64.b64decode(encoded_content).decode('utf-8', errors='replace').strip()
+                if decoded:
+                    current_version = decoded
     except urllib.error.HTTPError as e:
         if e.code == 404:
-            current_sha = None  # File doesn't exist yet
+            current_sha = None
+            current_version = '1.0.0'
         else:
             body = e.read().decode('utf-8', errors='replace')
             return jsonify({'error': f'GitHub API error checking VERSION: {e.code}', 'output': body}), 500
     except Exception as e:
         return jsonify({'error': f'Failed to check VERSION on GitHub: {str(e)}'}), 500
 
+    if not SEMVER_RE.match(current_version):
+        return jsonify({'error': f'Current main VERSION is not semantic: {current_version}'}), 400
+
+    new_version = _bump_semver(current_version, bump_type)
+
     # Update/create VERSION file on GitHub
     try:
         put_url = f'https://api.github.com/repos/{github_repo}/contents/VERSION'
         put_payload = {
-            'message': f'chore: sync VERSION to {local_version}',
-            'content': base64.b64encode(local_version.encode('utf-8')).decode('utf-8'),
+            'message': f'chore: bump VERSION {current_version} -> {new_version}',
+            'content': base64.b64encode(new_version.encode('utf-8')).decode('utf-8'),
             'branch': 'main'
         }
         if current_sha:
@@ -270,7 +278,11 @@ def trigger_deploy():
         with urllib.request.urlopen(dispatch_req) as resp:
             # 204 No Content = success
             if resp.status == 204:
-                return jsonify({'message': f'VERSION synced to {local_version} and Docker build triggered.'}), 200
+                return jsonify({
+                    'message': f'Version bumped {current_version} -> {new_version} and Docker build triggered.',
+                    'previous_version': current_version,
+                    'version': new_version
+                }), 200
             return jsonify({'error': f'Unexpected status {resp.status} when dispatching workflow'}), 500
     except urllib.error.HTTPError as e:
         body = e.read().decode('utf-8', errors='replace')

@@ -91,24 +91,18 @@
                                 <small class="text-muted">Use semantic format: major.minor.patch</small>
                             </div>
                             <div class="about-row align-items-start" style="flex-direction: column; gap: 0.5rem;">
-                                <span class="about-label">Quick bump:</span>
-                                <div class="d-flex flex-wrap gap-2 w-100">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bump-type="patch">Patch +1</button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bump-type="minor">Minor +1</button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bump-type="major">Major +1</button>
-                                </div>
-                            </div>
-                            <div class="about-row align-items-start" style="flex-direction: column; gap: 0.5rem;">
                                 <span class="about-label">Deploy committed changes:</span>
                                 <div class="d-flex w-100 gap-2">
+                                    <select class="form-select form-select-sm" id="aboutDeployBumpType" style="max-width: 180px;">
+                                        <option value="patch" selected>Patch +1</option>
+                                        <option value="minor">Minor +1</option>
+                                        <option value="major">Major +1</option>
+                                    </select>
                                     <button type="button" class="btn btn-sm btn-success" id="aboutTriggerDeployBtn">
-                                        <i class="fas fa-rocket me-1"></i>Deploy Current Version
+                                        <i class="fas fa-rocket me-1"></i>Increment & Deploy
                                     </button>
                                 </div>
-                                <small class="text-muted">Uses the version shown above, syncs VERSION to GitHub, and triggers the downstream Docker build.</small>
-                            </div>
-                            <div id="aboutDeployRequirement" class="alert alert-info mb-0 py-2 d-none" role="alert">
-                                <i class="fas fa-info-circle me-1"></i>Bump the version first (Patch, Minor, or Major) to enable deploy.
+                                <small class="text-muted">Commits the selected increment to VERSION on main and triggers downstream Docker build from the dev app.</small>
                             </div>
                             <div id="aboutVersionMsg" class="alert d-none mb-0 py-2" role="alert"></div>
                             <div id="aboutDeployMsg" class="alert d-none mb-0 py-2" role="alert"></div>
@@ -165,7 +159,7 @@
         font-weight: 400;
         color: var(--bs-body-color);
     }
-    
+
     /* Dark mode adjustments */
     [data-bs-theme="dark"] .about-section {
         background-color: var(--theme-bg-surface, var(--bs-gray-800));
@@ -182,7 +176,6 @@
     const versionInput = document.getElementById('aboutVersionInput');
     const setBtn = document.getElementById('aboutSetVersionBtn');
     const msg = document.getElementById('aboutVersionMsg');
-    let bumpedThisSession = false;  // Track if version was bumped this session
 
     function setMessage(text, type) {
         if (!msg) return;
@@ -199,6 +192,29 @@
     function setVersionUI(version) {
         if (versionBadge) versionBadge.textContent = `v${version}`;
         if (versionInput) versionInput.value = version;
+        if (isSemver(version)) {
+            deployPreviewBaseVersion = version;
+        }
+    }
+
+    function isSemver(version) {
+        return /^\d+\.\d+\.\d+$/.test((version || '').trim());
+    }
+
+    function bumpSemver(version, bumpType) {
+        const parts = version.split('.').map(n => parseInt(n, 10));
+        let [major, minor, patch] = parts;
+        if (bumpType === 'major') {
+            major += 1;
+            minor = 0;
+            patch = 0;
+        } else if (bumpType === 'minor') {
+            minor += 1;
+            patch = 0;
+        } else {
+            patch += 1;
+        }
+        return `${major}.${minor}.${patch}`;
     }
 
     async function refreshVersion() {
@@ -206,7 +222,11 @@
             const res = await fetch('/api/version/manage');
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to load version');
-            if (data.version) setVersionUI(data.version);
+            if (data.version) {
+                setVersionUI(data.version);
+                // Apply selected deploy increment (patch/minor/major) immediately on open
+                syncDeployPreviewVersion();
+            }
         } catch (error) {
             setMessage(error.message, 'danger');
         }
@@ -245,39 +265,30 @@
         });
     }
 
-    modal.querySelectorAll('[data-bump-type]').forEach(btn => {
-        btn.addEventListener('click', async function() {
-            clearMessage();
-            const bumpType = this.getAttribute('data-bump-type');
-            this.disabled = true;
-            try {
-                const data = await postJson('/api/version/manage/bump', { type: bumpType });
-                setVersionUI(data.version);
-                setMessage(data.message || 'Version bumped', 'success');
-                bumpedThisSession = true;  // Mark that a bump was performed
-                if (deployRequirement) deployRequirement.classList.add('d-none');  // Hide requirement alert
-                updateDeployState();  // Update deploy button state
-            } catch (error) {
-                setMessage(error.message, 'danger');
-            } finally {
-                this.disabled = false;
-            }
-        });
-    });
-
     modal.addEventListener('show.bs.modal', function() {
         clearMessage();
         clearDeployMessage();
-        if (deployRequirement) deployRequirement.classList.add('d-none');  // Hide alert by default
         refreshVersion();
-        bumpedThisSession = false;  // Reset bump flag when modal opens
-        updateDeployState();  // Update deploy button state
     });
 
     // --- Deploy to Downstream Apps ---
     const triggerDeployBtn = document.getElementById('aboutTriggerDeployBtn');
+    const deployBumpType = document.getElementById('aboutDeployBumpType');
     const deployMsg = document.getElementById('aboutDeployMsg');
-    const deployRequirement = document.getElementById('aboutDeployRequirement');
+    let deployPreviewBaseVersion = null;
+
+    function syncDeployPreviewVersion() {
+        if (!deployBumpType || !versionInput) return;
+
+        const explicitInputVersion = (versionInput.value || '').trim();
+        const baseVersion = isSemver(deployPreviewBaseVersion)
+            ? deployPreviewBaseVersion
+            : explicitInputVersion;
+
+        if (!isSemver(baseVersion)) return;
+
+        versionInput.value = bumpSemver(baseVersion, deployBumpType.value || 'patch');
+    }
 
     function setDeployMessage(text, type) {
         if (!deployMsg) return;
@@ -291,59 +302,52 @@
         deployMsg.textContent = '';
     }
 
-    function updateDeployState() {
-        if (!triggerDeployBtn) return;
-        // Always keep button enabled so user can try to click and get feedback
-        triggerDeployBtn.disabled = false;
-        // Hide alert when bump is successful
-        if (bumpedThisSession && deployRequirement) {
-            deployRequirement.classList.add('d-none');
-        }
-    }
-
-    // Start with Deploy button disabled
-    if (triggerDeployBtn) {
-        updateDeployState();
-    }
-
     if (triggerDeployBtn) {
         triggerDeployBtn.addEventListener('click', async function() {
             clearDeployMessage();
-            if (!bumpedThisSession) {
-                if (deployRequirement) deployRequirement.classList.remove('d-none');
-                setDeployMessage('Bump the version first (Patch, Minor, or Major).', 'warning');
-                return;
-            }
-            const version = (versionInput?.value || '').trim();
-            if (!version) {
-                setDeployMessage('Set a version first, then deploy it.', 'warning');
-                return;
-            }
+            const bumpType = (deployBumpType?.value || 'patch').trim();
             triggerDeployBtn.disabled = true;
             triggerDeployBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Deploying…';
             try {
                 const res = await fetch('/api/version/manage/trigger-deploy', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ version })
+                    body: JSON.stringify({ bump_type: bumpType })
                 });
                 const data = await res.json();
                 if (!res.ok) {
                     setDeployMessage((data.error || 'Failed.') + (data.output ? '\n' + data.output : ''), 'danger');
                 } else {
                     setDeployMessage(data.message || 'Deploy triggered.', 'success');
-                    setVersionUI(version);
-                    bumpedThisSession = false;  // Reset bump flag after deploy
-                    updateDeployState();  // Disable Deploy until another bump
+                    if (data.version) {
+                        setVersionUI(data.version);
+                        deployPreviewBaseVersion = data.version;
+                    }
                 }
             } catch (error) {
                 setDeployMessage(error.message, 'danger');
             } finally {
                 triggerDeployBtn.disabled = false;
-                triggerDeployBtn.innerHTML = '<i class="fas fa-rocket me-1"></i>Deploy Current Version';
+                triggerDeployBtn.innerHTML = '<i class="fas fa-rocket me-1"></i>Increment & Deploy';
             }
         });
     }
+
+    if (deployBumpType) {
+        deployBumpType.addEventListener('change', function() {
+            syncDeployPreviewVersion();
+        });
+    }
+
+    if (versionInput) {
+        versionInput.addEventListener('change', function() {
+            const value = (versionInput.value || '').trim();
+            if (isSemver(value)) {
+                deployPreviewBaseVersion = value;
+            }
+        });
+    }
+
 })();
 </script>
 {% endif %}

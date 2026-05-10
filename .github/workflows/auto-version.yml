@@ -1,14 +1,6 @@
 name: Auto Version Bump
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - 'VERSION'
-      - 'app.json'
-      - 'CHANGELOG.md'
-
   workflow_dispatch:
     inputs:
       bump_type:
