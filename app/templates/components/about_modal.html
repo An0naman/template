@@ -107,6 +107,9 @@
                                 </div>
                                 <small class="text-muted">Uses the version shown above, syncs VERSION to GitHub, and triggers the downstream Docker build.</small>
                             </div>
+                            <div id="aboutDeployRequirement" class="alert alert-info mb-0 py-2 d-none" role="alert">
+                                <i class="fas fa-info-circle me-1"></i>Bump the version first (Patch, Minor, or Major) to enable deploy.
+                            </div>
                             <div id="aboutVersionMsg" class="alert d-none mb-0 py-2" role="alert"></div>
                             <div id="aboutDeployMsg" class="alert d-none mb-0 py-2" role="alert"></div>
                         </div>
@@ -179,6 +182,7 @@
     const versionInput = document.getElementById('aboutVersionInput');
     const setBtn = document.getElementById('aboutSetVersionBtn');
     const msg = document.getElementById('aboutVersionMsg');
+    let bumpedThisSession = false;  // Track if version was bumped this session
 
     function setMessage(text, type) {
         if (!msg) return;
@@ -250,6 +254,9 @@
                 const data = await postJson('/api/version/manage/bump', { type: bumpType });
                 setVersionUI(data.version);
                 setMessage(data.message || 'Version bumped', 'success');
+                bumpedThisSession = true;  // Mark that a bump was performed
+                if (deployRequirement) deployRequirement.classList.add('d-none');  // Hide requirement alert
+                updateDeployState();  // Update deploy button state
             } catch (error) {
                 setMessage(error.message, 'danger');
             } finally {
@@ -261,12 +268,16 @@
     modal.addEventListener('show.bs.modal', function() {
         clearMessage();
         clearDeployMessage();
+        if (deployRequirement) deployRequirement.classList.add('d-none');  // Hide alert by default
         refreshVersion();
+        bumpedThisSession = false;  // Reset bump flag when modal opens
+        updateDeployState();  // Update deploy button state
     });
 
     // --- Deploy to Downstream Apps ---
     const triggerDeployBtn = document.getElementById('aboutTriggerDeployBtn');
     const deployMsg = document.getElementById('aboutDeployMsg');
+    const deployRequirement = document.getElementById('aboutDeployRequirement');
 
     function setDeployMessage(text, type) {
         if (!deployMsg) return;
@@ -280,9 +291,29 @@
         deployMsg.textContent = '';
     }
 
+    function updateDeployState() {
+        if (!triggerDeployBtn) return;
+        // Always keep button enabled so user can try to click and get feedback
+        triggerDeployBtn.disabled = false;
+        // Hide alert when bump is successful
+        if (bumpedThisSession && deployRequirement) {
+            deployRequirement.classList.add('d-none');
+        }
+    }
+
+    // Start with Deploy button disabled
+    if (triggerDeployBtn) {
+        updateDeployState();
+    }
+
     if (triggerDeployBtn) {
         triggerDeployBtn.addEventListener('click', async function() {
             clearDeployMessage();
+            if (!bumpedThisSession) {
+                if (deployRequirement) deployRequirement.classList.remove('d-none');
+                setDeployMessage('Bump the version first (Patch, Minor, or Major).', 'warning');
+                return;
+            }
             const version = (versionInput?.value || '').trim();
             if (!version) {
                 setDeployMessage('Set a version first, then deploy it.', 'warning');
@@ -302,6 +333,8 @@
                 } else {
                     setDeployMessage(data.message || 'Deploy triggered.', 'success');
                     setVersionUI(version);
+                    bumpedThisSession = false;  // Reset bump flag after deploy
+                    updateDeployState();  // Disable Deploy until another bump
                 }
             } catch (error) {
                 setDeployMessage(error.message, 'danger');
