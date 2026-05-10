@@ -399,6 +399,79 @@ function renderPhotoGalleryConfig(section) {
     `;
 }
 
+// Render header section configuration
+function renderHeaderConfig(section) {
+    const config = typeof section.config === 'string' ? JSON.parse(section.config || '{}') : (section.config || {});
+    const showDates = config.show_dates !== false;
+    const showStatus = config.show_status !== false;
+    const showDescription = config.show_description !== false;
+
+    return `
+        <hr class="my-3">
+        <div class="mb-3">
+            <h6 class="text-info">
+                <i class="fas fa-sliders-h me-2"></i>Header Display Options
+            </h6>
+            <small class="text-muted">Choose which fields to show in the header section</small>
+        </div>
+
+        <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="headerShowDates" ${showDates ? 'checked' : ''}>
+            <label class="form-check-label" for="headerShowDates">
+                <i class="fas fa-calendar me-1"></i>Show Dates (Created, Commenced)
+            </label>
+        </div>
+        <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="headerShowStatus" ${showStatus ? 'checked' : ''}>
+            <label class="form-check-label" for="headerShowStatus">
+                <i class="fas fa-flag me-1"></i>Show Status
+            </label>
+        </div>
+        <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" id="headerShowDescription" ${showDescription ? 'checked' : ''}>
+            <label class="form-check-label" for="headerShowDescription">
+                <i class="fas fa-align-left me-1"></i>Show Description
+            </label>
+        </div>
+    `;
+}
+
+// Render custom fields section configuration
+function renderCustomFieldsConfig(section) {
+    const config = typeof section.config === 'string' ? JSON.parse(section.config || '{}') : (section.config || {});
+
+    return `
+        <hr class="my-3">
+        <div class="mb-3">
+            <h6 class="text-success">
+                <i class="fas fa-columns me-2"></i>Custom Fields Options
+            </h6>
+            <small class="text-muted">Configure how custom fields are displayed and edited</small>
+        </div>
+
+        <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="customFieldsAlwaysEdit" ${config.always_editable !== false ? 'checked' : ''}>
+            <label class="form-check-label" for="customFieldsAlwaysEdit">
+                <i class="fas fa-pen me-1"></i>Always Editable
+            </label>
+            <small class="text-muted d-block ms-4">Fields are editable without needing to enter edit mode</small>
+        </div>
+
+        <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" id="customFieldsShowLabels" ${config.show_labels !== false ? 'checked' : ''}>
+            <label class="form-check-label" for="customFieldsShowLabels">
+                <i class="fas fa-tag me-1"></i>Show Field Labels
+            </label>
+            <small class="text-muted d-block ms-4">Display field names/labels above inputs</small>
+        </div>
+
+        <div class="alert alert-info alert-sm p-2 small">
+            <i class="fas fa-info-circle me-1"></i>
+            These settings control the appearance and behavior of assigned custom columns in this section.
+        </div>
+    `;
+}
+
 // Add section to grid
 function addSectionToGrid(sectionData) {
     const icon = SECTION_ICONS[sectionData.section_type] || 'fa-square';
@@ -861,6 +934,8 @@ function renderSectionProperties(section) {
         </div>
         ` : ''}
         
+        ${section.section_type === 'header' ? renderHeaderConfig(section) : ''}
+        ${section.section_type === 'form_fields' ? renderCustomFieldsConfig(section) : ''}
         ${section.section_type === 'ai_assistant' ? renderAiAssistantConfig(section) : ''}
         ${section.section_type === 'photo_gallery' ? renderPhotoGalleryConfig(section) : ''}
         
@@ -897,6 +972,29 @@ async function saveSectionProperties(options = {}) {
 
     if (document.getElementById('sectionCollapsedSwitch')) {
         updates.default_collapsed = document.getElementById('sectionCollapsedSwitch').checked ? 1 : 0;
+    }
+
+    // If Header section, save display options in config
+    if (selectedSection.section_type === 'header') {
+        const config = typeof selectedSection.config === 'string' ?
+            JSON.parse(selectedSection.config || '{}') : (selectedSection.config || {});
+
+        config.show_dates = document.getElementById('headerShowDates')?.checked ?? true;
+        config.show_status = document.getElementById('headerShowStatus')?.checked ?? true;
+        config.show_description = document.getElementById('headerShowDescription')?.checked ?? true;
+
+        updates.config = JSON.stringify(config);
+    }
+
+    // If Custom Fields section, save display options in config
+    if (selectedSection.section_type === 'form_fields') {
+        const config = typeof selectedSection.config === 'string' ?
+            JSON.parse(selectedSection.config || '{}') : (selectedSection.config || {});
+
+        config.always_editable = document.getElementById('customFieldsAlwaysEdit')?.checked ?? true;
+        config.show_labels = document.getElementById('customFieldsShowLabels')?.checked ?? true;
+
+        updates.config = JSON.stringify(config);
     }
 
     // If AI Assistant section, save custom prompts in config

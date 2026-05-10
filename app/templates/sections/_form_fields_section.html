@@ -1,5 +1,8 @@
 {# Form Fields Section - Renders custom columns assigned to this entry type #}
 {% set section_cols = (custom_column_values.form_fields if custom_column_values is defined and custom_column_values.form_fields is defined else []) %}
+{% set section_config = section_config or {} %}
+{% set show_labels = section_config.get('show_labels', True) %}
+{% set always_editable = section_config.get('always_editable', True) %}
 
 <style>
     #customColumnsSectionContent-{{ section_id }} .custom-col-item {
@@ -37,12 +40,14 @@
         {% for col in section_cols %}
         <div class="col-md-6 col-lg-4">
             <div class="custom-col-item">
+                {% if show_labels %}
                 <div class="custom-col-label">
                     {{ col.label }}{% if col.is_required %} <span class="text-danger">*</span>{% endif %}
                 </div>
+                {% endif %}
 
-                {# --- Display view --- #}
-                <div class="custom-col-display d-none" id="ccDisplay-{{ section_id }}-{{ col.column_id }}">
+                {# --- Display view (hidden if always_editable) --- #}
+                <div class="custom-col-display {% if always_editable %}d-none{% endif %}" id="ccDisplay-{{ section_id }}-{{ col.column_id }}">
                     {% set val = col.value if col.value is not none else col.default_value %}
                     {% if col.column_type == 'checkbox' %}
                         <span class="badge {{ 'bg-success' if val in ['1', 'true', 'yes'] else 'bg-secondary' }}">
@@ -57,7 +62,7 @@
                     {% endif %}
                 </div>
 
-                {# --- Edit view (hidden by default) --- #}
+                {# --- Edit view (visible by default if always_editable is true) --- #}
                 <div class="custom-col-edit" id="ccEdit-{{ section_id }}-{{ col.column_id }}">
                     {% if col.column_type == 'textarea' %}
                         <textarea class="form-control form-control-sm cc-input" data-column-id="{{ col.column_id }}" rows="3">{{ col.value or col.default_value or '' }}</textarea>
