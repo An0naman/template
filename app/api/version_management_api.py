@@ -174,23 +174,26 @@ def trigger_deploy():
         return jsonify({'error': 'GITHUB_REPO env var is not set (e.g. username/repo).'}), 500
 
     data = request.get_json(silent=True) or {}
-    workflow = str(data.get('workflow', 'auto-version.yml')).strip()
-    bump_type = str(data.get('bump_type', 'patch')).strip().lower()
+    workflow = str(data.get('workflow', 'docker-build.yml')).strip()
+    version = str(data.get('version', '')).strip()
 
-    if bump_type not in ('patch', 'minor', 'major'):
-        return jsonify({'error': 'Invalid bump_type. Use patch, minor, or major.'}), 400
+    if workflow not in ('docker-build.yml',):
+        return jsonify({'error': 'Invalid workflow. Only docker-build.yml is allowed.'}), 400
+    
+    if not version:
+        return jsonify({'error': 'Version parameter is required.'}), 400
+    
+    if not SEMVER_RE.match(version):
+        return jsonify({'error': 'Invalid version format. Use semantic version like 3.1.0'}), 400
 
     import urllib.request
     import urllib.error
     import base64
 
-    # Step 1: Read local VERSION file
-    try:
-        local_version = _read_version()
-    except Exception as e:
-        return jsonify({'error': f'Failed to read local VERSION: {str(e)}'}), 500
+    # The version to deploy is passed from the frontend
+    local_version = version
 
-    # Step 2: Sync VERSION file to GitHub repo (main branch) via API
+    # Step 1: Sync VERSION file to GitHub repo (main branch) via API
     try:
         # Get current VERSION file SHA so we can update it
         get_url = f'https://api.github.com/repos/{github_repo}/contents/VERSION?ref=main'
@@ -249,8 +252,7 @@ def trigger_deploy():
     try:
         dispatch_url = f'https://api.github.com/repos/{github_repo}/actions/workflows/{workflow}/dispatches'
         dispatch_payload = json.dumps({
-            'ref': 'main',
-            'inputs': {'bump_type': bump_type}
+            'ref': 'main'
         }).encode('utf-8')
 
         dispatch_req = urllib.request.Request(
@@ -268,7 +270,7 @@ def trigger_deploy():
         with urllib.request.urlopen(dispatch_req) as resp:
             # 204 No Content = success
             if resp.status == 204:
-                return jsonify({'message': f'VERSION synced to {local_version} and workflow "{workflow}" ({bump_type}) triggered.'}), 200
+                return jsonify({'message': f'VERSION synced to {local_version} and Docker build triggered.'}), 200
             return jsonify({'error': f'Unexpected status {resp.status} when dispatching workflow'}), 500
     except urllib.error.HTTPError as e:
         body = e.read().decode('utf-8', errors='replace')
