@@ -1,0 +1,405 @@
+{% set gallery_config = section_config|default({}) %}
+{% set gallery_section_id = section_id|default('gallery') %}
+{% set gallery_interval_seconds = gallery_config.get('rotation_interval_seconds', 5) %}
+{% set gallery_autoplay = gallery_config.get('autoplay', True) %}
+{% set gallery_show_controls = gallery_config.get('show_controls', True) %}
+{% set gallery_show_indicators = gallery_config.get('show_indicators', True) %}
+{% set gallery_pause_on_hover = gallery_config.get('pause_on_hover', True) %}
+{% set gallery_fit_mode = gallery_config.get('fit_mode', 'cover') %}
+
+<div class="photo-gallery-section" id="photoGallerySection-{{ gallery_section_id }}"
+     data-section-id="{{ gallery_section_id }}"
+     data-entry-id="{{ entry.id }}"
+     data-image-urls='{{ gallery_config.get("image_urls", [])|tojson|safe }}'
+     data-interval-ms="{{ (gallery_interval_seconds|int * 1000) if gallery_interval_seconds else 5000 }}"
+     data-autoplay="{{ 'true' if gallery_autoplay else 'false' }}"
+     data-show-controls="{{ 'true' if gallery_show_controls else 'false' }}"
+     data-show-indicators="{{ 'true' if gallery_show_indicators else 'false' }}"
+     data-pause-on-hover="{{ 'true' if gallery_pause_on_hover else 'false' }}"
+     data-fit-mode="{{ gallery_fit_mode }}">
+    <div class="photo-gallery-manage card mb-3" id="photoGalleryManage-{{ gallery_section_id }}" style="display: none;">
+        <div class="card-body">
+            <div class="mb-3 border rounded p-2">
+                <label class="form-label small fw-bold mb-2">
+                    <i class="fas fa-camera me-1"></i>Add from camera or photo library
+                </label>
+                <div class="d-flex flex-wrap gap-2">
+                    <input type="file" class="form-control form-control-sm" id="photoGalleryUploadInput-{{ gallery_section_id }}" accept="image/*" capture="environment" multiple>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="photoGalleryUploadBtn-{{ gallery_section_id }}">
+                        <i class="fas fa-upload me-1"></i>Upload
+                    </button>
+                </div>
+                <small class="text-muted">On iPhone, this can open Camera or Photo Library depending on browser behavior.</small>
+                <div class="small mt-1" id="photoGalleryUploadStatus-{{ gallery_section_id }}"></div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">Select images from note attachments</h6>
+                <small class="text-muted" id="photoGallerySelectionCount-{{ gallery_section_id }}">0 selected</small>
+            </div>
+            <div class="photo-gallery-candidates row g-2" id="photoGalleryCandidates-{{ gallery_section_id }}">
+                <div class="col-12 text-muted small">Loading entry images...</div>
+            </div>
+            <div class="d-flex justify-content-end gap-2 mt-3">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="photoGalleryCancelBtn-{{ gallery_section_id }}">Cancel</button>
+                <button type="button" class="btn btn-sm btn-primary" id="photoGallerySaveBtn-{{ gallery_section_id }}">
+                    <i class="fas fa-save me-1"></i>Save nomination
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="photo-gallery-empty text-center text-muted py-4" style="display: none;">
+        <i class="fas fa-images fa-2x mb-2 opacity-50"></i>
+        <p class="mb-0">No nominated images for this entry.</p>
+        <small>Click "Nominate from this entry" to choose images from note attachments.</small>
+    </div>
+
+    <div class="photo-gallery-view" id="photoGalleryView-{{ gallery_section_id }}"></div>
+</div>
+
+<script>
+(function initializePhotoGallerySection() {
+    const container = document.getElementById('photoGallerySection-{{ gallery_section_id }}');
+    if (!container) {
+        return;
+    }
+
+    const toBool = (val) => String(val).toLowerCase() === 'true';
+
+    const normalizeImageUrl = (rawPath) => {
+        if (!rawPath || typeof rawPath !== 'string') {
+            return '';
+        }
+
+        const trimmed = rawPath.trim();
+        if (!trimmed) {
+            return '';
+        }
+
+        if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('/static/')) {
+            return trimmed;
+        }
+
+        if (trimmed.startsWith('uploads/')) {
+            return `/static/${trimmed}`;
+        }
+
+        return `/static/uploads/${trimmed}`;
+    };
+
+    const sectionId = container.dataset.sectionId;
+    const entryId = container.dataset.entryId;
+    const carouselId = `photoGalleryCarousel-${sectionId}`;
+    const showControls = toBool(container.dataset.showControls);
+    const showIndicators = toBool(container.dataset.showIndicators);
+    const autoplay = toBool(container.dataset.autoplay);
+    const pauseOnHover = toBool(container.dataset.pauseOnHover);
+    const intervalMs = parseInt(container.dataset.intervalMs || '5000', 10);
+    const fitMode = (container.dataset.fitMode || 'cover') === 'contain' ? 'contain' : 'cover';
+
+    const configuredImageUrls = JSON.parse(container.dataset.imageUrls || '[]')
+        .filter(url => typeof url === 'string' && url.trim().length > 0);
+
+    const nominateBtn = document.getElementById(`photoGalleryNominateBtn-${sectionId}`);
+    const resetBtn = document.getElementById(`photoGalleryResetBtn-${sectionId}`);
+    const resetItem = document.getElementById(`photoGalleryResetItem-${sectionId}`);
+    const managePanel = document.getElementById(`photoGalleryManage-${sectionId}`);
+    const candidatesContainer = document.getElementById(`photoGalleryCandidates-${sectionId}`);
+    const saveBtn = document.getElementById(`photoGallerySaveBtn-${sectionId}`);
+    const cancelBtn = document.getElementById(`photoGalleryCancelBtn-${sectionId}`);
+    const selectionCount = document.getElementById(`photoGallerySelectionCount-${sectionId}`);
+    const uploadInput = document.getElementById(`photoGalleryUploadInput-${sectionId}`);
+    const uploadBtn = document.getElementById(`photoGalleryUploadBtn-${sectionId}`);
+    const uploadStatus = document.getElementById(`photoGalleryUploadStatus-${sectionId}`);
+    const emptyState = container.querySelector('.photo-gallery-empty');
+    const galleryView = document.getElementById(`photoGalleryView-${sectionId}`);
+
+    let nominatedImageUrls = [];
+    let candidateImages = [];
+
+    const getGalleryApiUrl = () => `/api/entries/${entryId}/photo-gallery/${sectionId}`;
+    const getGalleryUploadApiUrl = () => `/api/entries/${entryId}/photo-gallery/${sectionId}/uploads`;
+
+    function updateSelectionCount() {
+        if (!selectionCount) {
+            return;
+        }
+        const checked = candidatesContainer.querySelectorAll('input[type="checkbox"]:checked').length;
+        selectionCount.textContent = `${checked} selected`;
+    }
+
+    function getDisplayImages() {
+        const urls = nominatedImageUrls.length > 0 ? nominatedImageUrls : configuredImageUrls;
+        return urls.map(normalizeImageUrl).filter(Boolean);
+    }
+
+    function setManageVisible(visible) {
+        if (managePanel) {
+            managePanel.style.display = visible ? 'block' : 'none';
+        }
+    }
+
+    function renderCarousel(images) {
+        galleryView.innerHTML = '';
+        if (!images.length) {
+            if (emptyState) {
+                emptyState.style.display = 'block';
+            }
+            if (resetItem) {
+                resetItem.style.display = nominatedImageUrls.length > 0 ? 'block' : 'none';
+            }
+            return;
+        }
+
+        if (emptyState) {
+            emptyState.style.display = 'none';
+        }
+        if (resetItem) {
+            resetItem.style.display = nominatedImageUrls.length > 0 ? 'block' : 'none';
+        }
+
+        const indicatorsHtml = showIndicators && images.length > 1
+            ? `<div class="carousel-indicators">${images.map((_, index) => `
+                <button type="button" data-bs-target="#${carouselId}" data-bs-slide-to="${index}" ${index === 0 ? 'class="active" aria-current="true"' : ''} aria-label="Slide ${index + 1}"></button>
+            `).join('')}</div>`
+            : '';
+
+        const slidesHtml = images.map((url, index) => {
+            const fileName = (url.split('/').pop() || `Image ${index + 1}`).replace(/[-_]/g, ' ');
+            return `
+                <div class="carousel-item ${index === 0 ? 'active' : ''}">
+                    <img src="${url}" class="d-block w-100" alt="${fileName}" style="height: 100%; max-height: 460px; object-fit: ${fitMode}; background: #111;">
+                </div>
+            `;
+        }).join('');
+
+        const controlsHtml = showControls && images.length > 1 ? `
+            <button class="carousel-control-prev" type="button" data-bs-target="#${carouselId}" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Previous</span>
+            </button>
+            <button class="carousel-control-next" type="button" data-bs-target="#${carouselId}" data-bs-slide="next">
+                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Next</span>
+            </button>
+        ` : '';
+
+        galleryView.innerHTML = `
+            <div id="${carouselId}" class="carousel slide" ${autoplay ? 'data-bs-ride="carousel"' : ''}
+                 data-bs-interval="${autoplay ? intervalMs : false}" data-bs-pause="${pauseOnHover ? 'hover' : false}">
+                ${indicatorsHtml}
+                <div class="carousel-inner rounded">
+                    ${slidesHtml}
+                </div>
+                ${controlsHtml}
+            </div>
+        `;
+    }
+
+    async function loadNominations() {
+        try {
+            const response = await fetch(getGalleryApiUrl());
+            if (!response.ok) {
+                throw new Error('Failed to load gallery nominations');
+            }
+            const payload = await response.json();
+            nominatedImageUrls = Array.isArray(payload.image_urls) ? payload.image_urls : [];
+        } catch (error) {
+            console.error(error);
+            nominatedImageUrls = [];
+        }
+        renderCarousel(getDisplayImages());
+    }
+
+    async function uploadImages(files) {
+        if (!files || files.length === 0) {
+            return;
+        }
+
+        const formData = new FormData();
+        Array.from(files).forEach(file => formData.append('images', file));
+
+        const response = await fetch(getGalleryUploadApiUrl(), {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const errorPayload = await response.json().catch(() => ({}));
+            throw new Error(errorPayload.error || 'Failed to upload images');
+        }
+
+        const payload = await response.json();
+        nominatedImageUrls = Array.isArray(payload.image_urls) ? payload.image_urls : nominatedImageUrls;
+        renderCarousel(getDisplayImages());
+    }
+
+    async function saveNominations(imageUrls) {
+        const response = await fetch(getGalleryApiUrl(), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image_urls: imageUrls })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to save gallery nominations');
+        }
+
+        nominatedImageUrls = imageUrls.slice();
+        renderCarousel(getDisplayImages());
+    }
+
+    async function clearNominations() {
+        const response = await fetch(getGalleryApiUrl(), { method: 'DELETE' });
+        if (!response.ok) {
+            throw new Error('Failed to clear gallery nominations');
+        }
+        nominatedImageUrls = [];
+        renderCarousel(getDisplayImages());
+    }
+
+    async function loadCandidateImages() {
+        candidatesContainer.innerHTML = '<div class="col-12 text-muted small">Loading entry images...</div>';
+        const response = await fetch(`/api/entries/${entryId}/notes`);
+        if (!response.ok) {
+            throw new Error('Failed to load entry notes');
+        }
+
+        const notes = await response.json();
+        const imageExts = new Set(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg']);
+        const unique = new Set();
+
+        candidateImages = [];
+        notes.forEach(note => {
+            (note.file_paths || []).forEach(path => {
+                if (typeof path !== 'string' || !path.trim()) {
+                    return;
+                }
+                const normalized = path.trim();
+                const ext = normalized.split('.').pop().toLowerCase();
+                if (!imageExts.has(ext)) {
+                    return;
+                }
+                if (unique.has(normalized)) {
+                    return;
+                }
+                unique.add(normalized);
+                candidateImages.push(normalized);
+            });
+        });
+
+        if (!candidateImages.length) {
+            candidatesContainer.innerHTML = '<div class="col-12 text-muted small">No image attachments found on this entry.</div>';
+            return;
+        }
+
+        const selected = new Set(nominatedImageUrls);
+        candidatesContainer.innerHTML = candidateImages.map((imagePath, index) => {
+            const preview = normalizeImageUrl(imagePath);
+            const checked = selected.has(imagePath) ? 'checked' : '';
+            return `
+                <div class="col-6 col-md-4 col-lg-3">
+                    <label class="card h-100" style="cursor: pointer;">
+                        <img src="${preview}" alt="Candidate ${index + 1}" class="card-img-top" style="height: 120px; object-fit: cover;">
+                        <div class="card-body p-2">
+                            <div class="form-check">
+                                <input class="form-check-input photo-gallery-candidate" type="checkbox" value="${imagePath.replace(/"/g, '&quot;')}" ${checked}>
+                                <small class="form-check-label">Select</small>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+            `;
+        }).join('');
+
+        candidatesContainer.querySelectorAll('.photo-gallery-candidate').forEach(input => {
+            input.addEventListener('change', updateSelectionCount);
+        });
+
+        updateSelectionCount();
+    }
+
+    if (nominateBtn) {
+        nominateBtn.addEventListener('click', async () => {
+            setManageVisible(true);
+            try {
+                await loadCandidateImages();
+            } catch (error) {
+                console.error(error);
+                candidatesContainer.innerHTML = '<div class="col-12 text-danger small">Failed to load entry images.</div>';
+            }
+        });
+    }
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => setManageVisible(false));
+    }
+
+    if (saveBtn) {
+        saveBtn.addEventListener('click', async () => {
+            const selected = Array.from(candidatesContainer.querySelectorAll('.photo-gallery-candidate:checked'))
+                .map(el => el.value)
+                .filter(Boolean);
+            try {
+                await saveNominations(selected);
+                setManageVisible(false);
+            } catch (error) {
+                console.error(error);
+                alert('Failed to save nomination.');
+            }
+        });
+    }
+
+    if (uploadBtn) {
+        uploadBtn.addEventListener('click', async () => {
+            if (!uploadInput || !uploadInput.files || uploadInput.files.length === 0) {
+                if (uploadStatus) {
+                    uploadStatus.className = 'small mt-1 text-warning';
+                    uploadStatus.textContent = 'Select one or more images first.';
+                }
+                return;
+            }
+
+            try {
+                uploadBtn.disabled = true;
+                if (uploadStatus) {
+                    uploadStatus.className = 'small mt-1 text-muted';
+                    uploadStatus.textContent = 'Uploading...';
+                }
+
+                await uploadImages(uploadInput.files);
+                uploadInput.value = '';
+
+                if (uploadStatus) {
+                    uploadStatus.className = 'small mt-1 text-success';
+                    uploadStatus.textContent = 'Uploaded and added to this gallery.';
+                }
+
+                await loadCandidateImages();
+            } catch (error) {
+                console.error(error);
+                if (uploadStatus) {
+                    uploadStatus.className = 'small mt-1 text-danger';
+                    uploadStatus.textContent = error.message || 'Upload failed.';
+                }
+            } finally {
+                uploadBtn.disabled = false;
+            }
+        });
+    }
+
+    if (resetBtn) {
+        resetBtn.addEventListener('click', async () => {
+            try {
+                await clearNominations();
+            } catch (error) {
+                console.error(error);
+                alert('Failed to clear nomination.');
+            }
+        });
+    }
+
+    loadNominations();
+})();
+</script>

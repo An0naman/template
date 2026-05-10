@@ -4,6 +4,7 @@ from datetime import datetime
 import json
 import logging
 import os
+import sqlite3
 from werkzeug.utils import secure_filename
 from ..serializers import serialize_note # Import the serializer
 from ..db import get_system_parameters, get_connection # Import system parameters and db connection
@@ -25,6 +26,54 @@ def get_allowed_file_types():
             'aac', 'ogg', 'zip', 'rar', '7z', 'tar', 'gz'
         }
 
+
+def get_max_file_size_bytes():
+    """Get max file size in bytes from system params, fallback to app config."""
+    try:
+        params = get_system_parameters()
+        max_mb = int(str(params.get('max_file_size', '50')).strip() or '50')
+    except Exception:
+        max_mb = 50
+
+    if max_mb <= 0:
+        max_mb = 50
+
+    return max_mb * 1024 * 1024
+
+
+def parse_file_paths(file_paths_value):
+    """Support legacy JSON array strings and current comma-separated values."""
+    if not file_paths_value:
+        return []
+
+    raw = str(file_paths_value).strip()
+    if not raw or raw == '[]':
+        return []
+
+    if raw.startswith('['):
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, list):
+                return [str(p).strip() for p in parsed if isinstance(p, str) and str(p).strip()]
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    return [p.strip() for p in raw.split(',') if p and p.strip() and p.strip() != '[]']
+
+
+def serialize_file_paths(file_paths):
+    """Store file paths as comma-separated values in DB."""
+    return ','.join([p.strip() for p in file_paths if isinstance(p, str) and p.strip()])
+
+
+def is_integrity_error(exc):
+    """Handle sqlite/pymysql integrity exceptions without hard dependency on pymysql."""
+    if isinstance(exc, sqlite3.IntegrityError):
+        return True
+
+    class_name = exc.__class__.__name__.lower()
+    return 'integrityerror' in class_name
+
 def serialize_note_with_reminder(note):
     """Helper to serialize note rows with reminder notification info."""
     if note is None:
@@ -43,7 +92,7 @@ def serialize_note_with_reminder(note):
         "note_text": note['note_text'],
         "note_type": note['type'],
         "created_at": note['created_at'],
-        "file_paths": note['file_paths'].split(',') if note['file_paths'] else [],
+        "file_paths": parse_file_paths(note['file_paths']),
         "url_bookmarks": url_bookmarks
     }
     
@@ -85,7 +134,7 @@ def serialize_note_with_reminder_and_entry_info(note):
         "note_text": note['note_text'],
         "note_type": note['type'],
         "created_at": note['created_at'],
-        "file_paths": note['file_paths'].split(',') if note['file_paths'] else [],
+        "file_paths": parse_file_paths(note['file_paths']),
         "associated_entry_ids": associated_entry_ids,
         "url_bookmarks": url_bookmarks,
         "relationship_type": note['relationship_type']  # 'primary' or 'associated'
@@ -137,6 +186,14 @@ def save_uploaded_file(file, note_id):
         return None
     
     if file and allowed_file(file.filename):
+        # Enforce server-side file size limit per file
+        max_file_size_bytes = get_max_file_size_bytes()
+        file.seek(0, os.SEEK_END)
+        file_size = file.tell()
+        file.seek(0)
+        if file_size > max_file_size_bytes:
+            return None
+
         # Create secure filename with note_id prefix
         original_filename = secure_filename(file.filename)
         filename = f"note_{note_id}_{original_filename}"
@@ -149,7 +206,7 @@ def save_uploaded_file(file, note_id):
         file_path = os.path.join(upload_dir, filename)
         file.save(file_path)
         
-        return filename
+        return f'uploads/{filename}'
     
     return None
 
@@ -224,8 +281,22 @@ def add_note_to_entry(entry_id):
         # Handle file uploads
         file_paths = []
         if files:
+            max_file_size_bytes = get_max_file_size_bytes()
+            max_file_size_mb = int(max_file_size_bytes / (1024 * 1024))
+
             for file in files:
                 if file and file.filename:
+                    if not allowed_file(file.filename):
+                        conn.rollback()
+                        return jsonify({'message': f'File type not allowed for {file.filename}'}), 400
+
+                    file.seek(0, os.SEEK_END)
+                    file_size = file.tell()
+                    file.seek(0)
+                    if file_size > max_file_size_bytes:
+                        conn.rollback()
+                        return jsonify({'message': f'File {file.filename} is too large (max {max_file_size_mb}MB)'}), 400
+
                     saved_filename = save_uploaded_file(file, note_id)
                     if saved_filename:
                         file_paths.append(saved_filename)
@@ -265,10 +336,10 @@ def add_note_to_entry(entry_id):
             'files_uploaded': len(file_paths)
         }), 201
         
-    except sqlite3.IntegrityError:
-        conn.rollback()
-        return jsonify({'message': 'Entry not found for adding note.'}), 404
     except Exception as e:
+        if is_integrity_error(e):
+            conn.rollback()
+            return jsonify({'message': 'Entry not found for adding note.'}), 404
         logger.error(f"Error adding note to entry {entry_id}: {e}", exc_info=True)
         conn.rollback()
         return jsonify({'message': 'An internal error occurred.'}), 500
@@ -277,50 +348,56 @@ def add_note_to_entry(entry_id):
 def get_notes_for_entry(entry_id):
     conn = get_db()
     cursor = conn.cursor()
-    
+
     logger.info(f"Getting notes for entry_id: {entry_id}")
-    
-    # Get notes where this entry is either the primary entry_id OR appears in associated_entry_ids
-    # Include entry information for proper display of associated notes
-    cursor.execute("""
-        SELECT DISTINCT n.id, n.entry_id, n.note_title, n.note_text, n.type, n.created_at, n.file_paths, n.associated_entry_ids, n.url_bookmarks,
-               nt.id as notification_id, nt.scheduled_for, nt.is_read, nt.is_dismissed, nt.title as notification_title,
-               e.title as primary_entry_title, et.singular_label as primary_entry_type,
-               CASE 
-                   WHEN n.entry_id = ? THEN 'primary'
-                   ELSE 'associated'
-               END as relationship_type
-        FROM Note n
-        LEFT JOIN Notification nt ON n.id = nt.note_id AND nt.notification_type = 'note_based'
-        LEFT JOIN Entry e ON n.entry_id = e.id
-        LEFT JOIN EntryType et ON e.entry_type_id = et.id
-        WHERE n.entry_id = ? 
-           OR (n.associated_entry_ids != '[]' AND (
-               n.associated_entry_ids LIKE '[' || ? || ']' OR              -- Single entry: [123]
-               n.associated_entry_ids LIKE '[' || ? || ',%' OR             -- First in list: [123,...]
-               n.associated_entry_ids LIKE '%,' || ? || ',%' OR            -- Middle of list: [...,123,...]
-               n.associated_entry_ids LIKE '%,' || ? || ']' OR             -- Last in list: [...,123]
-               n.associated_entry_ids LIKE '[' || ? || ' %' OR             -- First with space: [123 ...]
-               n.associated_entry_ids LIKE '%, ' || ? || ',%' OR           -- Middle with space: [..., 123,...]
-               n.associated_entry_ids LIKE '%, ' || ? || ']'               -- Last with space: [..., 123]
-           ))
-        ORDER BY n.created_at DESC
-    """, (entry_id, entry_id, entry_id, entry_id, entry_id, entry_id, entry_id, entry_id, entry_id))
-    
-    notes = cursor.fetchall()
-    logger.info(f"Found {len(notes)} raw notes from database")
-    
-    # Log first note details for debugging
-    if notes:
-        logger.info(f"First note raw data: {dict(notes[0])}")
-    
-    serialized_notes = [serialize_note_with_reminder_and_entry_info(note) for note in notes]
-    logger.info(f"Serialized {len(serialized_notes)} notes")
-    
-    if serialized_notes:
-        logger.info(f"First serialized note: {serialized_notes[0]}")
-    
-    return jsonify(serialized_notes)
+
+    try:
+        # Use SQL that works across SQLite and MySQL/MariaDB.
+        # We pull likely candidates and then do exact associated_entry_ids matching in Python.
+        cursor.execute("""
+            SELECT DISTINCT n.id, n.entry_id, n.note_title, n.note_text, n.type, n.created_at, n.file_paths, n.associated_entry_ids, n.url_bookmarks,
+                   nt.id as notification_id, nt.scheduled_for, nt.is_read, nt.is_dismissed, nt.title as notification_title,
+                   e.title as primary_entry_title, et.singular_label as primary_entry_type
+            FROM Note n
+            LEFT JOIN Notification nt ON n.id = nt.note_id AND nt.notification_type = 'note_based'
+            LEFT JOIN Entry e ON n.entry_id = e.id
+            LEFT JOIN EntryType et ON e.entry_type_id = et.id
+            WHERE n.entry_id = ? OR n.associated_entry_ids LIKE ?
+            ORDER BY n.created_at DESC
+        """, (entry_id, f'%{entry_id}%'))
+
+        raw_notes = cursor.fetchall()
+        logger.info(f"Found {len(raw_notes)} candidate notes from database")
+
+        filtered_notes = []
+        for note in raw_notes:
+            is_primary = note['entry_id'] == entry_id
+            associated_ids = []
+
+            try:
+                associated_ids = json.loads(note['associated_entry_ids']) if note.get('associated_entry_ids') else []
+                if not isinstance(associated_ids, list):
+                    associated_ids = []
+            except (json.JSONDecodeError, TypeError, ValueError):
+                associated_ids = []
+
+            is_associated = entry_id in associated_ids
+
+            if not is_primary and not is_associated:
+                continue
+
+            note_dict = dict(note)
+            note_dict['relationship_type'] = 'primary' if is_primary else 'associated'
+            filtered_notes.append(note_dict)
+
+        serialized_notes = [serialize_note_with_reminder_and_entry_info(note) for note in filtered_notes]
+        logger.info(f"Serialized {len(serialized_notes)} notes")
+
+        return jsonify(serialized_notes)
+
+    except Exception as e:
+        logger.error(f"Error getting notes for entry {entry_id}: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to load notes'}), 500
 
 @notes_api_bp.route('/notes/<int:note_id>', methods=['DELETE'])
 def delete_note(note_id):
@@ -336,7 +413,7 @@ def delete_note(note_id):
         
         # Delete associated files from filesystem
         if note['file_paths']:
-            file_paths = note['file_paths'].split(',')
+            file_paths = parse_file_paths(note['file_paths'])
             for file_path in file_paths:
                 # Adjust path for Docker volume if needed
                 if file_path.startswith('uploads/'):
@@ -550,7 +627,7 @@ def add_note_attachments(note_id):
             return jsonify({'error': 'Note not found'}), 404
             
         # Get current file paths
-        current_files = note['file_paths'].split(',') if note['file_paths'] else []
+        current_files = parse_file_paths(note['file_paths'])
         
         # Handle file uploads
         uploaded_files = request.files.getlist('files')
@@ -569,8 +646,10 @@ def add_note_attachments(note_id):
                 file_size = file.tell()
                 file.seek(0)
                 
-                if file_size > 50 * 1024 * 1024:  # 50MB
-                    return jsonify({'error': f'File {file.filename} is too large (max 50MB)'}), 400
+                max_file_size_bytes = get_max_file_size_bytes()
+                if file_size > max_file_size_bytes:
+                    max_file_size_mb = int(max_file_size_bytes / (1024 * 1024))
+                    return jsonify({'error': f'File {file.filename} is too large (max {max_file_size_mb}MB)'}), 400
                 
                 filename = secure_filename(file.filename)
                 
@@ -590,7 +669,7 @@ def add_note_attachments(note_id):
         
         # Combine current and new file paths
         all_file_paths = current_files + new_file_paths
-        file_paths_str = ','.join(all_file_paths)
+        file_paths_str = serialize_file_paths(all_file_paths)
         
         # Update note with new file paths
         cursor.execute("UPDATE Note SET file_paths = ? WHERE id = ?", (file_paths_str, note_id))
@@ -621,7 +700,7 @@ def delete_note_attachment(note_id, file_index):
         if not note:
             return jsonify({'error': 'Note not found'}), 404
             
-        current_files = note['file_paths'].split(',') if note['file_paths'] else []
+        current_files = parse_file_paths(note['file_paths'])
         
         if file_index < 0 or file_index >= len(current_files):
             return jsonify({'error': 'Invalid file index'}), 400
@@ -642,7 +721,7 @@ def delete_note_attachment(note_id, file_index):
         
         # Remove from file list
         current_files.pop(file_index)
-        new_file_paths_str = ','.join(current_files) if current_files else ''
+        new_file_paths_str = serialize_file_paths(current_files)
         
         # Update note
         cursor.execute("UPDATE Note SET file_paths = ? WHERE id = ?", (new_file_paths_str, note_id))

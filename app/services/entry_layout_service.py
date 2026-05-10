@@ -243,6 +243,27 @@ class EntryLayoutService:
             'default_collapsed': 0,
             'display_order': 110,
             'config': {}
+        },
+        'photo_gallery': {
+            'title': 'Photo Gallery',
+            'section_type': 'photo_gallery',
+            'position_x': 0,
+            'position_y': 111,
+            'width': 12,
+            'height': 5,
+            'is_visible': 0,
+            'is_collapsible': 1,
+            'default_collapsed': 0,
+            'display_order': 111,
+            'config': {
+                'rotation_interval_seconds': 5,
+                'show_controls': True,
+                'show_indicators': True,
+                'autoplay': True,
+                'pause_on_hover': True,
+                'fit_mode': 'cover',
+                'image_urls': []
+            }
         }
     }
     

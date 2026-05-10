@@ -31,7 +31,8 @@ const SECTION_ICONS = {
     'label_printing': 'fa-print',
     'relationship_opportunities': 'fa-share-alt',
     'timeline': 'fa-stream',
-    'drawio': 'fa-project-diagram'
+    'drawio': 'fa-project-diagram',
+    'photo_gallery': 'fa-images'
 };
 
 // Initialize layout builder
@@ -317,7 +318,14 @@ function attachPropertyAutosave(section) {
         'promptDescription',
         'promptNoteComposer',
         'promptDiagram',
-        'promptPlanning'
+        'promptPlanning',
+        'photoGalleryImages',
+        'photoGalleryInterval',
+        'photoGalleryFitMode',
+        'photoGalleryAutoplay',
+        'photoGalleryPauseOnHover',
+        'photoGalleryShowControls',
+        'photoGalleryShowIndicators'
     ];
 
     fieldIds.forEach(fieldId => {
@@ -332,6 +340,63 @@ function attachPropertyAutosave(section) {
             }
         });
     });
+}
+
+function renderPhotoGalleryConfig(section) {
+    const config = typeof section.config === 'string' ? JSON.parse(section.config || '{}') : (section.config || {});
+    const imageUrls = Array.isArray(config.image_urls) ? config.image_urls : [];
+    const interval = Number(config.rotation_interval_seconds || 5);
+    const fitMode = config.fit_mode || 'cover';
+
+    return `
+        <hr class="my-3">
+        <div class="mb-3">
+            <h6 class="text-primary">
+                <i class="fas fa-images me-2"></i>Gallery Configuration
+            </h6>
+            <small class="text-muted">Add nominated image URLs or upload paths and configure rotation.</small>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label small fw-bold" for="photoGalleryImages">
+                <i class="fas fa-list me-1"></i>Nominated Images
+            </label>
+            <textarea class="form-control form-control-sm font-monospace"
+                      id="photoGalleryImages" rows="5"
+                      placeholder="One image URL/path per line\nExample:\n/static/uploads/note_12_example.jpg\nhttps://example.com/gallery/photo1.jpg">${imageUrls.join('\n')}</textarea>
+            <small class="text-muted">Supports full URLs, <code>/static/...</code>, or <code>uploads/...</code> paths.</small>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label small fw-bold" for="photoGalleryInterval">Rotation Interval (seconds)</label>
+            <input type="number" class="form-control form-control-sm" id="photoGalleryInterval" min="1" max="120" value="${interval}">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label small fw-bold" for="photoGalleryFitMode">Image Fit Mode</label>
+            <select class="form-select form-select-sm" id="photoGalleryFitMode">
+                <option value="cover" ${fitMode === 'cover' ? 'selected' : ''}>Cover</option>
+                <option value="contain" ${fitMode === 'contain' ? 'selected' : ''}>Contain</option>
+            </select>
+        </div>
+
+        <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="photoGalleryAutoplay" ${config.autoplay !== false ? 'checked' : ''}>
+            <label class="form-check-label" for="photoGalleryAutoplay">Autoplay</label>
+        </div>
+        <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="photoGalleryPauseOnHover" ${config.pause_on_hover !== false ? 'checked' : ''}>
+            <label class="form-check-label" for="photoGalleryPauseOnHover">Pause on Hover</label>
+        </div>
+        <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="photoGalleryShowControls" ${config.show_controls !== false ? 'checked' : ''}>
+            <label class="form-check-label" for="photoGalleryShowControls">Show Prev/Next Controls</label>
+        </div>
+        <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" id="photoGalleryShowIndicators" ${config.show_indicators !== false ? 'checked' : ''}>
+            <label class="form-check-label" for="photoGalleryShowIndicators">Show Slide Indicators</label>
+        </div>
+    `;
 }
 
 // Add section to grid
@@ -797,6 +862,7 @@ function renderSectionProperties(section) {
         ` : ''}
         
         ${section.section_type === 'ai_assistant' ? renderAiAssistantConfig(section) : ''}
+        ${section.section_type === 'photo_gallery' ? renderPhotoGalleryConfig(section) : ''}
         
         <div class="d-grid gap-2">
             <button class="btn btn-primary btn-sm" onclick="saveSectionProperties()">
@@ -843,6 +909,26 @@ async function saveSectionProperties(options = {}) {
         config.prompt_note_composer = document.getElementById('promptNoteComposer')?.value || '';
         config.prompt_diagram = document.getElementById('promptDiagram')?.value || '';
         config.prompt_planning = document.getElementById('promptPlanning')?.value || '';
+
+        updates.config = JSON.stringify(config);
+    }
+
+    if (selectedSection.section_type === 'photo_gallery') {
+        const config = typeof selectedSection.config === 'string' ?
+            JSON.parse(selectedSection.config || '{}') : (selectedSection.config || {});
+
+        const imageLines = (document.getElementById('photoGalleryImages')?.value || '')
+            .split('\n')
+            .map(line => line.trim())
+            .filter(Boolean);
+
+        config.image_urls = imageLines;
+        config.rotation_interval_seconds = Math.max(1, parseInt(document.getElementById('photoGalleryInterval')?.value || '5', 10));
+        config.fit_mode = document.getElementById('photoGalleryFitMode')?.value || 'cover';
+        config.autoplay = Boolean(document.getElementById('photoGalleryAutoplay')?.checked);
+        config.pause_on_hover = Boolean(document.getElementById('photoGalleryPauseOnHover')?.checked);
+        config.show_controls = Boolean(document.getElementById('photoGalleryShowControls')?.checked);
+        config.show_indicators = Boolean(document.getElementById('photoGalleryShowIndicators')?.checked);
 
         updates.config = JSON.stringify(config);
     }

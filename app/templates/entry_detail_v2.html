@@ -463,8 +463,27 @@
                                         
                                         {# Section header with title - Only show for non-header sections #}
                                         {% if section.title and section_type != 'header' %}
-                                        <div class="section-header mb-3">
-                                            <h4 class="section-title">{{ section.title }}</h4>
+                                        <div class="section-header mb-3 d-flex justify-content-between align-items-center">
+                                            <h4 class="section-title mb-0">{{ section.title }}</h4>
+                                            {% if section_type == 'photo_gallery' %}
+                                            <div class="dropdown ms-2">
+                                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Gallery options">
+                                                    <i class="fas fa-cog"></i>
+                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                    <li>
+                                                        <button type="button" class="dropdown-item" id="photoGalleryNominateBtn-{{ section.id }}">
+                                                            <i class="fas fa-list-check me-2"></i>Nominate from this entry
+                                                        </button>
+                                                    </li>
+                                                    <li id="photoGalleryResetItem-{{ section.id }}" style="display: none;">
+                                                        <button type="button" class="dropdown-item" id="photoGalleryResetBtn-{{ section.id }}">
+                                                            <i class="fas fa-rotate-left me-2"></i>Use layout defaults
+                                                        </button>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            {% endif %}
                                         </div>
                                         {% endif %}
                                         
@@ -501,6 +520,8 @@
                                             {% with section_id=section.id %}{% include 'sections/_drawio_section.html' %}{% endwith %}
                                         {% elif section_type == 'git_commits' %}
                                             {% with section_id=section.id %}{% include 'sections/_git_commits_section.html' %}{% endwith %}
+                                        {% elif section_type == 'photo_gallery' %}
+                                            {% with section_id=section.id, section_config=section.config %}{% include 'sections/_photo_gallery_section.html' %}{% endwith %}
                                         {% endif %}
                                 
                                 </div>
@@ -562,8 +583,27 @@
                                 
                                 {# Section header with title - Only show for non-header sections #}
                                 {% if section.title and section_type != 'header' %}
-                                <div class="section-header mb-3">
-                                    <h4 class="section-title">{{ section.title }}</h4>
+                                <div class="section-header mb-3 d-flex justify-content-between align-items-center">
+                                    <h4 class="section-title mb-0">{{ section.title }}</h4>
+                                    {% if section_type == 'photo_gallery' %}
+                                    <div class="dropdown ms-2">
+                                        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Gallery options">
+                                            <i class="fas fa-cog"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <button type="button" class="dropdown-item" id="photoGalleryNominateBtn-{{ section.id }}">
+                                                    <i class="fas fa-list-check me-2"></i>Nominate from this entry
+                                                </button>
+                                            </li>
+                                            <li id="photoGalleryResetItem-{{ section.id }}" style="display: none;">
+                                                <button type="button" class="dropdown-item" id="photoGalleryResetBtn-{{ section.id }}">
+                                                    <i class="fas fa-rotate-left me-2"></i>Use layout defaults
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    {% endif %}
                                 </div>
                                 {% endif %}
                                 
@@ -609,6 +649,8 @@
                                     {% with section_id=section.id %}{% include 'sections/_drawio_section.html' %}{% endwith %}
                                 {% elif section_type == 'git_commits' %}
                                     {% with section_id=section.id %}{% include 'sections/_git_commits_section.html' %}{% endwith %}
+                                {% elif section_type == 'photo_gallery' %}
+                                    {% with section_id=section.id, section_config=section.config %}{% include 'sections/_photo_gallery_section.html' %}{% endwith %}
                                 {% else %}
                                     <h5>{{ section_type|title }} Section</h5>
                                     <p class="text-muted">Content will go here</p>

@@ -260,6 +260,21 @@ def init_db():
             );
         ''')
 
+        # Store per-entry image nominations for each photo gallery section
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS EntryPhotoGalleryConfig (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                entry_id INTEGER NOT NULL,
+                section_id INTEGER NOT NULL,
+                image_urls TEXT DEFAULT '[]',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(entry_id, section_id),
+                FOREIGN KEY (entry_id) REFERENCES Entry(id) ON DELETE CASCADE,
+                FOREIGN KEY (section_id) REFERENCES EntryLayoutSection(id) ON DELETE CASCADE
+            );
+        ''')
+
         # Create SystemParameters Table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS SystemParameters (
