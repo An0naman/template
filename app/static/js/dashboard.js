@@ -6,6 +6,7 @@ let gridStack = null;
 let editMode = false;
 let availableSources = null;
 let widgetCharts = {}; // Store Chart.js instances
+let gitWidgetFilters = {}; // Per-widget filter state for git commits widgets
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
@@ -989,7 +990,7 @@ function renderWidget(widget, data) {
             renderAISummary(bodyEl, data);
             break;
         case 'git_commits':
-            renderGitCommits(bodyEl, data);
+            renderGitCommits(bodyEl, data, widget.id);
             break;
         case 'git_commits_chart':
             renderGitCommitsChart(bodyEl, widget.id, data, widget);
@@ -1344,25 +1345,51 @@ function renderAISummary(bodyEl, data) {
     bodyEl.innerHTML = html;
 }
 
-function renderGitCommits(bodyEl, data) {
+function renderGitCommits(bodyEl, data, widgetId) {
     if (data.error) {
         bodyEl.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
         return;
     }
+
+    const filterMode = gitWidgetFilters[widgetId] || 'all';
+    const allCommits = data.commits || [];
+    const filteredCommits = filterMode === 'unlinked'
+        ? allCommits.filter(commit => !commit.entry)
+        : allCommits;
+
+    let html = `
+        <div class="d-flex justify-content-end mb-2">
+            <div class="btn-group btn-group-sm" role="group" aria-label="Git commits filter">
+                <button type="button" class="btn ${filterMode === 'all' ? 'btn-primary' : 'btn-outline-primary'} git-filter-all-btn" data-widget-id="${widgetId}">All</button>
+                <button type="button" class="btn ${filterMode === 'unlinked' ? 'btn-primary' : 'btn-outline-primary'} git-filter-unlinked-btn" data-widget-id="${widgetId}">Unlinked</button>
+            </div>
+        </div>
+    `;
     
-    if (!data.commits || data.commits.length === 0) {
-        bodyEl.innerHTML = `
+    if (!allCommits || allCommits.length === 0) {
+        bodyEl.innerHTML = html + `
             <div class="text-center p-4 text-muted">
                 <i class="fab fa-git-alt fa-3x mb-3 opacity-50"></i>
                 <p>No commits found for this repository</p>
                 <small>The repository may be empty or not yet synced</small>
             </div>
         `;
+        attachGitFilterEventListeners(bodyEl, data, widgetId);
+        return;
+    }
+
+    if (filteredCommits.length === 0) {
+        bodyEl.innerHTML = html + `
+            <div class="text-center p-3 text-muted">
+                No unlinked commits found.
+            </div>
+        `;
+        attachGitFilterEventListeners(bodyEl, data, widgetId);
         return;
     }
     
-    let html = '<div class="git-commits-list">';
-    data.commits.forEach(commit => {
+    html += '<div class="git-commits-list">';
+    filteredCommits.forEach(commit => {
         const date = new Date(commit.commit_date);
         const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
         const shortHash = commit.commit_hash.substring(0, 7);
@@ -1436,8 +1463,30 @@ function renderGitCommits(bodyEl, data) {
     
     bodyEl.innerHTML = html;
     
+    // Attach filter toggle handlers
+    attachGitFilterEventListeners(bodyEl, data, widgetId);
+
     // Attach event listeners
     attachGitCommitEventListeners(bodyEl);
+}
+
+function attachGitFilterEventListeners(container, data, widgetId) {
+    const allBtn = container.querySelector('.git-filter-all-btn');
+    const unlinkedBtn = container.querySelector('.git-filter-unlinked-btn');
+
+    if (allBtn) {
+        allBtn.addEventListener('click', function() {
+            gitWidgetFilters[widgetId] = 'all';
+            renderGitCommits(container, data, widgetId);
+        });
+    }
+
+    if (unlinkedBtn) {
+        unlinkedBtn.addEventListener('click', function() {
+            gitWidgetFilters[widgetId] = 'unlinked';
+            renderGitCommits(container, data, widgetId);
+        });
+    }
 }
 
 function renderGitCommitsChart(bodyEl, widgetId, data, widget) {
