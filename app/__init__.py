@@ -44,7 +44,9 @@ def create_app():
     # Run auto-migrations to ensure schema is up-to-date
     try:
         from .utils.auto_migrate import run_auto_migration
-        if os.path.exists(app.config['DATABASE_PATH']):
+        database_url = app.config.get('DATABASE_URL', '')
+        is_mysql = database_url.startswith('mysql') or database_url.startswith('mariadb')
+        if is_mysql or os.path.exists(app.config['DATABASE_PATH']):
             app.logger.info("Running auto-migration check...")
             run_auto_migration(app.config['DATABASE_PATH'])
     except Exception as e:
@@ -147,6 +149,7 @@ def create_app():
     from .api.kanban_api import kanban_api_bp
     from .api.sensor_master_api import sensor_master_api_bp
     from .api.photo_gallery_api import photo_gallery_api_bp
+    from .api.custom_columns_api import custom_columns_api_bp
     
     # Import Git integration blueprints
     from .api.git_api import git_api_bp
@@ -193,6 +196,7 @@ def create_app():
     app.register_blueprint(kanban_api_bp, url_prefix='/api')
     app.register_blueprint(sensor_master_api_bp, url_prefix='/api')
     app.register_blueprint(photo_gallery_api_bp, url_prefix='/api')
+    app.register_blueprint(custom_columns_api_bp, url_prefix='/api')
     
     # Register Git integration blueprints
     app.register_blueprint(git_api_bp)  # API routes have /api prefix in the blueprint

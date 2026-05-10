@@ -10,6 +10,46 @@ def get_db():
         g.db = get_connection()
     return g.db
 
+
+def _get_custom_column_values(entry_id, entry_type_id, cursor):
+    """Return custom column values for an entry, grouped by section_placement."""
+    try:
+        cursor.execute('''
+            SELECT cca.section_placement, cca.display_order,
+                   cc.id AS column_id, cc.name, cc.label, cc.column_type,
+                 cc.`options` AS column_options, cc.default_value, cc.is_required,
+                   ccv.value
+            FROM CustomColumnAssignment cca
+            JOIN CustomColumn cc ON cc.id = cca.custom_column_id
+            LEFT JOIN CustomColumnValue ccv
+                   ON ccv.custom_column_id = cc.id AND ccv.entry_id = ?
+            WHERE cca.entry_type_id = ? AND cca.is_visible = 1
+            ORDER BY cca.display_order ASC, cc.label ASC
+        ''', (entry_id, entry_type_id))
+        rows = cursor.fetchall()
+        import json as _json
+        result = {'header': [], 'form_fields': [], 'custom_columns': []}
+        for row in rows:
+            placement = row['section_placement']
+            # Route legacy `custom_columns` assignments into the `form_fields` section.
+            if placement == 'custom_columns':
+                placement = 'form_fields'
+            if placement not in result:
+                placement = 'form_fields'
+            result[placement].append({
+                'column_id': row['column_id'],
+                'name': row['name'],
+                'label': row['label'],
+                'column_type': row['column_type'],
+                'options': _json.loads(row['column_options']) if row['column_options'] else [],
+                'default_value': row['default_value'],
+                'is_required': bool(row['is_required']),
+                'value': row['value'],
+            })
+        return result
+    except Exception:
+        return {'header': [], 'form_fields': [], 'custom_columns': []}
+
 @main_bp.route('/')
 def index():
     # Redirect to dashboard as the default page
@@ -377,7 +417,8 @@ def entry_detail_v2(entry_id):
                            relationships=relationships_data,
                            allowed_file_types=params.get('allowed_file_types', 
                                'txt,pdf,png,jpg,jpeg,gif,webp,svg,doc,docx,xls,xlsx,ppt,pptx,mp4,avi,mov,wmv,flv,webm,mkv,mp3,wav,flac,aac,ogg,zip,rar,7z,tar,gz'),
-                           max_file_size=params.get('max_file_size', '50')))
+                           max_file_size=params.get('max_file_size', '50'),
+                           custom_column_values=_get_custom_column_values(entry_id, entry_data.get('entry_type_id'), cursor)))
     
     # Add cache control headers to force browser to reload
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
@@ -582,3 +623,24 @@ def sensor_plotter():
 def test_board_config():
     """Test page for board configuration"""
     return render_template('test_board_config.html')
+
+@main_bp.route('/manage-custom-columns')
+def manage_custom_columns():
+    """Custom columns management page"""
+    from ..db import get_system_parameters
+    from ..api.theme_api import generate_theme_css, get_current_theme_settings
+
+    params = get_system_parameters()
+    theme_settings = get_current_theme_settings()
+    theme_css = generate_theme_css(theme_settings)
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, name, singular_label FROM EntryType ORDER BY singular_label ASC')
+    entry_types = [dict(r) for r in cursor.fetchall()]
+
+    return render_template('manage_custom_columns.html',
+                           project_name=params.get('project_name'),
+                           entry_types=entry_types,
+                           theme_settings=theme_settings,
+                           theme_css=theme_css)

@@ -507,7 +507,7 @@
                                         {% elif section_type == 'attachments' %}
                                             {% with section_id=section.id %}{% include 'sections/_attachments_section.html' %}{% endwith %}
                                         {% elif section_type == 'form_fields' %}
-                                            {% with section_id=section.id %}{% include 'sections/_form_fields_section.html' %}{% endwith %}
+                                            {% with section_id=section.id, custom_column_values=custom_column_values, entry=entry %}{% include 'sections/_form_fields_section.html' %}{% endwith %}
                                         {% elif section_type == 'qr_code' %}
                                             {% with section_id=section.id %}{% include 'sections/_qr_code_section.html' %}{% endwith %}
                                         {% elif section_type == 'label_printing' %}
@@ -522,6 +522,8 @@
                                             {% with section_id=section.id %}{% include 'sections/_git_commits_section.html' %}{% endwith %}
                                         {% elif section_type == 'photo_gallery' %}
                                             {% with section_id=section.id, section_config=section.config %}{% include 'sections/_photo_gallery_section.html' %}{% endwith %}
+                                        {% elif section_type == 'custom_columns' %}
+                                            {% with section_id=section.id %}{% include 'sections/_custom_columns_section.html' %}{% endwith %}
                                         {% endif %}
                                 
                                 </div>
@@ -633,8 +635,7 @@
                                     <h5>Attachments Section</h5>
                                     <p class="text-muted">Attachments will go here</p>
                                 {% elif section_type == 'form_fields' %}
-                                    <h5>Custom Fields Section</h5>
-                                    <p class="text-muted">Custom fields will go here</p>
+                                    {% with section_id=section.id, custom_column_values=custom_column_values, entry=entry %}{% include 'sections/_form_fields_section.html' %}{% endwith %}
                                 {% elif section_type == 'qr_code' %}
                                     <h5>QR Code Section</h5>
                                     <p class="text-muted">QR code will go here</p>
@@ -651,6 +652,8 @@
                                     {% with section_id=section.id %}{% include 'sections/_git_commits_section.html' %}{% endwith %}
                                 {% elif section_type == 'photo_gallery' %}
                                     {% with section_id=section.id, section_config=section.config %}{% include 'sections/_photo_gallery_section.html' %}{% endwith %}
+                                {% elif section_type == 'custom_columns' %}
+                                    {% with section_id=section.id, custom_column_values=custom_column_values, entry=entry %}{% include 'sections/_custom_columns_section.html' %}{% endwith %}
                                 {% else %}
                                     <h5>{{ section_type|title }} Section</h5>
                                     <p class="text-muted">Content will go here</p>

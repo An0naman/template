@@ -12,6 +12,7 @@ import sys
 import logging
 from pathlib import Path
 from datetime import datetime
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +21,18 @@ def _get_conn(db_path):
     """Return a DB connection — MariaDB if DATABASE_URL is set, else SQLite."""
     database_url = os.environ.get('DATABASE_URL', '')
     if database_url.startswith('mysql'):
-        from app.db import get_connection
-        return get_connection()
+        import pymysql
+        parsed = urlparse(database_url)
+        return pymysql.connect(
+            host=parsed.hostname,
+            port=parsed.port or 3306,
+            user=parsed.username,
+            password=parsed.password,
+            database=parsed.path.lstrip('/'),
+            charset='utf8mb4',
+            autocommit=False,
+            connect_timeout=10,
+        )
     return sqlite3.connect(db_path)
 
 
@@ -293,6 +304,87 @@ class AutoMigration:
                     logger.info(f"✓ SavedSearch table created ({exec_time}ms)")
                 else:
                     self.record_migration(migration_name, success=True, exec_time=0)
+
+            # Migration: Add CustomColumn tables
+            migration_name = "add_custom_columns.py"
+            if not self.is_migration_applied(migration_name):
+                if not self.check_table_exists('CustomColumn'):
+                    logger.info("Creating CustomColumn tables...")
+                    start_time = datetime.now()
+
+                    cursor.execute(f'''
+                        CREATE TABLE IF NOT EXISTS CustomColumn (
+                            id {pk},
+                            name VARCHAR(255) NOT NULL UNIQUE,
+                            label {text} NOT NULL,
+                            description {text},
+                            column_type {text} NOT NULL DEFAULT 'text',
+                            `options` {text},
+                            default_value {text},
+                            is_required INTEGER NOT NULL DEFAULT 0,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    ''')
+
+                    cursor.execute(f'''
+                        CREATE TABLE IF NOT EXISTS CustomColumnAssignment (
+                            id {pk},
+                            custom_column_id INTEGER NOT NULL,
+                            entry_type_id INTEGER NOT NULL,
+                            section_placement {text} NOT NULL DEFAULT 'custom_columns',
+                            display_order INTEGER NOT NULL DEFAULT 0,
+                            is_visible INTEGER NOT NULL DEFAULT 1,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            FOREIGN KEY (custom_column_id) REFERENCES CustomColumn(id) ON DELETE CASCADE,
+                            FOREIGN KEY (entry_type_id) REFERENCES EntryType(id) ON DELETE CASCADE
+                        )
+                    ''')
+
+                    # Unique index on (custom_column_id, entry_type_id) so same column can't be
+                    # assigned to the same entry type twice.
+                    if mysql:
+                        cursor.execute('''
+                            ALTER TABLE CustomColumnAssignment
+                            ADD UNIQUE KEY uq_col_entry_type (custom_column_id, entry_type_id)
+                        ''')
+                    else:
+                        cursor.execute('''
+                            CREATE UNIQUE INDEX IF NOT EXISTS uq_col_entry_type
+                            ON CustomColumnAssignment(custom_column_id, entry_type_id)
+                        ''')
+
+                    cursor.execute(f'''
+                        CREATE TABLE IF NOT EXISTS CustomColumnValue (
+                            id {pk},
+                            entry_id INTEGER NOT NULL,
+                            custom_column_id INTEGER NOT NULL,
+                            value {text},
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            FOREIGN KEY (entry_id) REFERENCES Entry(id) ON DELETE CASCADE,
+                            FOREIGN KEY (custom_column_id) REFERENCES CustomColumn(id) ON DELETE CASCADE
+                        )
+                    ''')
+
+                    if mysql:
+                        cursor.execute('''
+                            ALTER TABLE CustomColumnValue
+                            ADD UNIQUE KEY uq_entry_col (entry_id, custom_column_id)
+                        ''')
+                    else:
+                        cursor.execute('''
+                            CREATE UNIQUE INDEX IF NOT EXISTS uq_entry_col
+                            ON CustomColumnValue(entry_id, custom_column_id)
+                        ''')
+
+                    conn.commit()
+                    exec_time = int((datetime.now() - start_time).total_seconds() * 1000)
+                    self.record_migration(migration_name, success=True, exec_time=exec_time)
+                    logger.info(f"✓ CustomColumn tables created ({exec_time}ms)")
+                else:
+                    self.record_migration(migration_name, success=True, exec_time=0)
+                    logger.info("✓ CustomColumn tables already exist")
 
             conn.close()
             return True
