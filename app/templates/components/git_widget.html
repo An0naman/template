@@ -4,6 +4,9 @@
         <div class="widget-header">
             <h5 class="widget-title"><i class="fab fa-git-alt me-2"></i>DevOps / Git</h5>
             <div class="widget-actions">
+                <button class="btn btn-sm btn-outline-secondary" id="gitFilterBtn" title="Filter commits" style="margin-right: 5px;">
+                    <i class="fas fa-filter"></i> <span id="gitFilterLabel">All</span>
+                </button>
                 <button class="btn btn-sm btn-outline-secondary" id="gitRefreshBtn"><i class="fas fa-sync"></i></button>
                 <a href="/git" class="btn btn-sm btn-outline-primary" id="gitOpenPageBtn">Open Full View</a>
             </div>
@@ -29,6 +32,10 @@
 </div>
 
 <script>
+let currentGitRepoId = null;
+let allGitCommits = [];
+let gitFilterMode = 'all'; // 'all' or 'unlinked'
+
 async function initGitWidget() {
     const container = document.getElementById('gitWidgetContainer');
     const loading = document.getElementById('gitLoading');
@@ -89,31 +96,62 @@ async function loadRepoCommits(repoId) {
     commitsDiv.innerHTML = '<div class="widget-loading"><div class="spinner-border text-primary"></div></div>';
 
     try {
-        const res = await fetch(`/api/git/repositories/${repoId}/commits?limit=10`);
+        currentGitRepoId = repoId;
+        const res = await fetch(`/api/git/repositories/${repoId}/commits?limit=50`);
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Failed to load commits');
 
         if (!data.commits || data.commits.length === 0) {
             commitsDiv.innerHTML = '<div class="text-muted">No commits found for this repository.</div>';
+            allGitCommits = [];
             return;
         }
 
-        commitsDiv.innerHTML = '';
-        data.commits.forEach(c => {
-            const item = document.createElement('div');
-            item.className = 'mb-2 p-2 border rounded';
-            const date = c.commit_date ? new Date(c.commit_date).toLocaleString() : '';
-            item.innerHTML = `
-                <div><strong>${escapeHtml(c.message)}</strong></div>
-                <div class="text-muted small">${c.commit_hash.substring(0,7)} • ${escapeHtml(c.author)} • ${date}</div>
-            `;
-            commitsDiv.appendChild(item);
-        });
+        // Store all commits
+        allGitCommits = data.commits;
+        
+        // Display filtered commits
+        displayFilteredCommits();
 
     } catch (e) {
         commitsDiv.innerHTML = `<div class="text-danger">Failed to load commits: ${escapeHtml(e.message)}</div>`;
     }
 }
+
+function displayFilteredCommits() {
+    const commitsDiv = document.getElementById('gitCommits');
+    
+    // Filter commits based on mode
+    let commits = allGitCommits;
+    if (gitFilterMode === 'unlinked') {
+        commits = allGitCommits.filter(c => !c.entry_id);
+    }
+    
+    if (!commits || commits.length === 0) {
+        commitsDiv.innerHTML = `<div class="text-muted">No ${gitFilterMode === 'unlinked' ? 'unlinked ' : ''}commits found.</div>`;
+        return;
+    }
+
+    commitsDiv.innerHTML = '';
+    commits.forEach(c => {
+        const item = document.createElement('div');
+        item.className = 'mb-2 p-2 border rounded';
+        const date = c.commit_date ? new Date(c.commit_date).toLocaleString() : '';
+        const badge = c.entry_id ? '<span class="badge bg-success ms-2" style="font-size: 0.7rem;">Linked</span>' : '';
+        item.innerHTML = `
+            <div><strong>${escapeHtml(c.message)}</strong>${badge}</div>
+            <div class="text-muted small">${c.commit_hash.substring(0,7)} • ${escapeHtml(c.author)} • ${date}</div>
+        `;
+        commitsDiv.appendChild(item);
+    });
+}
+
+document.getElementById('gitFilterBtn')?.addEventListener('click', () => {
+    gitFilterMode = gitFilterMode === 'all' ? 'unlinked' : 'all';
+    const label = document.getElementById('gitFilterLabel');
+    label.textContent = gitFilterMode === 'all' ? 'All' : 'Unlinked';
+    displayFilteredCommits();
+});
 
 document.getElementById('gitRefreshBtn')?.addEventListener('click', () => initGitWidget());
 
