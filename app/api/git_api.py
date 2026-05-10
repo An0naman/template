@@ -860,3 +860,64 @@ def get_entry_commits(entry_id):
             'count': 0,
             'warning': 'Error loading commits'
         }), 200
+
+
+@git_api_bp.route('/api/entries/<int:entry_id>/git/unlinked-commits', methods=['GET'])
+def get_unlinked_commits_for_entry(entry_id):
+    """Get recent unlinked commits that can be attached to an entry."""
+    try:
+        from app.db import get_connection
+
+        limit = request.args.get('limit', 100, type=int)
+        limit = max(1, min(limit, 500))
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # Verify entry exists
+        cursor.execute('SELECT id FROM Entry WHERE id = ?', (entry_id,))
+        if not cursor.fetchone():
+            return jsonify({
+                'success': False,
+                'error': 'Entry not found'
+            }), 404
+
+        cursor.execute('''
+            SELECT
+                c.commit_hash,
+                c.message,
+                c.message_body,
+                c.author,
+                c.author_email,
+                c.commit_date,
+                c.files_changed,
+                c.insertions,
+                c.deletions,
+                c.repository_id,
+                r.name as repository_name,
+                r.url as repository_url
+            FROM GitCommit c
+            LEFT JOIN GitRepository r ON c.repository_id = r.id
+            WHERE c.entry_id IS NULL
+            ORDER BY c.commit_date DESC
+            LIMIT ?
+        ''', (limit,))
+
+        columns = getattr(cursor, 'description', None) and [desc[0] for desc in cursor.description]
+        commits = [
+            _serialize_datetime_fields(_row_to_dict(row, columns), ['commit_date', 'created_at', 'updated_at'])
+            for row in cursor.fetchall()
+        ]
+
+        return jsonify({
+            'success': True,
+            'commits': commits,
+            'count': len(commits)
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to get unlinked commits for entry {entry_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
