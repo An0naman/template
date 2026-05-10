@@ -44,6 +44,8 @@ services:
       - DATABASE_URL=mysql://appuser:App_2026!@100.84.208.29:3306/template_dev
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
       - PYTHONUNBUFFERED=1
+      - GITHUB_TOKEN=${GITHUB_TOKEN}   # PAT with workflow scope – for dev deploy trigger
+      - GITHUB_REPO=${GITHUB_REPO}     # e.g. username/repo-name
       # - GEMINI_API_KEY=${GEMINI_API_KEY}
 
     # Use Tailscale MagicDNS first so tailnet hostnames resolve inside the container

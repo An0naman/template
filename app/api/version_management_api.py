@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 import json
 import os
 import re
@@ -14,7 +14,8 @@ def _to_bool(value):
 
 def _manual_controls_allowed():
     app_env = os.environ.get('APP_ENV', os.environ.get('FLASK_ENV', '')).strip().lower()
-    return _to_bool(os.environ.get('DEBUG', 'false')) or app_env in ('dev', 'development', 'local') or _to_bool(os.environ.get('ENABLE_MANUAL_VERSION_CONTROL', 'false'))
+    flask_debug = bool(current_app.debug) if current_app else False
+    return flask_debug or app_env in ('dev', 'development', 'local') or _to_bool(os.environ.get('ENABLE_MANUAL_VERSION_CONTROL', 'false'))
 
 
 def _project_root():
@@ -155,5 +156,122 @@ def bump_version():
             'previous_version': current,
             'version': new_version
         }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@version_management_api_bp.route('/version/manage/trigger-deploy', methods=['POST'])
+def trigger_deploy():
+    if not _manual_controls_allowed():
+        return jsonify({'error': 'Deploy trigger is only enabled in development environments.'}), 403
+
+    github_token = os.environ.get('GITHUB_TOKEN', '').strip()
+    github_repo = os.environ.get('GITHUB_REPO', '').strip()  # e.g. "username/repo"
+
+    if not github_token:
+        return jsonify({'error': 'GITHUB_TOKEN env var is not set.'}), 500
+    if not github_repo:
+        return jsonify({'error': 'GITHUB_REPO env var is not set (e.g. username/repo).'}), 500
+
+    data = request.get_json(silent=True) or {}
+    workflow = str(data.get('workflow', 'auto-version.yml')).strip()
+    bump_type = str(data.get('bump_type', 'patch')).strip().lower()
+
+    if bump_type not in ('patch', 'minor', 'major'):
+        return jsonify({'error': 'Invalid bump_type. Use patch, minor, or major.'}), 400
+
+    import urllib.request
+    import urllib.error
+    import base64
+
+    # Step 1: Read local VERSION file
+    try:
+        local_version = _read_version()
+    except Exception as e:
+        return jsonify({'error': f'Failed to read local VERSION: {str(e)}'}), 500
+
+    # Step 2: Sync VERSION file to GitHub repo (main branch) via API
+    try:
+        # Get current VERSION file SHA so we can update it
+        get_url = f'https://api.github.com/repos/{github_repo}/contents/VERSION?ref=main'
+        get_req = urllib.request.Request(
+            get_url,
+            headers={
+                'Authorization': f'Bearer {github_token}',
+                'Accept': 'application/vnd.github+json',
+                'X-GitHub-Api-Version': '2022-11-28',
+            }
+        )
+        with urllib.request.urlopen(get_req) as resp:
+            file_data = json.loads(resp.read().decode('utf-8'))
+            current_sha = file_data.get('sha')
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            current_sha = None  # File doesn't exist yet
+        else:
+            body = e.read().decode('utf-8', errors='replace')
+            return jsonify({'error': f'GitHub API error checking VERSION: {e.code}', 'output': body}), 500
+    except Exception as e:
+        return jsonify({'error': f'Failed to check VERSION on GitHub: {str(e)}'}), 500
+
+    # Update/create VERSION file on GitHub
+    try:
+        put_url = f'https://api.github.com/repos/{github_repo}/contents/VERSION'
+        put_payload = {
+            'message': f'chore: sync VERSION to {local_version}',
+            'content': base64.b64encode(local_version.encode('utf-8')).decode('utf-8'),
+            'branch': 'main'
+        }
+        if current_sha:
+            put_payload['sha'] = current_sha
+
+        put_req = urllib.request.Request(
+            put_url,
+            data=json.dumps(put_payload).encode('utf-8'),
+            headers={
+                'Authorization': f'Bearer {github_token}',
+                'Accept': 'application/vnd.github+json',
+                'X-GitHub-Api-Version': '2022-11-28',
+                'Content-Type': 'application/json',
+            },
+            method='PUT'
+        )
+        with urllib.request.urlopen(put_req) as resp:
+            if resp.status not in (200, 201):
+                return jsonify({'error': f'GitHub API returned {resp.status} when updating VERSION'}), 500
+    except urllib.error.HTTPError as e:
+        body = e.read().decode('utf-8', errors='replace')
+        return jsonify({'error': f'Failed to update VERSION on GitHub: {e.code}', 'output': body}), 500
+    except Exception as e:
+        return jsonify({'error': f'Failed to sync VERSION file: {str(e)}'}), 500
+
+    # Step 3: Dispatch workflow
+    try:
+        dispatch_url = f'https://api.github.com/repos/{github_repo}/actions/workflows/{workflow}/dispatches'
+        dispatch_payload = json.dumps({
+            'ref': 'main',
+            'inputs': {'bump_type': bump_type}
+        }).encode('utf-8')
+
+        dispatch_req = urllib.request.Request(
+            dispatch_url,
+            data=dispatch_payload,
+            headers={
+                'Authorization': f'Bearer {github_token}',
+                'Accept': 'application/vnd.github+json',
+                'X-GitHub-Api-Version': '2022-11-28',
+                'Content-Type': 'application/json',
+            },
+            method='POST'
+        )
+
+        with urllib.request.urlopen(dispatch_req) as resp:
+            # 204 No Content = success
+            if resp.status == 204:
+                return jsonify({'message': f'VERSION synced to {local_version} and workflow "{workflow}" ({bump_type}) triggered.'}), 200
+            return jsonify({'error': f'Unexpected status {resp.status} when dispatching workflow'}), 500
+    except urllib.error.HTTPError as e:
+        body = e.read().decode('utf-8', errors='replace')
+        return jsonify({'error': f'GitHub API error dispatching workflow: {e.code}', 'output': body}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500

@@ -101,6 +101,28 @@
                             <div id="aboutVersionMsg" class="alert d-none mb-0 py-2" role="alert"></div>
                         </div>
                     </div>
+
+                    <!-- Trigger Deploy -->
+                    <div class="about-section mt-3">
+                        <h6 class="about-section-title">
+                            <i class="fas fa-rocket me-2"></i>Trigger Deploy
+                        </h6>
+                        <div class="about-info">
+                            <div class="about-row align-items-start" style="flex-direction: column; gap: 0.5rem;">
+                                <label for="aboutDeployBumpType" class="about-label mb-0">Version bump:</label>
+                                <select class="form-select form-select-sm" id="aboutDeployBumpType">
+                                    <option value="patch" selected>Patch (+0.0.1)</option>
+                                    <option value="minor">Minor (+0.1.0)</option>
+                                    <option value="major">Major (+1.0.0)</option>
+                                </select>
+                                <button type="button" class="btn btn-sm btn-success w-100" id="aboutTriggerDeployBtn">
+                                    <i class="fas fa-rocket me-1"></i>Bump version &amp; trigger GitHub Actions
+                                </button>
+                                <small class="text-muted">Dispatches the auto-version workflow on main, which then builds and pushes a new Docker image.</small>
+                            </div>
+                            <div id="aboutDeployMsg" class="alert d-none mb-0 py-2" role="alert"></div>
+                        </div>
+                    </div>
                     {% endif %}
                 </div>
             </div>
@@ -252,6 +274,50 @@
         clearMessage();
         refreshVersion();
     });
+
+    // --- Trigger Deploy ---
+    const deployBumpType = document.getElementById('aboutDeployBumpType');
+    const triggerDeployBtn = document.getElementById('aboutTriggerDeployBtn');
+    const deployMsg = document.getElementById('aboutDeployMsg');
+
+    function setDeployMessage(text, type) {
+        if (!deployMsg) return;
+        deployMsg.className = `alert mb-0 py-2 alert-${type}`;
+        deployMsg.textContent = text;
+    }
+
+    function clearDeployMessage() {
+        if (!deployMsg) return;
+        deployMsg.className = 'alert d-none mb-0 py-2';
+        deployMsg.textContent = '';
+    }
+
+    if (triggerDeployBtn) {
+        triggerDeployBtn.addEventListener('click', async function() {
+            clearDeployMessage();
+            const bump_type = deployBumpType?.value || 'patch';
+            triggerDeployBtn.disabled = true;
+            triggerDeployBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Triggering…';
+            try {
+                const res = await fetch('/api/version/manage/trigger-deploy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ workflow: 'auto-version.yml', bump_type })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    setDeployMessage((data.error || 'Failed.') + (data.output ? '\n' + data.output : ''), 'danger');
+                } else {
+                    setDeployMessage(data.message || 'Workflow triggered.', 'success');
+                }
+            } catch (error) {
+                setDeployMessage(error.message, 'danger');
+            } finally {
+                triggerDeployBtn.disabled = false;
+                triggerDeployBtn.innerHTML = '<i class="fas fa-rocket me-1"></i>Bump version &amp; trigger GitHub Actions';
+            }
+        });
+    }
 })();
 </script>
 {% endif %}
