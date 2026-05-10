@@ -233,27 +233,33 @@ def update_entry(entry_id):
         
         # Check if this status has triggers that should set dates
         if new_status != old_status:
-            cursor.execute("""
-                SELECT sets_commenced, sets_ended
-                FROM EntryState
-                WHERE entry_type_id = ? AND name = ?
-            """, (entry_type_id, new_status))
-            
-            state_info = cursor.fetchone()
-            if state_info:
-                # Auto-set commenced_at if status triggers it and it's not already set
-                if state_info['sets_commenced'] and not current_entry['commenced_at']:
-                    now = datetime.now(timezone.utc).isoformat()
-                    set_clauses.append("commenced_at = ?")
-                    params.append(now)
-                    logger.info(f"Auto-setting commenced_at for entry {entry_id} due to status '{new_status}'")
-                
-                # Auto-set actual_end_date if status triggers it and it's not already set
-                if state_info['sets_ended'] and not current_entry['actual_end_date']:
-                    now = datetime.now(timezone.utc).isoformat()
-                    set_clauses.append("actual_end_date = ?")
-                    params.append(now)
-                    logger.info(f"Auto-setting actual_end_date for entry {entry_id} due to status '{new_status}'")
+            try:
+                cursor.execute("""
+                    SELECT sets_commenced, sets_ended
+                    FROM EntryState
+                    WHERE entry_type_id = ? AND name = ?
+                """, (entry_type_id, new_status))
+
+                state_info = cursor.fetchone()
+                if state_info:
+                    # Auto-set commenced_at if status triggers it and it's not already set
+                    if state_info['sets_commenced'] and not current_entry['commenced_at']:
+                        now = datetime.now(timezone.utc).isoformat()
+                        set_clauses.append("commenced_at = ?")
+                        params.append(now)
+                        logger.info(f"Auto-setting commenced_at for entry {entry_id} due to status '{new_status}'")
+
+                    # Auto-set actual_end_date if status triggers it and it's not already set
+                    if state_info['sets_ended'] and not current_entry['actual_end_date']:
+                        now = datetime.now(timezone.utc).isoformat()
+                        set_clauses.append("actual_end_date = ?")
+                        params.append(now)
+                        logger.info(f"Auto-setting actual_end_date for entry {entry_id} due to status '{new_status}'")
+            except Exception as trigger_error:
+                # Backward compatibility for environments missing trigger columns.
+                logger.warning(
+                    f"Skipping state trigger fields for entry {entry_id}: {trigger_error}"
+                )
 
     if not set_clauses:
         return jsonify({'message': 'No fields provided for update.'}), 200

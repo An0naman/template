@@ -2,6 +2,7 @@
 from flask import Blueprint, request, jsonify, g, current_app
 from datetime import datetime, timezone
 import logging
+import sqlite3
 
 # Define a Blueprint for Entry State API
 entry_state_api_bp = Blueprint('entry_state_api', __name__)
@@ -9,8 +10,31 @@ entry_state_api_bp = Blueprint('entry_state_api', __name__)
 # Get a logger for this module
 logger = logging.getLogger(__name__)
 
+
+def _has_entry_state_trigger_columns(cursor):
+    """Return True when EntryState has sets_commenced/sets_ended columns."""
+    try:
+        db_type = getattr(cursor, 'db_type', 'sqlite')
+        if db_type == 'mysql':
+            cursor.execute('''
+                SELECT COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'EntryState'
+                  AND COLUMN_NAME IN ('sets_commenced', 'sets_ended')
+            ''')
+            columns = {row['COLUMN_NAME'] for row in cursor.fetchall()}
+        else:
+            cursor.execute("PRAGMA table_info(EntryState)")
+            columns = {row[1] for row in cursor.fetchall()}
+
+        return 'sets_commenced' in columns and 'sets_ended' in columns
+    except Exception:
+        return False
+
 def get_db():
     if 'db' not in g:
+        from ..db import get_connection
         g.db = get_connection()
     return g.db
 
@@ -21,13 +45,23 @@ def get_entry_states(entry_type_id):
         conn = get_db()
         cursor = conn.cursor()
         
-        cursor.execute('''
-            SELECT id, entry_type_id, name, category, color, display_order, is_default, 
-                   sets_commenced, sets_ended, created_at
-            FROM EntryState
-            WHERE entry_type_id = ?
-            ORDER BY display_order ASC, name ASC
-        ''', (entry_type_id,))
+        has_trigger_columns = _has_entry_state_trigger_columns(cursor)
+        if has_trigger_columns:
+            cursor.execute('''
+                SELECT id, entry_type_id, name, category, color, display_order, is_default,
+                       sets_commenced, sets_ended, created_at
+                FROM EntryState
+                WHERE entry_type_id = ?
+                ORDER BY display_order ASC, name ASC
+            ''', (entry_type_id,))
+        else:
+            cursor.execute('''
+                SELECT id, entry_type_id, name, category, color, display_order, is_default,
+                       created_at
+                FROM EntryState
+                WHERE entry_type_id = ?
+                ORDER BY display_order ASC, name ASC
+            ''', (entry_type_id,))
         
         rows = cursor.fetchall()
         states = []
@@ -40,8 +74,8 @@ def get_entry_states(entry_type_id):
                 'color': row['color'],
                 'display_order': row['display_order'],
                 'is_default': bool(row['is_default']),
-                'sets_commenced': bool(row['sets_commenced']) if row['sets_commenced'] is not None else False,
-                'sets_ended': bool(row['sets_ended']) if row['sets_ended'] is not None else False,
+                'sets_commenced': bool(row['sets_commenced']) if has_trigger_columns and row['sets_commenced'] is not None else False,
+                'sets_ended': bool(row['sets_ended']) if has_trigger_columns and row['sets_ended'] is not None else False,
                 'created_at': row['created_at']
             })
         
@@ -84,12 +118,20 @@ def create_entry_state(entry_type_id):
                 (entry_type_id,)
             )
         
-        cursor.execute('''
-            INSERT INTO EntryState (entry_type_id, name, category, color, display_order, is_default, 
-                                   sets_commenced, sets_ended, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (entry_type_id, name, category, color, display_order, is_default, sets_commenced, sets_ended, 
-              datetime.now(timezone.utc).isoformat()))
+        has_trigger_columns = _has_entry_state_trigger_columns(cursor)
+        if has_trigger_columns:
+            cursor.execute('''
+                INSERT INTO EntryState (entry_type_id, name, category, color, display_order, is_default,
+                                       sets_commenced, sets_ended, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (entry_type_id, name, category, color, display_order, is_default, sets_commenced, sets_ended,
+                  datetime.now(timezone.utc).isoformat()))
+        else:
+            cursor.execute('''
+                INSERT INTO EntryState (entry_type_id, name, category, color, display_order, is_default, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (entry_type_id, name, category, color, display_order, is_default,
+                  datetime.now(timezone.utc).isoformat()))
         
         conn.commit()
         
@@ -147,10 +189,12 @@ def update_entry_state(entry_type_id, state_id):
                 )
             set_clauses.append("is_default = ?")
             params.append(1 if is_default else 0)
-        if 'sets_commenced' in data:
+        has_trigger_columns = _has_entry_state_trigger_columns(cursor)
+
+        if has_trigger_columns and 'sets_commenced' in data:
             set_clauses.append("sets_commenced = ?")
             params.append(1 if data['sets_commenced'] else 0)
-        if 'sets_ended' in data:
+        if has_trigger_columns and 'sets_ended' in data:
             set_clauses.append("sets_ended = ?")
             params.append(1 if data['sets_ended'] else 0)
         
@@ -239,12 +283,21 @@ def get_available_states_for_entry(entry_id):
         entry_type_id = entry['entry_type_id']
         
         # Get all states for this entry type
-        cursor.execute('''
-            SELECT id, name, category, color, display_order, is_default, sets_commenced, sets_ended
-            FROM EntryState
-            WHERE entry_type_id = ?
-            ORDER BY display_order ASC, name ASC
-        ''', (entry_type_id,))
+        has_trigger_columns = _has_entry_state_trigger_columns(cursor)
+        if has_trigger_columns:
+            cursor.execute('''
+                SELECT id, name, category, color, display_order, is_default, sets_commenced, sets_ended
+                FROM EntryState
+                WHERE entry_type_id = ?
+                ORDER BY display_order ASC, name ASC
+            ''', (entry_type_id,))
+        else:
+            cursor.execute('''
+                SELECT id, name, category, color, display_order, is_default
+                FROM EntryState
+                WHERE entry_type_id = ?
+                ORDER BY display_order ASC, name ASC
+            ''', (entry_type_id,))
         
         rows = cursor.fetchall()
         states = []
@@ -256,8 +309,8 @@ def get_available_states_for_entry(entry_id):
                 'color': row['color'],
                 'display_order': row['display_order'],
                 'is_default': bool(row['is_default']),
-                'sets_commenced': bool(row['sets_commenced']) if row['sets_commenced'] is not None else False,
-                'sets_ended': bool(row['sets_ended']) if row['sets_ended'] is not None else False
+                'sets_commenced': bool(row['sets_commenced']) if has_trigger_columns and row['sets_commenced'] is not None else False,
+                'sets_ended': bool(row['sets_ended']) if has_trigger_columns and row['sets_ended'] is not None else False
             })
         
         return jsonify(states), 200
