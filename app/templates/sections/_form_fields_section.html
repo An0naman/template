@@ -3,6 +3,8 @@
 {% set section_config = section_config or {} %}
 {% set show_labels = section_config.get('show_labels', True) %}
 {% set always_editable = section_config.get('always_editable', True) %}
+{% set column_count = section_config.get('column_count', 2) %}
+{% set col_class = {1: 'col-12', 2: 'col-md-6', 3: 'col-lg-4', 4: 'col-lg-3', 6: 'col-lg-2'}.get(column_count, 'col-md-6') %}
 
 <style>
     #customColumnsSectionContent-{{ section_id }} .custom-col-item {
@@ -38,7 +40,7 @@
     {% if section_cols %}
     <div class="row g-3" id="customColumnsGrid-{{ section_id }}">
         {% for col in section_cols %}
-        <div class="col-md-6 col-lg-4">
+        <div class="{{ col_class }}">
             <div class="custom-col-item">
                 {% if show_labels %}
                 <div class="custom-col-label">

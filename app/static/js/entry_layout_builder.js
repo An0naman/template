@@ -439,14 +439,49 @@ function renderHeaderConfig(section) {
 // Render custom fields section configuration
 function renderCustomFieldsConfig(section) {
     const config = typeof section.config === 'string' ? JSON.parse(section.config || '{}') : (section.config || {});
+    const columnCount = config.column_count || 2;
+    const hiddenFields = config.hidden_fields || [];
+    const fieldOrder = config.field_order || [];
+
+    let fieldListHtml = '';
+    
+    // Get custom column values from the current entry context if available
+    // This is a simplified version - in production you'd fetch this data
+    fieldListHtml = `
+        <div class="card card-sm border-secondary mb-3">
+            <div class="card-body p-2">
+                <small class="text-muted d-block mb-2">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Field visibility and order can be configured when viewing an entry with custom fields.
+                </small>
+                <small class="text-secondary">
+                    Right-click a field in the entry view to configure its visibility.
+                </small>
+            </div>
+        </div>
+    `;
 
     return `
         <hr class="my-3">
         <div class="mb-3">
             <h6 class="text-success">
-                <i class="fas fa-columns me-2"></i>Custom Fields Options
+                <i class="fas fa-columns me-2"></i>Custom Fields Layout
             </h6>
-            <small class="text-muted">Configure how custom fields are displayed and edited</small>
+            <small class="text-muted">Configure the layout and display of custom fields</small>
+        </div>
+
+        <div class="mb-3">
+            <label for="customFieldsColumnCount" class="form-label small">
+                <i class="fas fa-th me-1"></i>Number of Columns
+            </label>
+            <select class="form-select form-select-sm" id="customFieldsColumnCount">
+                <option value="1" ${columnCount === 1 ? 'selected' : ''}>1 Column (Full Width)</option>
+                <option value="2" ${columnCount === 2 ? 'selected' : ''}>2 Columns</option>
+                <option value="3" ${columnCount === 3 ? 'selected' : ''}>3 Columns</option>
+                <option value="4" ${columnCount === 4 ? 'selected' : ''}>4 Columns</option>
+                <option value="6" ${columnCount === 6 ? 'selected' : ''}>6 Columns (Compact)</option>
+            </select>
+            <small class="text-muted d-block mt-1">Choose how many columns to display custom fields across</small>
         </div>
 
         <div class="form-check form-switch mb-2">
@@ -991,6 +1026,7 @@ async function saveSectionProperties(options = {}) {
         const config = typeof selectedSection.config === 'string' ?
             JSON.parse(selectedSection.config || '{}') : (selectedSection.config || {});
 
+        config.column_count = parseInt(document.getElementById('customFieldsColumnCount')?.value || '2', 10);
         config.always_editable = document.getElementById('customFieldsAlwaysEdit')?.checked ?? true;
         config.show_labels = document.getElementById('customFieldsShowLabels')?.checked ?? true;
 
