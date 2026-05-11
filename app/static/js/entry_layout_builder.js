@@ -388,11 +388,40 @@ function renderCustomFieldsConfig(section) {
 }
 
 // ─── Custom Fields Layout Modal ─────────────────────────────────────────────
+// GridStack's bundled CSS hard-codes widths for a 12-column grid
+// (e.g. [gs-w="1"]{width:8.33%}).  Using column:2 changes the internal model
+// but those CSS percentages still apply, producing 8.33%-wide "lines".
+// Fix: always run GridStack at column:12, multiply/divide positions by
+// (12 / userColumnCount) when loading and saving.
 
-function cfModalColumnCountChange(value) {
-    if (cfModalGridStack) {
-        cfModalGridStack.column(parseInt(value, 10), 'moveScale');
-    }
+const CF_GRID_COLS = 12; // internal GridStack column count – always 12
+let cfModalCurrentColumnCount = 3; // tracks the user-facing column count
+
+function _cfUnitSize(colCount) {
+    // How many of the 12 internal columns equal one user column
+    return CF_GRID_COLS / colCount;
+}
+
+// Convert user-space item (w/x in colCount units) → 12-col GridStack item
+function _cfToGrid12(item, colCount) {
+    const u = _cfUnitSize(colCount);
+    return {
+        ...item,
+        x: Math.round((item.x || 0) * u),
+        w: Math.min(CF_GRID_COLS, Math.max(Math.round(u), Math.round((item.w || 1) * u)))
+    };
+}
+
+// Convert 12-col GridStack item → user-space item (w/x in colCount units)
+function _cfFromGrid12(item, colCount) {
+    const u = _cfUnitSize(colCount);
+    return {
+        id:  parseInt(item.id, 10),
+        x:   Math.round((item.x || 0) / u),
+        y:   item.y || 0,
+        w:   Math.max(1, Math.round((item.w || u) / u)),
+        h:   item.h || 1
+    };
 }
 
 function _cfBuildCardHTML(key, label, type) {
@@ -445,8 +474,52 @@ function cfModalShowField(key) {
     const type  = chip.querySelector('.badge')?.textContent?.trim() || '';
     chip.remove();
     _cfUpdateHiddenCount();
-    const widget = cfModalGridStack.addWidget({ id: key, w: 1, h: 1, content: _cfBuildCardHTML(key, label, type) });
+    const u = Math.round(_cfUnitSize(cfModalCurrentColumnCount));
+    const widget = cfModalGridStack.addWidget({ id: key, w: u, h: 1, content: _cfBuildCardHTML(key, label, type) });
     widget.querySelector('.cf-toggle-vis')?.addEventListener('click', () => cfModalToggleVisibility(key));
+}
+
+function cfModalColumnCountChange(newValue) {
+    const newCount = parseInt(newValue, 10) || 3;
+    if (!cfModalGridStack) { cfModalCurrentColumnCount = newCount; return; }
+
+    const oldU = _cfUnitSize(cfModalCurrentColumnCount);
+    const newU = _cfUnitSize(newCount);
+    cfModalCurrentColumnCount = newCount;
+
+    // Rescale all item positions proportionally within the 12-col grid
+    cfModalGridStack.batchUpdate(true);
+    cfModalGridStack.engine.nodes.slice().forEach(node => {
+        const newW = Math.max(Math.round(newU), Math.round(node.w * newU / oldU));
+        const newX = Math.round(node.x * newU / oldU);
+        cfModalGridStack.update(node.el, { x: Math.min(newX, CF_GRID_COLS - Math.round(newU)), w: Math.min(newW, CF_GRID_COLS) });
+    });
+    cfModalGridStack.batchUpdate(false);
+    cfModalGridStack.compact();
+}
+
+function _cfInitGrid(gridEl, columnCount, itemsToLoad) {
+    if (cfModalGridStack) { cfModalGridStack.destroy(false); cfModalGridStack = null; }
+    gridEl.innerHTML = '';
+    cfModalCurrentColumnCount = columnCount;
+
+    cfModalGridStack = GridStack.init({
+        column: CF_GRID_COLS,   // always 12 — uses standard built-in CSS
+        cellHeight: 82,
+        margin: 6,
+        float: false,
+        animate: false,
+        resizable: { handles: 'e,se,s,w,sw' },
+        minRow: 1
+    }, gridEl);
+
+    // Convert from user-space coords to 12-col coords before loading
+    const scaled = itemsToLoad.map(item => _cfToGrid12(item, columnCount));
+    cfModalGridStack.load(scaled);
+
+    gridEl.querySelectorAll('.cf-toggle-vis').forEach(btn => {
+        btn.addEventListener('click', () => cfModalToggleVisibility(btn.getAttribute('data-field-key')));
+    });
 }
 
 function openCustomFieldsLayoutModal() {
@@ -456,11 +529,11 @@ function openCustomFieldsLayoutModal() {
         ? JSON.parse(selectedSection.config || '{}')
         : (selectedSection.config || {});
 
-    const columnCount   = Number(config.column_count || 3);
-    const showLabels    = config.show_labels !== false;
-    const alwaysEdit    = config.always_editable !== false;
-    const hiddenFields  = (Array.isArray(config.hidden_fields) ? config.hidden_fields : []).map(String);
-    const savedLayout   = Array.isArray(config.field_layout) ? config.field_layout : [];
+    const columnCount  = Number(config.column_count || 3);
+    const showLabels   = config.show_labels !== false;
+    const alwaysEdit   = config.always_editable !== false;
+    const hiddenFields = (Array.isArray(config.hidden_fields) ? config.hidden_fields : []).map(String);
+    const savedLayout  = Array.isArray(config.field_layout) ? config.field_layout : [];
 
     document.getElementById('cfModalColumnCount').value = String(columnCount);
     document.getElementById('cfModalShowLabels').checked = showLabels;
@@ -470,9 +543,7 @@ function openCustomFieldsLayoutModal() {
         a.section_placement === 'form_fields' || a.section_placement === 'custom_columns'
     );
 
-    // Reset
     document.getElementById('cfHiddenList').innerHTML = '';
-    if (cfModalGridStack) { cfModalGridStack.destroy(false); cfModalGridStack = null; }
     const gridEl = document.getElementById('cfModalGrid');
     gridEl.innerHTML = '';
 
@@ -484,64 +555,53 @@ function openCustomFieldsLayoutModal() {
         return;
     }
 
-    cfModalGridStack = GridStack.init({
-        column: columnCount,
-        cellHeight: 82,
-        margin: 6,
-        float: false,
-        animate: true,
-        resizable: { handles: 'e,se,s' },
-        minRow: 1
-    }, gridEl);
-
-    // Build map of saved positions
     const posMap = {};
     savedLayout.forEach(item => { posMap[String(item.id)] = item; });
 
     const visible = allAssignments.filter(a => !hiddenFields.includes(String(a.custom_column_id)));
     const hidden  = allAssignments.filter(a =>  hiddenFields.includes(String(a.custom_column_id)));
 
-    // Sort visible: saved-position items first (by y, x), then unsaved in natural order
-    const hasSaved  = visible.filter(a => posMap[String(a.custom_column_id)]);
-    const noSaved   = visible.filter(a => !posMap[String(a.custom_column_id)]);
+    const hasSaved = visible.filter(a => posMap[String(a.custom_column_id)]);
+    const noSaved  = visible.filter(a => !posMap[String(a.custom_column_id)]);
     hasSaved.sort((a, b) => {
         const pa = posMap[String(a.custom_column_id)];
         const pb = posMap[String(b.custom_column_id)];
         return pa.y !== pb.y ? pa.y - pb.y : pa.x - pb.x;
     });
 
+    // Items stored in user-space (column_count units); _cfInitGrid scales to 12-col
     const itemsToLoad = [];
     hasSaved.forEach(a => {
-        const key  = String(a.custom_column_id);
-        const pos  = posMap[key];
+        const key   = String(a.custom_column_id);
+        const pos   = posMap[key];
         const label = (a.column && (a.column.label || a.column.name)) || `Field ${key}`;
         const type  = (a.column && a.column.column_type) || '';
-        itemsToLoad.push({ id: key, x: pos.x, y: pos.y, w: Math.min(pos.w || 1, columnCount), h: pos.h || 1, content: _cfBuildCardHTML(key, label, type) });
+        itemsToLoad.push({ id: key, x: pos.x || 0, y: pos.y || 0, w: pos.w || 1, h: pos.h || 1, content: _cfBuildCardHTML(key, label, type) });
     });
     noSaved.forEach(a => {
-        const key  = String(a.custom_column_id);
+        const key   = String(a.custom_column_id);
         const label = (a.column && (a.column.label || a.column.name)) || `Field ${key}`;
         const type  = (a.column && a.column.column_type) || '';
         itemsToLoad.push({ id: key, w: 1, h: 1, content: _cfBuildCardHTML(key, label, type) });
     });
 
-    cfModalGridStack.load(itemsToLoad);
-
-    // Attach hide-toggle listeners
-    gridEl.querySelectorAll('.cf-toggle-vis').forEach(btn => {
-        btn.addEventListener('click', () => cfModalToggleVisibility(btn.getAttribute('data-field-key')));
-    });
-
-    // Populate hidden tray
     hidden.forEach(a => {
-        const key  = String(a.custom_column_id);
+        const key   = String(a.custom_column_id);
         const label = (a.column && (a.column.label || a.column.name)) || `Field ${key}`;
         const type  = (a.column && a.column.column_type) || '';
         _cfAddHiddenChip(key, label, type);
     });
     _cfUpdateHiddenCount();
 
-    bootstrap.Modal.getOrCreateInstance(document.getElementById('customFieldsLayoutModal')).show();
+    // Init GridStack only after Bootstrap finishes showing the modal so the
+    // container has a real pixel width for column-width calculations.
+    const modalEl = document.getElementById('customFieldsLayoutModal');
+    modalEl.addEventListener('shown.bs.modal', function initGrid() {
+        modalEl.removeEventListener('shown.bs.modal', initGrid);
+        _cfInitGrid(gridEl, columnCount, itemsToLoad);
+    });
+
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
 }
 
 async function applyCustomFieldsLayout() {
@@ -556,34 +616,33 @@ async function applyCustomFieldsLayout() {
             ? JSON.parse(selectedSection.config || '{}')
             : (selectedSection.config || {});
 
-        config.column_count   = parseInt(document.getElementById('cfModalColumnCount').value, 10) || 3;
-        config.show_labels    = document.getElementById('cfModalShowLabels').checked;
+        const columnCount = cfModalCurrentColumnCount;
+        config.column_count    = columnCount;
+        config.show_labels     = document.getElementById('cfModalShowLabels').checked;
         config.always_editable = document.getElementById('cfModalAlwaysEdit').checked;
 
-        // GridStack positions → field_layout
+        // Convert 12-col GridStack positions back to user-space (column_count units)
         const fieldLayout = [];
         if (cfModalGridStack) {
             cfModalGridStack.save(false).forEach(item => {
                 if (item.id != null) {
-                    fieldLayout.push({ id: parseInt(item.id, 10), x: item.x, y: item.y, w: item.w, h: item.h });
+                    fieldLayout.push(_cfFromGrid12(item, columnCount));
                 }
             });
         }
         config.field_layout = fieldLayout;
 
-        // Hidden fields from tray
         config.hidden_fields = [...document.querySelectorAll('#cfHiddenList .cf-hidden-chip')]
             .map(chip => parseInt(chip.getAttribute('data-field-key'), 10))
             .filter(n => !isNaN(n));
 
-        // field_order derived from layout (top→bottom, left→right)
         config.field_order = [...fieldLayout]
             .sort((a, b) => a.y !== b.y ? a.y - b.y : a.x - b.x)
             .map(item => item.id);
 
         const configStr = JSON.stringify(config);
 
-        const response = await fetch(`/api/entry-layouts/sections/${selectedSection.id}`, {
+        const response = await fetch(`/api/entry-layouts/${currentLayout.id}/sections/${selectedSection.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ config: configStr })
@@ -601,6 +660,7 @@ async function applyCustomFieldsLayout() {
         btn.innerHTML = '<i class="fas fa-check me-1"></i>Apply &amp; Save';
     }
 }
+
 
 function renderPhotoGalleryConfig(section) {
     const config = typeof section.config === 'string' ? JSON.parse(section.config || '{}') : (section.config || {});
