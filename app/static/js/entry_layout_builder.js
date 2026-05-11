@@ -15,6 +15,7 @@ let autoSaveInFlight = null;
 let isRenderingLayout = false;
 let hasPendingLayoutChanges = false;
 let entryTypeCustomAssignments = [];
+let cfModalGridStack = null;
 const AUTO_SAVE_DELAY = 700;
 
 // Section type icons mapping
@@ -386,44 +387,66 @@ function renderCustomFieldsConfig(section) {
         }`;
 }
 
-function initCfModalDragDrop() {
-    const list = document.getElementById('cfModalFieldsList');
-    if (!list) return;
+// ─── Custom Fields Layout Modal ─────────────────────────────────────────────
 
-    let dragSrc = null;
+function cfModalColumnCountChange(value) {
+    if (cfModalGridStack) {
+        cfModalGridStack.column(parseInt(value, 10), 'moveScale');
+    }
+}
 
-    list.querySelectorAll('.cf-row').forEach(row => {
-        row.addEventListener('dragstart', e => {
-            dragSrc = row;
-            e.dataTransfer.effectAllowed = 'move';
-            row.style.opacity = '0.4';
-        });
-        row.addEventListener('dragend', () => {
-            if (dragSrc) dragSrc.style.opacity = '';
-            list.querySelectorAll('.cf-row').forEach(r => r.classList.remove('cf-drag-over'));
-            dragSrc = null;
-        });
-        row.addEventListener('dragover', e => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            list.querySelectorAll('.cf-row').forEach(r => r.classList.remove('cf-drag-over'));
-            if (row !== dragSrc) row.classList.add('cf-drag-over');
-        });
-        row.addEventListener('drop', e => {
-            e.preventDefault();
-            if (dragSrc && dragSrc !== row) {
-                const allRows = [...list.querySelectorAll('.cf-row')];
-                const srcIdx = allRows.indexOf(dragSrc);
-                const dstIdx = allRows.indexOf(row);
-                if (srcIdx < dstIdx) {
-                    row.after(dragSrc);
-                } else {
-                    row.before(dragSrc);
-                }
-            }
-            list.querySelectorAll('.cf-row').forEach(r => r.classList.remove('cf-drag-over'));
-        });
-    });
+function _cfBuildCardHTML(key, label, type) {
+    return `<div class="d-flex align-items-start p-2 h-100">
+        <i class="fas fa-grip-vertical text-muted me-2 mt-1" style="font-size:0.7rem;flex-shrink:0;"></i>
+        <div class="flex-grow-1 overflow-hidden min-w-0">
+            <div class="small fw-bold text-truncate">${label}</div>
+            <span class="badge bg-secondary mt-1 cf-field-type" style="font-size:0.6rem;">${type}</span>
+        </div>
+        <button class="btn btn-link btn-sm p-0 ms-1 flex-shrink-0 cf-toggle-vis"
+                data-field-key="${key}" title="Hide field">
+            <i class="fas fa-eye-slash text-muted" style="font-size:0.8rem;"></i>
+        </button>
+    </div>`;
+}
+
+function _cfUpdateHiddenCount() {
+    const n = document.querySelectorAll('#cfHiddenList .cf-hidden-chip').length;
+    document.getElementById('cfHiddenCount').textContent = n;
+}
+
+function _cfAddHiddenChip(key, label, type) {
+    const chip = document.createElement('div');
+    chip.className = 'cf-hidden-chip';
+    chip.setAttribute('data-field-key', key);
+    chip.innerHTML = `<span>${label}</span>
+        <span class="badge bg-secondary" style="font-size:0.6rem;">${type}</span>
+        <button class="btn btn-link btn-sm p-0" onclick="cfModalShowField('${key}')" title="Show field">
+            <i class="fas fa-eye text-success"></i>
+        </button>`;
+    document.getElementById('cfHiddenList').appendChild(chip);
+    _cfUpdateHiddenCount();
+}
+
+function cfModalToggleVisibility(key) {
+    if (!cfModalGridStack) return;
+    const node = cfModalGridStack.engine.nodes.find(n => n.id === key);
+    if (!node || !node.el) return;
+    const label = node.el.querySelector('.fw-bold')?.textContent?.trim() || `Field ${key}`;
+    const type  = node.el.querySelector('.cf-field-type')?.textContent?.trim() || '';
+    cfModalGridStack.removeWidget(node.el, false);
+    _cfAddHiddenChip(key, label, type);
+}
+
+function cfModalShowField(key) {
+    if (!cfModalGridStack) return;
+    const chip = document.querySelector(`#cfHiddenList .cf-hidden-chip[data-field-key="${key}"]`);
+    if (!chip) return;
+    const label = chip.querySelector('span')?.textContent?.trim() || `Field ${key}`;
+    const type  = chip.querySelector('.badge')?.textContent?.trim() || '';
+    chip.remove();
+    _cfUpdateHiddenCount();
+    const widget = cfModalGridStack.addWidget({ id: key, w: 1, h: 1, content: _cfBuildCardHTML(key, label, type) });
+    widget.querySelector('.cf-toggle-vis')?.addEventListener('click', () => cfModalToggleVisibility(key));
 }
 
 function openCustomFieldsLayoutModal() {
@@ -433,62 +456,92 @@ function openCustomFieldsLayoutModal() {
         ? JSON.parse(selectedSection.config || '{}')
         : (selectedSection.config || {});
 
-    const columnCount = Number(config.column_count || 3);
-    const showLabels = config.show_labels !== false;
-    const alwaysEditable = config.always_editable !== false;
-    const hiddenFields = (Array.isArray(config.hidden_fields) ? config.hidden_fields : []).map(String);
-    const fieldOrder = (Array.isArray(config.field_order) ? config.field_order : []).map(String);
+    const columnCount   = Number(config.column_count || 3);
+    const showLabels    = config.show_labels !== false;
+    const alwaysEdit    = config.always_editable !== false;
+    const hiddenFields  = (Array.isArray(config.hidden_fields) ? config.hidden_fields : []).map(String);
+    const savedLayout   = Array.isArray(config.field_layout) ? config.field_layout : [];
 
-    // Populate top controls
     document.getElementById('cfModalColumnCount').value = String(columnCount);
     document.getElementById('cfModalShowLabels').checked = showLabels;
-    document.getElementById('cfModalAlwaysEdit').checked = alwaysEditable;
+    document.getElementById('cfModalAlwaysEdit').checked = alwaysEdit;
 
-    // Get and sort assignments
-    const assignments = entryTypeCustomAssignments.filter(a =>
+    const allAssignments = entryTypeCustomAssignments.filter(a =>
         a.section_placement === 'form_fields' || a.section_placement === 'custom_columns'
     );
-    const sorted = [...assignments].sort((a, b) => {
-        const ka = String(a.custom_column_id);
-        const kb = String(b.custom_column_id);
-        const ia = fieldOrder.indexOf(ka);
-        const ib = fieldOrder.indexOf(kb);
-        if (ia !== -1 && ib !== -1) return ia - ib;
-        if (ia !== -1) return -1;
-        if (ib !== -1) return 1;
-        return (a.display_order || 0) - (b.display_order || 0);
-    });
 
-    // Build field rows
-    const list = document.getElementById('cfModalFieldsList');
-    if (sorted.length === 0) {
-        list.innerHTML = `<div class="text-muted small p-3 text-center">
-            <i class="fas fa-info-circle me-1"></i>
-            No custom columns assigned to this section yet.
-            <a href="/manage-custom-columns" class="d-block mt-1">Manage custom columns</a>
-        </div>`;
-    } else {
-        list.innerHTML = sorted.map(a => {
-            const key = String(a.custom_column_id);
-            const label = (a.column && (a.column.label || a.column.name)) || `Field ${key}`;
-            const type = (a.column && a.column.column_type) || '';
-            const visible = !hiddenFields.includes(key);
-            return `<div class="cf-row d-flex align-items-center gap-2 px-3 py-2 border-bottom"
-                         draggable="true" data-field-key="${key}" style="cursor:grab;user-select:none;">
-                <i class="fas fa-grip-vertical text-muted"></i>
-                <input type="checkbox" class="form-check-input cf-visible-chk flex-shrink-0" data-field-key="${key}" ${visible ? 'checked' : ''}>
-                <span class="flex-grow-1">${label}</span>
-                <span class="badge bg-secondary">${type}</span>
-            </div>`;
-        }).join('');
-        // Small extra padding row at bottom for drop target
-        list.innerHTML += `<div class="p-1"></div>`;
+    // Reset
+    document.getElementById('cfHiddenList').innerHTML = '';
+    if (cfModalGridStack) { cfModalGridStack.destroy(false); cfModalGridStack = null; }
+    const gridEl = document.getElementById('cfModalGrid');
+    gridEl.innerHTML = '';
+
+    if (allAssignments.length === 0) {
+        gridEl.innerHTML = `<div class="text-muted small p-4 text-center">
+            <i class="fas fa-info-circle me-1"></i>No custom columns assigned yet.
+            <a href="/manage-custom-columns" class="ms-1">Manage</a></div>`;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('customFieldsLayoutModal')).show();
+        return;
     }
 
-    initCfModalDragDrop();
+    cfModalGridStack = GridStack.init({
+        column: columnCount,
+        cellHeight: 82,
+        margin: 6,
+        float: false,
+        animate: true,
+        resizable: { handles: 'e,se,s' },
+        minRow: 1
+    }, gridEl);
 
-    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('customFieldsLayoutModal'));
-    modal.show();
+    // Build map of saved positions
+    const posMap = {};
+    savedLayout.forEach(item => { posMap[String(item.id)] = item; });
+
+    const visible = allAssignments.filter(a => !hiddenFields.includes(String(a.custom_column_id)));
+    const hidden  = allAssignments.filter(a =>  hiddenFields.includes(String(a.custom_column_id)));
+
+    // Sort visible: saved-position items first (by y, x), then unsaved in natural order
+    const hasSaved  = visible.filter(a => posMap[String(a.custom_column_id)]);
+    const noSaved   = visible.filter(a => !posMap[String(a.custom_column_id)]);
+    hasSaved.sort((a, b) => {
+        const pa = posMap[String(a.custom_column_id)];
+        const pb = posMap[String(b.custom_column_id)];
+        return pa.y !== pb.y ? pa.y - pb.y : pa.x - pb.x;
+    });
+
+    const itemsToLoad = [];
+    hasSaved.forEach(a => {
+        const key  = String(a.custom_column_id);
+        const pos  = posMap[key];
+        const label = (a.column && (a.column.label || a.column.name)) || `Field ${key}`;
+        const type  = (a.column && a.column.column_type) || '';
+        itemsToLoad.push({ id: key, x: pos.x, y: pos.y, w: Math.min(pos.w || 1, columnCount), h: pos.h || 1, content: _cfBuildCardHTML(key, label, type) });
+    });
+    noSaved.forEach(a => {
+        const key  = String(a.custom_column_id);
+        const label = (a.column && (a.column.label || a.column.name)) || `Field ${key}`;
+        const type  = (a.column && a.column.column_type) || '';
+        itemsToLoad.push({ id: key, w: 1, h: 1, content: _cfBuildCardHTML(key, label, type) });
+    });
+
+    cfModalGridStack.load(itemsToLoad);
+
+    // Attach hide-toggle listeners
+    gridEl.querySelectorAll('.cf-toggle-vis').forEach(btn => {
+        btn.addEventListener('click', () => cfModalToggleVisibility(btn.getAttribute('data-field-key')));
+    });
+
+    // Populate hidden tray
+    hidden.forEach(a => {
+        const key  = String(a.custom_column_id);
+        const label = (a.column && (a.column.label || a.column.name)) || `Field ${key}`;
+        const type  = (a.column && a.column.column_type) || '';
+        _cfAddHiddenChip(key, label, type);
+    });
+    _cfUpdateHiddenCount();
+
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('customFieldsLayoutModal')).show();
 }
 
 async function applyCustomFieldsLayout() {
@@ -503,36 +556,41 @@ async function applyCustomFieldsLayout() {
             ? JSON.parse(selectedSection.config || '{}')
             : (selectedSection.config || {});
 
-        config.column_count = parseInt(document.getElementById('cfModalColumnCount').value, 10) || 3;
-        config.show_labels = document.getElementById('cfModalShowLabels').checked;
+        config.column_count   = parseInt(document.getElementById('cfModalColumnCount').value, 10) || 3;
+        config.show_labels    = document.getElementById('cfModalShowLabels').checked;
         config.always_editable = document.getElementById('cfModalAlwaysEdit').checked;
 
-        const fieldOrder = [];
-        const hiddenFields = [];
-        document.querySelectorAll('#cfModalFieldsList .cf-row').forEach(row => {
-            const key = row.getAttribute('data-field-key');
-            if (!key) return;
-            fieldOrder.push(parseInt(key, 10));
-            const chk = row.querySelector('.cf-visible-chk');
-            if (chk && !chk.checked) hiddenFields.push(parseInt(key, 10));
-        });
-        config.field_order = fieldOrder;
-        config.hidden_fields = hiddenFields;
+        // GridStack positions → field_layout
+        const fieldLayout = [];
+        if (cfModalGridStack) {
+            cfModalGridStack.save(false).forEach(item => {
+                if (item.id != null) {
+                    fieldLayout.push({ id: parseInt(item.id, 10), x: item.x, y: item.y, w: item.w, h: item.h });
+                }
+            });
+        }
+        config.field_layout = fieldLayout;
+
+        // Hidden fields from tray
+        config.hidden_fields = [...document.querySelectorAll('#cfHiddenList .cf-hidden-chip')]
+            .map(chip => parseInt(chip.getAttribute('data-field-key'), 10))
+            .filter(n => !isNaN(n));
+
+        // field_order derived from layout (top→bottom, left→right)
+        config.field_order = [...fieldLayout]
+            .sort((a, b) => a.y !== b.y ? a.y - b.y : a.x - b.x)
+            .map(item => item.id);
 
         const configStr = JSON.stringify(config);
 
-        // Persist to server
         const response = await fetch(`/api/entry-layouts/sections/${selectedSection.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ config: configStr })
         });
-
         if (!response.ok) throw new Error(`Server error ${response.status}`);
 
-        // Update local state
         applySectionUpdatesLocally(selectedSection.id, { config: configStr });
-
         bootstrap.Modal.getInstance(document.getElementById('customFieldsLayoutModal'))?.hide();
         showNotification('Fields layout saved', 'success');
     } catch (err) {

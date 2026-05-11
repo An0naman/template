@@ -1,22 +1,114 @@
 {# Form Fields Section - Renders custom columns assigned to this entry type #}
-{% set section_cols = (custom_column_values.form_fields if custom_column_values is defined and custom_column_values.form_fields is defined else []) %}
 
-{# --- Resolve config (may be a dict or absent) --- #}
+{# ════════════════════════════════════════════════════════════════
+   Macro: render a single custom column field card
+   ════════════════════════════════════════════════════════════════ #}
+{% macro render_field(col, section_id, show_labels, always_editable) %}
+<div class="custom-col-item">
+    {% if show_labels %}
+    <div class="custom-col-label">
+        {{ col.label }}{% if col.is_required %} <span class="text-danger">*</span>{% endif %}
+    </div>
+    {% endif %}
+
+    {# Display view (hidden when always_editable is true) #}
+    <div class="custom-col-display {% if always_editable %}d-none{% endif %}"
+         id="ccDisplay-{{ section_id }}-{{ col.column_id }}">
+        {% set val = col.value if col.value is not none else col.default_value %}
+        {% if col.column_type == 'checkbox' %}
+            <span class="badge {{ 'bg-success' if val in ['1', 'true', 'yes'] else 'bg-secondary' }}">
+                {{ 'Yes' if val in ['1', 'true', 'yes'] else 'No' }}
+            </span>
+        {% elif col.column_type == 'url' and val %}
+            <a href="{{ val }}" target="_blank" rel="noopener noreferrer" class="text-break">{{ val }}</a>
+        {% elif col.column_type == 'textarea' %}
+            <div class="text-break" style="white-space: pre-wrap;">{{ val or '—' }}</div>
+        {% else %}
+            <span class="text-break">{{ val or '—' }}</span>
+        {% endif %}
+    </div>
+
+    {# Edit view #}
+    <div class="custom-col-edit" id="ccEdit-{{ section_id }}-{{ col.column_id }}">
+        {% if col.column_type == 'textarea' %}
+            <textarea class="form-control form-control-sm cc-input"
+                      data-column-id="{{ col.column_id }}"
+                      rows="3">{{ col.value or col.default_value or '' }}</textarea>
+        {% elif col.column_type == 'select' %}
+            <select class="form-select form-select-sm cc-input" data-column-id="{{ col.column_id }}">
+                <option value="">— select —</option>
+                {% for opt in col.options %}
+                <option value="{{ opt }}" {{ 'selected' if col.value == opt else '' }}>{{ opt }}</option>
+                {% endfor %}
+            </select>
+        {% elif col.column_type == 'checkbox' %}
+            <div class="form-check">
+                <input class="form-check-input cc-input" type="checkbox"
+                       data-column-id="{{ col.column_id }}"
+                       {{ 'checked' if col.value in ['1', 'true', 'yes'] else '' }}>
+            </div>
+        {% elif col.column_type == 'number' %}
+            <input type="number" class="form-control form-control-sm cc-input"
+                   data-column-id="{{ col.column_id }}"
+                   value="{{ col.value or col.default_value or '' }}">
+        {% elif col.column_type == 'date' %}
+            <input type="date" class="form-control form-control-sm cc-input"
+                   data-column-id="{{ col.column_id }}"
+                   value="{{ col.value or col.default_value or '' }}">
+        {% elif col.column_type == 'email' %}
+            <input type="email" class="form-control form-control-sm cc-input"
+                   data-column-id="{{ col.column_id }}"
+                   value="{{ col.value or col.default_value or '' }}">
+        {% elif col.column_type == 'url' %}
+            <input type="url" class="form-control form-control-sm cc-input"
+                   data-column-id="{{ col.column_id }}"
+                   value="{{ col.value or col.default_value or '' }}"
+                   placeholder="https://...">
+        {% else %}
+            <input type="text" class="form-control form-control-sm cc-input"
+                   data-column-id="{{ col.column_id }}"
+                   value="{{ col.value or col.default_value or '' }}">
+        {% endif %}
+    </div>
+</div>
+{% endmacro %}
+
+{# ════════════════════════════════════════════════════════════════
+   Config resolution
+   ════════════════════════════════════════════════════════════════ #}
+{% set section_cols = (custom_column_values.form_fields
+    if custom_column_values is defined and custom_column_values.form_fields is defined
+    else []) %}
+
 {% set _cfg = section_config if (section_config is defined and section_config is mapping) else {} %}
-{% set _column_count = (_cfg.get('column_count', 3) | int) %}
-{% set _show_labels = _cfg.get('show_labels', True) %}
+{% set _column_count    = (_cfg.get('column_count', 3) | int) %}
+{% set _show_labels     = _cfg.get('show_labels', True) %}
 {% set _always_editable = _cfg.get('always_editable', True) %}
-{% set _hidden_raw = _cfg.get('hidden_fields', []) %}
-{% set _order_raw = _cfg.get('field_order', []) %}
+{% set _hidden_raw      = _cfg.get('hidden_fields', []) %}
+{% set _field_layout    = _cfg.get('field_layout', []) %}
+{% set _order_raw       = _cfg.get('field_order', []) %}
 
-{# Normalise hidden/order IDs to strings #}
-{% set ns = namespace(hidden=[], ordered=[]) %}
+{# Normalise hidden IDs to strings #}
+{% set ns = namespace(hidden=[]) %}
 {% for h in _hidden_raw %}{% set ns.hidden = ns.hidden + [h | string] %}{% endfor %}
-{% for o in _order_raw %}{% set ns.ordered = ns.ordered + [o | string] %}{% endfor %}
 
-{# Sort section_cols: explicit order first, then remaining in their natural order #}
-{% set ns2 = namespace(cols=[]) %}
-{% for key in ns.ordered %}
+{# Bootstrap fallback column class (used when no field_layout saved) #}
+{% if _column_count == 1 %}
+    {% set _col_class = 'col-12' %}
+{% elif _column_count == 2 %}
+    {% set _col_class = 'col-md-6' %}
+{% elif _column_count == 4 %}
+    {% set _col_class = 'col-md-6 col-lg-3' %}
+{% elif _column_count == 6 %}
+    {% set _col_class = 'col-md-4 col-lg-2' %}
+{% else %}
+    {% set _col_class = 'col-md-6 col-lg-4' %}
+{% endif %}
+
+{# Build ordered visible list (used only in fallback path) #}
+{% set ns2 = namespace(ordered=[], cols=[]) %}
+{% for o in _order_raw %}{% set ns2.ordered = ns2.ordered + [o | string] %}{% endfor %}
+{% for key in ns2.ordered %}
     {% for col in section_cols %}
         {% if col.column_id | string == key and col.column_id | string not in ns.hidden %}
             {% set ns2.cols = ns2.cols + [col] %}
@@ -29,19 +121,8 @@
     {% endif %}
 {% endfor %}
 
-{# Map column_count -> Bootstrap responsive classes #}
-{% if _column_count == 1 %}
-    {% set _col_class = 'col-12' %}
-{% elif _column_count == 2 %}
-    {% set _col_class = 'col-md-6' %}
-{% elif _column_count == 4 %}
-    {% set _col_class = 'col-md-6 col-lg-3' %}
-{% elif _column_count == 6 %}
-    {% set _col_class = 'col-md-4 col-lg-2' %}
-{% else %}
-    {# Default: 3 columns #}
-    {% set _col_class = 'col-md-6 col-lg-4' %}
-{% endif %}
+{# CSS grid row height: each unit ≈ GridStack cellHeight (82px) + margin (6px) #}
+{% set _row_h = '88px' %}
 
 <style>
     #customColumnsSectionContent-{{ section_id }} .custom-col-item {
@@ -51,14 +132,12 @@
         padding: 0.85rem;
         height: 100%;
     }
-
     #customColumnsSectionContent-{{ section_id }} .custom-col-label {
         color: var(--bs-emphasis-color);
         font-size: 0.95rem;
         font-weight: 600;
         margin-bottom: 0.45rem;
     }
-
     #customColumnsSectionContent-{{ section_id }} .custom-col-display {
         border: 0;
         border-radius: 0;
@@ -67,77 +146,57 @@
         display: flex;
         align-items: center;
     }
-
     #customColumnsSectionContent-{{ section_id }} .custom-col-edit {
         margin-top: 0.4rem;
     }
 </style>
 
-<div class="custom-columns-section" id="customColumnsSectionContent-{{ section_id }}" data-entry-id="{{ entry.id }}">
-    {% if ns2.cols %}
-    <div class="row g-3" id="customColumnsGrid-{{ section_id }}">
-        {% for col in ns2.cols %}
-        <div class="{{ _col_class }}">
-            <div class="custom-col-item">
-                {% if _show_labels %}
-                <div class="custom-col-label">
-                    {{ col.label }}{% if col.is_required %} <span class="text-danger">*</span>{% endif %}
-                </div>
+<div class="custom-columns-section"
+     id="customColumnsSectionContent-{{ section_id }}"
+     data-entry-id="{{ entry.id }}">
+
+    {% if _field_layout | length > 0 %}
+    {# ── CSS Grid layout path: positions come from field_layout config ── #}
+    <div id="customColumnsGrid-{{ section_id }}"
+         style="display:grid;
+                grid-template-columns: repeat({{ _column_count }}, 1fr);
+                grid-auto-rows: {{ _row_h }};
+                gap: 0.75rem;">
+        {% for item in _field_layout %}
+            {# Find the matching column data object #}
+            {% set ns_fl = namespace(col=none) %}
+            {% for c in section_cols %}
+                {% if c.column_id | string == item.id | string and ns_fl.col is none %}
+                    {% set ns_fl.col = c %}
                 {% endif %}
+            {% endfor %}
 
-                {# --- Display view (hidden when always_editable) --- #}
-                <div class="custom-col-display {% if _always_editable %}d-none{% endif %}" id="ccDisplay-{{ section_id }}-{{ col.column_id }}">
-                    {% set val = col.value if col.value is not none else col.default_value %}
-                    {% if col.column_type == 'checkbox' %}
-                        <span class="badge {{ 'bg-success' if val in ['1', 'true', 'yes'] else 'bg-secondary' }}">
-                            {{ 'Yes' if val in ['1', 'true', 'yes'] else 'No' }}
-                        </span>
-                    {% elif col.column_type == 'url' and val %}
-                        <a href="{{ val }}" target="_blank" rel="noopener noreferrer" class="text-break">{{ val }}</a>
-                    {% elif col.column_type == 'textarea' %}
-                        <div class="text-break" style="white-space: pre-wrap;">{{ val or '—' }}</div>
-                    {% else %}
-                        <span class="text-break">{{ val or '—' }}</span>
-                    {% endif %}
+            {% if ns_fl.col and ns_fl.col.column_id | string not in ns.hidden %}
+                {# Clamp w so the span doesn't overflow past column_count #}
+                {% set _iw = (item.w | default(1)) | int %}
+                {% set _ih = (item.h | default(1)) | int %}
+                {% set _ix = (item.x | default(0)) | int %}
+                {% set _iy = (item.y | default(0)) | int %}
+                {% set _max_w = _column_count - _ix %}
+                {% set _safe_w = _iw if _iw <= _max_w else _max_w %}
+                {% set _safe_w = 1 if _safe_w < 1 else _safe_w %}
+                {% set _safe_h = 1 if _ih < 1 else _ih %}
+                <div style="grid-column: {{ _ix + 1 }} / span {{ _safe_w }};
+                            grid-row:    {{ _iy + 1 }} / span {{ _safe_h }};">
+                    {{ render_field(ns_fl.col, section_id, _show_labels, _always_editable) }}
                 </div>
-
-                {# --- Edit view (hidden by default) --- #}
-                <div class="custom-col-edit" id="ccEdit-{{ section_id }}-{{ col.column_id }}">
-                    {% if col.column_type == 'textarea' %}
-                        <textarea class="form-control form-control-sm cc-input" data-column-id="{{ col.column_id }}" rows="3">{{ col.value or col.default_value or '' }}</textarea>
-                    {% elif col.column_type == 'select' %}
-                        <select class="form-select form-select-sm cc-input" data-column-id="{{ col.column_id }}">
-                            <option value="">— select —</option>
-                            {% for opt in col.options %}
-                            <option value="{{ opt }}" {{ 'selected' if col.value == opt else '' }}>{{ opt }}</option>
-                            {% endfor %}
-                        </select>
-                    {% elif col.column_type == 'checkbox' %}
-                        <div class="form-check">
-                            <input class="form-check-input cc-input" type="checkbox" data-column-id="{{ col.column_id }}" {{ 'checked' if col.value in ['1', 'true', 'yes'] else '' }}>
-                        </div>
-                    {% elif col.column_type == 'number' %}
-                        <input type="number" class="form-control form-control-sm cc-input" data-column-id="{{ col.column_id }}" value="{{ col.value or col.default_value or '' }}">
-                    {% elif col.column_type == 'date' %}
-                        <input type="date" class="form-control form-control-sm cc-input" data-column-id="{{ col.column_id }}" value="{{ col.value or col.default_value or '' }}">
-                    {% elif col.column_type == 'email' %}
-                        <input type="email" class="form-control form-control-sm cc-input" data-column-id="{{ col.column_id }}" value="{{ col.value or col.default_value or '' }}">
-                    {% elif col.column_type == 'url' %}
-                        <input type="url" class="form-control form-control-sm cc-input" data-column-id="{{ col.column_id }}" value="{{ col.value or col.default_value or '' }}" placeholder="https://...">
-                    {% else %}
-                        <input type="text" class="form-control form-control-sm cc-input" data-column-id="{{ col.column_id }}" value="{{ col.value or col.default_value or '' }}">
-                    {% endif %}
-                </div>
-            </div>
-        </div>
+            {% endif %}
         {% endfor %}
     </div>
 
-    {# Save / Cancel buttons – shown in edit mode #}
-    <div class="mt-3" id="ccEditActions-{{ section_id }}">
-        <button class="btn btn-sm btn-success me-2" onclick="saveCustomColumns({{ entry.id }}, '{{ section_id }}')">
-            <i class="fas fa-save me-1"></i>Save
-        </button>
+    {% elif ns2.cols %}
+    {# ── Bootstrap grid fallback (no field_layout saved yet) ── #}
+    <div class="row g-3" id="customColumnsGrid-{{ section_id }}">
+        {% for col in ns2.cols %}
+        <div class="{{ _col_class }}">
+            {{ render_field(col, section_id, _show_labels, _always_editable) }}
+        </div>
+        {% endfor %}
     </div>
 
     {% else %}
@@ -145,6 +204,16 @@
         <i class="fas fa-columns me-2"></i>No custom columns assigned to this entry type.
         <a href="/manage-custom-columns" class="ms-1">Manage custom columns</a>
     </p>
+    {% endif %}
+
+    {# Save button — shown when edit controls are active #}
+    {% if ns2.cols or _field_layout | length > 0 %}
+    <div class="mt-3" id="ccEditActions-{{ section_id }}">
+        <button class="btn btn-sm btn-success me-2"
+                onclick="saveCustomColumns({{ entry.id }}, '{{ section_id }}')">
+            <i class="fas fa-save me-1"></i>Save
+        </button>
+    </div>
     {% endif %}
 </div>
 
@@ -196,6 +265,5 @@
             console.error('Failed to save custom fields', err);
         });
     };
-
 })();
 </script>
