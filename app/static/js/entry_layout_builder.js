@@ -14,6 +14,7 @@ let sectionAutoSaveTimer = null;
 let autoSaveInFlight = null;
 let isRenderingLayout = false;
 let hasPendingLayoutChanges = false;
+let entryTypeCustomAssignments = [];
 const AUTO_SAVE_DELAY = 700;
 
 // Section type icons mapping
@@ -62,12 +63,28 @@ function initializeLayoutBuilder(entryTypeId, entryTypeData) {
     
     // Load available section types
     loadAvailableSections();
+
+    // Load assigned custom columns for this entry type (used by field config panel)
+    loadEntryTypeCustomAssignments(entryTypeId);
     
     // Load current layout
     loadLayout(entryTypeId);
     
     // Setup event listeners
     setupEventListeners();
+}
+
+// Load assigned custom columns for this entry type
+async function loadEntryTypeCustomAssignments(entryTypeId) {
+    try {
+        const response = await fetch(`/api/entry-types/${entryTypeId}/custom-columns`);
+        if (!response.ok) throw new Error('Failed to load custom column assignments');
+        const rows = await response.json();
+        entryTypeCustomAssignments = Array.isArray(rows) ? rows : [];
+    } catch (error) {
+        console.error('Error loading custom column assignments:', error);
+        entryTypeCustomAssignments = [];
+    }
 }
 
 // Setup event listeners
@@ -340,6 +357,191 @@ function attachPropertyAutosave(section) {
             }
         });
     });
+}
+
+function renderCustomFieldsConfig(section) {
+    const config = typeof section.config === 'string' ? JSON.parse(section.config || '{}') : (section.config || {});
+    const assignments = entryTypeCustomAssignments.filter(a =>
+        a.section_placement === 'form_fields' || a.section_placement === 'custom_columns'
+    );
+    const count = assignments.length;
+
+    return `
+        <hr class="my-3">
+        <div class="mb-2 d-flex align-items-center justify-content-between">
+            <h6 class="text-success mb-0"><i class="fas fa-columns me-2"></i>Custom Fields Layout</h6>
+            ${count > 0
+                ? `<span class="badge bg-secondary">${count} field${count !== 1 ? 's' : ''}</span>`
+                : ''}
+        </div>
+        ${count === 0
+            ? `<div class="alert alert-info p-2 small mb-0">
+                    <i class="fas fa-info-circle me-1"></i>
+                    No custom columns assigned yet.
+                    <a href="/manage-custom-columns" class="d-block mt-1">Manage custom columns</a>
+               </div>`
+            : `<button class="btn btn-outline-success btn-sm w-100" onclick="openCustomFieldsLayoutModal()">
+                    <i class="fas fa-sliders-h me-1"></i>Configure Fields Layout
+               </button>`
+        }`;
+}
+
+function initCfModalDragDrop() {
+    const list = document.getElementById('cfModalFieldsList');
+    if (!list) return;
+
+    let dragSrc = null;
+
+    list.querySelectorAll('.cf-row').forEach(row => {
+        row.addEventListener('dragstart', e => {
+            dragSrc = row;
+            e.dataTransfer.effectAllowed = 'move';
+            row.style.opacity = '0.4';
+        });
+        row.addEventListener('dragend', () => {
+            if (dragSrc) dragSrc.style.opacity = '';
+            list.querySelectorAll('.cf-row').forEach(r => r.classList.remove('cf-drag-over'));
+            dragSrc = null;
+        });
+        row.addEventListener('dragover', e => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            list.querySelectorAll('.cf-row').forEach(r => r.classList.remove('cf-drag-over'));
+            if (row !== dragSrc) row.classList.add('cf-drag-over');
+        });
+        row.addEventListener('drop', e => {
+            e.preventDefault();
+            if (dragSrc && dragSrc !== row) {
+                const allRows = [...list.querySelectorAll('.cf-row')];
+                const srcIdx = allRows.indexOf(dragSrc);
+                const dstIdx = allRows.indexOf(row);
+                if (srcIdx < dstIdx) {
+                    row.after(dragSrc);
+                } else {
+                    row.before(dragSrc);
+                }
+            }
+            list.querySelectorAll('.cf-row').forEach(r => r.classList.remove('cf-drag-over'));
+        });
+    });
+}
+
+function openCustomFieldsLayoutModal() {
+    if (!selectedSection) return;
+
+    const config = typeof selectedSection.config === 'string'
+        ? JSON.parse(selectedSection.config || '{}')
+        : (selectedSection.config || {});
+
+    const columnCount = Number(config.column_count || 3);
+    const showLabels = config.show_labels !== false;
+    const alwaysEditable = config.always_editable !== false;
+    const hiddenFields = (Array.isArray(config.hidden_fields) ? config.hidden_fields : []).map(String);
+    const fieldOrder = (Array.isArray(config.field_order) ? config.field_order : []).map(String);
+
+    // Populate top controls
+    document.getElementById('cfModalColumnCount').value = String(columnCount);
+    document.getElementById('cfModalShowLabels').checked = showLabels;
+    document.getElementById('cfModalAlwaysEdit').checked = alwaysEditable;
+
+    // Get and sort assignments
+    const assignments = entryTypeCustomAssignments.filter(a =>
+        a.section_placement === 'form_fields' || a.section_placement === 'custom_columns'
+    );
+    const sorted = [...assignments].sort((a, b) => {
+        const ka = String(a.custom_column_id);
+        const kb = String(b.custom_column_id);
+        const ia = fieldOrder.indexOf(ka);
+        const ib = fieldOrder.indexOf(kb);
+        if (ia !== -1 && ib !== -1) return ia - ib;
+        if (ia !== -1) return -1;
+        if (ib !== -1) return 1;
+        return (a.display_order || 0) - (b.display_order || 0);
+    });
+
+    // Build field rows
+    const list = document.getElementById('cfModalFieldsList');
+    if (sorted.length === 0) {
+        list.innerHTML = `<div class="text-muted small p-3 text-center">
+            <i class="fas fa-info-circle me-1"></i>
+            No custom columns assigned to this section yet.
+            <a href="/manage-custom-columns" class="d-block mt-1">Manage custom columns</a>
+        </div>`;
+    } else {
+        list.innerHTML = sorted.map(a => {
+            const key = String(a.custom_column_id);
+            const label = (a.column && (a.column.label || a.column.name)) || `Field ${key}`;
+            const type = (a.column && a.column.column_type) || '';
+            const visible = !hiddenFields.includes(key);
+            return `<div class="cf-row d-flex align-items-center gap-2 px-3 py-2 border-bottom"
+                         draggable="true" data-field-key="${key}" style="cursor:grab;user-select:none;">
+                <i class="fas fa-grip-vertical text-muted"></i>
+                <input type="checkbox" class="form-check-input cf-visible-chk flex-shrink-0" data-field-key="${key}" ${visible ? 'checked' : ''}>
+                <span class="flex-grow-1">${label}</span>
+                <span class="badge bg-secondary">${type}</span>
+            </div>`;
+        }).join('');
+        // Small extra padding row at bottom for drop target
+        list.innerHTML += `<div class="p-1"></div>`;
+    }
+
+    initCfModalDragDrop();
+
+    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('customFieldsLayoutModal'));
+    modal.show();
+}
+
+async function applyCustomFieldsLayout() {
+    if (!selectedSection) return;
+
+    const btn = document.getElementById('cfModalApplyBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving…';
+
+    try {
+        const config = typeof selectedSection.config === 'string'
+            ? JSON.parse(selectedSection.config || '{}')
+            : (selectedSection.config || {});
+
+        config.column_count = parseInt(document.getElementById('cfModalColumnCount').value, 10) || 3;
+        config.show_labels = document.getElementById('cfModalShowLabels').checked;
+        config.always_editable = document.getElementById('cfModalAlwaysEdit').checked;
+
+        const fieldOrder = [];
+        const hiddenFields = [];
+        document.querySelectorAll('#cfModalFieldsList .cf-row').forEach(row => {
+            const key = row.getAttribute('data-field-key');
+            if (!key) return;
+            fieldOrder.push(parseInt(key, 10));
+            const chk = row.querySelector('.cf-visible-chk');
+            if (chk && !chk.checked) hiddenFields.push(parseInt(key, 10));
+        });
+        config.field_order = fieldOrder;
+        config.hidden_fields = hiddenFields;
+
+        const configStr = JSON.stringify(config);
+
+        // Persist to server
+        const response = await fetch(`/api/entry-layouts/sections/${selectedSection.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ config: configStr })
+        });
+
+        if (!response.ok) throw new Error(`Server error ${response.status}`);
+
+        // Update local state
+        applySectionUpdatesLocally(selectedSection.id, { config: configStr });
+
+        bootstrap.Modal.getInstance(document.getElementById('customFieldsLayoutModal'))?.hide();
+        showNotification('Fields layout saved', 'success');
+    } catch (err) {
+        console.error('applyCustomFieldsLayout error:', err);
+        showNotification('Failed to save fields layout', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check me-1"></i>Apply &amp; Save';
+    }
 }
 
 function renderPhotoGalleryConfig(section) {
@@ -861,6 +1063,7 @@ function renderSectionProperties(section) {
         </div>
         ` : ''}
         
+        ${section.section_type === 'form_fields' ? renderCustomFieldsConfig(section) : ''}
         ${section.section_type === 'ai_assistant' ? renderAiAssistantConfig(section) : ''}
         ${section.section_type === 'photo_gallery' ? renderPhotoGalleryConfig(section) : ''}
         

@@ -1,6 +1,48 @@
 {# Form Fields Section - Renders custom columns assigned to this entry type #}
 {% set section_cols = (custom_column_values.form_fields if custom_column_values is defined and custom_column_values.form_fields is defined else []) %}
 
+{# --- Resolve config (may be a dict or absent) --- #}
+{% set _cfg = section_config if (section_config is defined and section_config is mapping) else {} %}
+{% set _column_count = (_cfg.get('column_count', 3) | int) %}
+{% set _show_labels = _cfg.get('show_labels', True) %}
+{% set _always_editable = _cfg.get('always_editable', True) %}
+{% set _hidden_raw = _cfg.get('hidden_fields', []) %}
+{% set _order_raw = _cfg.get('field_order', []) %}
+
+{# Normalise hidden/order IDs to strings #}
+{% set ns = namespace(hidden=[], ordered=[]) %}
+{% for h in _hidden_raw %}{% set ns.hidden = ns.hidden + [h | string] %}{% endfor %}
+{% for o in _order_raw %}{% set ns.ordered = ns.ordered + [o | string] %}{% endfor %}
+
+{# Sort section_cols: explicit order first, then remaining in their natural order #}
+{% set ns2 = namespace(cols=[]) %}
+{% for key in ns.ordered %}
+    {% for col in section_cols %}
+        {% if col.column_id | string == key and col.column_id | string not in ns.hidden %}
+            {% set ns2.cols = ns2.cols + [col] %}
+        {% endif %}
+    {% endfor %}
+{% endfor %}
+{% for col in section_cols %}
+    {% if col.column_id | string not in ns.hidden and col not in ns2.cols %}
+        {% set ns2.cols = ns2.cols + [col] %}
+    {% endif %}
+{% endfor %}
+
+{# Map column_count -> Bootstrap responsive classes #}
+{% if _column_count == 1 %}
+    {% set _col_class = 'col-12' %}
+{% elif _column_count == 2 %}
+    {% set _col_class = 'col-md-6' %}
+{% elif _column_count == 4 %}
+    {% set _col_class = 'col-md-6 col-lg-3' %}
+{% elif _column_count == 6 %}
+    {% set _col_class = 'col-md-4 col-lg-2' %}
+{% else %}
+    {# Default: 3 columns #}
+    {% set _col_class = 'col-md-6 col-lg-4' %}
+{% endif %}
+
 <style>
     #customColumnsSectionContent-{{ section_id }} .custom-col-item {
         border: 1.5px solid var(--bs-border-color);
@@ -32,17 +74,19 @@
 </style>
 
 <div class="custom-columns-section" id="customColumnsSectionContent-{{ section_id }}" data-entry-id="{{ entry.id }}">
-    {% if section_cols %}
+    {% if ns2.cols %}
     <div class="row g-3" id="customColumnsGrid-{{ section_id }}">
-        {% for col in section_cols %}
-        <div class="col-md-6 col-lg-4">
+        {% for col in ns2.cols %}
+        <div class="{{ _col_class }}">
             <div class="custom-col-item">
+                {% if _show_labels %}
                 <div class="custom-col-label">
                     {{ col.label }}{% if col.is_required %} <span class="text-danger">*</span>{% endif %}
                 </div>
+                {% endif %}
 
-                {# --- Display view --- #}
-                <div class="custom-col-display d-none" id="ccDisplay-{{ section_id }}-{{ col.column_id }}">
+                {# --- Display view (hidden when always_editable) --- #}
+                <div class="custom-col-display {% if _always_editable %}d-none{% endif %}" id="ccDisplay-{{ section_id }}-{{ col.column_id }}">
                     {% set val = col.value if col.value is not none else col.default_value %}
                     {% if col.column_type == 'checkbox' %}
                         <span class="badge {{ 'bg-success' if val in ['1', 'true', 'yes'] else 'bg-secondary' }}">
