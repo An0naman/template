@@ -1,11 +1,5 @@
 {# Form Fields Section - Renders custom columns assigned to this entry type #}
 {% set section_cols = (custom_column_values.form_fields if custom_column_values is defined and custom_column_values.form_fields is defined else []) %}
-{% set section_config = section_config or {} %}
-{% set show_labels = section_config.get('show_labels', True) %}
-{% set always_editable = section_config.get('always_editable', True) %}
-{% set column_count = section_config.get('column_count', 2) %}
-{% set hidden_fields = section_config.get('hidden_fields', []) %}
-{% set col_class = {1: 'col-12', 2: 'col-md-6', 3: 'col-lg-4', 4: 'col-lg-3', 6: 'col-lg-2'}.get(column_count, 'col-md-6') %}
 
 <style>
     #customColumnsSectionContent-{{ section_id }} .custom-col-item {
@@ -41,17 +35,14 @@
     {% if section_cols %}
     <div class="row g-3" id="customColumnsGrid-{{ section_id }}">
         {% for col in section_cols %}
-        {% if col.column_id not in hidden_fields %}
-        <div class="{{ col_class }}">
+        <div class="col-md-6 col-lg-4">
             <div class="custom-col-item">
-                {% if show_labels %}
                 <div class="custom-col-label">
                     {{ col.label }}{% if col.is_required %} <span class="text-danger">*</span>{% endif %}
                 </div>
-                {% endif %}
 
-                {# --- Display view (hidden if always_editable) --- #}
-                <div class="custom-col-display {% if always_editable %}d-none{% endif %}" id="ccDisplay-{{ section_id }}-{{ col.column_id }}">
+                {# --- Display view --- #}
+                <div class="custom-col-display d-none" id="ccDisplay-{{ section_id }}-{{ col.column_id }}">
                     {% set val = col.value if col.value is not none else col.default_value %}
                     {% if col.column_type == 'checkbox' %}
                         <span class="badge {{ 'bg-success' if val in ['1', 'true', 'yes'] else 'bg-secondary' }}">
@@ -66,7 +57,7 @@
                     {% endif %}
                 </div>
 
-                {# --- Edit view (visible by default if always_editable is true) --- #}
+                {# --- Edit view (hidden by default) --- #}
                 <div class="custom-col-edit" id="ccEdit-{{ section_id }}-{{ col.column_id }}">
                     {% if col.column_type == 'textarea' %}
                         <textarea class="form-control form-control-sm cc-input" data-column-id="{{ col.column_id }}" rows="3">{{ col.value or col.default_value or '' }}</textarea>
@@ -95,55 +86,14 @@
                 </div>
             </div>
         </div>
-        {% endif %}
         {% endfor %}
     </div>
 
     {# Save / Cancel buttons – shown in edit mode #}
-    <div class="mt-3" id="ccEditActions-{{ section_id }}" class="d-flex gap-2">
+    <div class="mt-3" id="ccEditActions-{{ section_id }}">
         <button class="btn btn-sm btn-success me-2" onclick="saveCustomColumns({{ entry.id }}, '{{ section_id }}')">
             <i class="fas fa-save me-1"></i>Save
         </button>
-        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#customFieldsSettingsModal-{{ section_id }}">
-            <i class="fas fa-sliders-h me-1"></i>Field Settings
-        </button>
-    </div>
-
-    {# Field Settings Modal #}
-    <div class="modal fade" id="customFieldsSettingsModal-{{ section_id }}" tabindex="-1" aria-labelledby="customFieldsSettingsLabel-{{ section_id }}" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h6 class="modal-title" id="customFieldsSettingsLabel-{{ section_id }}">
-                        <i class="fas fa-sliders-h me-2"></i>Custom Fields - Visibility & Order
-                    </h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <small class="text-muted d-block mb-3">
-                        <i class="fas fa-info-circle me-1"></i>
-                        Check/uncheck to show/hide fields. Drag to reorder.
-                    </small>
-                    <div id="customFieldsList-{{ section_id }}" class="list-group" style="cursor: move;">
-                        {% for col in section_cols %}
-                        <div class="list-group-item d-flex align-items-center gap-2 py-2" draggable="true" data-column-id="{{ col.column_id }}">
-                            <i class="fas fa-grip-vertical text-muted" style="cursor: grab;"></i>
-                            <input type="checkbox" class="form-check-input field-visibility-toggle" data-column-id="{{ col.column_id }}" checked>
-                            <label class="form-check-label flex-grow-1 mb-0" style="cursor: pointer;">
-                                {{ col.label }}
-                            </label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-sm btn-primary" onclick="saveFieldSettings('{{ section_id }}', {{ entry.id }})">
-                        <i class="fas fa-save me-1"></i>Save Settings
-                    </button>
-                </div>
-            </div>
-        </div>
     </div>
 
     {% else %}
@@ -202,101 +152,6 @@
             console.error('Failed to save custom fields', err);
         });
     };
-
-    // Save field visibility and order settings
-    window.saveFieldSettings = window.saveFieldSettings || function(secId, entryId) {
-        var fieldsList = document.getElementById('customFieldsList-' + secId);
-        if (!fieldsList) return;
-
-        var visibilityToggles = fieldsList.querySelectorAll('.field-visibility-toggle');
-        var hiddenFields = [];
-        var fieldOrder = [];
-
-        visibilityToggles.forEach(function(toggle) {
-            var colId = parseInt(toggle.dataset.columnId, 10);
-            fieldOrder.push(colId);
-            if (!toggle.checked) {
-                hiddenFields.push(colId);
-            }
-        });
-
-        // Save to layout builder config or entry-specific settings
-        // For now, we'll store in a data attribute for the section
-        var section = document.getElementById('customColumnsSectionContent-' + secId);
-        if (section) {
-            section.dataset.hiddenFields = JSON.stringify(hiddenFields);
-            section.dataset.fieldOrder = JSON.stringify(fieldOrder);
-        }
-
-        // Hide unchecked fields in the grid
-        hiddenFields.forEach(function(colId) {
-            var field = document.getElementById('ccEdit-' + secId + '-' + colId);
-            if (field) field.parentElement.parentElement.style.display = 'none';
-        });
-
-        // Show checked fields
-        visibilityToggles.forEach(function(toggle) {
-            var colId = parseInt(toggle.dataset.columnId, 10);
-            if (toggle.checked) {
-                var field = document.getElementById('ccEdit-' + secId + '-' + colId);
-                if (field) field.parentElement.parentElement.style.display = '';
-            }
-        });
-
-        if (typeof showNotification === 'function') {
-            showNotification('Field settings saved', 'success');
-        }
-
-        // Close modal
-        var modal = document.getElementById('customFieldsSettingsModal-' + secId);
-        if (modal) {
-            var modalInstance = bootstrap.Modal.getInstance(modal);
-            if (modalInstance) modalInstance.hide();
-        }
-    };
-
-    // Drag and drop for field reordering
-    document.addEventListener('DOMContentLoaded', function() {
-        var fieldsList = document.getElementById('customFieldsList-{{ section_id }}');
-        if (!fieldsList) return;
-
-        var draggedItem = null;
-
-        fieldsList.addEventListener('dragstart', function(e) {
-            draggedItem = e.target.closest('.list-group-item');
-            e.target.closest('.list-group-item').style.opacity = '0.5';
-        });
-
-        fieldsList.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            var afterElement = getDragAfterElement(fieldsList, e.clientY);
-            if (afterElement == null) {
-                fieldsList.appendChild(draggedItem);
-            } else {
-                fieldsList.insertBefore(draggedItem, afterElement);
-            }
-        });
-
-        fieldsList.addEventListener('dragend', function(e) {
-            if (draggedItem) {
-                draggedItem.style.opacity = '1';
-                draggedItem = null;
-            }
-        });
-
-        function getDragAfterElement(container, y) {
-            var draggableElements = [...container.querySelectorAll('.list-group-item:not(.dragging)')];
-            return draggableElements.reduce(function(closest, child) {
-                var box = child.getBoundingClientRect();
-                var offset = y - box.top - box.height / 2;
-                if (offset < 0 && offset > closest.offset) {
-                    return { offset: offset, element: child };
-                } else {
-                    return closest;
-                }
-            }, { offset: Number.NEGATIVE_INFINITY }).element;
-        }
-    });
 
 })();
 </script>

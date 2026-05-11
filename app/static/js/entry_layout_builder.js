@@ -399,114 +399,6 @@ function renderPhotoGalleryConfig(section) {
     `;
 }
 
-// Render header section configuration
-function renderHeaderConfig(section) {
-    const config = typeof section.config === 'string' ? JSON.parse(section.config || '{}') : (section.config || {});
-    const showDates = config.show_dates !== false;
-    const showStatus = config.show_status !== false;
-    const showDescription = config.show_description !== false;
-
-    return `
-        <hr class="my-3">
-        <div class="mb-3">
-            <h6 class="text-info">
-                <i class="fas fa-sliders-h me-2"></i>Header Display Options
-            </h6>
-            <small class="text-muted">Choose which fields to show in the header section</small>
-        </div>
-
-        <div class="form-check form-switch mb-2">
-            <input class="form-check-input" type="checkbox" id="headerShowDates" ${showDates ? 'checked' : ''}>
-            <label class="form-check-label" for="headerShowDates">
-                <i class="fas fa-calendar me-1"></i>Show Dates (Created, Commenced)
-            </label>
-        </div>
-        <div class="form-check form-switch mb-2">
-            <input class="form-check-input" type="checkbox" id="headerShowStatus" ${showStatus ? 'checked' : ''}>
-            <label class="form-check-label" for="headerShowStatus">
-                <i class="fas fa-flag me-1"></i>Show Status
-            </label>
-        </div>
-        <div class="form-check form-switch mb-3">
-            <input class="form-check-input" type="checkbox" id="headerShowDescription" ${showDescription ? 'checked' : ''}>
-            <label class="form-check-label" for="headerShowDescription">
-                <i class="fas fa-align-left me-1"></i>Show Description
-            </label>
-        </div>
-    `;
-}
-
-// Render custom fields section configuration
-function renderCustomFieldsConfig(section) {
-    const config = typeof section.config === 'string' ? JSON.parse(section.config || '{}') : (section.config || {});
-    const columnCount = config.column_count || 2;
-    const hiddenFields = config.hidden_fields || [];
-    const fieldOrder = config.field_order || [];
-
-    let fieldListHtml = '';
-    
-    // Get custom column values from the current entry context if available
-    // This is a simplified version - in production you'd fetch this data
-    fieldListHtml = `
-        <div class="card card-sm border-secondary mb-3">
-            <div class="card-body p-2">
-                <small class="text-muted d-block mb-2">
-                    <i class="fas fa-info-circle me-1"></i>
-                    Field visibility and order can be configured when viewing an entry with custom fields.
-                </small>
-                <small class="text-secondary">
-                    Right-click a field in the entry view to configure its visibility.
-                </small>
-            </div>
-        </div>
-    `;
-
-    return `
-        <hr class="my-3">
-        <div class="mb-3">
-            <h6 class="text-success">
-                <i class="fas fa-columns me-2"></i>Custom Fields Layout
-            </h6>
-            <small class="text-muted">Configure the layout and display of custom fields</small>
-        </div>
-
-        <div class="mb-3">
-            <label for="customFieldsColumnCount" class="form-label small">
-                <i class="fas fa-th me-1"></i>Number of Columns
-            </label>
-            <select class="form-select form-select-sm" id="customFieldsColumnCount">
-                <option value="1" ${columnCount === 1 ? 'selected' : ''}>1 Column (Full Width)</option>
-                <option value="2" ${columnCount === 2 ? 'selected' : ''}>2 Columns</option>
-                <option value="3" ${columnCount === 3 ? 'selected' : ''}>3 Columns</option>
-                <option value="4" ${columnCount === 4 ? 'selected' : ''}>4 Columns</option>
-                <option value="6" ${columnCount === 6 ? 'selected' : ''}>6 Columns (Compact)</option>
-            </select>
-            <small class="text-muted d-block mt-1">Choose how many columns to display custom fields across</small>
-        </div>
-
-        <div class="form-check form-switch mb-2">
-            <input class="form-check-input" type="checkbox" id="customFieldsAlwaysEdit" ${config.always_editable !== false ? 'checked' : ''}>
-            <label class="form-check-label" for="customFieldsAlwaysEdit">
-                <i class="fas fa-pen me-1"></i>Always Editable
-            </label>
-            <small class="text-muted d-block ms-4">Fields are editable without needing to enter edit mode</small>
-        </div>
-
-        <div class="form-check form-switch mb-3">
-            <input class="form-check-input" type="checkbox" id="customFieldsShowLabels" ${config.show_labels !== false ? 'checked' : ''}>
-            <label class="form-check-label" for="customFieldsShowLabels">
-                <i class="fas fa-tag me-1"></i>Show Field Labels
-            </label>
-            <small class="text-muted d-block ms-4">Display field names/labels above inputs</small>
-        </div>
-
-        <div class="alert alert-info alert-sm p-2 small">
-            <i class="fas fa-info-circle me-1"></i>
-            These settings control the appearance and behavior of assigned custom columns in this section.
-        </div>
-    `;
-}
-
 // Add section to grid
 function addSectionToGrid(sectionData) {
     const icon = SECTION_ICONS[sectionData.section_type] || 'fa-square';
@@ -969,8 +861,6 @@ function renderSectionProperties(section) {
         </div>
         ` : ''}
         
-        ${section.section_type === 'header' ? renderHeaderConfig(section) : ''}
-        ${section.section_type === 'form_fields' ? renderCustomFieldsConfig(section) : ''}
         ${section.section_type === 'ai_assistant' ? renderAiAssistantConfig(section) : ''}
         ${section.section_type === 'photo_gallery' ? renderPhotoGalleryConfig(section) : ''}
         
@@ -1007,30 +897,6 @@ async function saveSectionProperties(options = {}) {
 
     if (document.getElementById('sectionCollapsedSwitch')) {
         updates.default_collapsed = document.getElementById('sectionCollapsedSwitch').checked ? 1 : 0;
-    }
-
-    // If Header section, save display options in config
-    if (selectedSection.section_type === 'header') {
-        const config = typeof selectedSection.config === 'string' ?
-            JSON.parse(selectedSection.config || '{}') : (selectedSection.config || {});
-
-        config.show_dates = document.getElementById('headerShowDates')?.checked ?? true;
-        config.show_status = document.getElementById('headerShowStatus')?.checked ?? true;
-        config.show_description = document.getElementById('headerShowDescription')?.checked ?? true;
-
-        updates.config = JSON.stringify(config);
-    }
-
-    // If Custom Fields section, save display options in config
-    if (selectedSection.section_type === 'form_fields') {
-        const config = typeof selectedSection.config === 'string' ?
-            JSON.parse(selectedSection.config || '{}') : (selectedSection.config || {});
-
-        config.column_count = parseInt(document.getElementById('customFieldsColumnCount')?.value || '2', 10);
-        config.always_editable = document.getElementById('customFieldsAlwaysEdit')?.checked ?? true;
-        config.show_labels = document.getElementById('customFieldsShowLabels')?.checked ?? true;
-
-        updates.config = JSON.stringify(config);
     }
 
     // If AI Assistant section, save custom prompts in config
