@@ -1,6 +1,9 @@
 name: Build and Push Docker Images
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
@@ -21,7 +24,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_run' && 'main' || '' }}
           fetch-depth: 0
 
       - name: Resolve build version
@@ -41,6 +43,8 @@ jobs:
           echo "build_date=$BUILD_DATE" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
+        # Only needed for arm64; skip on PRs to keep them fast
+        if: github.event_name != 'pull_request'
         uses: docker/setup-qemu-action@v3
         
       - name: Set up Docker Buildx
@@ -66,18 +70,22 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable=true
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          # PRs only build amd64 (no QEMU emulation) to keep CI fast.
+          # Pushes to main and manual triggers build both platforms.
+          platforms: ${{ github.event_name != 'pull_request' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Registry-backed cache: stored as a manifest in GHCR, does not count
+          # against the 10 GB GitHub Actions cache quota and persists indefinitely.
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+          cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,ref={0}/{1}:buildcache,mode=max,image-manifest=true', env.REGISTRY, env.IMAGE_NAME) || '' }}
           build-args: |
             BUILD_DATE=${{ steps.build_version.outputs.build_date }}
             VCS_REF=${{ github.sha }}
@@ -86,7 +94,7 @@ jobs:
       - name: Generate build summary
         if: github.event_name != 'pull_request'
         run: |
-          echo "## Docker Build Summary 🐳" >> $GITHUB_STEP_SUMMARY
+          echo "## Docker Build Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
