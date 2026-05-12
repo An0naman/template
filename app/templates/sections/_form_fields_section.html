@@ -32,8 +32,7 @@
     <div class="custom-col-edit" id="ccEdit-{{ section_id }}-{{ col.column_id }}">
         {% if col.column_type == 'textarea' %}
             <textarea class="form-control form-control-sm cc-input"
-                      data-column-id="{{ col.column_id }}"
-                      rows="3">{{ col.value or col.default_value or '' }}</textarea>
+                      data-column-id="{{ col.column_id }}">{{ col.value or col.default_value or '' }}</textarea>
         {% elif col.column_type == 'select' %}
             <select class="form-select form-select-sm cc-input" data-column-id="{{ col.column_id }}">
                 <option value="">— select —</option>
@@ -137,6 +136,8 @@
         {% endif %}
         padding: 0.85rem;
         height: 100%;
+        display: flex;
+        flex-direction: column;
     }
     #customColumnsSectionContent-{{ section_id }} .custom-col-label {
         color: var(--bs-emphasis-color);
@@ -149,11 +150,19 @@
         border-radius: 0;
         padding: 0.2rem 0;
         min-height: 2.25rem;
-        display: flex;
-        align-items: center;
+        flex: 1;
+        overflow-y: auto;
     }
     #customColumnsSectionContent-{{ section_id }} .custom-col-edit {
         margin-top: 0.4rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+    #customColumnsSectionContent-{{ section_id }} .custom-col-edit textarea {
+        flex: 1;
+        resize: none;
+        min-height: 0;
     }
 </style>
 
@@ -201,7 +210,8 @@
                 {% set _safe_w = 1 if _safe_w < 1 else _safe_w %}
                 {% set _safe_h = 1 if _ih < 1 else _ih %}
                 <div style="grid-column: {{ _ix + 1 }} / span {{ _safe_w }};
-                            grid-row:    {{ _iy + 1 }} / span {{ _safe_h }};">
+                            grid-row:    {{ _iy + 1 }} / span {{ _safe_h }};
+                            height: 100%; min-height: 0;">
                     {{ render_field(ns_fl.col, section_id, _show_labels, _always_editable) }}
                 </div>
             {% endif %}
@@ -226,10 +236,10 @@
     </p>
     {% endif %}
 
-    {# Save button — shown when edit controls are active #}
+    {# Save button — only visible after an edit is made #}
     {% if ns2.cols or _field_layout | length > 0 %}
-    <div class="mt-3" id="ccEditActions-{{ section_id }}">
-        <button class="btn btn-sm btn-success me-2"
+    <div class="d-flex justify-content-end mt-2 d-none" id="ccEditActions-{{ section_id }}">
+        <button class="btn btn-sm btn-success"
                 onclick="saveCustomColumns({{ entry.id }}, '{{ section_id }}')">
             <i class="fas fa-save me-1"></i>Save
         </button>
@@ -241,6 +251,28 @@
 (function () {
     var sectionId = '{{ section_id }}';
 
+    // ── Dirty tracking ─────────────────────────────────────────────────────
+    function _cfMarkDirty() {
+        var btn = document.getElementById('ccEditActions-' + sectionId);
+        if (btn) btn.classList.remove('d-none');
+    }
+
+    function _cfAttachDirty() {
+        var container = document.getElementById('customColumnsSectionContent-' + sectionId);
+        if (!container) return;
+        container.querySelectorAll('.cc-input').forEach(function (input) {
+            input.addEventListener('change', _cfMarkDirty);
+            input.addEventListener('input', _cfMarkDirty);
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _cfAttachDirty);
+    } else {
+        _cfAttachDirty();
+    }
+
+    // ── Save (defined once, reused across all sections via secId param) ──────
     window.saveCustomColumns = window.saveCustomColumns || function(targetEntryId, secId) {
         var inputs = document.querySelectorAll('#customColumnsSectionContent-' + secId + ' .cc-input');
         var payload = [];
@@ -275,6 +307,10 @@
                         display.textContent = value || '—';
                     }
                 });
+
+                // Reset dirty — hide Save button
+                var saveBtn = document.getElementById('ccEditActions-' + secId);
+                if (saveBtn) saveBtn.classList.add('d-none');
 
                 if (typeof showNotification === 'function') {
                     showNotification('Custom fields saved', 'success');
