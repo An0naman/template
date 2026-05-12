@@ -76,7 +76,8 @@ def list_custom_columns():
         if entry_type_id:
             cursor.execute('''
                   SELECT cc.id, cc.name, cc.label, cc.description, cc.column_type,
-                      cc.`options` AS column_options, cc.default_value, cc.is_required, cc.created_at, cc.updated_at,
+                      cc.`options` AS column_options, cc.default_value, cc.is_required,
+                      cc.unit, cc.created_at, cc.updated_at,
                        cca.id AS assignment_id, cca.section_placement, cca.display_order, cca.is_visible
                 FROM CustomColumn cc
                 JOIN CustomColumnAssignment cca ON cca.custom_column_id = cc.id
@@ -86,7 +87,8 @@ def list_custom_columns():
         else:
             cursor.execute('''
                   SELECT id, name, label, description, column_type,
-                      `options` AS column_options, default_value, is_required, created_at, updated_at
+                      `options` AS column_options, default_value, is_required,
+                      unit, created_at, updated_at
                 FROM CustomColumn
                 ORDER BY label ASC
             ''')
@@ -103,6 +105,7 @@ def list_custom_columns():
                 'options': json.loads(row['column_options']) if row['column_options'] else [],
                 'default_value': row['default_value'],
                 'is_required': bool(row['is_required']),
+                'unit': row['unit'] or '',
                 'created_at': row['created_at'],
                 'updated_at': row['updated_at'],
             }
@@ -140,8 +143,8 @@ def create_custom_column():
         now = _now()
         cursor.execute('''
             INSERT INTO CustomColumn (name, label, description, column_type, `options`,
-                                      default_value, is_required, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                      default_value, is_required, unit, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             name,
             label,
@@ -150,6 +153,7 @@ def create_custom_column():
             options,
             data.get('default_value', ''),
             1 if data.get('is_required') else 0,
+            data.get('unit', '') or '',
             now, now,
         ))
         conn.commit()
@@ -169,7 +173,7 @@ def get_custom_column(column_id):
         cursor = conn.cursor()
         cursor.execute('''
                  SELECT id, name, label, description, column_type, `options` AS column_options,
-                   default_value, is_required, created_at, updated_at
+                   default_value, is_required, unit, created_at, updated_at
             FROM CustomColumn WHERE id = ?
         ''', (column_id,))
         row = cursor.fetchone()
@@ -184,6 +188,7 @@ def get_custom_column(column_id):
             'options': json.loads(row['column_options']) if row['column_options'] else [],
             'default_value': row['default_value'],
             'is_required': bool(row['is_required']),
+            'unit': row['unit'] or '',
             'created_at': row['created_at'],
             'updated_at': row['updated_at'],
         }), 200
@@ -213,7 +218,7 @@ def update_custom_column(column_id):
         cursor.execute('''
             UPDATE CustomColumn
             SET label=?, description=?, column_type=?, `options`=?,
-                default_value=?, is_required=?, updated_at=?
+                default_value=?, is_required=?, unit=?, updated_at=?
             WHERE id=?
         ''', (
             data.get('label', existing['label']),
@@ -222,6 +227,7 @@ def update_custom_column(column_id):
             options,
             data.get('default_value', existing['default_value']),
             1 if data.get('is_required', bool(existing['is_required'])) else 0,
+            data.get('unit', existing['unit'] if 'unit' in existing.keys() else '') or '',
             _now(),
             column_id,
         ))
@@ -265,7 +271,7 @@ def list_assignments(entry_type_id):
             SELECT cca.id, cca.custom_column_id, cca.section_placement,
                    cca.display_order, cca.is_visible, cca.created_at,
                    cc.name, cc.label, cc.description, cc.column_type,
-                   cc.`options` AS column_options, cc.default_value, cc.is_required
+                   cc.`options` AS column_options, cc.default_value, cc.is_required, cc.unit
             FROM CustomColumnAssignment cca
             JOIN CustomColumn cc ON cc.id = cca.custom_column_id
             WHERE cca.entry_type_id = ?
@@ -291,6 +297,7 @@ def list_assignments(entry_type_id):
                     'options': json.loads(row['column_options']) if row['column_options'] else [],
                     'default_value': row['default_value'],
                     'is_required': bool(row['is_required']),
+                    'unit': row['unit'] or '',
                 }
             })
         return jsonify(result), 200

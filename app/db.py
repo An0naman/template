@@ -1047,7 +1047,21 @@ def init_db():
             'default_date_range': '',
             'default_sort_by': 'created_desc',
             'default_content_display': '',
-            'default_result_limit': '10000'
+            'default_result_limit': '10000',
+
+            # Anycubic 3D Printer Integration
+            'anycubic_enabled': 'false',
+            'anycubic_printer_model': '',
+            'anycubic_api_type': 'kobra2_local',  # kobra2_local, moonraker, octoprint, manual
+            'anycubic_printer_ip': '',
+            'anycubic_printer_port': '80',
+            'anycubic_api_key': '',
+            'anycubic_polling_enabled': 'false',
+            'anycubic_polling_interval': '30',
+            'anycubic_auto_create_entries': 'false',
+            'anycubic_fetch_file': 'false',
+            'anycubic_entry_type_id': '',
+            'anycubic_field_mapping': '{}'
         }
         for name, value in default_params.items():
             cursor.execute("INSERT OR IGNORE INTO SystemParameters (parameter_name, parameter_value) VALUES (?, ?)", (name, value))

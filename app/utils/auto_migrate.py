@@ -386,6 +386,31 @@ class AutoMigration:
                     self.record_migration(migration_name, success=True, exec_time=0)
                     logger.info("✓ CustomColumn tables already exist")
 
+            # ── Migration: add unit column to CustomColumn ─────────────────
+            migration_name = "add_custom_column_unit.py"
+            if not self.check_migration_applied(migration_name):
+                start_time = datetime.now()
+                cursor = conn.cursor()
+                # Check whether column already exists (idempotent)
+                if _is_mysql():
+                    cursor.execute(
+                        "SELECT COUNT(*) as cnt FROM information_schema.COLUMNS "
+                        "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='CustomColumn' AND COLUMN_NAME='unit'"
+                    )
+                    row = cursor.fetchone()
+                    col_exists = (row["cnt"] if hasattr(row, "keys") else row[0]) > 0
+                else:
+                    cursor.execute("PRAGMA table_info(CustomColumn)")
+                    col_exists = any(r["name"] == 'unit' for r in cursor.fetchall())
+
+                if not col_exists:
+                    cursor.execute("ALTER TABLE CustomColumn ADD COLUMN unit TEXT DEFAULT ''")
+                    conn.commit()
+                    logger.info("✓ Added unit column to CustomColumn")
+
+                exec_time = int((datetime.now() - start_time).total_seconds() * 1000)
+                self.record_migration(migration_name, success=True, exec_time=exec_time)
+
             conn.close()
             return True
 

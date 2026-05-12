@@ -1108,6 +1108,220 @@
             </div>
         </div>
 
+        <!-- Anycubic 3D Printer Integration -->
+        <div class="settings-section" data-section-id="section-anycubic">
+            <div class="section-card">
+                <div class="section-title">
+                    <i class="fas fa-cube me-2"></i>Anycubic 3D Printer Integration
+                </div>
+
+                <form id="anycubicSettingsForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="anycubicPrinterModel" class="form-label">Printer Model</label>
+                            <select class="form-select" id="anycubicPrinterModel">
+                                <option value="">-- Select Model --</option>
+                                <optgroup label="Kobra Series (FDM)">
+                                    <option value="Kobra 2 Neo"  {% if params.anycubic_printer_model == 'Kobra 2 Neo'  %}selected{% endif %}>Kobra 2 Neo</option>
+                                    <option value="Kobra 2 Plus" {% if params.anycubic_printer_model == 'Kobra 2 Plus' %}selected{% endif %}>Kobra 2 Plus</option>
+                                    <option value="Kobra 2 Pro"  {% if params.anycubic_printer_model == 'Kobra 2 Pro'  %}selected{% endif %}>Kobra 2 Pro</option>
+                                    <option value="Kobra 2 Max"  {% if params.anycubic_printer_model == 'Kobra 2 Max'  %}selected{% endif %}>Kobra 2 Max</option>
+                                    <option value="Kobra 3"      {% if params.anycubic_printer_model == 'Kobra 3'      %}selected{% endif %}>Kobra 3</option>
+                                    <option value="Kobra S1"     {% if params.anycubic_printer_model == 'Kobra S1'     %}selected{% endif %}>Kobra S1</option>
+                                    <option value="Kobra"        {% if params.anycubic_printer_model == 'Kobra'        %}selected{% endif %}>Kobra (original)</option>
+                                </optgroup>
+                                <optgroup label="Photon Series (Resin)">
+                                    <option value="Photon Mono X" {% if params.anycubic_printer_model == 'Photon Mono X' %}selected{% endif %}>Photon Mono X</option>
+                                    <option value="Photon M3"     {% if params.anycubic_printer_model == 'Photon M3'     %}selected{% endif %}>Photon M3</option>
+                                    <option value="Photon M5s"    {% if params.anycubic_printer_model == 'Photon M5s'    %}selected{% endif %}>Photon M5s</option>
+                                    <option value="Photon D2"     {% if params.anycubic_printer_model == 'Photon D2'     %}selected{% endif %}>Photon D2</option>
+                                </optgroup>
+                                <optgroup label="Other">
+                                    <option value="Custom" {% if params.anycubic_printer_model == 'Custom' %}selected{% endif %}>Custom / Other</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="anycubicApiType" class="form-label">API / Connection Type</label>
+                            <select class="form-select" id="anycubicApiType">
+                                <option value="kobra2_local" {% if params.anycubic_api_type == 'kobra2_local' %}selected{% endif %}>Kobra 2 Local API (Neo / Plus / Pro / Max)</option>
+                                <option value="moonraker"    {% if params.anycubic_api_type == 'moonraker'    %}selected{% endif %}>Moonraker / Klipper (Kobra S1, Kobra 3, custom)</option>
+                                <option value="octoprint"    {% if params.anycubic_api_type == 'octoprint'    %}selected{% endif %}>OctoPrint</option>
+                                <option value="manual"       {% if params.anycubic_api_type == 'manual'       %}selected{% endif %}>Manual entry only</option>
+                            </select>
+                            <small class="text-muted">Kobra 2 Neo/Plus/Pro/Max → built-in local API (port 80). Kobra S1 / Kobra 3 → Moonraker (port 7125).</small>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3" id="anycubicNetworkSection">
+                        <div class="col-md-6">
+                            <label for="anycubicPrinterIp" class="form-label">Printer IP Address</label>
+                            <input type="text" class="form-control" id="anycubicPrinterIp"
+                                   value="{{ params.anycubic_printer_ip or '' }}"
+                                   placeholder="e.g. 192.168.1.42">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="anycubicPrinterPort" class="form-label">Port</label>
+                            <input type="number" class="form-control" id="anycubicPrinterPort"
+                                   value="{{ params.anycubic_printer_port or '80' }}"
+                                   placeholder="80 or 7125" min="1" max="65535">
+                            <small class="text-muted">Kobra 2: 80 &nbsp;|&nbsp; Moonraker: 7125</small>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="button" class="btn btn-outline-secondary w-100" id="anycubicTestConnectionBtn">
+                                <i class="fas fa-plug me-1"></i>Test
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3" id="anycubicApiKeySection" style="display:none;">
+                        <div class="col-md-9">
+                            <label for="anycubicApiKey" class="form-label">API Key <small class="text-muted">(OctoPrint only)</small></label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="anycubicApiKey"
+                                       value="{{ params.anycubic_api_key or '' }}"
+                                       placeholder="OctoPrint API key">
+                                <button class="btn btn-outline-secondary" type="button" id="toggleAnycubicApiKeyVisibility">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="anycubicConnectionStatus" class="mb-3 d-none"></div>
+
+                    <hr>
+                    <h6 class="mb-3"><i class="fas fa-file-import me-2"></i>Print Job Ingestion</h6>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="anycubicEntryTypeId" class="form-label">Save Print Jobs as Entry Type</label>
+                            <select class="form-select" id="anycubicEntryTypeId">
+                                <option value="">-- None (disabled) --</option>
+                                {% for et in entry_types %}
+                                <option value="{{ et['id'] }}" {% if params.anycubic_entry_type_id == et['id']|string %}selected{% endif %}>
+                                    {{ et['name'] }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">When a print finishes, a new entry of this type will be created automatically.</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label d-block">Polling</label>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="anycubicPollingEnabled"
+                                       {% if params.anycubic_polling_enabled == 'true' %}checked{% endif %}>
+                                <label class="form-check-label" for="anycubicPollingEnabled">Enable automatic printer polling</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="anycubicAutoCreateEntries"
+                                       {% if params.anycubic_auto_create_entries == 'true' %}checked{% endif %}>
+                                <label class="form-check-label" for="anycubicAutoCreateEntries">Auto-create entry when print completes</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="anycubicFetchFile"
+                                       {% if params.anycubic_fetch_file == 'true' %}checked{% endif %}>
+                                <label class="form-check-label" for="anycubicFetchFile">
+                                    <i class="fas fa-download me-1"></i>Auto-download .gcode and attach to entry
+                                </label>
+                            </div>
+                            <label for="anycubicPollingInterval" class="form-label mt-1">Polling interval (seconds)</label>
+                            <input type="number" class="form-control" id="anycubicPollingInterval"
+                                   value="{{ params.anycubic_polling_interval or '30' }}"
+                                   min="10" max="3600" style="max-width:140px;">
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-purple me-2">
+                                <i class="fas fa-save me-1"></i>Save Anycubic Settings
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" id="anycubicPollNowBtn"
+                                    {% if params.anycubic_enabled != 'true' %}disabled{% endif %}>
+                                <i class="fas fa-sync me-1"></i>Poll Printer Now
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Manual Print Job Ingest -->
+                <div class="mt-4">
+                    <h6><i class="fas fa-plus-circle me-2"></i>Log a Print Job Manually</h6>
+                    <form id="anycubicManualIngestForm">
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <input type="text" class="form-control" id="manualFileName" placeholder="File / model name" required>
+                            </div>
+                            <div class="col-md-2">
+                                <input type="number" class="form-control" id="manualDuration" placeholder="Duration (min)" min="0">
+                            </div>
+                            <div class="col-md-2">
+                                <input type="number" class="form-control" id="manualFilament" placeholder="Filament (mm)" min="0" step="0.1">
+                            </div>
+                            <div class="col-md-4">
+                                <input type="text" class="form-control" id="manualNotes" placeholder="Notes (optional)">
+                            </div>
+                            <div class="col-12 mt-2 d-flex align-items-center gap-3">
+                                <button type="submit" class="btn btn-outline-success">
+                                    <i class="fas fa-plus me-1"></i>Log Print Job
+                                </button>
+                                <div class="form-check mb-0">
+                                    <input class="form-check-input" type="checkbox" id="manualFetchFile">
+                                    <label class="form-check-label small" for="manualFetchFile">
+                                        <i class="fas fa-download me-1"></i>Download .gcode file from printer
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="anycubicIngestStatus" class="mt-2 d-none"></div>
+                </div>
+
+                <!-- Field Mapping -->
+                <div class="mt-4">
+                    <hr>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0"><i class="fas fa-project-diagram me-2"></i>Field Mapping — Printer Data → Custom Columns</h6>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="anycubicLoadMappingBtn">
+                                <i class="fas fa-sync-alt me-1"></i>Load
+                            </button>
+                            <button type="button" class="btn btn-sm btn-success" id="anycubicAutoColumnsBtn">
+                                <i class="fas fa-magic me-1"></i>Auto-create all columns
+                            </button>
+                            <button type="button" class="btn btn-sm btn-purple" id="anycubicSaveMappingBtn">
+                                <i class="fas fa-save me-1"></i>Save mapping
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-2">
+                        Map each printer field to a Custom Column on your Print Job entry type.
+                        Use <strong>Auto-create all columns</strong> to generate every column automatically,
+                        or select existing columns manually. Unmapped fields are not written.
+                    </p>
+                    <div id="anycubicMappingStatus" class="mb-2 d-none"></div>
+                    <div id="anycubicMappingTable" class="d-none">
+                        <table class="table table-sm table-bordered align-middle">
+                            <thead class="table-secondary">
+                                <tr>
+                                    <th style="width:20%">Group</th>
+                                    <th style="width:30%">Printer Field</th>
+                                    <th style="width:50%">Custom Column</th>
+                                </tr>
+                            </thead>
+                            <tbody id="anycubicMappingRows"></tbody>
+                        </table>
+                    </div>
+                    <div id="anycubicMappingPlaceholder" class="text-muted small">
+                        Click <strong>Load</strong> to populate the mapping table.
+                    </div>
+                </div>
+
+                <div id="anycubicSettingsStatus" class="mt-3 d-none"></div>
+            </div>
+        </div>
+
         <!-- Scheduled Jobs Settings -->
         <div class="settings-section" data-section-id="section-scheduler">
             <div class="section-card">
@@ -1450,6 +1664,13 @@
                             </span>
                         </label>
                         <label class="list-group-item d-flex gap-3 align-items-start">
+                            <input class="form-check-input flex-shrink-0 mt-1" type="checkbox" id="toggle_section-anycubic">
+                            <span>
+                                <i class="fas fa-cube me-2 text-purple"></i><strong>Anycubic 3D Printer</strong>
+                                <small class="d-block text-muted">Printer status, job ingestion, polling</small>
+                            </span>
+                        </label>
+                        <label class="list-group-item d-flex gap-3 align-items-start">
                             <input class="form-check-input flex-shrink-0 mt-1" type="checkbox" id="toggle_section-labels">
                             <span>
                                 <i class="fas fa-print me-2 text-purple"></i><strong>Label Printing</strong>
@@ -1499,6 +1720,7 @@
             'section-git':     'git_integration_enabled',
             'section-strava':  'strava_enabled',
             'section-ntfy':    'ntfy_enabled',
+            'section-anycubic': 'anycubic_enabled',
         };
         const settingsSectionDefs = [
             { id: 'section-ai',        label: 'AI Integration' },
@@ -1507,6 +1729,7 @@
             { id: 'section-git',       label: 'Git Integration' },
             { id: 'section-strava',    label: 'Strava Integration' },
             { id: 'section-ntfy',      label: 'Push Notifications' },
+            { id: 'section-anycubic',  label: 'Anycubic 3D Printer' },
             { id: 'section-labels',    label: 'Label Printing' },
             { id: 'section-scheduler', label: 'Scheduled Jobs' },
             { id: 'section-logo',      label: 'Project Logo' },
@@ -2143,6 +2366,315 @@
                 });
             }
             
+            // --- Anycubic 3D Printer ---
+            (function() {
+                const apiTypeSelect    = document.getElementById('anycubicApiType');
+                const apiKeySection    = document.getElementById('anycubicApiKeySection');
+                const networkSection   = document.getElementById('anycubicNetworkSection');
+                const connStatusEl     = document.getElementById('anycubicConnectionStatus');
+                const settingsStatusEl = document.getElementById('anycubicSettingsStatus');
+                const ingestStatusEl   = document.getElementById('anycubicIngestStatus');
+
+                function showAnycubicStatus(el, msg, cls) {
+                    if (!el) return;
+                    el.className = 'mt-3 alert ' + cls;
+                    el.textContent = msg;
+                    el.classList.remove('d-none');
+                    setTimeout(() => el.classList.add('d-none'), 6000);
+                }
+
+                function updateApiTypeVisibility() {
+                    if (!apiTypeSelect) return;
+                    const isManual = apiTypeSelect.value === 'manual';
+                    const isOcto   = apiTypeSelect.value === 'octoprint';
+                    if (networkSection) networkSection.style.display = isManual ? 'none' : '';
+                    if (apiKeySection)  apiKeySection.style.display  = isOcto   ? ''     : 'none';
+                }
+
+                if (apiTypeSelect) {
+                    apiTypeSelect.addEventListener('change', updateApiTypeVisibility);
+                    updateApiTypeVisibility();
+                }
+
+                const toggleApiKeyBtn = document.getElementById('toggleAnycubicApiKeyVisibility');
+                if (toggleApiKeyBtn) {
+                    toggleApiKeyBtn.addEventListener('click', function() {
+                        const inp = document.getElementById('anycubicApiKey');
+                        if (!inp) return;
+                        const show = inp.type === 'password';
+                        inp.type = show ? 'text' : 'password';
+                        this.querySelector('i').className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
+                    });
+                }
+
+                const testBtn = document.getElementById('anycubicTestConnectionBtn');
+                if (testBtn) {
+                    testBtn.addEventListener('click', async function() {
+                        const ip      = document.getElementById('anycubicPrinterIp')?.value.trim();
+                        const port    = document.getElementById('anycubicPrinterPort')?.value.trim() || '80';
+                        const apiType = apiTypeSelect?.value || 'kobra2_local';
+                        const apiKey  = document.getElementById('anycubicApiKey')?.value.trim() || '';
+                        if (!ip) { showAnycubicStatus(connStatusEl, 'Enter an IP address first.', 'alert-warning'); return; }
+                        testBtn.disabled = true;
+                        testBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Testing\u2026';
+                        try {
+                            const resp = await fetch('/api/anycubic/test_connection', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({api_type: apiType, ip, port, api_key: apiKey})
+                            });
+                            const data = await resp.json();
+                            showAnycubicStatus(connStatusEl, (data.success ? '\u2705 ' : '\u274c ') + data.message,
+                                               data.success ? 'alert-success' : 'alert-danger');
+                        } catch(e) {
+                            showAnycubicStatus(connStatusEl, '\u274c ' + e.message, 'alert-danger');
+                        } finally {
+                            testBtn.disabled = false;
+                            testBtn.innerHTML = '<i class="fas fa-plug me-1"></i>Test';
+                        }
+                    });
+                }
+
+                const settingsForm = document.getElementById('anycubicSettingsForm');
+                if (settingsForm) {
+                    settingsForm.addEventListener('submit', async function(e) {
+                        e.preventDefault();
+                        const payload = {
+                            anycubic_enabled:             'true',
+                            anycubic_printer_model:       document.getElementById('anycubicPrinterModel')?.value || '',
+                            anycubic_api_type:            apiTypeSelect?.value || 'kobra2_local',
+                            anycubic_printer_ip:          document.getElementById('anycubicPrinterIp')?.value.trim() || '',
+                            anycubic_printer_port:        document.getElementById('anycubicPrinterPort')?.value.trim() || '80',
+                            anycubic_api_key:             document.getElementById('anycubicApiKey')?.value.trim() || '',
+                            anycubic_polling_enabled:     document.getElementById('anycubicPollingEnabled')?.checked ? 'true' : 'false',
+                            anycubic_polling_interval:    document.getElementById('anycubicPollingInterval')?.value || '30',
+                            anycubic_auto_create_entries: document.getElementById('anycubicAutoCreateEntries')?.checked ? 'true' : 'false',
+                            anycubic_fetch_file:           document.getElementById('anycubicFetchFile')?.checked ? 'true' : 'false',
+                            anycubic_entry_type_id:       document.getElementById('anycubicEntryTypeId')?.value || '',
+                        };
+                        try {
+                            const resp = await fetch('/api/system_params', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify(payload)
+                            });
+                            const data = await resp.json();
+                            showAnycubicStatus(settingsStatusEl,
+                                resp.ok ? '\u2705 Anycubic settings saved.' : '\u274c ' + (data.error || 'Save failed.'),
+                                resp.ok ? 'alert-success' : 'alert-danger');
+                            const pollBtn = document.getElementById('anycubicPollNowBtn');
+                            if (pollBtn) pollBtn.disabled = false;
+                        } catch(e) {
+                            showAnycubicStatus(settingsStatusEl, '\u274c ' + e.message, 'alert-danger');
+                        }
+                    });
+                }
+
+                const pollBtn = document.getElementById('anycubicPollNowBtn');
+                if (pollBtn) {
+                    pollBtn.addEventListener('click', async function() {
+                        pollBtn.disabled = true;
+                        pollBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Polling\u2026';
+                        try {
+                            const resp = await fetch('/api/anycubic/status');
+                            const data = await resp.json();
+                            if (data.success) {
+                                const s = data.status;
+                                const msg = 'State: ' + s.state + ' | File: ' + (s.file_name || '\u2014') +
+                                    ' | Progress: ' + s.progress + '% | Hotend: ' + s.hotend_temp + '\u00b0C/' + s.hotend_target +
+                                    '\u00b0C | Bed: ' + s.bed_temp + '\u00b0C/' + s.bed_target + '\u00b0C';
+                                showAnycubicStatus(settingsStatusEl, msg, 'alert-info');
+                            } else {
+                                showAnycubicStatus(settingsStatusEl, '\u274c ' + data.message, 'alert-danger');
+                            }
+                        } catch(e) {
+                            showAnycubicStatus(settingsStatusEl, '\u274c ' + e.message, 'alert-danger');
+                        } finally {
+                            pollBtn.disabled = false;
+                            pollBtn.innerHTML = '<i class="fas fa-sync me-1"></i>Poll Printer Now';
+                        }
+                    });
+                }
+
+                const manualIngestForm = document.getElementById('anycubicManualIngestForm');
+                if (manualIngestForm) {
+                    manualIngestForm.addEventListener('submit', async function(e) {
+                        e.preventDefault();
+                        const fileName    = document.getElementById('manualFileName')?.value.trim();
+                        const durationMin = parseFloat(document.getElementById('manualDuration')?.value || '0');
+                        const filamentMm  = parseFloat(document.getElementById('manualFilament')?.value || '0');
+                        const notes       = document.getElementById('manualNotes')?.value.trim() || '';
+                        const fetchFile   = document.getElementById('manualFetchFile')?.checked || false;
+                        const entryTypeId = document.getElementById('anycubicEntryTypeId')?.value;
+                        if (!fileName) { showAnycubicStatus(ingestStatusEl, 'File/model name is required.', 'alert-warning'); return; }
+                        if (!entryTypeId) { showAnycubicStatus(ingestStatusEl, 'Select an entry type above before logging a print job.', 'alert-warning'); return; }
+                        try {
+                            const resp = await fetch('/api/anycubic/ingest', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({
+                                    file_name: fileName,
+                                    duration_seconds: Math.round(durationMin * 60),
+                                    filament_used_mm: filamentMm,
+                                    notes,
+                                    entry_type_id: entryTypeId,
+                                    fetch_file: fetchFile
+                                })
+                            });
+                            const data = await resp.json();
+                            if (data.success) {
+                                showAnycubicStatus(ingestStatusEl, '\u2705 ' + data.message, 'alert-success');
+                                manualIngestForm.reset();
+                            } else {
+                                showAnycubicStatus(ingestStatusEl, '\u274c ' + (data.message || 'Ingest failed.'), 'alert-danger');
+                            }
+                        } catch(e) {
+                            showAnycubicStatus(ingestStatusEl, '\u274c ' + e.message, 'alert-danger');
+                        }
+                    });
+                }
+
+                // ── Field Mapping UI ──────────────────────────────────────────────────
+                let _printerFields = [];
+                let _customColumns = [];
+                let _currentMapping = {};
+
+                async function loadAnycubicMappingData() {
+                    const [fieldsResp, mappingResp, colsResp] = await Promise.all([
+                        fetch('/api/anycubic/fields'),
+                        fetch('/api/anycubic/field_mapping'),
+                        fetch('/api/custom-columns'),
+                    ]);
+                    const fieldsData  = await fieldsResp.json();
+                    const mappingData = await mappingResp.json();
+                    const colsData    = await colsResp.json();
+                    _printerFields  = fieldsData.fields || [];
+                    _currentMapping = mappingData.mapping || {};
+                    _customColumns  = Array.isArray(colsData) ? colsData : (colsData.columns || colsData.data || []);
+                    renderMappingTable();
+                }
+
+                function renderMappingTable() {
+                    const tbody = document.getElementById('anycubicMappingRows');
+                    const table = document.getElementById('anycubicMappingTable');
+                    const placeholder = document.getElementById('anycubicMappingPlaceholder');
+                    if (!tbody) return;
+                    tbody.innerHTML = '';
+                    _printerFields.forEach(field => {
+                        const selectedId = _currentMapping[field.key] || '';
+                        const options = _customColumns.map(col =>
+                            `<option value="${col.id}" ${col.id == selectedId ? 'selected' : ''}>${col.label || col.name}</option>`
+                        ).join('');
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><span class="badge bg-secondary">${field.group}</span></td>
+                            <td>${field.label}<br><small class="text-muted font-monospace">${field.key}</small></td>
+                            <td>
+                                <select class="form-select form-select-sm anycubic-col-select" data-field="${field.key}">
+                                    <option value="">— not mapped —</option>
+                                    ${options}
+                                </select>
+                            </td>`;
+                        tbody.appendChild(tr);
+                    });
+                    if (table) table.classList.remove('d-none');
+                    if (placeholder) placeholder.classList.add('d-none');
+                }
+
+                const loadMappingBtn = document.getElementById('anycubicLoadMappingBtn');
+                if (loadMappingBtn) {
+                    loadMappingBtn.addEventListener('click', async function() {
+                        this.disabled = true;
+                        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>';
+                        try { await loadAnycubicMappingData(); }
+                        catch(e) {
+                            const el = document.getElementById('anycubicMappingStatus');
+                            if (el) { el.className = 'alert alert-danger'; el.textContent = 'Failed to load mapping data: ' + e.message; el.classList.remove('d-none'); }
+                        } finally {
+                            this.disabled = false;
+                            this.innerHTML = '<i class="fas fa-sync-alt me-1"></i>Load';
+                        }
+                    });
+                }
+
+                const saveMappingBtn = document.getElementById('anycubicSaveMappingBtn');
+                if (saveMappingBtn) {
+                    saveMappingBtn.addEventListener('click', async function() {
+                        const rows = document.querySelectorAll('.anycubic-col-select');
+                        const mapping = {};
+                        rows.forEach(sel => { if (sel.value) mapping[sel.dataset.field] = parseInt(sel.value); });
+                        this.disabled = true;
+                        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving\u2026';
+                        try {
+                            const resp = await fetch('/api/anycubic/field_mapping', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({mapping})
+                            });
+                            const data = await resp.json();
+                            const el = document.getElementById('anycubicMappingStatus');
+                            if (el) {
+                                el.className = 'alert ' + (data.success ? 'alert-success' : 'alert-danger');
+                                el.textContent = data.success ? '\u2705 Mapping saved.' : '\u274c Save failed.';
+                                el.classList.remove('d-none');
+                                setTimeout(() => el.classList.add('d-none'), 4000);
+                            }
+                            if (data.success) _currentMapping = data.mapping;
+                        } catch(e) {
+                            showAnycubicStatus(settingsStatusEl, '\u274c ' + e.message, 'alert-danger');
+                        } finally {
+                            this.disabled = false;
+                            this.innerHTML = '<i class="fas fa-save me-1"></i>Save mapping';
+                        }
+                    });
+                }
+
+                const autoColumnsBtn = document.getElementById('anycubicAutoColumnsBtn');
+                if (autoColumnsBtn) {
+                    autoColumnsBtn.addEventListener('click', async function() {
+                        const entryTypeId = document.getElementById('anycubicEntryTypeId')?.value;
+                        if (!entryTypeId) {
+                            showAnycubicStatus(settingsStatusEl, 'Select an entry type above first.', 'alert-warning');
+                            return;
+                        }
+                        if (!confirm('This will create custom columns for every printer field and assign them to the selected entry type. Continue?')) return;
+                        this.disabled = true;
+                        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Creating\u2026';
+                        try {
+                            const resp = await fetch('/api/anycubic/auto_create_columns', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({entry_type_id: entryTypeId})
+                            });
+                            let data;
+                            const ct = resp.headers.get('content-type') || '';
+                            if (ct.includes('application/json')) {
+                                data = await resp.json();
+                            } else {
+                                const text = await resp.text();
+                                throw new Error(`Server error (${resp.status}): ${text.substring(0,200)}`);
+                            }
+                            const el = document.getElementById('anycubicMappingStatus');
+                            if (el) {
+                                el.className = 'alert ' + (data.success ? 'alert-success' : 'alert-danger');
+                                el.textContent = data.success ? '\u2705 ' + data.message : '\u274c ' + data.message;
+                                el.classList.remove('d-none');
+                            }
+                            if (data.success) {
+                                _currentMapping = data.mapping;
+                                await loadAnycubicMappingData();
+                            }
+                        } catch(e) {
+                            showAnycubicStatus(settingsStatusEl, '\u274c ' + e.message, 'alert-danger');
+                        } finally {
+                            this.disabled = false;
+                            this.innerHTML = '<i class="fas fa-magic me-1"></i>Auto-create all columns';
+                        }
+                    });
+                }
+            })();
+
+
             // --- Scheduled Jobs ---
             const overdueForm = document.getElementById('overdueSettingsForm');
             if (overdueForm) {

@@ -54,6 +54,12 @@ def api_update_system_params():
             'strava_enabled', 'strava_client_id', 'strava_client_secret', 'strava_refresh_token', 'strava_activity_mapping',
             # ntfy push notification settings
             'ntfy_enabled',
+            # Anycubic 3D printer integration settings
+            'anycubic_enabled', 'anycubic_printer_model', 'anycubic_api_type',
+            'anycubic_printer_ip', 'anycubic_printer_port', 'anycubic_api_key',
+            'anycubic_polling_enabled', 'anycubic_polling_interval',
+            'anycubic_auto_create_entries', 'anycubic_fetch_file', 'anycubic_entry_type_id',
+            'anycubic_field_mapping',
             'project_logo_path', 'label_font_size', 'label_include_qr_code', 'label_include_logo',
             'label_qr_code_prefix', 'allowed_file_types', 'max_file_size', 'custom_note_types',
             'primary_ai_provider', 'gemini_api_key', 'groq_api_key', 'huggingface_api_key',

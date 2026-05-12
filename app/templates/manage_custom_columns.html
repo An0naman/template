@@ -63,7 +63,8 @@
         @media (max-width: 768px) {
             .main-container { margin-top: 15px; padding: 20px; }
             .table th:nth-child(4), .table td:nth-child(4),
-            .table th:nth-child(5), .table td:nth-child(5) { display: none; }
+            .table th:nth-child(5), .table td:nth-child(5),
+            .table th:nth-child(6), .table td:nth-child(6) { display: none; }
         }
     </style>
 </head>
@@ -100,6 +101,7 @@
                     <tr>
                         <th>Label / Name</th>
                         <th>Type</th>
+                        <th>Unit</th>
                         <th>Required</th>
                         <th>Default Value</th>
                         <th>Description</th>
@@ -170,9 +172,14 @@
                             <option value="email">Email</option>
                         </select>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <label class="form-label fw-semibold">Default Value</label>
                         <input type="text" class="form-control" id="colDefault" placeholder="Optional default">
+                    </div>
+                    <div class="col-md-2" id="unitRow">
+                        <label class="form-label fw-semibold">Unit</label>
+                        <input type="text" class="form-control" id="colUnit" placeholder="e.g. °C, mm, %">
+                        <div class="form-text">For number fields only.</div>
                     </div>
                     <div class="col-12" id="optionsRow" style="display:none;">
                         <label class="form-label fw-semibold">Options</label>
@@ -265,6 +272,7 @@ function renderColumnTable() {
                 <div class="text-muted small font-monospace">${escHtml(col.name)}</div>
             </td>
             <td><span class="badge bg-secondary type-badge">${escHtml(col.column_type)}</span></td>
+            <td class="text-muted small font-monospace">${col.unit ? escHtml(col.unit) : '<span class="text-muted">—</span>'}</td>
             <td>${col.is_required ? '<i class="fas fa-check text-success"></i>' : '<span class="text-muted">—</span>'}</td>
             <td class="text-muted small">${escHtml(col.default_value || '—')}</td>
             <td class="text-muted small">${escHtml(col.description || '')}</td>
@@ -289,10 +297,12 @@ function renderColumnTable() {
 // ------------------------------------------------------------------ modal helpers
 function openCreateModal() {
     document.getElementById('editColumnId').value = '';
+    document.getElementById('editColumnId').value = '';
     document.getElementById('colLabel').value = '';
     document.getElementById('colName').value = '';
     document.getElementById('colType').value = 'text';
     document.getElementById('colDefault').value = '';
+    document.getElementById('colUnit').value = '';
     document.getElementById('colDescription').value = '';
     document.getElementById('colRequired').checked = false;
     document.getElementById('optionsList').innerHTML = '';
@@ -325,6 +335,7 @@ function openEditModal(colId) {
     document.getElementById('colName').value = col.name;
     document.getElementById('colType').value = col.column_type;
     document.getElementById('colDefault').value = col.default_value || '';
+    document.getElementById('colUnit').value = col.unit || '';
     document.getElementById('colDescription').value = col.description || '';
     document.getElementById('colRequired').checked = col.is_required;
     document.getElementById('columnModalLabel').textContent = 'Edit Column: ' + col.label;
@@ -341,6 +352,7 @@ function openEditModal(colId) {
 function onTypeChange() {
     const type = document.getElementById('colType').value;
     document.getElementById('optionsRow').style.display = type === 'select' ? '' : 'none';
+    document.getElementById('unitRow').style.display = type === 'number' ? '' : 'none';
 }
 
 function addOption(value = '') {
@@ -373,6 +385,7 @@ async function saveColumn() {
         name: document.getElementById('colName').value.trim() || undefined,
         column_type: document.getElementById('colType').value,
         default_value: document.getElementById('colDefault').value.trim(),
+        unit: document.getElementById('colUnit').value.trim(),
         description: document.getElementById('colDescription').value.trim(),
         is_required: document.getElementById('colRequired').checked,
         options,
