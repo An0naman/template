@@ -51,7 +51,8 @@ def api_update_system_params():
             # Git integration settings
             'git_integration_enabled', 'git_provider', 'git_token', 'gitlab_url',
             # Strava integration settings
-            'strava_enabled', 'strava_client_id', 'strava_client_secret', 'strava_refresh_token', 'strava_activity_mapping',
+            'strava_enabled', 'strava_client_id', 'strava_client_secret', 'strava_refresh_token',
+            'strava_activity_mapping', 'strava_field_mapping',
             # ntfy push notification settings
             'ntfy_enabled',
             # Anycubic 3D printer integration settings

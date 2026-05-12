@@ -156,6 +156,7 @@ def create_app():
     from .routes.git_routes import git_routes_bp
     from .routes.strava_routes import strava_routes_bp
     from .api.anycubic_api import anycubic_api_bp
+    from .api.strava_api import strava_api_bp
 
     # Register all blueprints
     app.register_blueprint(main_bp)
@@ -204,6 +205,7 @@ def create_app():
     app.register_blueprint(git_routes_bp)  # Page routes
     app.register_blueprint(strava_routes_bp)  # Strava routes
     app.register_blueprint(anycubic_api_bp)  # Anycubic printer routes
+    app.register_blueprint(strava_api_bp)    # Strava field mapping API
 
     app.logger.info("Blueprints registered.")
 

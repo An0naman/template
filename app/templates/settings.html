@@ -816,6 +816,46 @@
                                 </table>
                             </div>
                         </div>
+
+                        <!-- Field → Custom Column Mapping -->
+                        <div class="mt-4 border-top pt-3" id="stravaFieldMappingPanel">
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                                <div>
+                                    <h6 class="mb-0"><i class="fas fa-columns me-2"></i>Field → Custom Column Mapping</h6>
+                                    <p class="text-muted small mb-0">Map Strava activity fields to Custom Columns on your entries.</p>
+                                </div>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="stravaLoadFieldMapping()">
+                                        <i class="fas fa-sync me-1"></i>Load
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="stravaAutoCreateColumns()">
+                                        <i class="fas fa-magic me-1"></i>Auto-create all columns
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-success" onclick="stravaFieldMappingSave()">
+                                        <i class="fas fa-save me-1"></i>Save Mapping
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="stravaFieldMappingStatus" class="mb-2 d-none"></div>
+                            <div id="stravaFieldMappingTableWrap" class="d-none">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-borderless align-middle">
+                                        <thead>
+                                            <tr>
+                                                <th style="width:30%">Group</th>
+                                                <th style="width:30%">Field</th>
+                                                <th style="width:10%" class="text-muted">Unit</th>
+                                                <th>Custom Column</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="stravaFieldMappingTable"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <p class="text-muted small" id="stravaFieldMappingHint">
+                                Click <strong>Load</strong> to see available fields, or <strong>Auto-create all columns</strong> to generate columns for every field automatically.
+                            </p>
+                        </div>
                     </div>
                     
                     <div class="mb-3 mt-3">
@@ -1604,6 +1644,149 @@
                     console.error("Strava form not found!");
                 }
             });
+        </script>
+
+        <!-- Strava Field Mapping JS -->
+        <script>
+        (function() {
+            let stravaFieldDefs = [];
+            let stravaFieldMapping = {};
+            let stravaAllColumns = [];
+
+            async function stravaEnsureColumnsLoaded() {
+                if (stravaAllColumns.length) return;
+                const r = await fetch('/api/custom-columns');
+                if (r.ok) stravaAllColumns = await r.json();
+            }
+
+            window.stravaLoadFieldMapping = async function() {
+                const statusEl = document.getElementById('stravaFieldMappingStatus');
+                const hintEl   = document.getElementById('stravaFieldMappingHint');
+                const wrapEl   = document.getElementById('stravaFieldMappingTableWrap');
+
+                statusEl.className = 'mb-2 alert alert-secondary';
+                statusEl.textContent = 'Loading…';
+                statusEl.classList.remove('d-none');
+
+                try {
+                    await stravaEnsureColumnsLoaded();
+                    const [fResp, mResp] = await Promise.all([
+                        fetch('/api/strava/fields'),
+                        fetch('/api/strava/field_mapping'),
+                    ]);
+                    const fData = await fResp.json();
+                    const mData = await mResp.json();
+                    stravaFieldDefs    = fData.fields || [];
+                    stravaFieldMapping = mData.mapping || {};
+                    stravaRenderFieldMappingTable();
+                    wrapEl.classList.remove('d-none');
+                    hintEl.classList.add('d-none');
+                    statusEl.className = 'mb-2 alert alert-success';
+                    statusEl.textContent = stravaFieldDefs.length + ' fields loaded.';
+                } catch (e) {
+                    statusEl.className = 'mb-2 alert alert-danger';
+                    statusEl.textContent = 'Error loading fields: ' + e.message;
+                }
+            };
+
+            function stravaRenderFieldMappingTable() {
+                const tbody = document.getElementById('stravaFieldMappingTable');
+                tbody.innerHTML = '';
+                let lastGroup = null;
+                stravaFieldDefs.forEach(field => {
+                    const tr = document.createElement('tr');
+                    const groupCell = field.group !== lastGroup
+                        ? `<td class="text-muted small fw-semibold">${escHtml(field.group)}</td>`
+                        : `<td></td>`;
+                    lastGroup = field.group;
+
+                    const currentColId = stravaFieldMapping[field.key] || '';
+                    let options = '<option value="">— not mapped —</option>';
+                    stravaAllColumns.forEach(col => {
+                        const sel = String(currentColId) === String(col.id) ? ' selected' : '';
+                        options += `<option value="${col.id}"${sel}>${escHtml(col.label)} <span class="text-muted">(${escHtml(col.name)})</span></option>`;
+                    });
+
+                    tr.innerHTML = groupCell +
+                        `<td class="small">${escHtml(field.label)}</td>` +
+                        `<td class="text-muted small font-monospace">${escHtml(field.unit || '')}</td>` +
+                        `<td><select class="form-select form-select-sm strava-field-map-select"
+                                     data-field-key="${escHtml(field.key)}">${options}</select></td>`;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            window.stravaFieldMappingSave = async function() {
+                const statusEl = document.getElementById('stravaFieldMappingStatus');
+                const mapping = {};
+                document.querySelectorAll('.strava-field-map-select').forEach(sel => {
+                    if (sel.value) mapping[sel.dataset.fieldKey] = sel.value;
+                });
+                statusEl.className = 'mb-2 alert alert-secondary';
+                statusEl.textContent = 'Saving…';
+                statusEl.classList.remove('d-none');
+                try {
+                    const r = await fetch('/api/strava/field_mapping', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ mapping }),
+                    });
+                    const d = await r.json();
+                    if (r.ok && d.success) {
+                        stravaFieldMapping = d.mapping;
+                        statusEl.className = 'mb-2 alert alert-success';
+                        statusEl.textContent = 'Field mapping saved!';
+                    } else {
+                        statusEl.className = 'mb-2 alert alert-danger';
+                        statusEl.textContent = d.message || 'Save failed.';
+                    }
+                } catch (e) {
+                    statusEl.className = 'mb-2 alert alert-danger';
+                    statusEl.textContent = 'Error: ' + e.message;
+                }
+            };
+
+            window.stravaAutoCreateColumns = async function() {
+                const statusEl = document.getElementById('stravaFieldMappingStatus');
+
+                // Determine entry type from the activity type mapping dropdowns
+                let entryTypeId = null;
+                const firstSel = document.querySelector('.strava-mapping-select');
+                if (firstSel && firstSel.value) entryTypeId = firstSel.value;
+
+                if (!entryTypeId) {
+                    statusEl.className = 'mb-2 alert alert-warning';
+                    statusEl.textContent = 'Please set an Activity Type mapping first so we know which entry type to assign columns to.';
+                    statusEl.classList.remove('d-none');
+                    return;
+                }
+
+                statusEl.className = 'mb-2 alert alert-secondary';
+                statusEl.textContent = 'Creating columns…';
+                statusEl.classList.remove('d-none');
+                try {
+                    const r = await fetch('/api/strava/auto_create_columns', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ entry_type_id: entryTypeId }),
+                    });
+                    const d = await r.json();
+                    if (r.ok && d.success) {
+                        stravaFieldMapping = d.mapping;
+                        stravaAllColumns = [];  // force reload
+                        await stravaLoadFieldMapping();
+                        statusEl.className = 'mb-2 alert alert-success';
+                        statusEl.textContent = d.message;
+                    } else {
+                        statusEl.className = 'mb-2 alert alert-danger';
+                        statusEl.textContent = d.message || 'Auto-create failed.';
+                    }
+                } catch (e) {
+                    statusEl.className = 'mb-2 alert alert-danger';
+                    statusEl.textContent = 'Error: ' + e.message;
+                }
+            };
+        })();
         </script>
 
     </div> <!-- End container -->
