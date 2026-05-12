@@ -443,16 +443,6 @@ def settings():
                           params=params,
                           entry_types=entry_types)
 
-@main_bp.route('/manage_ntfy')
-def manage_ntfy():
-    """ntfy push notification management page"""
-    from ..db import get_system_parameters
-    params = get_system_parameters()
-    
-    return render_template('manage_ntfy.html',
-                          project_name=params.get('project_name'),
-                          config=params)
-
 @main_bp.route('/sql_ide')
 def sql_ide():
     """SQL IDE route for database management"""

@@ -106,8 +106,11 @@
     {% include 'components/ribbon.html' %}
     
     <div class="container">
-        <div class="mb-4">
+        <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h1 class="mb-0">{{ project_name }} System Parameters</h1>
+            <button class="btn btn-outline-secondary" onclick="openSectionConfigModal()" title="Show or hide sections">
+                <i class="fas fa-sliders-h me-1"></i>Configure Sections
+            </button>
         </div>
 
         <!-- General Settings -->
@@ -146,56 +149,6 @@
                         </div>
                     </div>
                     
-                    <!-- Sensor Feature Toggle -->
-                    <div class="row">
-                        <div class="col-md-12">
-                            <div class="alert alert-info">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="mb-1"><i class="fas fa-thermometer-half me-2"></i>Sensor Functionality</h6>
-                                        <small>Enable or disable sensor features across the entire application. When disabled, all sensor-related UI elements will be hidden.</small>
-                                    </div>
-                                    <div class="form-check form-switch ms-3">
-                                        <input class="form-check-input" type="checkbox" role="switch" id="enableSensorsToggle" style="width: 3rem; height: 1.5rem;">
-                                        <label class="form-check-label ms-2 fw-bold" for="enableSensorsToggle" id="sensorToggleLabel">Loading...</label>
-                                    </div>
-                                </div>
-                                
-                                <!-- Sensor Master Control Sub-toggle -->
-                                <div id="sensorMasterControlContainer" class="mt-3 pt-3 border-top border-info-subtle" style="display: none;">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <h6 class="mb-1"><i class="fas fa-microchip me-2"></i>Sensor Master Control</h6>
-                                            <small>Enable the Sensor Master Control interface for centralized ESP32 configuration.</small>
-                                        </div>
-                                        <div class="form-check form-switch ms-3">
-                                            <input class="form-check-input" type="checkbox" role="switch" id="enableSensorMasterControlToggle" style="width: 2.5rem; height: 1.25rem;">
-                                            <label class="form-check-label ms-2" for="enableSensorMasterControlToggle" id="sensorMasterControlToggleLabel">Disabled</label>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Kanban Feature Toggle -->
-                    <div class="row">
-                        <div class="col-md-12">
-                            <div class="alert alert-purple">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="mb-1"><i class="fas fa-columns me-2"></i>Kanban Functionality</h6>
-                                        <small>Enable or disable Kanban boards across the entire application. When disabled, the Kanban menu item will be hidden.</small>
-                                    </div>
-                                    <div class="form-check form-switch ms-3">
-                                        <input class="form-check-input" type="checkbox" role="switch" id="enableKanbanToggle" style="width: 3rem; height: 1.5rem;">
-                                        <label class="form-check-label ms-2 fw-bold" for="enableKanbanToggle" id="kanbanToggleLabel">Loading...</label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
                     <button type="submit" class="btn btn-purple">
                         <i class="fas fa-save me-1"></i>Save General Settings
                     </button>
@@ -204,8 +157,51 @@
             </div>
         </div>
 
+        <!-- Sensor Settings -->
+        <div class="settings-section" data-section-id="section-sensors">
+            <div class="section-card">
+                <div class="section-title">
+                    <i class="fas fa-thermometer-half me-2"></i>Sensor Functionality
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Sensors are enabled</span>
+                    <small class="text-muted">To disable sensors, hide this section via <strong>Configure Sections</strong>.</small>
+                </div>
+                <div class="alert alert-info mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1"><i class="fas fa-microchip me-2"></i>Sensor Master Control</h6>
+                            <small>Enable the Sensor Master Control interface for centralized ESP32 configuration.</small>
+                        </div>
+                        <div class="form-check form-switch ms-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="enableSensorMasterControlToggle" style="width: 2.5rem; height: 1.25rem;">
+                            <label class="form-check-label ms-2" for="enableSensorMasterControlToggle" id="sensorMasterControlToggleLabel">Disabled</label>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-purple" id="saveSensorSettingsBtn">
+                    <i class="fas fa-save me-1"></i>Save Sensor Settings
+                </button>
+                <div id="sensorStatusMessage" class="mt-3 d-none"></div>
+            </div>
+        </div>
+
+        <!-- Kanban Settings -->
+        <div class="settings-section" data-section-id="section-kanban">
+            <div class="section-card">
+                <div class="section-title">
+                    <i class="fas fa-columns me-2"></i>Kanban Boards
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Kanban boards are enabled</span>
+                    <small class="text-muted">To disable Kanban, hide this section via <strong>Configure Sections</strong>.</small>
+                </div>
+                <p class="text-muted mb-0">Kanban boards will appear in the navigation bar. Configure individual boards from within the Kanban view.</p>
+            </div>
+        </div>
+
         <!-- AI Settings -->
-        <div class="settings-section">
+        <div class="settings-section" data-section-id="section-ai">
             <div class="section-card">
                 <div class="section-title">
                     <i class="fas fa-brain me-2"></i>AI Integration Settings
@@ -285,8 +281,6 @@
                                 <select class="form-select" id="aiServiceSelector" onchange="switchAiServiceSettings()">
                                     <option value="gemini" {{ 'selected' if params.primary_ai_provider == 'gemini' or not params.primary_ai_provider else '' }}>Google Gemini</option>
                                     <option value="ollama" {{ 'selected' if params.primary_ai_provider == 'ollama' else '' }}>Ollama (Local / Self-hosted)</option>
-                                    <option value="groq">Groq (Diagram Generation - Optional)</option>
-                                    <option value="huggingface">Hugging Face (Image Generation - Free!)</option>
                                 </select>
                                 <small class="text-muted">Choose which AI service settings you want to view or update</small>
                             </div>
@@ -399,168 +393,6 @@
                         <div class="alert alert-secondary">
                             <i class="fas fa-info-circle me-2"></i>
                             <strong>No API key required.</strong> The app will connect directly to your configured Ollama endpoint.
-                        </div>
-                    </div>
-
-                    <!-- Groq Settings -->
-                    <div id="groqSettings" class="ai-service-settings" style="display: none;">
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle me-2"></i>
-                            <strong>Groq</strong> is recommended for diagram generation. It has no rate limits and no safety filters for technical content, making it ideal for generating Draw.io diagrams.
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="mb-3">
-                                    <label for="groqApiKey" class="form-label">
-                                        <i class="fas fa-key me-1"></i>Groq API Key:
-                                        {% if params.groq_api_key %}
-                                        <span class="badge bg-success ms-2">
-                                            <i class="fas fa-check-circle me-1"></i>Configured
-                                        </span>
-                                        {% else %}
-                                        <span class="badge bg-warning ms-2">
-                                            <i class="fas fa-exclamation-circle me-1"></i>Not Set
-                                        </span>
-                                        {% endif %}
-                                    </label>
-                                    <div class="input-group">
-                                        <input type="password" class="form-control" id="groqApiKey" 
-                                               value="{{ params.groq_api_key if params.groq_api_key else '' }}" 
-                                               placeholder="Enter your Groq API key">
-                                        <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('groqApiKey', this)">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                    </div>
-                                    <small class="text-muted">
-                                        Get your free API key from 
-                                        <a href="https://console.groq.com" target="_blank" class="text-decoration-none">
-                                            Groq Console <i class="fas fa-external-link-alt"></i>
-                                        </a>
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="groqModelName" class="form-label">
-                                        <i class="fas fa-brain me-1"></i>Groq Model:
-                                    </label>
-                                    <select class="form-select" id="groqModelName">
-                                        <option value="llama-3.3-70b-versatile" {{ 'selected' if params.groq_model_name == 'llama-3.3-70b-versatile' or not params.groq_model_name else '' }}>Llama 3.3 70B Versatile (Recommended)</option>
-                                        <option value="llama-3.1-70b-versatile" {{ 'selected' if params.groq_model_name == 'llama-3.1-70b-versatile' else '' }}>Llama 3.1 70B Versatile</option>
-                                        <option value="llama-3.1-8b-instant" {{ 'selected' if params.groq_model_name == 'llama-3.1-8b-instant' else '' }}>Llama 3.1 8B Instant (Fastest)</option>
-                                        <option value="mixtral-8x7b-32768" {{ 'selected' if params.groq_model_name == 'mixtral-8x7b-32768' else '' }}>Mixtral 8x7B (Long Context)</option>
-                                        <option value="gemma2-9b-it" {{ 'selected' if params.groq_model_name == 'gemma2-9b-it' else '' }}>Gemma 2 9B</option>
-                                    </select>
-                                    <small class="text-muted" id="groqModelDescription">
-                                        Most capable model for complex diagram generation
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="alert alert-warning">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                            <strong>Note:</strong> If Groq is not configured, diagram generation will fall back to using Gemini, which may have safety filter issues with technical diagrams.
-                        </div>
-                    </div>
-
-                    <!-- Hugging Face Settings -->
-                    <div id="huggingfaceSettings" class="ai-service-settings" style="display: none;">
-                        <div class="alert alert-success">
-                            <i class="fas fa-check-circle me-2"></i>
-                            <strong>Hugging Face</strong> offers FREE API access for image generation! Perfect for creating custom wallpapers and backgrounds.
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="mb-3">
-                                    <label for="huggingfaceApiKey" class="form-label">
-                                        <i class="fas fa-key me-1"></i>Hugging Face API Token (FREE):
-                                        {% if params.huggingface_api_key %}
-                                        <span class="badge bg-success ms-2">
-                                            <i class="fas fa-check-circle me-1"></i>Configured
-                                        </span>
-                                        {% else %}
-                                        <span class="badge bg-warning ms-2">
-                                            <i class="fas fa-exclamation-circle me-1"></i>Not Set
-                                        </span>
-                                        {% endif %}
-                                    </label>
-                                    <div class="input-group">
-                                        <input type="password" class="form-control" id="huggingfaceApiKey" 
-                                               value="{{ params.huggingface_api_key if params.huggingface_api_key else '' }}" 
-                                               placeholder="Enter your Hugging Face API token">
-                                        <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('huggingfaceApiKey', this)">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                    </div>
-                                    <small class="text-muted">
-                                        Get your free token from 
-                                        <a href="https://huggingface.co/settings/tokens" target="_blank" class="text-decoration-none">
-                                            Hugging Face Settings <i class="fas fa-external-link-alt"></i>
-                                        </a>
-                                        - 100% free, no credit card required!
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="huggingfaceModel" class="form-label">
-                                        <i class="fas fa-brain me-1"></i>Image Generation Model:
-                                    </label>
-                                    <select class="form-select" id="huggingfaceModel">
-                                        <option value="stabilityai/stable-diffusion-xl-base-1.0" {{ 'selected' if params.huggingface_model == 'stabilityai/stable-diffusion-xl-base-1.0' or not params.huggingface_model else '' }}>Stable Diffusion XL Base 1.0 ⭐ (Recommended)</option>
-                                        <option value="black-forest-labs/FLUX.1-schnell" {{ 'selected' if params.huggingface_model == 'black-forest-labs/FLUX.1-schnell' else '' }}>FLUX.1 Schnell (Fast, High Quality)</option>
-                                        <option value="stabilityai/stable-diffusion-2-1" {{ 'selected' if params.huggingface_model == 'stabilityai/stable-diffusion-2-1' else '' }}>Stable Diffusion 2.1 (Balanced)</option>
-                                        <option value="runwayml/stable-diffusion-v1-5" {{ 'selected' if params.huggingface_model == 'runwayml/stable-diffusion-v1-5' else '' }}>Stable Diffusion v1.5 (Legacy)</option>
-                                        <option value="prompthero/openjourney-v4" {{ 'selected' if params.huggingface_model == 'prompthero/openjourney-v4' else '' }}>OpenJourney v4 (Artistic)</option>
-                                        <option value="CompVis/stable-diffusion-v1-4" {{ 'selected' if params.huggingface_model == 'CompVis/stable-diffusion-v1-4' else '' }}>Stable Diffusion v1.4 (Classic)</option>
-                                    </select>
-                                    <small class="text-muted">
-                                        Models with ⭐ are tested and work reliably. Others may have loading times or require PRO tokens.
-                                    </small>
-                                </div>
-                            </div>
-                            
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="huggingfaceImageSize" class="form-label">
-                                        <i class="fas fa-arrows-alt me-1"></i>Image Size:
-                                    </label>
-                                    <select class="form-select" id="huggingfaceImageSize">
-                                        <option value="1024x576" {{ 'selected' if params.huggingface_image_size == '1024x576' or not params.huggingface_image_size else '' }}>1024x576 (16:9 Landscape)</option>
-                                        <option value="1280x720" {{ 'selected' if params.huggingface_image_size == '1280x720' else '' }}>1280x720 (HD)</option>
-                                        <option value="768x768" {{ 'selected' if params.huggingface_image_size == '768x768' else '' }}>768x768 (Square)</option>
-                                        <option value="512x512" {{ 'selected' if params.huggingface_image_size == '512x512' else '' }}>512x512 (Fast)</option>
-                                    </select>
-                                    <small class="text-muted">
-                                        Larger = better quality, slower generation
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle me-2"></i>
-                            <strong>How to get your token:</strong>
-                            <ol class="mb-0 mt-2">
-                                <li>Go to <a href="https://huggingface.co/join" target="_blank">huggingface.co/join</a> and create free account</li>
-                                <li>Visit <a href="https://huggingface.co/settings/tokens" target="_blank">Settings → Access Tokens</a></li>
-                                <li>Click "New token" → Select "Read" role → Create</li>
-                                <li>Copy the token and paste it above</li>
-                            </ol>
-                        </div>
-                        
-                        <div class="alert alert-success">
-                            <i class="fas fa-gift me-2"></i>
-                            <strong>100% FREE:</strong> No rate limits, no credit card, unlimited generations!
                         </div>
                     </div>
 
@@ -778,25 +610,16 @@
 
 
         <!-- Git Integration Settings (token-based discovery) -->
-        <div class="settings-section">
+        <div class="settings-section" data-section-id="section-git">
             <div class="section-card">
                 <div class="section-title">
                     <i class="fab fa-git-alt me-2"></i>Git Integration
                 </div>
                 
-                <!-- Enable/Disable Toggle -->
-                <div class="mb-4">
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="gitIntegrationEnabled">
-                        <label class="form-check-label" for="gitIntegrationEnabled">
-                            <strong>Enable Git Integration</strong>
-                        </label>
-                    </div>
-                    <small class="text-muted">Track commits from GitHub or GitLab repositories</small>
-                </div>
+                <!-- Enable/Disable Toggle removed: controlled by Configure Sections modal -->
                 
-                <!-- Configuration Form (shown when enabled) -->
-                <div id="gitConfigSection" style="display:none;">
+                <!-- Configuration Form -->
+                <div id="gitConfigSection">
                     <form id="gitSettingsForm">
                         <div class="row">
                             <div class="col-md-6">
@@ -869,27 +692,17 @@
         </div>
 
         <!-- Strava Integration Settings -->
-        <div class="settings-section">
+        <div class="settings-section" data-section-id="section-strava">
             <div class="section-card">
                 <div class="section-title">
                     <i class="fab fa-strava me-2"></i>Strava Integration
                 </div>
                 
                 <form id="stravaSettingsForm">
-                    <!-- Enable/Disable Toggle -->
-                    <div class="mb-4">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="stravaEnabled" 
-                                   {% if params.strava_enabled == 'true' or params.strava_enabled == '1' %}checked{% endif %}>
-                            <label class="form-check-label" for="stravaEnabled">
-                                <strong>Enable Strava Integration</strong>
-                            </label>
-                        </div>
-                        <small class="text-muted">Sync activities from Strava</small>
-                    </div>
+                    <!-- Enable/Disable Toggle removed: controlled by Configure Sections modal -->
                     
-                    <!-- Configuration Form (shown when enabled) -->
-                    <div id="stravaConfigSection" style="display: {% if params.strava_enabled == 'true' or params.strava_enabled == '1' %}block{% else %}none{% endif %};">
+                    <!-- Configuration Form -->
+                    <div id="stravaConfigSection">
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
@@ -1019,8 +832,98 @@
             </div>
         </div>
 
+        <!-- Push Notifications (ntfy) Settings -->
+        <div class="settings-section" data-section-id="section-ntfy">
+            <div class="section-card">
+                <div class="section-title">
+                    <i class="fas fa-mobile-alt me-2"></i>Push Notifications (ntfy)
+                </div>
+
+                <!-- Enable/Disable Toggle removed: controlled by Configure Sections modal -->
+
+                <!-- Status Row -->
+                <div class="d-flex align-items-center gap-2 mb-4">
+                        <span class="status-indicator" id="ntfyStatusIndicator" style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#dc3545;"></span>
+                        <span id="ntfyStatusText" class="small text-muted">Loading...</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" onclick="refreshNtfyStatus()">
+                            <i class="fas fa-sync-alt me-1"></i>Refresh
+                        </button>
+                    </div>
+
+                    <form id="ntfySettingsForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="ntfyServerUrl" class="form-label">ntfy Server URL</label>
+                                    <input type="url" class="form-control" id="ntfyServerUrl"
+                                           value="https://ntfy.sh" placeholder="https://ntfy.sh">
+                                    <small class="text-muted">
+                                        Use <code>https://ntfy.sh</code> for the public server or your own self-hosted URL
+                                    </small>
+                                    <div class="mt-2">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm me-1"
+                                                onclick="document.getElementById('ntfyServerUrl').value='https://ntfy.sh'">
+                                            Public (ntfy.sh)
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                                onclick="document.getElementById('ntfyServerUrl').value='';document.getElementById('ntfyServerUrl').focus()">
+                                            Self-hosted
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="ntfyTopic" class="form-label">Your Topic Name</label>
+                                    <input type="text" class="form-control" id="ntfyTopic"
+                                           placeholder="my-app-notifications-xyz123">
+                                    <small class="text-muted">Choose a unique, hard-to-guess topic name</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="ntfyAuthToken" class="form-label">Authentication Token <span class="text-muted">(optional)</span></label>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="ntfyAuthToken"
+                                               placeholder="Leave empty for public topic">
+                                        <button class="btn btn-outline-secondary" type="button"
+                                                onclick="togglePasswordVisibility('ntfyAuthToken', this)">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">For private topics only</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button type="submit" class="btn btn-purple">
+                                <i class="fas fa-save me-1"></i>Save Configuration
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="ntfyTestBtn" disabled
+                                    onclick="sendNtfyTest()">
+                                <i class="fas fa-paper-plane me-1"></i>Send Test
+                            </button>
+                        </div>
+                    </form>
+
+                    <div id="ntfySettingsStatus" class="mt-3 d-none"></div>
+
+                    <!-- Subscribe instructions -->
+                    <div class="alert alert-info mt-4 mb-0">
+                        <strong><i class="fas fa-info-circle me-2"></i>How to subscribe:</strong>
+                        <ol class="mb-0 mt-2">
+                            <li>Download the <strong>ntfy</strong> app from the <a href="https://apps.apple.com/app/ntfy/id1625396347" target="_blank">App Store</a> or <a href="https://play.google.com/store/apps/details?id=io.heckel.ntfy" target="_blank">Google Play</a></li>
+                            <li>Tap <strong>+</strong>, enter your server URL and topic name</li>
+                            <li>Tap <strong>Subscribe</strong> &mdash; notifications will arrive in real time</li>
+                        </ol>
+                    </div>
+            </div>
+        </div>
+
         <!-- Label Printing Settings -->
-        <div class="settings-section">
+        <div class="settings-section" data-section-id="section-labels">
             <div class="section-card">
                 <div class="section-title">
                     <i class="fas fa-print me-2"></i>Label Printing Settings
@@ -1206,7 +1109,7 @@
         </div>
 
         <!-- Scheduled Jobs Settings -->
-        <div class="settings-section">
+        <div class="settings-section" data-section-id="section-scheduler">
             <div class="section-card">
                 <div class="section-title">
                     <i class="fas fa-clock me-2"></i>Scheduled Jobs Settings
@@ -1279,7 +1182,7 @@
         </div>
 
         <!-- Project Logo Settings -->
-        <div class="settings-section">
+        <div class="settings-section" data-section-id="section-logo">
             <div class="section-card">
                 <div class="section-title">
                     <i class="fas fa-image me-2"></i>Project Logo
@@ -1429,16 +1332,6 @@
                 if (stravaSettingsForm) {
                     console.log("Strava form found, attaching listener");
                     
-                    // Toggle visibility
-                    const stravaEnabled = document.getElementById('stravaEnabled');
-                    const stravaConfigSection = document.getElementById('stravaConfigSection');
-                    
-                    if (stravaEnabled && stravaConfigSection) {
-                        stravaEnabled.addEventListener('change', function() {
-                            stravaConfigSection.style.display = this.checked ? 'block' : 'none';
-                        });
-                    }
-
                     // Handle Form Submit
                     stravaSettingsForm.addEventListener('submit', async function(e) {
                         console.log("Strava form submitted");
@@ -1451,7 +1344,6 @@
                         saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
                         
                         try {
-                            const enabled = document.getElementById('stravaEnabled').checked;
                             const clientId = document.getElementById('stravaClientId').value;
                             const clientSecret = document.getElementById('stravaClientSecret').value;
                             const refreshToken = document.getElementById('stravaRefreshToken').value;
@@ -1466,7 +1358,7 @@
                             console.log("Saving mapping:", mapping);
                             
                             const formData = {
-                                strava_enabled: enabled ? '1' : '0',
+                                strava_enabled: '1',
                                 strava_client_id: clientId,
                                 strava_client_secret: clientSecret,
                                 strava_refresh_token: refreshToken,
@@ -1502,11 +1394,195 @@
 
     </div> <!-- End container -->
 
+    <!-- Section Configuration Modal -->
+    <div class="modal fade" id="sectionConfigModal" tabindex="-1" aria-labelledby="sectionConfigModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="sectionConfigModalLabel">
+                        <i class="fas fa-sliders-h me-2"></i>Configure Visible Sections
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Select which sections to display on this page. Hidden sections can always be re-enabled here.</p>
+                    <div class="list-group list-group-flush">
+                        <label class="list-group-item d-flex gap-3 align-items-start">
+                            <input class="form-check-input flex-shrink-0 mt-1" type="checkbox" id="toggle_section-ai">
+                            <span>
+                                <i class="fas fa-brain me-2 text-purple"></i><strong>AI Integration</strong>
+                                <small class="d-block text-muted">Gemini, Ollama, Groq, Hugging Face &amp; system prompts</small>
+                            </span>
+                        </label>
+                        <label class="list-group-item d-flex gap-3 align-items-start">
+                            <input class="form-check-input flex-shrink-0 mt-1" type="checkbox" id="toggle_section-sensors">
+                            <span>
+                                <i class="fas fa-thermometer-half me-2 text-purple"></i><strong>Sensor Functionality</strong>
+                                <small class="d-block text-muted">Enable sensors &amp; Sensor Master Control for ESP32 devices</small>
+                            </span>
+                        </label>
+                        <label class="list-group-item d-flex gap-3 align-items-start">
+                            <input class="form-check-input flex-shrink-0 mt-1" type="checkbox" id="toggle_section-kanban">
+                            <span>
+                                <i class="fas fa-columns me-2 text-purple"></i><strong>Kanban Boards</strong>
+                                <small class="d-block text-muted">Enable or disable Kanban board views</small>
+                            </span>
+                        </label>
+                        <label class="list-group-item d-flex gap-3 align-items-start">
+                            <input class="form-check-input flex-shrink-0 mt-1" type="checkbox" id="toggle_section-git">
+                            <span>
+                                <i class="fab fa-git-alt me-2 text-purple"></i><strong>Git Integration</strong>
+                                <small class="d-block text-muted">GitHub / GitLab repository tracking</small>
+                            </span>
+                        </label>
+                        <label class="list-group-item d-flex gap-3 align-items-start">
+                            <input class="form-check-input flex-shrink-0 mt-1" type="checkbox" id="toggle_section-strava">
+                            <span>
+                                <i class="fab fa-strava me-2 text-purple"></i><strong>Strava Integration</strong>
+                                <small class="d-block text-muted">Activity sync and type mapping</small>
+                            </span>
+                        </label>
+                        <label class="list-group-item d-flex gap-3 align-items-start">
+                            <input class="form-check-input flex-shrink-0 mt-1" type="checkbox" id="toggle_section-ntfy">
+                            <span>
+                                <i class="fas fa-mobile-alt me-2 text-purple"></i><strong>Push Notifications (ntfy)</strong>
+                                <small class="d-block text-muted">Mobile push notifications via ntfy</small>
+                            </span>
+                        </label>
+                        <label class="list-group-item d-flex gap-3 align-items-start">
+                            <input class="form-check-input flex-shrink-0 mt-1" type="checkbox" id="toggle_section-labels">
+                            <span>
+                                <i class="fas fa-print me-2 text-purple"></i><strong>Label Printing</strong>
+                                <small class="d-block text-muted">Niimbot / A4 label sizes, fonts, QR codes</small>
+                            </span>
+                        </label>
+                        <label class="list-group-item d-flex gap-3 align-items-start">
+                            <input class="form-check-input flex-shrink-0 mt-1" type="checkbox" id="toggle_section-scheduler">
+                            <span>
+                                <i class="fas fa-clock me-2 text-purple"></i><strong>Scheduled Jobs</strong>
+                                <small class="d-block text-muted">Overdue checks and automated background tasks</small>
+                            </span>
+                        </label>
+                        <label class="list-group-item d-flex gap-3 align-items-start">
+                            <input class="form-check-input flex-shrink-0 mt-1" type="checkbox" id="toggle_section-logo">
+                            <span>
+                                <i class="fas fa-image me-2 text-purple"></i><strong>Project Logo</strong>
+                                <small class="d-block text-muted">Upload and manage the project logo</small>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-link text-muted me-auto" onclick="resetSectionConfig()">
+                        <i class="fas fa-undo me-1"></i>Show All
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-purple" onclick="saveSectionConfig()">
+                        <i class="fas fa-check me-1"></i>Apply
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/label_printing.js') }}"></script>
     
     <script>
+        // ---- Section Visibility Manager ----
+        const SETTINGS_SECTIONS_KEY = 'settings_visible_sections';
+        // Feature flags controlled by section visibility
+        const sectionFeatureMap = {
+            'section-sensors': 'enable_sensors',
+            'section-kanban':  'enable_kanban',
+            'section-git':     'git_integration_enabled',
+            'section-strava':  'strava_enabled',
+            'section-ntfy':    'ntfy_enabled',
+        };
+        const settingsSectionDefs = [
+            { id: 'section-ai',        label: 'AI Integration' },
+            { id: 'section-sensors',   label: 'Sensor Functionality' },
+            { id: 'section-kanban',    label: 'Kanban Boards' },
+            { id: 'section-git',       label: 'Git Integration' },
+            { id: 'section-strava',    label: 'Strava Integration' },
+            { id: 'section-ntfy',      label: 'Push Notifications' },
+            { id: 'section-labels',    label: 'Label Printing' },
+            { id: 'section-scheduler', label: 'Scheduled Jobs' },
+            { id: 'section-logo',      label: 'Project Logo' },
+        ];
+
+        function getVisibleSections() {
+            try {
+                const saved = localStorage.getItem(SETTINGS_SECTIONS_KEY);
+                if (saved) return JSON.parse(saved);
+            } catch(e) {}
+            const defaults = {};
+            settingsSectionDefs.forEach(s => defaults[s.id] = true);
+            return defaults;
+        }
+
+        function applySectionVisibility() {
+            const visible = getVisibleSections();
+            settingsSectionDefs.forEach(s => {
+                const el = document.querySelector('[data-section-id="' + s.id + '"]');
+                if (el) el.style.display = (visible[s.id] !== false) ? '' : 'none';
+            });
+        }
+
+        function openSectionConfigModal() {
+            const visible = getVisibleSections();
+            settingsSectionDefs.forEach(s => {
+                const cb = document.getElementById('toggle_' + s.id);
+                if (cb) cb.checked = (visible[s.id] !== false);
+            });
+            new bootstrap.Modal(document.getElementById('sectionConfigModal')).show();
+        }
+
+        async function saveSectionConfig() {
+            const visible = {};
+            const featureUpdates = {};
+            settingsSectionDefs.forEach(s => {
+                const cb = document.getElementById('toggle_' + s.id);
+                visible[s.id] = cb ? cb.checked : true;
+                if (sectionFeatureMap[s.id]) {
+                    featureUpdates[sectionFeatureMap[s.id]] = (cb && cb.checked) ? '1' : '0';
+                }
+            });
+            localStorage.setItem(SETTINGS_SECTIONS_KEY, JSON.stringify(visible));
+            applySectionVisibility();
+            try {
+                await fetch('/api/system_params', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(featureUpdates)
+                });
+            } catch(e) { console.error('Failed to save feature flags', e); }
+            bootstrap.Modal.getInstance(document.getElementById('sectionConfigModal')).hide();
+        }
+
+        async function resetSectionConfig() {
+            localStorage.removeItem(SETTINGS_SECTIONS_KEY);
+            settingsSectionDefs.forEach(s => {
+                const cb = document.getElementById('toggle_' + s.id);
+                if (cb) cb.checked = true;
+            });
+            applySectionVisibility();
+            // Re-enable all feature flags
+            const featureUpdates = {};
+            Object.values(sectionFeatureMap).forEach(p => featureUpdates[p] = '1');
+            try {
+                await fetch('/api/system_params', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(featureUpdates)
+                });
+            } catch(e) { console.error('Failed to reset feature flags', e); }
+        }
+
+        // Apply section visibility as soon as this script runs (DOM is ready — script is at end of body)
+        applySectionVisibility();
+
         // Helper function to display status messages
         function displayStatus(elementId, message, type) {
             const el = document.getElementById(elementId);
@@ -1577,12 +1653,6 @@
             } else if (service === 'ollama') {
                 baseUrl = document.getElementById('ollamaBaseUrl').value;
                 modelName = document.getElementById('ollamaModelName').value;
-            } else if (service === 'groq') {
-                apiKey = document.getElementById('groqApiKey').value;
-                modelName = document.getElementById('groqModelName').value;
-            } else if (service === 'huggingface') {
-                apiKey = document.getElementById('huggingfaceApiKey').value;
-                modelName = document.getElementById('huggingfaceModel').value;
             }
             
             try {
@@ -1781,41 +1851,14 @@
             };
 
             // --- General Settings ---
-            const sensorToggle = document.getElementById('enableSensorsToggle');
-            const sensorLabel = document.getElementById('sensorToggleLabel');
-            const sensorMasterContainer = document.getElementById('sensorMasterControlContainer');
             const sensorMasterToggle = document.getElementById('enableSensorMasterControlToggle');
             const sensorMasterLabel = document.getElementById('sensorMasterControlToggleLabel');
-            const kanbanToggle = document.getElementById('enableKanbanToggle');
-            const kanbanLabel = document.getElementById('kanbanToggleLabel');
-
-            // Initialize Toggles
-            if (sensorToggle) {
-                sensorToggle.checked = (params.enable_sensors === 'true' || params.enable_sensors === '1');
-                sensorLabel.textContent = sensorToggle.checked ? 'Enabled' : 'Disabled';
-                if (sensorMasterContainer) sensorMasterContainer.style.display = sensorToggle.checked ? 'block' : 'none';
-                
-                sensorToggle.addEventListener('change', function() {
-                    sensorLabel.textContent = this.checked ? 'Enabled' : 'Disabled';
-                    if (sensorMasterContainer) sensorMasterContainer.style.display = this.checked ? 'block' : 'none';
-                });
-            }
 
             if (sensorMasterToggle) {
                 sensorMasterToggle.checked = (params.enable_sensor_master_control === 'true' || params.enable_sensor_master_control === '1');
                 sensorMasterLabel.textContent = sensorMasterToggle.checked ? 'Enabled' : 'Disabled';
-                
                 sensorMasterToggle.addEventListener('change', function() {
                     sensorMasterLabel.textContent = this.checked ? 'Enabled' : 'Disabled';
-                });
-            }
-
-            if (kanbanToggle) {
-                kanbanToggle.checked = (params.enable_kanban === 'true' || params.enable_kanban === '1');
-                kanbanLabel.textContent = kanbanToggle.checked ? 'Enabled' : 'Disabled';
-                
-                kanbanToggle.addEventListener('change', function() {
-                    kanbanLabel.textContent = this.checked ? 'Enabled' : 'Disabled';
                 });
             }
 
@@ -1828,10 +1871,7 @@
                         project_name: document.getElementById('projectName').value,
                         project_subtitle: document.getElementById('projectSubtitle').value,
                         entry_singular_label: document.getElementById('entrySingularLabel').value,
-                        entry_plural_label: document.getElementById('entryPluralLabel').value,
-                        enable_sensors: sensorToggle && sensorToggle.checked ? '1' : '0',
-                        enable_sensor_master_control: sensorMasterToggle && sensorMasterToggle.checked ? '1' : '0',
-                        enable_kanban: kanbanToggle && kanbanToggle.checked ? '1' : '0'
+                        entry_plural_label: document.getElementById('entryPluralLabel').value
                     };
                     
                     try {
@@ -1915,11 +1955,7 @@
                             else if (el.id === 'geminiModelName') formData.gemini_model_name = el.value;
                             else if (el.id === 'ollamaBaseUrl') formData.ollama_base_url = el.value;
                             else if (el.id === 'ollamaModelName') formData.ollama_model_name = el.value;
-                            else if (el.id === 'groqApiKey') formData.groq_api_key = el.value;
-                            else if (el.id === 'groqModelName') formData.groq_model_name = el.value;
-                            else if (el.id === 'huggingfaceApiKey') formData.huggingface_api_key = el.value;
-                            else if (el.id === 'huggingfaceModel') formData.huggingface_model = el.value;
-                            else if (el.id === 'huggingfaceImageSize') formData.huggingface_image_size = el.value;
+
                             else if (el.id === 'geminiBasePrompt') formData.gemini_base_prompt = el.value;
                             else if (el.id === 'promptDescription') formData.prompt_description = el.value;
                             else if (el.id === 'promptNote') formData.prompt_note = el.value;
@@ -1950,21 +1986,122 @@
                 });
             }
 
+            // --- Sensor Settings ---
+            const saveSensorBtn = document.getElementById('saveSensorSettingsBtn');
+            if (saveSensorBtn) {
+                saveSensorBtn.addEventListener('click', async function() {
+                    try {
+                        const resp = await fetch('/api/system_params', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                enable_sensor_master_control: sensorMasterToggle && sensorMasterToggle.checked ? '1' : '0'
+                            })
+                        });
+                        if (resp.ok) {
+                            displayStatus('sensorStatusMessage', '✅ Sensor settings saved!', 'alert-success');
+                        } else {
+                            displayStatus('sensorStatusMessage', '❌ Failed to save sensor settings.', 'alert-danger');
+                        }
+                    } catch(e) {
+                        displayStatus('sensorStatusMessage', '❌ Error: ' + e.message, 'alert-danger');
+                    }
+                });
+            }
+
+            // --- ntfy Push Notifications ---
+            refreshNtfyStatus();
+
+            async function refreshNtfyStatus() {
+                try {
+                    const resp = await fetch('/api/ntfy/config');
+                    const cfg = await resp.json();
+                    const indicator = document.getElementById('ntfyStatusIndicator');
+                    const text = document.getElementById('ntfyStatusText');
+                    const testBtn = document.getElementById('ntfyTestBtn');
+                    if (cfg.topic) {
+                        indicator.style.background = '#198754';
+                        text.textContent = 'Configured — server: ' + (cfg.server_url || 'https://ntfy.sh') + ', topic: ' + cfg.topic;
+                        testBtn.disabled = false;
+                    } else {
+                        indicator.style.background = '#dc3545';
+                        text.textContent = 'Not configured — save a topic to activate';
+                        testBtn.disabled = true;
+                    }
+                    // Populate form fields (never reveal auth token)
+                    document.getElementById('ntfyServerUrl').value = cfg.server_url || 'https://ntfy.sh';
+                    document.getElementById('ntfyTopic').value = cfg.topic || '';
+                } catch(e) {
+                    document.getElementById('ntfyStatusText').textContent = 'Could not load status';
+                }
+            }
+            window.refreshNtfyStatus = refreshNtfyStatus;
+
+            window.sendNtfyTest = async function() {
+                const btn = document.getElementById('ntfyTestBtn');
+                const origHtml = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sending...';
+                try {
+                    const resp = await fetch('/api/ntfy/test', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ title: 'Test Notification', message: 'Push notifications are working! 🎉', priority: 3 })
+                    });
+                    const result = await resp.json();
+                    if (result.success) {
+                        displayStatus('ntfySettingsStatus', '✅ Test notification sent — check your device!', 'alert-success');
+                    } else {
+                        displayStatus('ntfySettingsStatus', '❌ ' + (result.error || 'Test failed'), 'alert-danger');
+                    }
+                } catch(e) {
+                    displayStatus('ntfySettingsStatus', '❌ Error: ' + e.message, 'alert-danger');
+                } finally {
+                    btn.innerHTML = origHtml;
+                    btn.disabled = false;
+                }
+            };
+
+            const ntfyForm = document.getElementById('ntfySettingsForm');
+            if (ntfyForm) {
+                ntfyForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const btn = ntfyForm.querySelector('[type=submit]');
+                    const origHtml = btn.innerHTML;
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
+                    try {
+                        const resp = await fetch('/api/ntfy/config', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                server_url: document.getElementById('ntfyServerUrl').value.trim(),
+                                topic: document.getElementById('ntfyTopic').value.trim(),
+                                auth_token: document.getElementById('ntfyAuthToken').value.trim()
+                            })
+                        });
+                        if (resp.ok) {
+                            displayStatus('ntfySettingsStatus', '✅ ntfy configuration saved!', 'alert-success');
+                            refreshNtfyStatus();
+                        } else {
+                            const err = await resp.json();
+                            displayStatus('ntfySettingsStatus', '❌ ' + (err.error || 'Failed to save'), 'alert-danger');
+                        }
+                    } catch(e) {
+                        displayStatus('ntfySettingsStatus', '❌ Error: ' + e.message, 'alert-danger');
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerHTML = origHtml;
+                    }
+                });
+            }
+
             // --- Git Integration ---
-            const gitToggle = document.getElementById('gitIntegrationEnabled');
+            const gitToggle = null; // removed — section visibility = enabled state
             const gitConfig = document.getElementById('gitConfigSection');
             const gitProvider = document.getElementById('gitProvider');
             const gitlabUrlSection = document.getElementById('gitlabUrlSection');
             
-            if (gitToggle) {
-                gitToggle.checked = (params.git_integration_enabled === 'true' || params.git_integration_enabled === '1');
-                if (gitConfig) gitConfig.style.display = gitToggle.checked ? 'block' : 'none';
-                
-                gitToggle.addEventListener('change', function() {
-                    if (gitConfig) gitConfig.style.display = this.checked ? 'block' : 'none';
-                });
-            }
-
             if (gitProvider) {
                 gitProvider.value = params.git_provider || '';
                 if (gitlabUrlSection) gitlabUrlSection.style.display = (params.git_provider === 'gitlab') ? 'block' : 'none';
@@ -1981,7 +2118,7 @@
             if (saveGitBtn) {
                 saveGitBtn.addEventListener('click', async function() {
                     const data = {
-                        git_integration_enabled: gitToggle.checked ? '1' : '0',
+                        git_integration_enabled: '1',
                         git_provider: gitProvider.value,
                         gitlab_url: document.getElementById('gitlabUrl').value,
                         git_token: document.getElementById('gitToken').value

@@ -52,6 +52,8 @@ def api_update_system_params():
             'git_integration_enabled', 'git_provider', 'git_token', 'gitlab_url',
             # Strava integration settings
             'strava_enabled', 'strava_client_id', 'strava_client_secret', 'strava_refresh_token', 'strava_activity_mapping',
+            # ntfy push notification settings
+            'ntfy_enabled',
             'project_logo_path', 'label_font_size', 'label_include_qr_code', 'label_include_logo',
             'label_qr_code_prefix', 'allowed_file_types', 'max_file_size', 'custom_note_types',
             'primary_ai_provider', 'gemini_api_key', 'groq_api_key', 'huggingface_api_key',
