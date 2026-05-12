@@ -246,6 +246,11 @@
             border-color: var(--theme-primary, var(--bs-primary));
             box-shadow: 0 0 0 2px rgba(var(--bs-primary-rgb), .25);
         }
+        #cfModalGrid .cf-spacer-card {
+            border: 2px dashed var(--bs-border-color);
+            border-radius: 0.375rem;
+            background: transparent;
+        }
         .cf-hidden-chip {
             background: var(--bs-body-bg);
             border: 1px solid var(--bs-border-color);
@@ -408,6 +413,10 @@
                                 <input class="form-check-input" type="checkbox" id="cfModalAlwaysEdit" checked>
                                 <label class="form-check-label small" for="cfModalAlwaysEdit">Always editable</label>
                             </div>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="cfModalShowFrames">
+                                <label class="form-check-label small" for="cfModalShowFrames">Show field frames</label>
+                            </div>
                         </div>
                         <div class="col-sm-5 text-muted small">
                             <div><i class="fas fa-arrows-alt me-1"></i> Drag fields to reposition</div>
@@ -417,6 +426,11 @@
                     </div>
 
                     <!-- GridStack layout area -->
+                    <div class="d-flex justify-content-end mb-1">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cfModalAddSpacer()">
+                            <i class="fas fa-plus me-1"></i>Add Spacer
+                        </button>
+                    </div>
                     <div class="rounded p-2 mb-3" style="background:var(--bs-secondary-bg);">
                         <div class="grid-stack" id="cfModalGrid"></div>
                     </div>

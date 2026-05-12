@@ -84,6 +84,7 @@
 {% set _column_count    = (_cfg.get('column_count', 3) | int) %}
 {% set _show_labels     = _cfg.get('show_labels', True) %}
 {% set _always_editable = _cfg.get('always_editable', True) %}
+{% set _show_frames     = _cfg.get('show_frames', False) %}
 {% set _hidden_raw      = _cfg.get('hidden_fields', []) %}
 {% set _field_layout    = _cfg.get('field_layout', []) %}
 {% set _order_raw       = _cfg.get('field_order', []) %}
@@ -126,9 +127,14 @@
 
 <style>
     #customColumnsSectionContent-{{ section_id }} .custom-col-item {
+        {% if _show_frames %}
         border: 1.5px solid var(--bs-border-color);
         border-radius: 0.7rem;
         background: rgba(255, 255, 255, 0.03);
+        {% else %}
+        border: none;
+        background: transparent;
+        {% endif %}
         padding: 0.85rem;
         height: 100%;
     }
@@ -163,6 +169,19 @@
                 grid-auto-rows: {{ _row_h }};
                 gap: 0.75rem;">
         {% for item in _field_layout %}
+            {# Blank spacer — renders as empty grid cell #}
+            {% if item.get('type') == 'spacer' %}
+                {% set _iw = (item.w | default(1)) | int %}
+                {% set _ih = (item.h | default(1)) | int %}
+                {% set _ix = (item.x | default(0)) | int %}
+                {% set _iy = (item.y | default(0)) | int %}
+                {% set _max_w = _column_count - _ix %}
+                {% set _safe_w = _iw if _iw <= _max_w else _max_w %}
+                {% set _safe_w = 1 if _safe_w < 1 else _safe_w %}
+                {% set _safe_h = 1 if _ih < 1 else _ih %}
+                <div style="grid-column: {{ _ix + 1 }} / span {{ _safe_w }};
+                            grid-row:    {{ _iy + 1 }} / span {{ _safe_h }};"></div>
+            {% else %}
             {# Find the matching column data object #}
             {% set ns_fl = namespace(col=none) %}
             {% for c in section_cols %}
@@ -185,6 +204,7 @@
                             grid-row:    {{ _iy + 1 }} / span {{ _safe_h }};">
                     {{ render_field(ns_fl.col, section_id, _show_labels, _always_editable) }}
                 </div>
+            {% endif %}
             {% endif %}
         {% endfor %}
     </div>

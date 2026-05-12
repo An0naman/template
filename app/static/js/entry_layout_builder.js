@@ -415,13 +415,16 @@ function _cfToGrid12(item, colCount) {
 // Convert 12-col GridStack item → user-space item (w/x in colCount units)
 function _cfFromGrid12(item, colCount) {
     const u = _cfUnitSize(colCount);
-    return {
-        id:  parseInt(item.id, 10),
+    const isSpacer = String(item.id).startsWith('spacer_');
+    const out = {
+        id:  isSpacer ? String(item.id) : parseInt(item.id, 10),
         x:   Math.round((item.x || 0) / u),
         y:   item.y || 0,
         w:   Math.max(1, Math.round((item.w || u) / u)),
         h:   item.h || 1
     };
+    if (isSpacer) out.type = 'spacer';
+    return out;
 }
 
 function _cfBuildCardHTML(key, label, type) {
@@ -436,6 +439,35 @@ function _cfBuildCardHTML(key, label, type) {
             <i class="fas fa-eye-slash text-muted" style="font-size:0.8rem;"></i>
         </button>
     </div>`;
+}
+
+// Returns the default GridStack row-height for a given column type
+function _cfDefaultHeight(type) {
+    return type === 'textarea' ? 2 : 1;
+}
+
+function _cfBuildSpacerHTML(key) {
+    return `<div class="d-flex align-items-center justify-content-center h-100 cf-spacer-card">
+        <span class="text-muted" style="font-size:0.7rem;letter-spacing:0.05em;user-select:none;">SPACER</span>
+        <button class="btn btn-link btn-sm p-0 ms-2 cf-remove-spacer"
+                data-spacer-key="${key}" title="Remove spacer">
+            <i class="fas fa-times text-danger" style="font-size:0.75rem;"></i>
+        </button>
+    </div>`;
+}
+
+function cfModalAddSpacer() {
+    if (!cfModalGridStack) return;
+    const key = `spacer_${Date.now()}`;
+    const u = Math.round(_cfUnitSize(cfModalCurrentColumnCount));
+    const widget = cfModalGridStack.addWidget({ id: key, w: u, h: 1, content: _cfBuildSpacerHTML(key) });
+    widget.querySelector('.cf-remove-spacer')?.addEventListener('click', () => cfModalRemoveSpacer(key));
+}
+
+function cfModalRemoveSpacer(key) {
+    if (!cfModalGridStack) return;
+    const node = cfModalGridStack.engine.nodes.find(n => String(n.id) === key);
+    if (node?.el) cfModalGridStack.removeWidget(node.el, false);
 }
 
 function _cfUpdateHiddenCount() {
@@ -475,7 +507,7 @@ function cfModalShowField(key) {
     chip.remove();
     _cfUpdateHiddenCount();
     const u = Math.round(_cfUnitSize(cfModalCurrentColumnCount));
-    const widget = cfModalGridStack.addWidget({ id: key, w: u, h: 1, content: _cfBuildCardHTML(key, label, type) });
+    const widget = cfModalGridStack.addWidget({ id: key, w: u, h: _cfDefaultHeight(type), content: _cfBuildCardHTML(key, label, type) });
     widget.querySelector('.cf-toggle-vis')?.addEventListener('click', () => cfModalToggleVisibility(key));
 }
 
@@ -520,6 +552,9 @@ function _cfInitGrid(gridEl, columnCount, itemsToLoad) {
     gridEl.querySelectorAll('.cf-toggle-vis').forEach(btn => {
         btn.addEventListener('click', () => cfModalToggleVisibility(btn.getAttribute('data-field-key')));
     });
+    gridEl.querySelectorAll('.cf-remove-spacer').forEach(btn => {
+        btn.addEventListener('click', () => cfModalRemoveSpacer(btn.getAttribute('data-spacer-key')));
+    });
 }
 
 function openCustomFieldsLayoutModal() {
@@ -532,12 +567,14 @@ function openCustomFieldsLayoutModal() {
     const columnCount  = Number(config.column_count || 3);
     const showLabels   = config.show_labels !== false;
     const alwaysEdit   = config.always_editable !== false;
+    const showFrames   = config.show_frames === true;
     const hiddenFields = (Array.isArray(config.hidden_fields) ? config.hidden_fields : []).map(String);
     const savedLayout  = Array.isArray(config.field_layout) ? config.field_layout : [];
 
     document.getElementById('cfModalColumnCount').value = String(columnCount);
     document.getElementById('cfModalShowLabels').checked = showLabels;
     document.getElementById('cfModalAlwaysEdit').checked = alwaysEdit;
+    document.getElementById('cfModalShowFrames').checked = showFrames;
 
     const allAssignments = entryTypeCustomAssignments.filter(a =>
         a.section_placement === 'form_fields' || a.section_placement === 'custom_columns'
@@ -582,7 +619,13 @@ function openCustomFieldsLayoutModal() {
         const key   = String(a.custom_column_id);
         const label = (a.column && (a.column.label || a.column.name)) || `Field ${key}`;
         const type  = (a.column && a.column.column_type) || '';
-        itemsToLoad.push({ id: key, w: 1, h: 1, content: _cfBuildCardHTML(key, label, type) });
+        itemsToLoad.push({ id: key, w: 1, h: _cfDefaultHeight(type), content: _cfBuildCardHTML(key, label, type) });
+    });
+
+    // Restore any spacers that were previously saved into field_layout
+    savedLayout.filter(item => item.type === 'spacer').forEach(item => {
+        const key = String(item.id);
+        itemsToLoad.push({ id: key, x: item.x || 0, y: item.y || 0, w: item.w || 1, h: item.h || 1, content: _cfBuildSpacerHTML(key) });
     });
 
     hidden.forEach(a => {
@@ -620,6 +663,7 @@ async function applyCustomFieldsLayout() {
         config.column_count    = columnCount;
         config.show_labels     = document.getElementById('cfModalShowLabels').checked;
         config.always_editable = document.getElementById('cfModalAlwaysEdit').checked;
+        config.show_frames     = document.getElementById('cfModalShowFrames').checked;
 
         // Convert 12-col GridStack positions back to user-space (column_count units)
         const fieldLayout = [];
@@ -637,6 +681,7 @@ async function applyCustomFieldsLayout() {
             .filter(n => !isNaN(n));
 
         config.field_order = [...fieldLayout]
+            .filter(item => item.type !== 'spacer')
             .sort((a, b) => a.y !== b.y ? a.y - b.y : a.x - b.x)
             .map(item => item.id);
 
