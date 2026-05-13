@@ -605,10 +605,6 @@
             </div>
         </div>
 
-
-
-
-
         <!-- Git Integration Settings (token-based discovery) -->
         <div class="settings-section" data-section-id="section-git">
             <div class="section-card">
@@ -2803,7 +2799,7 @@
                                 setTimeout(() => el.classList.add('d-none'), 4000);
                             }
                             if (data.success) _currentMapping = data.mapping;
-                        } catch(e) {
+                        } catch (e) {
                             showAnycubicStatus(settingsStatusEl, '\u274c ' + e.message, 'alert-danger');
                         } finally {
                             this.disabled = false;
@@ -2847,7 +2843,7 @@
                                 _currentMapping = data.mapping;
                                 await loadAnycubicMappingData();
                             }
-                        } catch(e) {
+                        } catch (e) {
                             showAnycubicStatus(settingsStatusEl, '\u274c ' + e.message, 'alert-danger');
                         } finally {
                             this.disabled = false;
@@ -2961,11 +2957,11 @@
                     const originalText = this.innerHTML;
                     this.disabled = true;
                     this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Syncing...';
-                    
+
                     try {
                         const response = await fetch('/strava/sync', { method: 'POST' });
                         const data = await response.json();
-                        
+
                         if (response.ok && data.status === 'success') {
                             alert('Sync Complete: ' + data.message);
                             location.reload();
