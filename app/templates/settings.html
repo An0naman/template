@@ -1748,27 +1748,27 @@
 
             window.stravaAutoCreateColumns = async function() {
                 const statusEl = document.getElementById('stravaFieldMappingStatus');
-
-                // Determine entry type from the activity type mapping dropdowns
-                let entryTypeId = null;
-                const firstSel = document.querySelector('.strava-mapping-select');
-                if (firstSel && firstSel.value) entryTypeId = firstSel.value;
-
-                if (!entryTypeId) {
+                // Gather all mapped activity types and their entry type IDs
+                const mapping = {};
+                document.querySelectorAll('.strava-mapping-select').forEach(sel => {
+                    if (sel.value) {
+                        mapping[sel.dataset.stravaType] = sel.value;
+                    }
+                });
+                if (Object.keys(mapping).length === 0) {
                     statusEl.className = 'mb-2 alert alert-warning';
-                    statusEl.textContent = 'Please set an Activity Type mapping first so we know which entry type to assign columns to.';
+                    statusEl.textContent = 'Please set at least one Activity Type mapping so we know which entry types to assign columns to.';
                     statusEl.classList.remove('d-none');
                     return;
                 }
-
                 statusEl.className = 'mb-2 alert alert-secondary';
-                statusEl.textContent = 'Creating columns…';
+                statusEl.textContent = 'Creating columns for all mapped activity types…';
                 statusEl.classList.remove('d-none');
                 try {
                     const r = await fetch('/api/strava/auto_create_columns', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ entry_type_id: entryTypeId }),
+                        body: JSON.stringify({ activity_type_entry_map: mapping }),
                     });
                     const d = await r.json();
                     if (r.ok && d.success) {
