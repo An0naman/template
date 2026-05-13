@@ -98,11 +98,16 @@ def _apply_field_mapping(entry_id: int, field_values: dict, field_mapping: dict,
         if value is None:
             continue
         try:
+            # Use DB-agnostic upsert logic so this works on both SQLite and MariaDB.
+            cursor.execute(
+                "UPDATE CustomColumnValue SET value = ?, updated_at = ? WHERE custom_column_id = ? AND entry_id = ?",
+                (str(value), now, int(column_id), entry_id),
+            )
+            if cursor.rowcount and cursor.rowcount > 0:
+                continue
             cursor.execute(
                 """INSERT INTO CustomColumnValue (custom_column_id, entry_id, value, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?)
-                   ON CONFLICT(custom_column_id, entry_id)
-                   DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at""",
+                   VALUES (?, ?, ?, ?, ?)""",
                 (int(column_id), entry_id, str(value), now, now),
             )
         except Exception as exc:
@@ -228,6 +233,7 @@ def sync_strava_activities():
             logger.error(f"Error parsing Strava field mapping: {e}")
 
     count = 0
+    backfilled = 0
     cursor = conn.cursor()
 
     for activity in activities:
@@ -253,10 +259,17 @@ def sync_strava_activities():
             continue
 
         # Check for duplicate
-        cursor.execute("SELECT 1 FROM Entry WHERE title = ? AND created_at LIKE ? AND entry_type_id = ?",
+        cursor.execute("SELECT id FROM Entry WHERE title = ? AND created_at LIKE ? AND entry_type_id = ?",
                        (name, f"{date_str}%", entry_type_id))
-        if cursor.fetchone():
+        existing_entry = cursor.fetchone()
+        if existing_entry:
             logger.info(f"Skipping Strava activity {strava_id}: Duplicate found")
+
+            # Keep mapped Strava custom fields in sync for existing matching entries.
+            if field_mapping:
+                field_values = _activity_to_field_dict(activity)
+                _apply_field_mapping(existing_entry["id"], field_values, field_mapping, conn)
+                backfilled += 1
             continue
 
         # Format Details
@@ -289,4 +302,9 @@ def sync_strava_activities():
     set_system_param(conn, 'strava_last_sync_timestamp', int(time.time()))
     conn.commit()
     
-    return {"status": "success", "message": f"Synced {count} activities", "count": count}
+    return {
+        "status": "success",
+        "message": f"Synced {count} activities, backfilled custom fields for {backfilled} existing activities",
+        "count": count,
+        "backfilled": backfilled,
+    }
