@@ -172,6 +172,8 @@
 (function() {
     const modal = document.getElementById('aboutModal');
     if (!modal) return;
+    if (modal.dataset.aboutModalInitialized === '1') return;
+    modal.dataset.aboutModalInitialized = '1';
 
     const versionBadge = document.getElementById('aboutCurrentVersion');
     const versionInput = document.getElementById('aboutVersionInput');

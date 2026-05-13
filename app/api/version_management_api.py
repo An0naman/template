@@ -264,11 +264,17 @@ def trigger_deploy():
     except Exception as e:
         current_app.logger.warning(f'Failed to sync local version files after deploy bump: {e}')
 
-    # Step 3: Dispatch workflow
+    # Step 3: Manually dispatch the Docker workflow.
+    # Regular pushes should not build; deploys come only from this endpoint.
     try:
+        run_title = f'chore: bump VERSION {current_version} -> {new_version}'
         dispatch_url = f'https://api.github.com/repos/{github_repo}/actions/workflows/{workflow}/dispatches'
         dispatch_payload = json.dumps({
-            'ref': 'main'
+            'ref': 'main',
+            'inputs': {
+                'run_title': run_title,
+                'version': new_version
+            }
         }).encode('utf-8')
 
         dispatch_req = urllib.request.Request(
@@ -284,16 +290,17 @@ def trigger_deploy():
         )
 
         with urllib.request.urlopen(dispatch_req) as resp:
-            # 204 No Content = success
-            if resp.status == 204:
-                return jsonify({
-                    'message': f'Version bumped {current_version} -> {new_version} and Docker build triggered.',
-                    'previous_version': current_version,
-                    'version': new_version
-                }), 200
-            return jsonify({'error': f'Unexpected status {resp.status} when dispatching workflow'}), 500
+            if resp.status != 204:
+                return jsonify({'error': f'Unexpected status {resp.status} when dispatching workflow'}), 500
     except urllib.error.HTTPError as e:
         body = e.read().decode('utf-8', errors='replace')
         return jsonify({'error': f'GitHub API error dispatching workflow: {e.code}', 'output': body}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+    return jsonify({
+        'message': f'Version bumped {current_version} -> {new_version} and Docker build triggered.',
+        'previous_version': current_version,
+        'version': new_version,
+        'run_title': run_title
+    }), 200

@@ -1,13 +1,17 @@
 name: Build and Push Docker Images
+run-name: ${{ inputs.run_title || format('{0} ({1})', github.workflow, github.ref_name) }}
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
+    inputs:
+      run_title:
+        description: Descriptive title for this deployment run
+        required: false
+        type: string
+      version:
+        description: Version being deployed
+        required: false
+        type: string
 
 env:
   REGISTRY: ghcr.io
@@ -32,7 +36,9 @@ jobs:
       - name: Resolve build version
         id: build_version
         run: |
-          if [[ -f VERSION ]]; then
+          if [[ -n "${{ inputs.version }}" ]]; then
+            VERSION="${{ inputs.version }}"
+          elif [[ -f VERSION ]]; then
             VERSION=$(tr -d '[:space:]' < VERSION)
           elif [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
@@ -46,15 +52,12 @@ jobs:
           echo "build_date=$BUILD_DATE" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
-        # Only needed for arm64; skip on PRs to keep them fast
-        if: github.event_name != 'pull_request'
         uses: docker/setup-qemu-action@v3
         
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to Container Registry
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -79,23 +82,20 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          # PRs only build amd64 (no QEMU emulation) to keep CI fast.
-          # Pushes to main and manual triggers build both platforms.
-          platforms: ${{ github.event_name != 'pull_request' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
-          push: ${{ github.event_name != 'pull_request' }}
+          platforms: linux/amd64,linux/arm64
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           # Registry-backed cache: stored as a manifest in GHCR, does not count
           # against the 10 GB GitHub Actions cache quota and persists indefinitely.
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:buildcache
-          cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,ref={0}/{1}:buildcache,mode=max,image-manifest=true', env.REGISTRY, env.IMAGE_NAME_LC) || '' }}
+          cache-to: ${{ format('type=registry,ref={0}/{1}:buildcache,mode=max,image-manifest=true', env.REGISTRY, env.IMAGE_NAME_LC) }}
           build-args: |
             BUILD_DATE=${{ steps.build_version.outputs.build_date }}
             VCS_REF=${{ github.sha }}
             VERSION=${{ steps.build_version.outputs.version }}
 
       - name: Generate build summary
-        if: github.event_name != 'pull_request'
         run: |
           echo "## Docker Build Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
