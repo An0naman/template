@@ -1036,6 +1036,8 @@ def init_db():
             # Notification settings
             'overdue_check_enabled': 'true',
             'overdue_check_schedule': '0 9 * * *',  # Daily at 9:00 AM by default
+            'strava_sync_enabled': 'false',
+            'strava_sync_schedule': '0 */6 * * *',  # Every 6 hours by default
             
             # Feature toggles
             'enable_kanban': 'true',
@@ -1143,6 +1145,8 @@ def get_system_parameters():
             'strava_refresh_token': '',  # Strava Refresh Token
             'strava_activity_mapping': '{}',  # JSON mapping of Strava types to Entry Types
             'strava_field_mapping': '{}',  # JSON mapping of Strava fields to CustomColumn IDs
+            'strava_sync_enabled': 'false',  # Scheduled Strava sync enabled (true/false)
+            'strava_sync_schedule': '0 */6 * * *',  # Cron-like schedule for Strava sync
             'gemini_base_prompt': 'You are a helpful assistant for a project management application. Please provide clear, concise, and well-structured responses.',  # Base prompt for AI context
             'prompt_description': 'Task: Generate a concise, informative description for a {entry_type} named "{title}".\n\nRequirements:\n- Be factual and informative\n- Include relevant details for a database/inventory system\n- Use professional, neutral tone\n- Use Markdown formatting when helpful\n- Use hyphens (-) for bullet lists\n\nReturn ONLY the description content.',
             'prompt_note': 'Task: Generate content for a {note_type} note.\n\nEntry Title: {title}\nEntry Type: {entry_type}\nNote Type: {note_type}\n\nGuidelines:\n- Create relevant and useful content appropriate for a {note_type} note\n- Make it specific to the entry\n- Keep the tone and format appropriate for the note type\n- Be concise but informative',
