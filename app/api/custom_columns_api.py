@@ -61,6 +61,15 @@ def _now():
     return datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
 
 
+def _has_unit_column(cursor) -> bool:
+    """Return True when the CustomColumn.unit column exists."""
+    try:
+        cursor.execute('SELECT unit FROM CustomColumn LIMIT 1')
+        return True
+    except Exception:
+        return False
+
+
 # ---------------------------------------------------------------------------
 # CustomColumn CRUD
 # ---------------------------------------------------------------------------
@@ -73,25 +82,47 @@ def list_custom_columns():
         conn = get_db()
         cursor = conn.cursor()
 
+        has_unit_col = _has_unit_column(cursor)
         if entry_type_id:
-            cursor.execute('''
-                  SELECT cc.id, cc.name, cc.label, cc.description, cc.column_type,
-                      cc.`options` AS column_options, cc.default_value, cc.is_required,
-                      cc.unit, cc.created_at, cc.updated_at,
-                       cca.id AS assignment_id, cca.section_placement, cca.display_order, cca.is_visible
-                FROM CustomColumn cc
-                JOIN CustomColumnAssignment cca ON cca.custom_column_id = cc.id
-                WHERE cca.entry_type_id = ?
-                ORDER BY cca.display_order ASC, cc.label ASC
-            ''', (entry_type_id,))
+            if has_unit_col:
+                cursor.execute('''
+                      SELECT cc.id, cc.name, cc.label, cc.description, cc.column_type,
+                          cc.`options` AS column_options, cc.default_value, cc.is_required,
+                          cc.unit, cc.created_at, cc.updated_at,
+                           cca.id AS assignment_id, cca.section_placement, cca.display_order, cca.is_visible
+                    FROM CustomColumn cc
+                    JOIN CustomColumnAssignment cca ON cca.custom_column_id = cc.id
+                    WHERE cca.entry_type_id = ?
+                    ORDER BY cca.display_order ASC, cc.label ASC
+                ''', (entry_type_id,))
+            else:
+                cursor.execute('''
+                      SELECT cc.id, cc.name, cc.label, cc.description, cc.column_type,
+                          cc.`options` AS column_options, cc.default_value, cc.is_required,
+                          '' AS unit, cc.created_at, cc.updated_at,
+                           cca.id AS assignment_id, cca.section_placement, cca.display_order, cca.is_visible
+                    FROM CustomColumn cc
+                    JOIN CustomColumnAssignment cca ON cca.custom_column_id = cc.id
+                    WHERE cca.entry_type_id = ?
+                    ORDER BY cca.display_order ASC, cc.label ASC
+                ''', (entry_type_id,))
         else:
-            cursor.execute('''
-                  SELECT id, name, label, description, column_type,
-                      `options` AS column_options, default_value, is_required,
-                      unit, created_at, updated_at
-                FROM CustomColumn
-                ORDER BY label ASC
-            ''')
+            if has_unit_col:
+                cursor.execute('''
+                      SELECT id, name, label, description, column_type,
+                          `options` AS column_options, default_value, is_required,
+                          unit, created_at, updated_at
+                    FROM CustomColumn
+                    ORDER BY label ASC
+                ''')
+            else:
+                cursor.execute('''
+                      SELECT id, name, label, description, column_type,
+                          `options` AS column_options, default_value, is_required,
+                          '' AS unit, created_at, updated_at
+                    FROM CustomColumn
+                    ORDER BY label ASC
+                ''')
 
         rows = cursor.fetchall()
         result = []
@@ -141,21 +172,38 @@ def create_custom_column():
         conn = get_db()
         cursor = conn.cursor()
         now = _now()
-        cursor.execute('''
-            INSERT INTO CustomColumn (name, label, description, column_type, `options`,
-                                      default_value, is_required, unit, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            name,
-            label,
-            data.get('description', ''),
-            column_type,
-            options,
-            data.get('default_value', ''),
-            1 if data.get('is_required') else 0,
-            data.get('unit', '') or '',
-            now, now,
-        ))
+        has_unit_col = _has_unit_column(cursor)
+        if has_unit_col:
+            cursor.execute('''
+                INSERT INTO CustomColumn (name, label, description, column_type, `options`,
+                                          default_value, is_required, unit, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                name,
+                label,
+                data.get('description', ''),
+                column_type,
+                options,
+                data.get('default_value', ''),
+                1 if data.get('is_required') else 0,
+                data.get('unit', '') or '',
+                now, now,
+            ))
+        else:
+            cursor.execute('''
+                INSERT INTO CustomColumn (name, label, description, column_type, `options`,
+                                          default_value, is_required, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                name,
+                label,
+                data.get('description', ''),
+                column_type,
+                options,
+                data.get('default_value', ''),
+                1 if data.get('is_required') else 0,
+                now, now,
+            ))
         conn.commit()
         new_id = cursor.lastrowid
         return jsonify({'id': new_id, 'name': name, 'label': label}), 201
@@ -171,11 +219,19 @@ def get_custom_column(column_id):
     try:
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('''
-                 SELECT id, name, label, description, column_type, `options` AS column_options,
-                   default_value, is_required, unit, created_at, updated_at
-            FROM CustomColumn WHERE id = ?
-        ''', (column_id,))
+        has_unit_col = _has_unit_column(cursor)
+        if has_unit_col:
+            cursor.execute('''
+                     SELECT id, name, label, description, column_type, `options` AS column_options,
+                       default_value, is_required, unit, created_at, updated_at
+                FROM CustomColumn WHERE id = ?
+            ''', (column_id,))
+        else:
+            cursor.execute('''
+                     SELECT id, name, label, description, column_type, `options` AS column_options,
+                       default_value, is_required, '' AS unit, created_at, updated_at
+                FROM CustomColumn WHERE id = ?
+            ''', (column_id,))
         row = cursor.fetchone()
         if not row:
             return jsonify({'error': 'Not found'}), 404
@@ -207,6 +263,7 @@ def update_custom_column(column_id):
         existing = cursor.fetchone()
         if not existing:
             return jsonify({'error': 'Not found'}), 404
+        has_unit_col = _has_unit_column(cursor)
 
         column_type = data.get('column_type', existing['column_type'])
         if column_type not in VALID_COLUMN_TYPES:
@@ -215,22 +272,39 @@ def update_custom_column(column_id):
         options_raw = data.get('options', None)
         options = json.dumps(options_raw) if isinstance(options_raw, list) else existing['options']
 
-        cursor.execute('''
-            UPDATE CustomColumn
-            SET label=?, description=?, column_type=?, `options`=?,
-                default_value=?, is_required=?, unit=?, updated_at=?
-            WHERE id=?
-        ''', (
-            data.get('label', existing['label']),
-            data.get('description', existing['description']),
-            column_type,
-            options,
-            data.get('default_value', existing['default_value']),
-            1 if data.get('is_required', bool(existing['is_required'])) else 0,
-            data.get('unit', existing['unit'] if 'unit' in existing.keys() else '') or '',
-            _now(),
-            column_id,
-        ))
+        if has_unit_col:
+            cursor.execute('''
+                UPDATE CustomColumn
+                SET label=?, description=?, column_type=?, `options`=?,
+                    default_value=?, is_required=?, unit=?, updated_at=?
+                WHERE id=?
+            ''', (
+                data.get('label', existing['label']),
+                data.get('description', existing['description']),
+                column_type,
+                options,
+                data.get('default_value', existing['default_value']),
+                1 if data.get('is_required', bool(existing['is_required'])) else 0,
+                data.get('unit', existing['unit'] if 'unit' in existing.keys() else '') or '',
+                _now(),
+                column_id,
+            ))
+        else:
+            cursor.execute('''
+                UPDATE CustomColumn
+                SET label=?, description=?, column_type=?, `options`=?,
+                    default_value=?, is_required=?, updated_at=?
+                WHERE id=?
+            ''', (
+                data.get('label', existing['label']),
+                data.get('description', existing['description']),
+                column_type,
+                options,
+                data.get('default_value', existing['default_value']),
+                1 if data.get('is_required', bool(existing['is_required'])) else 0,
+                _now(),
+                column_id,
+            ))
         conn.commit()
         return jsonify({'id': column_id, 'updated': True}), 200
     except Exception as e:
@@ -267,16 +341,29 @@ def list_assignments(entry_type_id):
     try:
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('''
-            SELECT cca.id, cca.custom_column_id, cca.section_placement,
-                   cca.display_order, cca.is_visible, cca.created_at,
-                   cc.name, cc.label, cc.description, cc.column_type,
-                   cc.`options` AS column_options, cc.default_value, cc.is_required, cc.unit
-            FROM CustomColumnAssignment cca
-            JOIN CustomColumn cc ON cc.id = cca.custom_column_id
-            WHERE cca.entry_type_id = ?
-            ORDER BY cca.display_order ASC, cc.label ASC
-        ''', (entry_type_id,))
+        has_unit_col = _has_unit_column(cursor)
+        if has_unit_col:
+            cursor.execute('''
+                SELECT cca.id, cca.custom_column_id, cca.section_placement,
+                       cca.display_order, cca.is_visible, cca.created_at,
+                       cc.name, cc.label, cc.description, cc.column_type,
+                       cc.`options` AS column_options, cc.default_value, cc.is_required, cc.unit
+                FROM CustomColumnAssignment cca
+                JOIN CustomColumn cc ON cc.id = cca.custom_column_id
+                WHERE cca.entry_type_id = ?
+                ORDER BY cca.display_order ASC, cc.label ASC
+            ''', (entry_type_id,))
+        else:
+            cursor.execute('''
+                SELECT cca.id, cca.custom_column_id, cca.section_placement,
+                       cca.display_order, cca.is_visible, cca.created_at,
+                       cc.name, cc.label, cc.description, cc.column_type,
+                       cc.`options` AS column_options, cc.default_value, cc.is_required, '' AS unit
+                FROM CustomColumnAssignment cca
+                JOIN CustomColumn cc ON cc.id = cca.custom_column_id
+                WHERE cca.entry_type_id = ?
+                ORDER BY cca.display_order ASC, cc.label ASC
+            ''', (entry_type_id,))
         rows = cursor.fetchall()
         result = []
         for row in rows:
