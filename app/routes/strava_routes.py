@@ -113,7 +113,8 @@ def strava_disconnect():
         'strava_token_expires_at', 
         'strava_athlete_id', 
         'strava_athlete_name',
-        'strava_last_sync_time'
+        'strava_last_sync_time',
+        'strava_last_sync_timestamp'
     ]
     
     for param in params_to_clear:
@@ -168,6 +169,19 @@ def get_valid_access_token(conn):
         return refresh_strava_token(conn)
         
     return get_system_param(conn, 'strava_access_token')
+
+@strava_routes_bp.route('/strava/clear_last_sync', methods=['POST'])
+def strava_clear_last_sync():
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM SystemParameters WHERE parameter_name IN ('strava_last_sync_timestamp','strava_last_sync_time')")
+        conn.commit()
+        return jsonify({"status": "success", "message": "Last sync timestamp cleared. Next sync will fetch all activities."})
+    except Exception as e:
+        logger.error(f"Clear last sync error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @strava_routes_bp.route('/strava/sync', methods=['POST'])
 def strava_sync():

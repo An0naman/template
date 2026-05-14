@@ -730,9 +730,6 @@
                                             <div>
                                                 <i class="fas fa-check-circle me-2"></i>
                                                 Connected as <strong>{{ params.strava_athlete_name or 'Athlete' }}</strong>
-                                                {% if params.strava_last_sync_time %}
-                                                    <br><small class="text-muted">Last synced: <span class="local-time" data-timestamp="{{ params.strava_last_sync_time }}"></span></small>
-                                                {% endif %}
                                             </div>
                                             <div>
                                                 <button type="button" class="btn btn-primary btn-sm me-2" id="syncStravaBtn">
@@ -1406,6 +1403,19 @@
 
                         <form id="stravaScheduledSyncForm">
                             <h6 class="mb-3"><i class="fab fa-strava me-2"></i>Strava Sync Job</h6>
+                            <div class="mb-3 d-flex align-items-center gap-3">
+                                <small class="form-text text-muted" id="stravaLastSyncLabel">
+                                    Last synced:
+                                    {% if params.strava_last_sync_timestamp %}
+                                        <span class="local-time" data-timestamp="{{ params.strava_last_sync_timestamp }}"></span>
+                                    {% else %}
+                                        Not synced yet
+                                    {% endif %}
+                                </small>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="clearStravaLastSync">
+                                    <i class="fas fa-times me-1"></i>Clear Last Sync
+                                </button>
+                            </div>
                             <div class="mb-3">
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="stravaSyncEnabled" {{ 'checked' if params.strava_sync_enabled == 'true' or params.strava_sync_enabled == '1' else '' }}>
@@ -2961,6 +2971,24 @@
                             displayStatus('stravaSyncStatusMessage', '✅ Strava sync job settings saved!', 'alert-success');
                         } else {
                             displayStatus('stravaSyncStatusMessage', '❌ Failed to save Strava sync job settings.', 'alert-danger');
+                        }
+                    } catch (error) {
+                        displayStatus('stravaSyncStatusMessage', '❌ Error: ' + error.message, 'alert-danger');
+                    }
+                });
+            }
+
+            const clearStravaLastSyncBtn = document.getElementById('clearStravaLastSync');
+            if (clearStravaLastSyncBtn) {
+                clearStravaLastSyncBtn.addEventListener('click', async function() {
+                    try {
+                        const response = await fetch('/strava/clear_last_sync', { method: 'POST' });
+                        const data = await response.json();
+                        if (response.ok) {
+                            document.getElementById('stravaLastSyncLabel').innerHTML = '<em>Not synced yet</em>';
+                            displayStatus('stravaSyncStatusMessage', '✅ ' + data.message, 'alert-success');
+                        } else {
+                            displayStatus('stravaSyncStatusMessage', '❌ ' + (data.message || 'Failed to clear.'), 'alert-danger');
                         }
                     } catch (error) {
                         displayStatus('stravaSyncStatusMessage', '❌ Error: ' + error.message, 'alert-danger');
