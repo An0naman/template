@@ -1,6 +1,4 @@
 # template_app/app/routes/maintenance_routes.py
-from datetime import datetime
-
 from flask import Blueprint, render_template, g, current_app
 import sqlite3
 
@@ -19,20 +17,10 @@ def maintenance_module_page():
     from ..db import get_system_parameters
     params = get_system_parameters()
 
-    last_sync_timestamp = params.get('strava_last_sync_timestamp')
-    if last_sync_timestamp:
-        try:
-            formatted_last_sync = datetime.fromtimestamp(int(last_sync_timestamp)).strftime('%Y-%m-%d %H:%M:%S')
-        except (TypeError, ValueError, OSError):
-            formatted_last_sync = last_sync_timestamp
-    else:
-        formatted_last_sync = None
-
     return render_template('maintenance_module.html',
                            project_name=params.get('project_name'),
                            entry_singular_label=params.get('entry_singular_label'),
-                           entry_plural_label=params.get('entry_plural_label'),
-                           strava_last_sync_timestamp=formatted_last_sync)
+                           entry_plural_label=params.get('entry_plural_label'))
 
 @maintenance_bp.route('/manage_entry_types')
 def manage_entry_types_page():

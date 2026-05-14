@@ -1,4 +1,6 @@
 # template_app/app/routes/main_routes.py
+from datetime import datetime
+
 from flask import Blueprint, render_template, request, g, current_app, redirect, url_for
 from ..db import get_connection
 
@@ -431,6 +433,14 @@ def entry_detail_v2(entry_id):
 def settings():
     from ..db import get_system_parameters
     params = get_system_parameters()
+
+    strava_last_sync_display = None
+    strava_last_sync_timestamp = params.get('strava_last_sync_timestamp')
+    if strava_last_sync_timestamp:
+        try:
+            strava_last_sync_display = datetime.fromtimestamp(int(strava_last_sync_timestamp)).strftime('%Y-%m-%d %H:%M:%S')
+        except (TypeError, ValueError, OSError):
+            strava_last_sync_display = strava_last_sync_timestamp
     
     # Fetch entry types for mapping configuration
     conn = get_db()
@@ -441,7 +451,8 @@ def settings():
     return render_template('settings.html',
                           project_name=params.get('project_name'),
                           params=params,
-                          entry_types=entry_types)
+                          entry_types=entry_types,
+                          strava_last_sync_display=strava_last_sync_display)
 
 @main_bp.route('/sql_ide')
 def sql_ide():
