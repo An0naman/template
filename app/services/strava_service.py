@@ -184,28 +184,44 @@ def sync_strava_activities():
     
     # Get last sync time to only fetch new activities
     last_sync = get_system_param(conn, 'strava_last_sync_timestamp')
-    params = {'per_page': 30}
+    base_params = {'per_page': 200}
     if last_sync:
-        params['after'] = last_sync
+        base_params['after'] = last_sync
 
+    # Paginate through all available activities
+    activities = []
+    page = 1
     try:
-        response = requests.get(f"{STRAVA_API_URL}/athlete/activities", headers=headers, params=params)
-        
-        # If unauthorized, refresh and retry (in case expires_at check failed or wasn't present)
-        if response.status_code == 401:
-            logger.info("Strava request unauthorized, refreshing token...")
-            access_token = refresh_access_token(conn, client_id, client_secret, refresh_token)
-            if not access_token:
-                return {"status": "error", "message": "Failed to refresh Strava token"}
-            headers = {'Authorization': f"Bearer {access_token}"}
+        while True:
+            params = {**base_params, 'page': page}
             response = requests.get(f"{STRAVA_API_URL}/athlete/activities", headers=headers, params=params)
 
-        response.raise_for_status()
-        activities = response.json()
+            # If unauthorized, refresh and retry once
+            if response.status_code == 401:
+                logger.info("Strava request unauthorized, refreshing token...")
+                access_token = refresh_access_token(conn, client_id, client_secret, refresh_token)
+                if not access_token:
+                    return {"status": "error", "message": "Failed to refresh Strava token"}
+                headers = {'Authorization': f"Bearer {access_token}"}
+                response = requests.get(f"{STRAVA_API_URL}/athlete/activities", headers=headers, params=params)
+
+            response.raise_for_status()
+            page_activities = response.json()
+
+            if not page_activities:
+                break
+
+            activities.extend(page_activities)
+
+            # If fewer results than per_page, we've reached the last page
+            if len(page_activities) < base_params['per_page']:
+                break
+
+            page += 1
     except Exception as e:
         logger.error(f"Strava API Error: {e}")
         return {"status": "error", "message": f"Strava API Error: {str(e)}"}
-    
+
     if not activities:
         # Update last sync timestamp even if no activities, so we don't query old range again
         set_system_param(conn, 'strava_last_sync_timestamp', int(time.time()))
