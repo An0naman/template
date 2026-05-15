@@ -40,6 +40,7 @@ class TaskScheduler:
         """Main scheduler loop"""
         last_overdue_check = None
         last_strava_sync = None
+        last_apple_health_sync = None
         last_scheduled_check = None
         
         while self.running:
@@ -55,6 +56,11 @@ class TaskScheduler:
                         logger.info("Running scheduled Strava sync...")
                         self._run_strava_sync()
                         last_strava_sync = datetime.now()
+
+                    if self._should_run_apple_health_sync(last_apple_health_sync):
+                        logger.info("Running scheduled Apple Health sync...")
+                        self._run_apple_health_sync()
+                        last_apple_health_sync = datetime.now()
                     
                     # Check for scheduled notifications every minute
                     if self._should_run_scheduled_check(last_scheduled_check):
@@ -173,6 +179,15 @@ class TaskScheduler:
             'strava_sync_schedule',
             '0 */6 * * *',
         )
+
+    def _should_run_apple_health_sync(self, last_check):
+        """Determine if scheduled Apple Health sync should run based on schedule."""
+        return self._should_run_job(
+            last_check,
+            'apple_health_sync_enabled',
+            'apple_health_sync_schedule',
+            '0 */6 * * *',
+        )
             
     def _check_overdue_entries(self):
         """Check for overdue entries and create notifications with ntfy integration"""
@@ -200,6 +215,16 @@ class TaskScheduler:
             logger.info(f"Scheduled Strava sync result: {result}")
         except Exception as e:
             logger.error(f"Error in scheduled Strava sync: {e}", exc_info=True)
+
+    def _run_apple_health_sync(self):
+        """Run Apple Health sync as a scheduled job."""
+        try:
+            from app.services.apple_health_service import sync_apple_health_data
+
+            result = sync_apple_health_data()
+            logger.info(f"Scheduled Apple Health sync result: {result}")
+        except Exception as e:
+            logger.error(f"Error in scheduled Apple Health sync: {e}", exc_info=True)
 
     def _should_run_scheduled_check(self, last_check):
         """Check if scheduled notifications should be processed (every minute)"""

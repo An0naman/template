@@ -865,6 +865,121 @@
             </div>
         </div>
 
+        <!-- Apple Health Integration Settings -->
+        <div class="settings-section" data-section-id="section-apple-health">
+            <div class="section-card">
+                <div class="section-title">
+                    <i class="fab fa-apple me-2"></i>Apple Health Integration
+                </div>
+
+                <form id="appleHealthSettingsForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="appleHealthApiKey" class="form-label">Push API Key</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="appleHealthApiKey" value="{{ params.apple_health_api_key or '' }}" placeholder="Optional key for push endpoint security">
+                                    <button class="btn btn-outline-secondary" type="button" id="toggleAppleHealthApiKeyVisibility">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <small class="text-muted">Used for <code>/apple-health/push</code> via <code>X-Apple-Health-Key</code> header.</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="appleHealthSourceUrl" class="form-label">Pull Source URL</label>
+                                <input type="url" class="form-control" id="appleHealthSourceUrl" value="{{ params.apple_health_source_url or '' }}" placeholder="Optional JSON URL for scheduled/manual pull">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="appleHealthSourceToken" class="form-label">Pull Bearer Token <span class="text-muted">(optional)</span></label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="appleHealthSourceToken" value="{{ params.apple_health_source_token or '' }}" placeholder="Bearer token for pull source">
+                                    <button class="btn btn-outline-secondary" type="button" id="toggleAppleHealthSourceTokenVisibility">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Connection Status</label>
+                            <div class="alert alert-secondary">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <small id="appleHealthLastSyncLabel">Last synced: {{ apple_health_last_sync_display or 'Not synced yet' }}</small>
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-outline-primary btn-sm" id="syncAppleHealthNowBtn">
+                                            <i class="fas fa-sync me-1"></i>Sync Now
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" id="clearAppleHealthLastSyncBtn">
+                                            <i class="fas fa-times me-1"></i>Clear Last Sync
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <button type="submit" class="btn btn-primary" id="saveAppleHealthConfigBtn">
+                            <i class="fas fa-save me-1"></i>Save Apple Health Configuration
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Field → Custom Column Mapping -->
+                <div class="mt-4 border-top pt-3" id="appleHealthFieldMappingPanel">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                        <div>
+                            <h6 class="mb-0"><i class="fas fa-columns me-2"></i>Field → Custom Column Mapping</h6>
+                            <p class="text-muted small mb-0">Map Apple Health metrics to Custom Columns on your entries.</p>
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="appleHealthLoadFieldMapping()">
+                                <i class="fas fa-sync me-1"></i>Load
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="appleHealthAutoCreateColumns()">
+                                <i class="fas fa-magic me-1"></i>Auto-create all columns
+                            </button>
+                            <button type="button" class="btn btn-sm btn-success" onclick="appleHealthFieldMappingSave()">
+                                <i class="fas fa-save me-1"></i>Save Mapping
+                            </button>
+                        </div>
+                    </div>
+                    <div id="appleHealthFieldMappingStatus" class="mb-2 d-none"></div>
+                    <div id="appleHealthFieldMappingTableWrap" class="d-none">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-borderless align-middle">
+                                <thead>
+                                    <tr>
+                                        <th style="width:30%">Group</th>
+                                        <th style="width:30%">Field</th>
+                                        <th style="width:10%" class="text-muted">Unit</th>
+                                        <th>Custom Column</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="appleHealthFieldMappingTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <p class="text-muted small" id="appleHealthFieldMappingHint">
+                        Click <strong>Load</strong> to see available metrics, or <strong>Auto-create all columns</strong> to generate columns for every metric automatically.
+                    </p>
+                </div>
+
+                <div class="alert alert-info mt-3 mb-0">
+                    <strong><i class="fas fa-info-circle me-2"></i>iPhone Shortcut Push Example</strong>
+                    <div class="small mt-2">POST JSON to <code>/apple-health/push</code> with optional header <code>X-Apple-Health-Key</code>. Payload keys supported: <code>weight_kg</code>, <code>sleep_hours</code>, <code>heart_rate_resting</code>, <code>heart_rate_avg</code>, <code>hrv_ms</code>, <code>steps</code>, <code>measured_at</code>.</div>
+                </div>
+
+                <div id="appleHealthSettingsStatus" class="mt-3 d-none"></div>
+            </div>
+        </div>
+
         <!-- Push Notifications (ntfy) Settings -->
         <div class="settings-section" data-section-id="section-ntfy">
             <div class="section-card">
@@ -1368,6 +1483,7 @@
                             <select class="form-select" id="scheduledJobType">
                                 <option value="overdue" selected>Notifications (Overdue Check)</option>
                                 <option value="strava">Strava Sync</option>
+                                <option value="apple-health">Apple Health Sync</option>
                             </select>
                             <small class="form-text text-muted">Choose a scheduler to configure. This keeps the page compact as more jobs are added.</small>
                         </div>
@@ -1455,6 +1571,52 @@
                             </form>
                             <div id="stravaSyncStatusMessage" class="mt-3 d-none"></div>
                         </div>
+
+                        <div id="schedulerPanelAppleHealth" style="display:none;">
+                            <form id="appleHealthScheduledSyncForm">
+                                <h6 class="mb-3"><i class="fab fa-apple me-2"></i>Apple Health Sync Job</h6>
+                                <div class="mb-3 d-flex align-items-center gap-3">
+                                    <small class="form-text text-muted" id="appleHealthScheduledLastSyncLabel">
+                                        Last synced: {{ apple_health_last_sync_display or 'Not synced yet' }}
+                                    </small>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="clearAppleHealthLastSyncScheduledBtn">
+                                        <i class="fas fa-times me-1"></i>Clear Last Sync
+                                    </button>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="appleHealthSyncEnabled" {{ 'checked' if params.apple_health_sync_enabled == 'true' or params.apple_health_sync_enabled == '1' else '' }}>
+                                        <label class="form-check-label" for="appleHealthSyncEnabled">
+                                            Enable automatic Apple Health sync
+                                        </label>
+                                    </div>
+                                    <small class="form-text text-muted">When enabled, the app will pull Apple Health data from the configured source URL on schedule.</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="appleHealthSyncSchedule" class="form-label">Sync Schedule:</label>
+                                    <select class="form-select" id="appleHealthSyncSchedule">
+                                        <option value="0 */12 * * *" {{ 'selected' if params.apple_health_sync_schedule == '0 */12 * * *' else '' }}>Every 12 hours</option>
+                                        <option value="0 */6 * * *" {{ 'selected' if params.apple_health_sync_schedule == '0 */6 * * *' else '' }}>Every 6 hours</option>
+                                        <option value="0 */3 * * *" {{ 'selected' if params.apple_health_sync_schedule == '0 */3 * * *' else '' }}>Every 3 hours</option>
+                                        <option value="0 * * * *" {{ 'selected' if params.apple_health_sync_schedule == '0 * * * *' else '' }}>Every hour</option>
+                                        <option value="0 6 * * *" {{ 'selected' if params.apple_health_sync_schedule == '0 6 * * *' else '' }}>Daily at 6:00 AM</option>
+                                        <option value="0 9 * * *" {{ 'selected' if params.apple_health_sync_schedule == '0 9 * * *' else '' }}>Daily at 9:00 AM</option>
+                                        <option value="0 18 * * *" {{ 'selected' if params.apple_health_sync_schedule == '0 18 * * *' else '' }}>Daily at 6:00 PM</option>
+                                    </select>
+                                    <small class="form-text text-muted">Choose how often Apple Health pull sync should run.</small>
+                                </div>
+                                <div class="mb-3">
+                                    <button type="button" class="btn btn-outline-primary" id="testAppleHealthSyncNow">
+                                        <i class="fas fa-play me-1"></i>Run Apple Health Sync Now
+                                    </button>
+                                    <small class="form-text text-muted d-block mt-1">Manually trigger Apple Health pull sync to verify source URL and token.</small>
+                                </div>
+                                <button type="submit" class="btn btn-purple">
+                                    <i class="fas fa-save me-1"></i>Save Apple Health Sync Job
+                                </button>
+                            </form>
+                            <div id="appleHealthSyncStatusMessage" class="mt-3 d-none"></div>
+                        </div>
                     </div>
                     <div class="col-md-6">
                         <h5>Scheduled Job Status</h5>
@@ -1472,6 +1634,7 @@
                             <ul class="small text-muted mt-2">
                                 <li><strong>Overdue Check:</strong> Monitors entries with overdue intended end dates</li>
                                 <li><strong>Strava Sync:</strong> Pulls activities and updates mapped custom fields</li>
+                                <li><strong>Apple Health Sync:</strong> Pulls health metrics from your configured source endpoint</li>
                             </ul>
                         </div>
                         <div class="preview-container">
@@ -1696,6 +1859,101 @@
             });
         </script>
 
+        <!-- Apple Health Settings Handler -->
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const appleHealthForm = document.getElementById('appleHealthSettingsForm');
+                const toggleApiKeyBtn = document.getElementById('toggleAppleHealthApiKeyVisibility');
+                const toggleSourceTokenBtn = document.getElementById('toggleAppleHealthSourceTokenVisibility');
+                const syncNowBtn = document.getElementById('syncAppleHealthNowBtn');
+                const clearLastSyncBtn = document.getElementById('clearAppleHealthLastSyncBtn');
+
+                if (toggleApiKeyBtn) {
+                    toggleApiKeyBtn.addEventListener('click', function() {
+                        togglePasswordVisibility('appleHealthApiKey', this);
+                    });
+                }
+
+                if (toggleSourceTokenBtn) {
+                    toggleSourceTokenBtn.addEventListener('click', function() {
+                        togglePasswordVisibility('appleHealthSourceToken', this);
+                    });
+                }
+
+                if (appleHealthForm) {
+                    appleHealthForm.addEventListener('submit', async function(e) {
+                        e.preventDefault();
+                        const saveBtn = document.getElementById('saveAppleHealthConfigBtn');
+                        const originalText = saveBtn.innerHTML;
+                        saveBtn.disabled = true;
+                        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
+
+                        try {
+                            const payload = {
+                                apple_health_enabled: '1',
+                                apple_health_api_key: document.getElementById('appleHealthApiKey').value.trim(),
+                                apple_health_source_url: document.getElementById('appleHealthSourceUrl').value.trim(),
+                                apple_health_source_token: document.getElementById('appleHealthSourceToken').value.trim(),
+                            };
+
+                            const response = await fetch('/api/system_params', {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(payload)
+                            });
+
+                            if (response.ok) {
+                                displayStatus('appleHealthSettingsStatus', '✅ Apple Health settings saved successfully!', 'alert-success');
+                            } else {
+                                const error = await response.json();
+                                displayStatus('appleHealthSettingsStatus', '❌ Failed to save Apple Health settings: ' + (error.error || 'Unknown error'), 'alert-danger');
+                            }
+                        } catch (error) {
+                            displayStatus('appleHealthSettingsStatus', '❌ Error saving Apple Health settings: ' + error.message, 'alert-danger');
+                        } finally {
+                            saveBtn.disabled = false;
+                            saveBtn.innerHTML = originalText;
+                        }
+                    });
+                }
+
+                if (syncNowBtn) {
+                    syncNowBtn.addEventListener('click', async function() {
+                        try {
+                            const response = await fetch('/apple-health/sync', { method: 'POST' });
+                            const data = await response.json();
+                            if (response.ok && data.status === 'success') {
+                                displayStatus('appleHealthSettingsStatus', '✅ Apple Health sync completed: ' + data.message, 'alert-success');
+                                setTimeout(() => location.reload(), 900);
+                            } else {
+                                displayStatus('appleHealthSettingsStatus', '❌ Apple Health sync failed: ' + (data.message || 'Unknown error'), 'alert-danger');
+                            }
+                        } catch (error) {
+                            displayStatus('appleHealthSettingsStatus', '❌ Error: ' + error.message, 'alert-danger');
+                        }
+                    });
+                }
+
+                if (clearLastSyncBtn) {
+                    clearLastSyncBtn.addEventListener('click', async function() {
+                        try {
+                            const response = await fetch('/apple-health/clear_last_sync', { method: 'POST' });
+                            const data = await response.json();
+                            if (response.ok) {
+                                const label = document.getElementById('appleHealthLastSyncLabel');
+                                if (label) label.textContent = 'Last synced: Not synced yet';
+                                displayStatus('appleHealthSettingsStatus', '✅ ' + data.message, 'alert-success');
+                            } else {
+                                displayStatus('appleHealthSettingsStatus', '❌ ' + (data.message || 'Failed to clear.'), 'alert-danger');
+                            }
+                        } catch (error) {
+                            displayStatus('appleHealthSettingsStatus', '❌ Error: ' + error.message, 'alert-danger');
+                        }
+                    });
+                }
+            });
+        </script>
+
         <!-- Strava Field Mapping JS -->
         <script>
         // HTML escape helper for safe rendering
@@ -1840,6 +2098,141 @@
                     statusEl.textContent = 'Error: ' + e.message;
                 }
             };
+
+            // ── Apple Health Field Mapping ────────────────────────────────────────
+            let appleHealthFieldDefs = [];
+            let appleHealthFieldMapping = {};
+            let appleHealthAllColumns = [];
+
+            async function appleHealthEnsureColumnsLoaded() {
+                if (appleHealthAllColumns.length > 0) return;
+                const r = await fetch('/api/custom-columns');
+                const d = await r.json();
+                appleHealthAllColumns = Array.isArray(d) ? d : (d.columns || d.data || []);
+            }
+
+            window.appleHealthLoadFieldMapping = async function() {
+                const statusEl = document.getElementById('appleHealthFieldMappingStatus');
+                const hintEl   = document.getElementById('appleHealthFieldMappingHint');
+                const wrapEl   = document.getElementById('appleHealthFieldMappingTableWrap');
+
+                statusEl.className = 'mb-2 alert alert-secondary';
+                statusEl.textContent = 'Loading…';
+                statusEl.classList.remove('d-none');
+
+                try {
+                    await appleHealthEnsureColumnsLoaded();
+                    const [fResp, mResp] = await Promise.all([
+                        fetch('/api/apple-health/fields'),
+                        fetch('/api/apple-health/field_mapping'),
+                    ]);
+                    const fData = await fResp.json();
+                    const mData = await mResp.json();
+                    appleHealthFieldDefs    = fData.fields || [];
+                    appleHealthFieldMapping = mData.mapping || {};
+                    appleHealthRenderFieldMappingTable();
+                    wrapEl.classList.remove('d-none');
+                    hintEl.classList.add('d-none');
+                    statusEl.className = 'mb-2 alert alert-success';
+                    statusEl.textContent = appleHealthFieldDefs.length + ' metrics loaded.';
+                } catch (e) {
+                    statusEl.className = 'mb-2 alert alert-danger';
+                    statusEl.textContent = 'Error loading metrics: ' + e.message;
+                }
+            };
+
+            function appleHealthRenderFieldMappingTable() {
+                const tbody = document.getElementById('appleHealthFieldMappingTable');
+                tbody.innerHTML = '';
+                let lastGroup = null;
+                appleHealthFieldDefs.forEach(field => {
+                    const tr = document.createElement('tr');
+                    const groupCell = field.group !== lastGroup
+                        ? `<td class="text-muted small fw-semibold">${escHtml(field.group)}</td>`
+                        : `<td></td>`;
+                    lastGroup = field.group;
+
+                    const currentColId = appleHealthFieldMapping[field.key] || '';
+                    let options = '<option value="">— not mapped —</option>';
+                    appleHealthAllColumns.forEach(col => {
+                        const sel = String(currentColId) === String(col.id) ? ' selected' : '';
+                        options += `<option value="${col.id}"${sel}>${escHtml(col.label)} <span class="text-muted">(${escHtml(col.name)})</span></option>`;
+                    });
+
+                    tr.innerHTML = groupCell +
+                        `<td class="small">${escHtml(field.label)}</td>` +
+                        `<td class="text-muted small font-monospace">${escHtml(field.unit || '')}</td>` +
+                        `<td><select class="form-select form-select-sm apple-health-field-map-select"
+                                     data-field-key="${escHtml(field.key)}">${options}</select></td>`;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            window.appleHealthFieldMappingSave = async function() {
+                const statusEl = document.getElementById('appleHealthFieldMappingStatus');
+                const mapping = {};
+                document.querySelectorAll('.apple-health-field-map-select').forEach(sel => {
+                    if (sel.value) mapping[sel.dataset.fieldKey] = sel.value;
+                });
+                statusEl.className = 'mb-2 alert alert-secondary';
+                statusEl.textContent = 'Saving…';
+                statusEl.classList.remove('d-none');
+                try {
+                    const r = await fetch('/api/apple-health/field_mapping', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ mapping }),
+                    });
+                    const d = await r.json();
+                    if (r.ok && d.success) {
+                        appleHealthFieldMapping = d.mapping;
+                        statusEl.className = 'mb-2 alert alert-success';
+                        statusEl.textContent = 'Field mapping saved!';
+                    } else {
+                        statusEl.className = 'mb-2 alert alert-danger';
+                        statusEl.textContent = d.message || 'Save failed.';
+                    }
+                } catch (e) {
+                    statusEl.className = 'mb-2 alert alert-danger';
+                    statusEl.textContent = 'Error: ' + e.message;
+                }
+            };
+
+            window.appleHealthAutoCreateColumns = async function() {
+                const statusEl = document.getElementById('appleHealthFieldMappingStatus');
+                // Apple Health doesn't have activity types like Strava, so we need to ask which entry type to use
+                const entryTypeId = prompt('Enter the Entry Type ID to assign health metrics to (e.g., 5 for Health):', '5');
+                if (!entryTypeId) {
+                    statusEl.className = 'mb-2 alert alert-warning';
+                    statusEl.textContent = 'Auto-create cancelled.';
+                    statusEl.classList.remove('d-none');
+                    return;
+                }
+                statusEl.className = 'mb-2 alert alert-secondary';
+                statusEl.textContent = 'Creating columns for all health metrics…';
+                statusEl.classList.remove('d-none');
+                try {
+                    const r = await fetch('/api/apple-health/auto_create_columns', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ entry_type_id: parseInt(entryTypeId) }),
+                    });
+                    const d = await r.json();
+                    if (r.ok && d.success) {
+                        appleHealthFieldMapping = d.mapping;
+                        appleHealthAllColumns = [];  // force reload
+                        await appleHealthLoadFieldMapping();
+                        statusEl.className = 'mb-2 alert alert-success';
+                        statusEl.textContent = d.message;
+                    } else {
+                        statusEl.className = 'mb-2 alert alert-danger';
+                        statusEl.textContent = d.message || 'Auto-create failed.';
+                    }
+                } catch (e) {
+                    statusEl.className = 'mb-2 alert alert-danger';
+                    statusEl.textContent = 'Error: ' + e.message;
+                }
+            };
         })();
         </script>
 
@@ -1891,6 +2284,13 @@
                             <span>
                                 <i class="fab fa-strava me-2 text-purple"></i><strong>Strava Integration</strong>
                                 <small class="d-block text-muted">Activity sync and type mapping</small>
+                            </span>
+                        </label>
+                        <label class="list-group-item d-flex gap-3 align-items-start">
+                            <input class="form-check-input flex-shrink-0 mt-1" type="checkbox" id="toggle_section-apple-health">
+                            <span>
+                                <i class="fab fa-apple me-2 text-purple"></i><strong>Apple Health Integration</strong>
+                                <small class="d-block text-muted">Weight, sleep, heart-rate and other health data ingest</small>
                             </span>
                         </label>
                         <label class="list-group-item d-flex gap-3 align-items-start">
@@ -1956,6 +2356,7 @@
             'section-kanban':  'enable_kanban',
             'section-git':     'git_integration_enabled',
             'section-strava':  'strava_enabled',
+            'section-apple-health': 'apple_health_enabled',
             'section-ntfy':    'ntfy_enabled',
             'section-anycubic': 'anycubic_enabled',
         };
@@ -1965,6 +2366,7 @@
             { id: 'section-kanban',    label: 'Kanban Boards' },
             { id: 'section-git',       label: 'Git Integration' },
             { id: 'section-strava',    label: 'Strava Integration' },
+            { id: 'section-apple-health', label: 'Apple Health Integration' },
             { id: 'section-ntfy',      label: 'Push Notifications' },
             { id: 'section-anycubic',  label: 'Anycubic 3D Printer' },
             { id: 'section-labels',    label: 'Label Printing' },
@@ -1997,7 +2399,8 @@
             const selector = document.getElementById('scheduledJobType');
             const overduePanel = document.getElementById('schedulerPanelOverdue');
             const stravaPanel = document.getElementById('schedulerPanelStrava');
-            if (!selector || !overduePanel || !stravaPanel) return;
+            const appleHealthPanel = document.getElementById('schedulerPanelAppleHealth');
+            if (!selector || !overduePanel || !stravaPanel || !appleHealthPanel) return;
 
             const stravaVisible = (visible['section-strava'] !== false);
             const stravaOption = selector.querySelector('option[value="strava"]');
@@ -2006,12 +2409,23 @@
                 stravaOption.hidden = !stravaVisible;
             }
 
+            const appleHealthVisible = (visible['section-apple-health'] !== false);
+            const appleHealthOption = selector.querySelector('option[value="apple-health"]');
+            if (appleHealthOption) {
+                appleHealthOption.disabled = !appleHealthVisible;
+                appleHealthOption.hidden = !appleHealthVisible;
+            }
+
             if (!stravaVisible && selector.value === 'strava') {
+                selector.value = 'overdue';
+            }
+            if (!appleHealthVisible && selector.value === 'apple-health') {
                 selector.value = 'overdue';
             }
 
             overduePanel.style.display = selector.value === 'overdue' ? '' : 'none';
             stravaPanel.style.display = (selector.value === 'strava' && stravaVisible) ? '' : 'none';
+            appleHealthPanel.style.display = (selector.value === 'apple-health' && appleHealthVisible) ? '' : 'none';
         }
 
         function openSectionConfigModal() {
@@ -3046,6 +3460,78 @@
                         }
                     } catch (error) {
                         displayStatus('stravaSyncStatusMessage', '❌ Error: ' + error.message, 'alert-danger');
+                    }
+                });
+            }
+
+            const appleHealthScheduledSyncForm = document.getElementById('appleHealthScheduledSyncForm');
+            if (appleHealthScheduledSyncForm) {
+                appleHealthScheduledSyncForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const enabled = document.getElementById('appleHealthSyncEnabled').checked;
+                    const schedule = document.getElementById('appleHealthSyncSchedule').value;
+
+                    try {
+                        const response = await fetch('/api/system_params', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                apple_health_sync_enabled: enabled ? '1' : '0',
+                                apple_health_sync_schedule: schedule
+                            })
+                        });
+                        if (response.ok) {
+                            displayStatus('appleHealthSyncStatusMessage', '✅ Apple Health sync job settings saved!', 'alert-success');
+                        } else {
+                            displayStatus('appleHealthSyncStatusMessage', '❌ Failed to save Apple Health sync job settings.', 'alert-danger');
+                        }
+                    } catch (error) {
+                        displayStatus('appleHealthSyncStatusMessage', '❌ Error: ' + error.message, 'alert-danger');
+                    }
+                });
+            }
+
+            async function clearAppleHealthLastSync(statusId) {
+                try {
+                    const response = await fetch('/apple-health/clear_last_sync', { method: 'POST' });
+                    const data = await response.json();
+                    if (response.ok) {
+                        const scheduledLabel = document.getElementById('appleHealthScheduledLastSyncLabel');
+                        if (scheduledLabel) scheduledLabel.textContent = 'Last synced: Not synced yet';
+                        const settingsLabel = document.getElementById('appleHealthLastSyncLabel');
+                        if (settingsLabel) settingsLabel.textContent = 'Last synced: Not synced yet';
+                        displayStatus(statusId, '✅ ' + data.message, 'alert-success');
+                    } else {
+                        displayStatus(statusId, '❌ ' + (data.message || 'Failed to clear.'), 'alert-danger');
+                    }
+                } catch (error) {
+                    displayStatus(statusId, '❌ Error: ' + error.message, 'alert-danger');
+                }
+            }
+
+            const clearAppleHealthLastSyncScheduledBtn = document.getElementById('clearAppleHealthLastSyncScheduledBtn');
+            if (clearAppleHealthLastSyncScheduledBtn) {
+                clearAppleHealthLastSyncScheduledBtn.addEventListener('click', async function() {
+                    await clearAppleHealthLastSync('appleHealthSyncStatusMessage');
+                });
+            }
+
+            const testAppleHealthSyncNowBtn = document.getElementById('testAppleHealthSyncNow');
+            if (testAppleHealthSyncNowBtn) {
+                testAppleHealthSyncNowBtn.addEventListener('click', async function() {
+                    try {
+                        const response = await fetch('/apple-health/sync', { method: 'POST' });
+                        const data = await response.json();
+                        if (response.ok) {
+                            displayStatus('appleHealthSyncStatusMessage', '✅ Apple Health sync triggered: ' + (data.message || 'Done.'), 'alert-success');
+                            if (data.status === 'success') {
+                                setTimeout(() => location.reload(), 900);
+                            }
+                        } else {
+                            displayStatus('appleHealthSyncStatusMessage', '❌ Apple Health sync failed: ' + (data.message || 'Unknown error'), 'alert-danger');
+                        }
+                    } catch (error) {
+                        displayStatus('appleHealthSyncStatusMessage', '❌ Error: ' + error.message, 'alert-danger');
                     }
                 });
             }

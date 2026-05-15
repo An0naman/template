@@ -155,8 +155,10 @@ def create_app():
     from .api.git_api import git_api_bp
     from .routes.git_routes import git_routes_bp
     from .routes.strava_routes import strava_routes_bp
+    from .routes.apple_health_routes import apple_health_routes_bp
     from .api.anycubic_api import anycubic_api_bp
     from .api.strava_api import strava_api_bp
+    from .api.apple_health_api import apple_health_api_bp
 
     # Register all blueprints
     app.register_blueprint(main_bp)
@@ -204,8 +206,10 @@ def create_app():
     app.register_blueprint(git_api_bp)  # API routes have /api prefix in the blueprint
     app.register_blueprint(git_routes_bp)  # Page routes
     app.register_blueprint(strava_routes_bp)  # Strava routes
+    app.register_blueprint(apple_health_routes_bp)  # Apple Health routes
     app.register_blueprint(anycubic_api_bp)  # Anycubic printer routes
     app.register_blueprint(strava_api_bp)    # Strava field mapping API
+    app.register_blueprint(apple_health_api_bp)    # Apple Health field mapping API
 
     app.logger.info("Blueprints registered.")
 

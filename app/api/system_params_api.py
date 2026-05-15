@@ -53,6 +53,10 @@ def api_update_system_params():
             # Strava integration settings
             'strava_enabled', 'strava_client_id', 'strava_client_secret', 'strava_refresh_token',
             'strava_activity_mapping', 'strava_field_mapping', 'strava_sync_enabled', 'strava_sync_schedule',
+            # Apple Health integration settings
+            'apple_health_enabled', 'apple_health_api_key', 'apple_health_source_url', 'apple_health_source_token',
+            'apple_health_sync_enabled', 'apple_health_sync_schedule', 'apple_health_last_sync_timestamp',
+            'apple_health_last_payload', 'apple_health_last_source',
             # ntfy push notification settings
             'ntfy_enabled',
             # Anycubic 3D printer integration settings

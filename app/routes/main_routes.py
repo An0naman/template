@@ -441,6 +441,14 @@ def settings():
             strava_last_sync_display = datetime.fromtimestamp(int(strava_last_sync_timestamp)).strftime('%Y-%m-%d %H:%M:%S')
         except (TypeError, ValueError, OSError):
             strava_last_sync_display = strava_last_sync_timestamp
+
+    apple_health_last_sync_display = None
+    apple_health_last_sync_timestamp = params.get('apple_health_last_sync_timestamp')
+    if apple_health_last_sync_timestamp:
+        try:
+            apple_health_last_sync_display = datetime.fromtimestamp(int(apple_health_last_sync_timestamp)).strftime('%Y-%m-%d %H:%M:%S')
+        except (TypeError, ValueError, OSError):
+            apple_health_last_sync_display = apple_health_last_sync_timestamp
     
     # Fetch entry types for mapping configuration
     conn = get_db()
@@ -452,7 +460,8 @@ def settings():
                           project_name=params.get('project_name'),
                           params=params,
                           entry_types=entry_types,
-                          strava_last_sync_display=strava_last_sync_display)
+                          strava_last_sync_display=strava_last_sync_display,
+                          apple_health_last_sync_display=apple_health_last_sync_display)
 
 @main_bp.route('/sql_ide')
 def sql_ide():
