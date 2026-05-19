@@ -119,6 +119,7 @@ template/
 ### **Setup & Installation**
 - **[Installation Guide](docs/setup/INSTALLATION.md)** - Getting started
 - **[CasaOS Setup](docs/setup/CASAOS_SETUP.md)** - CasaOS deployment
+- **[HTTPS Setup (Caddy)](docs/setup/HTTPS_CADDY.md)** - Production TLS reverse proxy
 - **[Deployment Guide](docs/setup/DEPLOYMENT.md)** - Production deployment
 
 ### **Features**

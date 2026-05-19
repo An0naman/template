@@ -1,0 +1,17 @@
+services:
+  caddy:
+    image: caddy:2.8
+    container_name: template-caddy
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - APP_DOMAIN=${APP_DOMAIN}
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
