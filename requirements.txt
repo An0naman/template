@@ -26,6 +26,9 @@ qrcode[pil]==7.4.2
 # Bluetooth Label Printing (Niimbot printers)
 bleak>=0.21.0  # Bluetooth Low Energy support for Niimbot printers
 
+# Garmin Connect API
+garminconnect>=0.2.7
+
 # Service Discovery
 zeroconf>=0.131.0
 

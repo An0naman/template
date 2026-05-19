@@ -40,7 +40,7 @@ class TaskScheduler:
         """Main scheduler loop"""
         last_overdue_check = None
         last_strava_sync = None
-        last_apple_health_sync = None
+        last_garmin_sync = None
         last_scheduled_check = None
         
         while self.running:
@@ -57,10 +57,10 @@ class TaskScheduler:
                         self._run_strava_sync()
                         last_strava_sync = datetime.now()
 
-                    if self._should_run_apple_health_sync(last_apple_health_sync):
-                        logger.info("Running scheduled Apple Health sync...")
-                        self._run_apple_health_sync()
-                        last_apple_health_sync = datetime.now()
+                    if self._should_run_garmin_sync(last_garmin_sync):
+                        logger.info("Running scheduled Garmin Connect sync...")
+                        self._run_garmin_sync()
+                        last_garmin_sync = datetime.now()
                     
                     # Check for scheduled notifications every minute
                     if self._should_run_scheduled_check(last_scheduled_check):
@@ -180,12 +180,12 @@ class TaskScheduler:
             '0 */6 * * *',
         )
 
-    def _should_run_apple_health_sync(self, last_check):
-        """Determine if scheduled Apple Health sync should run based on schedule."""
+    def _should_run_garmin_sync(self, last_check):
+        """Determine if scheduled Garmin Connect sync should run based on schedule."""
         return self._should_run_job(
             last_check,
-            'apple_health_sync_enabled',
-            'apple_health_sync_schedule',
+            'garmin_sync_enabled',
+            'garmin_sync_schedule',
             '0 */6 * * *',
         )
             
@@ -216,15 +216,15 @@ class TaskScheduler:
         except Exception as e:
             logger.error(f"Error in scheduled Strava sync: {e}", exc_info=True)
 
-    def _run_apple_health_sync(self):
-        """Run Apple Health sync as a scheduled job."""
+    def _run_garmin_sync(self):
+        """Run Garmin Connect sync as a scheduled job."""
         try:
-            from app.services.apple_health_service import sync_apple_health_data
+            from app.services.garmin_service import sync_garmin_data
 
-            result = sync_apple_health_data()
-            logger.info(f"Scheduled Apple Health sync result: {result}")
+            result = sync_garmin_data()
+            logger.info(f"Scheduled Garmin sync result: {result}")
         except Exception as e:
-            logger.error(f"Error in scheduled Apple Health sync: {e}", exc_info=True)
+            logger.error(f"Error in scheduled Garmin sync: {e}", exc_info=True)
 
     def _should_run_scheduled_check(self, last_check):
         """Check if scheduled notifications should be processed (every minute)"""

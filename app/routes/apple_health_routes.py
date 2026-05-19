@@ -1,3 +1,4 @@
+# Apple Health routes removed. Use garmin_routes.py for health data integration.
 import logging
 
 from flask import Blueprint, jsonify, request

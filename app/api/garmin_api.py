@@ -1,5 +1,5 @@
 """
-Apple Health Integration API
+Garmin Connect Integration API
 REST endpoints for field mapping and auto-create column support.
 """
 
@@ -9,54 +9,11 @@ import json
 from datetime import datetime, timezone
 
 from ..db import get_connection, get_system_parameters
+from ..services.garmin_service import GARMIN_FIELDS
 
 logger = logging.getLogger(__name__)
 
-apple_health_api_bp = Blueprint("apple_health_api", __name__, url_prefix="/api/apple-health")
-
-
-# Available Apple Health metrics
-APPLE_HEALTH_FIELDS = [
-    {"key": "weight_kg",           "label": "Weight",               "column_type": "number", "group": "Body Metrics", "unit": "kg"},
-    {"key": "sleep_hours",         "label": "Sleep Duration",       "column_type": "number", "group": "Sleep",        "unit": "hours"},
-    {"key": "heart_rate_resting",  "label": "Resting Heart Rate",   "column_type": "number", "group": "Heart Rate",   "unit": "bpm"},
-    {"key": "heart_rate_avg",      "label": "Average Heart Rate",   "column_type": "number", "group": "Heart Rate",   "unit": "bpm"},
-    {"key": "hrv_ms",              "label": "Heart Rate Variability", "column_type": "number", "group": "Heart Rate",  "unit": "ms"},
-    {"key": "steps",               "label": "Steps",                "column_type": "number", "group": "Activity",      "unit": "steps"},
-]
-
-
-def _all_apple_health_fields(params=None):
-    """Merge canonical fields with dynamically discovered payload fields."""
-    if params is None:
-        params = get_system_parameters()
-
-    merged = [dict(f) for f in APPLE_HEALTH_FIELDS]
-    seen = {f["key"] for f in merged}
-
-    discovered_raw = params.get("apple_health_discovered_fields", "[]") or "[]"
-    try:
-        discovered = json.loads(discovered_raw)
-    except Exception:
-        discovered = []
-
-    if isinstance(discovered, list):
-        for field in discovered:
-            if not isinstance(field, dict):
-                continue
-            key = field.get("key")
-            if not key or key in seen:
-                continue
-            merged.append({
-                "key": key,
-                "label": field.get("label") or key.replace("_", " ").title(),
-                "column_type": field.get("column_type") or "text",
-                "group": field.get("group") or "Additional Metrics",
-                "unit": field.get("unit") or "",
-            })
-            seen.add(key)
-
-    return merged
+garmin_api_bp = Blueprint("garmin_api", __name__, url_prefix="/api/garmin")
 
 
 def get_db():
@@ -65,35 +22,35 @@ def get_db():
     return g.db
 
 
-# ── Field registry ────────────────────────────────────────────────────────────
+# ── Field registry ─────────────────────────────────────────────────────────────
 
-@apple_health_api_bp.route("/fields", methods=["GET"])
+@garmin_api_bp.route("/fields", methods=["GET"])
 def api_get_fields():
-    """Return the canonical list of Apple Health fields available for mapping."""
-    return jsonify({"fields": _all_apple_health_fields()})
+    """Return all available Garmin fields for mapping."""
+    return jsonify({"fields": GARMIN_FIELDS})
 
 
-# ── Field mapping ─────────────────────────────────────────────────────────────
+# ── Field mapping ──────────────────────────────────────────────────────────────
 
-@apple_health_api_bp.route("/field_mapping", methods=["GET"])
+@garmin_api_bp.route("/field_mapping", methods=["GET"])
 def api_get_field_mapping():
-    """Return the saved field mapping (apple health field key -> custom_column_id)."""
+    """Return the saved field mapping (garmin field key -> custom_column_id)."""
     params = get_system_parameters()
-    mapping = json.loads(params.get("apple_health_field_mapping", "{}") or "{}")
+    mapping = json.loads(params.get("garmin_field_mapping", "{}") or "{}")
     return jsonify({"mapping": mapping})
 
 
-@apple_health_api_bp.route("/field_mapping", methods=["POST"])
+@garmin_api_bp.route("/field_mapping", methods=["POST"])
 def api_save_field_mapping():
     """
     Save the field mapping.
-    Body: { "mapping": { "weight_kg": 7, "sleep_hours": 12, ... } }
+    Body: { "mapping": { "total_steps": 7, "resting_heart_rate": 12, ... } }
     Values are CustomColumn IDs (int) or "" to unmap.
     """
     data = request.get_json() or {}
     mapping = data.get("mapping", {})
 
-    valid_keys = {f["key"] for f in _all_apple_health_fields()}
+    valid_keys = {f["key"] for f in GARMIN_FIELDS}
     clean = {}
     for k, v in mapping.items():
         if k not in valid_keys:
@@ -110,24 +67,22 @@ def api_save_field_mapping():
     cursor = conn.cursor()
     cursor.execute(
         "INSERT OR REPLACE INTO SystemParameters (parameter_name, parameter_value) VALUES (?, ?)",
-        ("apple_health_field_mapping", json.dumps(clean)),
+        ("garmin_field_mapping", json.dumps(clean)),
     )
     conn.commit()
     return jsonify({"success": True, "mapping": clean})
 
 
-# ── Auto-create columns ───────────────────────────────────────────────────────
+# ── Auto-create columns ────────────────────────────────────────────────────────
 
-@apple_health_api_bp.route("/auto_create_columns", methods=["POST"])
+@garmin_api_bp.route("/auto_create_columns", methods=["POST"])
 def api_auto_create_columns():
     """
-    Auto-create CustomColumns for every APPLE_HEALTH_FIELDS field,
+    Auto-create CustomColumns for every GARMIN_FIELDS entry,
     assign them to the given entry type, and save the full field mapping.
-
     Body: { "entry_type_id": 5 }
     """
     data = request.get_json() or {}
-    params = get_system_parameters()
 
     entry_type_id = data.get("entry_type_id")
     if not entry_type_id:
@@ -146,7 +101,7 @@ def api_auto_create_columns():
     assignments_created = []
     assignments_existing = []
 
-    # Probe for unit column (migration may not have run on some envs)
+    # Probe for unit column presence
     try:
         cursor.execute("SELECT unit FROM CustomColumn LIMIT 1")
         _has_unit_col = True
@@ -154,15 +109,13 @@ def api_auto_create_columns():
         _has_unit_col = False
     cursor = conn.cursor()
 
-    # Track all columns for mapping
     all_field_columns = {}
 
-    for field in _all_apple_health_fields(params):
-        col_name  = f"apple_health_{field['key']}"
+    for field in GARMIN_FIELDS:
+        col_name  = f"garmin_{field['key']}"
         col_label = field["label"]
         col_type  = field["column_type"]
 
-        # Create or reuse column
         cursor.execute("SELECT id FROM CustomColumn WHERE name = ?", (col_name,))
         row = cursor.fetchone()
         if row:
@@ -175,7 +128,7 @@ def api_auto_create_columns():
                            default_value, is_required, unit, created_at, updated_at)
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (col_name, col_label,
-                     f"Auto-created by Apple Health integration ({field['group']})",
+                     f"Auto-created by Garmin integration ({field['group']})",
                      col_type, "[]", "", 0, field.get("unit", ""), now, now),
                 )
             else:
@@ -184,7 +137,7 @@ def api_auto_create_columns():
                            default_value, is_required, created_at, updated_at)
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (col_name, col_label,
-                     f"Auto-created by Apple Health integration ({field['group']})",
+                     f"Auto-created by Garmin integration ({field['group']})",
                      col_type, "[]", "", 0, now, now),
                 )
             col_id = cursor.lastrowid
@@ -192,7 +145,6 @@ def api_auto_create_columns():
 
         all_field_columns[field["key"]] = col_id
 
-        # Assign to entry type if not already done
         cursor.execute(
             "SELECT id FROM CustomColumnAssignment WHERE custom_column_id=? AND entry_type_id=?",
             (col_id, entry_type_id),
@@ -208,15 +160,17 @@ def api_auto_create_columns():
         else:
             assignments_existing.append({"column_id": col_id, "entry_type_id": entry_type_id, "field_key": field["key"]})
 
-    # Save mapping for UI (maps field key to column id)
+    # Save entry_type_id for auto-entry creation on sync
+    cursor.execute(
+        "INSERT OR REPLACE INTO SystemParameters (parameter_name, parameter_value) VALUES (?, ?)",
+        ("garmin_entry_type_id", str(entry_type_id)),
+    )
+
+    # Save mapping
     mapping = {key: col_id for key, col_id in all_field_columns.items()}
     cursor.execute(
         "INSERT OR REPLACE INTO SystemParameters (parameter_name, parameter_value) VALUES (?, ?)",
-        ("apple_health_field_mapping", json.dumps(mapping)),
-    )
-    cursor.execute(
-        "INSERT OR REPLACE INTO SystemParameters (parameter_name, parameter_value) VALUES (?, ?)",
-        ("apple_health_entry_type_id", str(entry_type_id)),
+        ("garmin_field_mapping", json.dumps(mapping)),
     )
     conn.commit()
 
@@ -227,5 +181,8 @@ def api_auto_create_columns():
         "assignments_created": assignments_created,
         "assignments_existing": assignments_existing,
         "mapping": mapping,
-        "message": f"{len(created)} columns created, {len(existing)} reused. {len(assignments_created)} new links, {len(assignments_existing)} reused.",
+        "message": (
+            f"{len(created)} columns created, {len(existing)} reused. "
+            f"{len(assignments_created)} new assignments, {len(assignments_existing)} reused."
+        ),
     })
