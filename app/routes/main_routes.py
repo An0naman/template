@@ -461,7 +461,8 @@ def settings():
                           params=params,
                           entry_types=entry_types,
                           strava_last_sync_display=strava_last_sync_display,
-                             garmin_last_sync_display=garmin_last_sync_display)
+                          garmin_last_sync_display=garmin_last_sync_display,
+                          today_date=__import__('datetime').date.today().isoformat())
 
 @main_bp.route('/sql_ide')
 def sql_ide():

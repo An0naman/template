@@ -959,6 +959,45 @@
                     </p>
                 </div>
 
+                <!-- Test Data Pull -->
+                <div class="mt-4 border-top pt-3">
+                    <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                        <strong><i class="fas fa-flask me-1"></i>Test Data Pull</strong>
+                        <input type="date" id="garminTestDate" class="form-control form-control-sm" style="width:160px"
+                               value="{{ today_date }}">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="garminTestPullBtn"
+                                onclick="garminRunTestPull()">
+                            <i class="fas fa-vial me-1"></i>Run Test
+                        </button>
+                        <span id="garminTestPullSpinner" class="d-none">
+                            <span class="spinner-border spinner-border-sm text-secondary"></span>
+                            <small class="text-muted ms-1">Fetching…</small>
+                        </span>
+                    </div>
+                    <div id="garminTestPullStatus" class="mb-2 d-none"></div>
+                    <div id="garminTestPullWrap" class="d-none">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <small class="text-muted" id="garminTestPullSummary"></small>
+                            <input type="text" class="form-control form-control-sm w-auto" id="garminTestPullSearch"
+                                   placeholder="Filter fields…" oninput="garminFilterTestTable(this.value)"
+                                   style="min-width:160px">
+                        </div>
+                        <div class="table-responsive" style="max-height:420px;overflow-y:auto">
+                            <table class="table table-sm table-bordered mb-0" style="font-size:.82rem">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th style="width:20%">Group</th>
+                                        <th style="width:35%">Field</th>
+                                        <th style="width:30%">Value</th>
+                                        <th style="width:15%">Unit</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="garminTestPullTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="alert alert-info mt-3 mb-0">
                     <strong><i class="fas fa-info-circle me-2"></i>How Garmin Sync Works</strong>
                     <div class="small mt-2">Enter your Garmin Connect credentials above and save. Use <strong>Sync Now</strong> to pull today's data, or configure a scheduled sync below. Data is mapped to your custom columns via the field mapping panel.</div>
@@ -2189,6 +2228,93 @@
                     statusEl.textContent = 'Error: ' + e.message;
                 }
             };
+
+            // ── Test pull ──────────────────────────────────────────────
+            let _garminTestRows = [];
+
+            window.garminRunTestPull = async function() {
+                const btn      = document.getElementById('garminTestPullBtn');
+                const spinner  = document.getElementById('garminTestPullSpinner');
+                const statusEl = document.getElementById('garminTestPullStatus');
+                const wrap     = document.getElementById('garminTestPullWrap');
+                const date     = document.getElementById('garminTestDate').value
+                              || new Date().toISOString().slice(0,10);
+
+                btn.disabled = true;
+                spinner.classList.remove('d-none');
+                statusEl.classList.add('d-none');
+                wrap.classList.add('d-none');
+
+                try {
+                    const r = await fetch(`/api/garmin/test_pull?date=${encodeURIComponent(date)}`);
+                    const d = await r.json();
+
+                    if (!r.ok || !d.success) {
+                        statusEl.className = 'mb-2 alert alert-danger';
+                        statusEl.textContent = d.message || 'Test pull failed.';
+                        statusEl.classList.remove('d-none');
+                        return;
+                    }
+
+                    _garminTestRows = d.results;
+                    document.getElementById('garminTestPullSearch').value = '';
+                    garminRenderTestTable(_garminTestRows);
+
+                    const errNote = d.errors.length
+                        ? ` · ${d.errors.length} source error(s): ${d.errors.join('; ')}`
+                        : '';
+                    document.getElementById('garminTestPullSummary').textContent =
+                        `${d.date} — ${d.fields_with_data}/${d.total_fields} fields returned data${errNote}`;
+
+                    wrap.classList.remove('d-none');
+                    if (d.errors.length) {
+                        statusEl.className = 'mb-2 alert alert-warning';
+                        statusEl.textContent = `${d.errors.length} source(s) returned errors (see summary). Other fields shown below.`;
+                        statusEl.classList.remove('d-none');
+                    }
+                } catch(e) {
+                    statusEl.className = 'mb-2 alert alert-danger';
+                    statusEl.textContent = 'Error: ' + e.message;
+                    statusEl.classList.remove('d-none');
+                } finally {
+                    btn.disabled = false;
+                    spinner.classList.add('d-none');
+                }
+            };
+
+            window.garminRenderTestTable = function(rows) {
+                const tbody = document.getElementById('garminTestPullTable');
+                let lastGroup = null, html = '';
+                rows.forEach(row => {
+                    const hasVal = row.value !== null && row.value !== undefined;
+                    const groupLabel = row.group !== lastGroup
+                        ? `<tr class="table-secondary"><td colspan="4"><strong>${row.group}</strong></td></tr>` : '';
+                    lastGroup = row.group;
+                    const valCell = hasVal
+                        ? `<td class="text-success fw-semibold">${row.value}</td>`
+                        : `<td class="text-muted">—</td>`;
+                    html += groupLabel +
+                        `<tr data-group="${row.group}" data-label="${row.label.toLowerCase()}">
+                            <td class="text-muted small">${row.group}</td>
+                            <td>${row.label}</td>
+                            ${valCell}
+                            <td class="text-muted small">${row.unit || ''}</td>
+                        </tr>`;
+                });
+                tbody.innerHTML = html;
+            };
+
+            window.garminFilterTestTable = function(query) {
+                const q = query.toLowerCase();
+                if (!q) { garminRenderTestTable(_garminTestRows); return; }
+                const filtered = _garminTestRows.filter(r =>
+                    r.label.toLowerCase().includes(q) ||
+                    r.group.toLowerCase().includes(q) ||
+                    (r.key && r.key.toLowerCase().includes(q))
+                );
+                garminRenderTestTable(filtered);
+            };
+
         })();
         </script>
 

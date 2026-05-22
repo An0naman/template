@@ -186,3 +186,92 @@ def api_auto_create_columns():
             f"{len(assignments_created)} new assignments, {len(assignments_existing)} reused."
         ),
     })
+
+
+# ── Test pull ──────────────────────────────────────────────────────────────────
+
+@garmin_api_bp.route("/test_pull", methods=["GET"])
+def api_test_pull():
+    """
+    Dry-run fetch: login, pull all data sources for the given date, flatten,
+    and return every GARMIN_FIELDS entry with its resolved value.
+    Nothing is written to the database.
+    Query param: ?date=YYYY-MM-DD  (default: today)
+    """
+    from ..services.garmin_service import GARMIN_FIELDS, _flatten_garmin_data, _get_system_param
+    from datetime import date as _date
+
+    try:
+        from garminconnect import Garmin
+    except ImportError:
+        return jsonify({"success": False, "message": "garminconnect library not installed."}), 500
+
+    target_date = request.args.get("date") or _date.today().isoformat()
+
+    conn = get_connection()
+    username = _get_system_param(conn, "garmin_username")
+    password = _get_system_param(conn, "garmin_password")
+    conn.close()
+
+    if not username or not password:
+        return jsonify({"success": False, "message": "Garmin credentials not configured."}), 400
+
+    try:
+        client = Garmin(username, password)
+        client.login()
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Garmin login failed: {e}"}), 400
+
+    errors = []
+
+    def _fetch(label, fn):
+        try:
+            return fn()
+        except Exception as exc:
+            errors.append(f"{label}: {exc}")
+            return None
+
+    stats              = _fetch("stats",              lambda: client.get_stats_and_body(target_date))
+    sleep_data         = _fetch("sleep",              lambda: client.get_sleep_data(target_date))
+    body_data          = _fetch("body",               lambda: client.get_body_composition(target_date))
+    hrv_data           = _fetch("hrv",                lambda: client.get_hrv_data(target_date))
+    bp_data            = _fetch("bp",                 lambda: client.get_blood_pressure(target_date, target_date))
+    training_status    = _fetch("training_status",    lambda: client.get_training_status(target_date))
+    training_readiness = _fetch("training_readiness", lambda: client.get_training_readiness(target_date))
+    hydration_data     = _fetch("hydration",          lambda: client.get_hydration_data(target_date))
+    fitness_age_data   = _fetch("fitness_age",        lambda: client.get_fitnessage_data(target_date))
+    endurance_data     = _fetch("endurance",          lambda: client.get_endurance_score(target_date))
+    hill_data          = _fetch("hill",               lambda: client.get_hill_score(target_date))
+
+    if isinstance(body_data, dict) and "totalAverage" in body_data:
+        body_data = body_data["totalAverage"]
+
+    flat = _flatten_garmin_data(
+        stats, sleep_data, None, body_data, hrv_data, None, None, bp_data,
+        training_status_data=training_status,
+        training_readiness_data=training_readiness,
+        hydration_data=hydration_data,
+        fitness_age_data=fitness_age_data,
+        endurance_data=endurance_data,
+        hill_data=hill_data,
+    )
+
+    results = [
+        {
+            "key":   f["key"],
+            "label": f["label"],
+            "group": f["group"],
+            "unit":  f.get("unit", ""),
+            "value": flat.get(f["key"]),
+        }
+        for f in GARMIN_FIELDS
+    ]
+
+    return jsonify({
+        "success":          True,
+        "date":             target_date,
+        "fields_with_data": len(flat),
+        "total_fields":     len(GARMIN_FIELDS),
+        "errors":           errors,
+        "results":          results,
+    })
