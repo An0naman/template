@@ -53,6 +53,8 @@ def api_update_system_params():
             # Strava integration settings
             'strava_enabled', 'strava_client_id', 'strava_client_secret', 'strava_refresh_token',
             'strava_activity_mapping', 'strava_field_mapping', 'strava_sync_enabled', 'strava_sync_schedule',
+            # Garmin Connect integration settings
+            'garmin_sync_enabled', 'garmin_sync_schedule', 'garmin_entry_type_id',
             # Apple Health integration settings
             'apple_health_enabled', 'apple_health_api_key', 'apple_health_source_url', 'apple_health_source_token',
             'apple_health_sync_enabled', 'apple_health_sync_schedule', 'apple_health_last_sync_timestamp',
