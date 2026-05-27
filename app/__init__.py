@@ -156,6 +156,8 @@ def create_app():
     from .routes.git_routes import git_routes_bp
     from .routes.strava_routes import strava_routes_bp
     from .routes.garmin_routes import garmin_routes_bp
+    from .routes.chat_routes import chat_routes_bp
+    from .api.chat_proxy_api import chat_proxy_bp
     from .api.anycubic_api import anycubic_api_bp
     from .api.strava_api import strava_api_bp
     from .api.garmin_api import garmin_api_bp
@@ -207,6 +209,8 @@ def create_app():
     app.register_blueprint(git_routes_bp)  # Page routes
     app.register_blueprint(strava_routes_bp)  # Strava routes
     app.register_blueprint(garmin_routes_bp)  # Garmin routes
+    app.register_blueprint(chat_routes_bp)    # Chat page
+    app.register_blueprint(chat_proxy_bp, url_prefix='/ollama')  # Ollama/ComfyUI proxy
     app.register_blueprint(anycubic_api_bp)  # Anycubic printer routes
     app.register_blueprint(strava_api_bp)    # Strava field mapping API
     app.register_blueprint(garmin_api_bp)    # Garmin field mapping API
@@ -264,9 +268,26 @@ def create_app():
             else:
                 database_type = 'SQLite'
 
+            # Build a safe location string (no credentials)
+            database_location = ''
+            if database_url and not db_url_lower.startswith('sqlite'):
+                try:
+                    from urllib.parse import urlparse
+                    parsed = urlparse(database_url)
+                    host = parsed.hostname or ''
+                    port = f':{parsed.port}' if parsed.port else ''
+                    db_name = (parsed.path or '').lstrip('/')
+                    database_location = f'{host}{port}/{db_name}' if db_name else f'{host}{port}'
+                except Exception:
+                    database_location = ''
+            else:
+                db_path = app.config.get('DATABASE_PATH', '')
+                database_location = os.path.basename(db_path) if db_path else ''
+
             return {
                 'app_version': app_version,
                 'database_type': database_type,
+                'database_location': database_location,
                 'is_dev_environment': is_dev_environment
             }
         except Exception as e:
@@ -274,6 +295,7 @@ def create_app():
             return {
                 'app_version': '1.0.0',
                 'database_type': 'SQLite',
+                'database_location': '',
                 'is_dev_environment': False
             }
 

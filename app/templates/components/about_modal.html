@@ -68,6 +68,12 @@
                                 <span class="about-label">Database:</span>
                                 <span class="about-value">{{ database_type|default('SQLite') }}</span>
                             </div>
+                            {% if database_location %}
+                            <div class="about-row">
+                                <span class="about-label">Host / File:</span>
+                                <span class="about-value" style="font-family: monospace; font-size: 0.85em;">{{ database_location }}</span>
+                            </div>
+                            {% endif %}
                             <div class="about-row">
                                 <span class="about-label">Framework:</span>
                                 <span class="about-value">Flask</span>

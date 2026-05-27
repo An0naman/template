@@ -1,4 +1,7 @@
 # template_app/run.py
+from dotenv import load_dotenv
+load_dotenv()  # Load .env before app config is imported
+
 from app import create_app
 import os
 import logging
