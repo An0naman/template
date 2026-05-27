@@ -1,0 +1,1544 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="{{ 'dark' if theme_settings.dark_mode_enabled else 'light' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ project_name }} – Chat</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style id="theme-styles">{{ theme_css|safe }}</style>
+  <style>
+    /* ===== Reset / Base ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sidebar-width: 240px;
+      --panel-width: 300px;
+      --top-bar-height: 42px;
+      --input-area-height: 80px;
+
+      --bg-body:   var(--theme-bg-body,   var(--bs-body-bg, #0f0f0f));
+      --bg-card:   var(--theme-bg-card,   var(--bs-body-bg, #1a1a1a));
+      --bg-input:  var(--theme-bg-surface, var(--bs-secondary-bg, #1c1c1c));
+      --bg-hover:  var(--bs-tertiary-bg,  #2a2a2a);
+      --border:    var(--theme-border,    var(--bs-border-color, #333));
+      --text:      var(--theme-text,      var(--bs-body-color, #e8e8e8));
+      --text-muted:var(--theme-text-muted,var(--bs-secondary-color, #888));
+      --accent:    var(--theme-primary,   #7c6fd4);
+      --accent-fg: var(--theme-primary-text, #fff);
+      --user-bubble: var(--theme-primary,   #7c6fd4);
+      --ai-bubble:   var(--theme-bg-card,   var(--bs-body-bg, #1a1a1a));
+      --danger:    var(--theme-danger,    #e05555);
+      --success:   var(--theme-success,   #4caf75);
+      --radius:    0.5rem;
+      --radius-sm: 0.3rem;
+      --shadow:    0 2px 8px rgba(0,0,0,.35);
+    }
+
+    html, body { height: 100%; overflow: hidden; background: var(--bg-body); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; }
+
+    /* ===== Top bar ===== */
+    #top-bar {
+      position: fixed; top: 0; left: 0; right: 0; height: var(--top-bar-height);
+      background: var(--bg-card); border-bottom: 1px solid var(--bs-border-color, var(--border));
+      display: flex; align-items: center; gap: 0.5rem; padding: 0 0.75rem;
+      z-index: 100;
+    }
+    #top-bar .brand { font-weight: 600; font-size: 15px; color: var(--text); text-decoration: none; }
+    #top-bar .sep { color: var(--border); margin: 0 0.25rem; }
+    #top-bar .page-title { color: var(--text-muted); }
+    #top-bar .spacer { flex: 1; }
+    #top-bar select, #top-bar button {
+      height: 28px; font-size: 13px; border-radius: var(--radius-sm);
+      border: 1px solid var(--bs-border-color, var(--border));
+      background: var(--bs-body-bg, var(--bg-input)); color: var(--bs-body-color, var(--text));
+      padding: 0 0.5rem; cursor: pointer;
+    }
+    #top-bar button:hover { background: var(--bs-secondary-bg, var(--bg-hover)); }
+    #top-bar button.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+    #toggle-auto-tts:not(.active), #toggle-auto-image:not(.active), #toggle-think:not(.active) {
+      opacity: 0.45;
+    }
+    #toggle-auto-tts:not(.active):hover, #toggle-auto-image:not(.active):hover, #toggle-think:not(.active):hover {
+      opacity: 0.75;
+    }
+    #status-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; flex-shrink: 0; }
+    #status-dot.online  { background: var(--success); }
+    #status-dot.error   { background: var(--danger); }
+
+    /* ===== Main layout ===== */
+    #app {
+      display: flex; height: 100vh;
+      padding-top: var(--top-bar-height);
+    }
+
+    /* ===== Sidebar ===== */
+    #sidebar {
+      width: var(--sidebar-width); min-width: var(--sidebar-width);
+      background: var(--bg-card); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+      transition: width 0.2s, min-width 0.2s;
+    }
+    #sidebar.collapsed { width: 0; min-width: 0; }
+    #sidebar-header {
+      padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 0.4rem;
+    }
+    #new-chat-btn {
+      flex: 1; display: flex; align-items: center; gap: 0.4rem;
+      background: var(--accent); color: var(--accent-fg); border: none;
+      border-radius: var(--radius-sm); padding: 0.35rem 0.6rem; cursor: pointer;
+      font-size: 13px; font-weight: 500;
+    }
+    #new-chat-btn:hover { opacity: 0.88; }
+    #conv-list {
+      flex: 1; overflow-y: auto; padding: 0.4rem 0;
+    }
+    .conv-item {
+      padding: 0.45rem 0.75rem; cursor: pointer; border-radius: var(--radius-sm);
+      margin: 0 0.35rem 0.15rem; display: flex; align-items: center;
+      gap: 0.4rem; color: var(--text); overflow: hidden;
+    }
+    .conv-item:hover { background: var(--bg-hover); }
+    .conv-item.active { background: var(--accent); color: var(--accent-fg); }
+    .conv-item .conv-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+    .conv-item .conv-del {
+      visibility: hidden; background: none; border: none; color: inherit;
+      cursor: pointer; padding: 0 0.2rem; opacity: 0.6; font-size: 12px;
+    }
+    .conv-item:hover .conv-del { visibility: visible; }
+    #sidebar-footer {
+      padding: 0.5rem 0.75rem; border-top: 1px solid var(--border);
+    }
+    .sidebar-footer-btn {
+      width: 100%; display: flex; align-items: center; gap: 0.5rem;
+      background: none; border: none; color: var(--text-muted); cursor: pointer;
+      padding: 0.3rem 0; font-size: 12px; border-radius: var(--radius-sm);
+    }
+    .sidebar-footer-btn:hover { color: var(--text); background: var(--bg-hover); }
+
+    /* ===== Chat panel ===== */
+    #chat-panel {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;
+    }
+    #messages {
+      flex: 1; overflow-y: auto; padding: 1rem;
+      display: flex; flex-direction: column; gap: 0.75rem;
+    }
+    /* Welcome screen */
+    #welcome {
+      margin: auto; text-align: center; color: var(--text-muted); max-width: 380px;
+    }
+    #welcome h2 { font-size: 22px; color: var(--text); margin-bottom: 0.5rem; }
+    #welcome p { font-size: 13px; line-height: 1.6; }
+
+    /* Messages */
+    .msg-row { display: flex; gap: 0.5rem; align-items: flex-start; }
+    .msg-row.user  { flex-direction: row-reverse; }
+    .msg-avatar {
+      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 13px;
+      background: var(--bg-hover); color: var(--text-muted);
+    }
+    .msg-row.user .msg-avatar { background: var(--accent); color: var(--accent-fg); }
+    .msg-bubble {
+      max-width: 72%; padding: 0.55rem 0.75rem; border-radius: var(--radius);
+      line-height: 1.55; background: var(--ai-bubble); color: var(--text);
+      border: 1px solid var(--border); word-break: break-word;
+    }
+    .msg-row.user .msg-bubble {
+      background: var(--user-bubble); color: var(--accent-fg); border-color: transparent;
+    }
+    .msg-bubble pre { background: rgba(0,0,0,.3); border-radius: var(--radius-sm); padding: 0.5rem; overflow-x: auto; }
+    .msg-bubble code { font-family: 'Consolas', 'Fira Code', monospace; font-size: 12.5px; }
+    .msg-bubble p:not(:last-child) { margin-bottom: 0.4rem; }
+    .msg-bubble ul, .msg-bubble ol { padding-left: 1.2rem; }
+    .msg-bubble a { color: inherit; opacity: 0.85; }
+
+    /* Thinking block */
+    .thinking-block {
+      border-left: 3px solid var(--accent); padding: 0.4rem 0.6rem;
+      margin-bottom: 0.5rem; color: var(--text-muted); font-style: italic; font-size: 13px;
+    }
+
+    /* Typing indicator */
+    .typing { display: flex; gap: 4px; align-items: center; padding: 0.5rem 0.75rem; }
+    .typing span {
+      width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted);
+      animation: bounce 1.1s infinite ease-in-out;
+    }
+    .typing span:nth-child(2) { animation-delay: 0.18s; }
+    .typing span:nth-child(3) { animation-delay: 0.36s; }
+    @keyframes bounce { 0%,80%,100%{transform:scale(0)} 40%{transform:scale(1)} }
+
+    /* Message actions */
+    .msg-actions {
+      display: none; gap: 0.2rem; margin-top: 0.3rem; flex-wrap: wrap;
+    }
+    .msg-row:hover .msg-actions { display: flex; }
+    .msg-action-btn {
+      background: none; border: none; cursor: pointer; color: var(--text-muted);
+      font-size: 11px; padding: 0.1rem 0.3rem; border-radius: var(--radius-sm);
+      display: flex; align-items: center; gap: 0.25rem;
+    }
+    .msg-action-btn:hover { background: var(--bg-hover); color: var(--text); }
+    .msg-action-btn.has-image { color: var(--accent); }
+    .msg-action-btn.img-pending { color: #d97706; animation: pulse-opacity 1s ease-in-out infinite; }
+    @keyframes pulse-opacity { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+    .msg-linked-thumb { display: block; max-width: 180px; border-radius: var(--radius-sm); margin-top: 0.5rem; cursor: pointer; opacity: 0.9; transition: opacity 0.15s; }
+    .msg-linked-thumb:hover { opacity: 1; }
+
+    /* ===== Input area ===== */
+    #input-area {
+      padding: 0.6rem 0.75rem; border-top: 1px solid var(--border);
+      background: var(--bg-card);
+    }
+    #input-row {
+      display: flex; gap: 0.5rem; align-items: flex-end;
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 0.4rem 0.5rem;
+    }
+    #input-row:focus-within { border-color: var(--accent); }
+    #user-input {
+      flex: 1; background: none; border: none; color: var(--text);
+      font-size: 14px; line-height: 1.4; resize: none; outline: none;
+      max-height: 120px; overflow-y: auto; padding: 0.2rem 0;
+      font-family: inherit;
+    }
+    #user-input::placeholder { color: var(--text-muted); }
+    #send-btn, #stop-btn {
+      width: 32px; height: 32px; border-radius: var(--radius-sm);
+      border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 14px; flex-shrink: 0;
+    }
+    #send-btn { background: var(--accent); color: var(--accent-fg); }
+    #send-btn:hover { opacity: 0.85; }
+    #send-btn:disabled { opacity: 0.4; cursor: default; }
+    #stop-btn { background: var(--danger); color: #fff; display: none; }
+    #stop-btn:hover { opacity: 0.85; }
+    #input-hint { font-size: 11px; color: var(--text-muted); margin-top: 0.3rem; padding: 0 0.2rem; }
+
+    /* ===== Right panel (image + TTS) ===== */
+    #right-panel {
+      width: var(--panel-width); min-width: var(--panel-width);
+      background: var(--bg-card); border-left: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+      transition: width 0.2s, min-width 0.2s;
+    }
+    #right-panel.collapsed { width: 0; min-width: 0; }
+    #right-panel-tabs {
+      display: flex; border-bottom: 1px solid var(--border);
+    }
+    .rp-tab {
+      flex: 1; padding: 0.5rem; text-align: center; cursor: pointer; font-size: 12px;
+      color: var(--text-muted); border-bottom: 2px solid transparent;
+    }
+    .rp-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .rp-tab:hover:not(.active) { color: var(--text); }
+    .rp-pane { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+    .rp-pane.active { display: flex; }
+    .rp-pane-inner { flex: 1; overflow-y: auto; padding: 0.75rem; }
+    .rp-section-title { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+
+    /* Image pane */
+    .image-form { display: flex; flex-direction: column; gap: 0.5rem; }
+    .image-form textarea {
+      width: 100%; background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text); font-size: 13px;
+      padding: 0.4rem 0.5rem; resize: vertical; min-height: 60px; font-family: inherit;
+    }
+    .image-form textarea::placeholder { color: var(--text-muted); }
+    .image-form select, .image-form input[type=range] {
+      width: 100%; background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text); font-size: 13px; padding: 0.3rem 0.5rem;
+    }
+    .image-form label { font-size: 12px; color: var(--text-muted); }
+    /* Sectioned prompt grid */
+    .img-sec-sep { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; opacity: 0.75; margin: 4px 0 2px; }
+    .img-sec-grid { display: grid; grid-template-columns: 4rem 1fr; gap: 3px 6px; align-items: center; margin-bottom: 4px; }
+    .img-sec-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; line-height: 1; }
+    .img-sec-inp { background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 11px; padding: 2px 5px; width: 100%; font-family: inherit; }
+    .img-sec-inp:focus { outline: none; border-color: var(--accent); }
+    .img-sec-inp::placeholder { color: var(--text-muted); opacity: 0.6; }
+    .btn-primary {
+      background: var(--accent); color: var(--accent-fg); border: none;
+      border-radius: var(--radius-sm); padding: 0.4rem 0.7rem; cursor: pointer;
+      font-size: 13px; font-weight: 500; width: 100%;
+    }
+    .btn-primary:hover { opacity: 0.85; }
+    .btn-primary:disabled { opacity: 0.4; cursor: default; }
+    #image-result { margin-top: 0.75rem; }
+    #image-result img {
+      width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border);
+      cursor: pointer;
+    }
+    #image-result .img-actions { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
+    #image-result .img-actions button {
+      flex: 1; font-size: 12px; padding: 0.25rem; background: var(--bg-hover);
+      border: 1px solid var(--border); color: var(--text); border-radius: var(--radius-sm);
+      cursor: pointer;
+    }
+    #image-result .img-actions button:hover { background: var(--bg-input); }
+
+    /* TTS pane */
+    .tts-form { display: flex; flex-direction: column; gap: 0.5rem; }
+    .tts-form select, .tts-form input[type=range] {
+      width: 100%; background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text); font-size: 13px; padding: 0.3rem 0.5rem;
+    }
+    .tts-form label { font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between; }
+    #tts-source-text {
+      width: 100%; background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text); font-size: 12px;
+      padding: 0.4rem 0.5rem; resize: vertical; min-height: 60px; font-family: inherit;
+    }
+    #tts-audio-player { margin-top: 0.5rem; }
+    #tts-audio-player audio { width: 100%; }
+
+    /* Lightbox */
+    #lightbox {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85);
+      z-index: 9999; align-items: center; justify-content: center;
+    }
+    #lightbox.open { display: flex; }
+    #lightbox img { max-width: 90vw; max-height: 90vh; border-radius: var(--radius); }
+    #lightbox-close {
+      position: absolute; top: 1rem; right: 1rem; background: none; border: none;
+      color: #fff; font-size: 28px; cursor: pointer; opacity: 0.7;
+    }
+    #lightbox-close:hover { opacity: 1; }
+
+    /* Settings modal */
+    #settings-modal {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6);
+      z-index: 5000; align-items: center; justify-content: center;
+    }
+    #settings-modal.open { display: flex; }
+    #settings-box {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.5rem; width: 420px; max-width: 95vw;
+    }
+    #settings-box h3 { margin-bottom: 1rem; font-size: 16px; }
+    .settings-field { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.8rem; }
+    .settings-field label { font-size: 12px; color: var(--text-muted); }
+    .settings-field input, .settings-field select, .settings-field textarea {
+      background: var(--bs-body-bg); border: 1px solid var(--bs-border-color);
+      border-radius: var(--radius-sm); color: var(--bs-body-color); font-size: 13px;
+      padding: 0.4rem 0.5rem; font-family: inherit; width: 100%;
+    }
+    .settings-actions { display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: flex-end; }
+    .btn-secondary {
+      background: var(--bg-hover); color: var(--text); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 0.4rem 0.8rem; cursor: pointer; font-size: 13px;
+    }
+    .btn-secondary:hover { background: var(--bg-input); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* Responsive: collapse panels on small screens */
+    @media (max-width: 700px) {
+      #sidebar { width: 0; min-width: 0; }
+      #right-panel { width: 0; min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== Top bar ===== -->
+<div id="top-bar">
+  <button id="toggle-sidebar" title="Toggle conversations" style="background:none;border:none;color:var(--text);font-size:16px;cursor:pointer;padding:0 0.25rem;">
+    <i class="fas fa-bars"></i>
+  </button>
+  <a href="{{ url_for('main.dashboard') }}" class="brand">{{ project_name }}</a>
+  <span class="sep">/</span>
+  <span class="page-title">Chat</span>
+  <div class="spacer"></div>
+  <div id="status-dot" title="Checking connection…"></div>
+  <select id="model-select" title="Select model" style="max-width:200px">
+    <option value="{{ ollama_model_name }}">{{ ollama_model_name }}</option>
+  </select>
+  <button id="refresh-models-btn" onclick="loadModels()" title="Refresh model list" style="width:28px;padding:0">
+    <i class="fas fa-rotate" id="refresh-models-icon"></i>
+  </button>
+  <button id="toggle-think" title="Toggle extended reasoning">
+    <i class="fas fa-brain"></i> Thinking
+  </button>
+  <button id="toggle-auto-tts" title="Auto-speak AI responses">
+    <i class="fas fa-volume-up"></i> Auto-TTS
+  </button>
+  <button id="toggle-auto-image" title="Auto-generate image from AI responses">
+    <i class="fas fa-image"></i> Auto-img
+  </button>
+  <button id="toggle-right-panel" title="Toggle image/TTS panel">
+    <i class="fas fa-sliders"></i>
+  </button>
+  <button onclick="document.getElementById('settings-modal').classList.add('open')" title="Chat settings">
+    <i class="fas fa-cog"></i>
+  </button>
+</div>
+
+<!-- ===== Main app ===== -->
+<div id="app">
+
+  <!-- Sidebar: conversation list -->
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <button id="new-chat-btn" onclick="newConversation()">
+        <i class="fas fa-plus"></i> New chat
+      </button>
+    </div>
+    <div id="conv-list"></div>
+    <div id="sidebar-footer">
+      <button class="sidebar-footer-btn" onclick="clearAllConversations()">
+        <i class="fas fa-trash-alt"></i> Clear all
+      </button>
+    </div>
+  </div>
+
+  <!-- Chat panel -->
+  <div id="chat-panel">
+    <div id="messages">
+      <div id="welcome">
+        <h2><i class="fas fa-comments" style="color:var(--accent)"></i> Ollama Chat</h2>
+        <p>Select a model above and start a conversation. Your chat history is saved locally in your browser.</p>
+      </div>
+    </div>
+    <div id="input-area">
+      <div id="input-row">
+        <textarea id="user-input" rows="1" placeholder="Type a message… (Enter to send, Shift+Enter for newline)"></textarea>
+        <button id="send-btn" onclick="sendMessage()" title="Send"><i class="fas fa-paper-plane"></i></button>
+        <button id="stop-btn" onclick="stopGeneration()" title="Stop"><i class="fas fa-stop"></i></button>
+      </div>
+      <div id="input-hint">Enter to send · Shift+Enter for new line</div>
+    </div>
+  </div>
+
+  <!-- Right panel: image generation + TTS -->
+  <div id="right-panel">
+    <div id="right-panel-tabs">
+      <div class="rp-tab active" data-tab="image" onclick="switchRpTab('image')"><i class="fas fa-image"></i> Image</div>
+      <div class="rp-tab" data-tab="tts" onclick="switchRpTab('tts')"><i class="fas fa-volume-up"></i> TTS</div>
+    </div>
+
+    <!-- Image pane -->
+    <div class="rp-pane active" id="rp-image">
+      <div class="rp-pane-inner">
+        <div class="rp-section-title">Image Generation</div>
+        <div class="image-form">
+          <div class="img-sec-sep" style="color:var(--success,#4caf81)">+ Positive</div>
+          <div class="img-sec-grid" id="img-pos-sections">
+            <span class="img-sec-lbl" style="color:#a78bfa">actors</span>
+            <input class="img-sec-inp" data-pos-sec="actors" placeholder="1girl, solo">
+            <span class="img-sec-lbl" style="color:#60a5fa">who</span>
+            <input class="img-sec-inp" data-pos-sec="who" placeholder="character, series">
+            <span class="img-sec-lbl" style="color:#e879f9">hair</span>
+            <input class="img-sec-inp" data-pos-sec="hair" placeholder="long silver hair">
+            <span class="img-sec-lbl" style="color:#86efac">body</span>
+            <input class="img-sec-inp" data-pos-sec="body" placeholder="slim, pale skin">
+            <span class="img-sec-lbl" style="color:#fb923c">act</span>
+            <input class="img-sec-inp" data-pos-sec="act" placeholder="sitting, looking at viewer">
+            <span class="img-sec-lbl" style="color:#fbbf24">focus</span>
+            <input class="img-sec-inp" data-pos-sec="focus" placeholder="upper body, portrait">
+            <span class="img-sec-lbl" style="color:#34d399">looks</span>
+            <input class="img-sec-inp" data-pos-sec="modifier" placeholder="black dress, bare shoulders">
+            <span class="img-sec-lbl" style="color:#f472b6">mood</span>
+            <input class="img-sec-inp" data-pos-sec="mood" placeholder="smile, determined">
+            <span class="img-sec-lbl" style="color:#fde68a">light</span>
+            <input class="img-sec-inp" data-pos-sec="lighting" placeholder="soft light, golden hour">
+            <span class="img-sec-lbl" style="color:#22d3ee">where</span>
+            <input class="img-sec-inp" data-pos-sec="location" placeholder="forest trail">
+            <span class="img-sec-lbl" style="color:#94a3b8">quality</span>
+            <input class="img-sec-inp" data-pos-sec="quality" value="masterpiece, best quality, very aesthetic, absurdres, highres">
+            <span class="img-sec-lbl" style="color:#f4c96d">rating</span>
+            <select class="img-sec-inp" data-pos-sec="rating">
+              <option value="">— none —</option>
+              <option value="rating:safe">safe</option>
+              <option value="rating:sensitive">sensitive</option>
+              <option value="rating:questionable">questionable</option>
+              <option value="rating:explicit">explicit</option>
+            </select>
+          </div>
+          <div class="img-sec-sep" style="color:var(--danger,#e05c5c)">− Negative</div>
+          <div class="img-sec-grid" id="img-neg-sections">
+            <span class="img-sec-lbl" style="color:#f87171">style</span>
+            <input class="img-sec-inp" data-neg-sec="style" value="realistic, 3d, photorealistic">
+            <span class="img-sec-lbl" style="color:#fb7185">char</span>
+            <input class="img-sec-inp" data-neg-sec="character" placeholder="wrong traits">
+            <span class="img-sec-lbl" style="color:#fca5a5">comp</span>
+            <input class="img-sec-inp" data-neg-sec="composition" placeholder="scene conflicts">
+          </div>
+          <label style="display:flex;justify-content:space-between;align-items:center">
+            Model
+            <button onclick="loadImageModels()" title="Refresh model list"
+              style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:0;font-size:13px">
+              <i class="fas fa-rotate" id="refresh-img-models-icon"></i>
+            </button>
+          </label>
+          <select id="img-model">
+            {% if comfy_model_name %}
+              <option value="{{ comfy_model_name }}">{{ comfy_model_name }}</option>
+            {% else %}
+              <option value="">Loading…</option>
+            {% endif %}
+          </select>
+          <label>Size</label>
+          <select id="img-size">
+            <option value="512x512" selected>512 × 512</option>
+            <option value="768x512">768 × 512</option>
+            <option value="512x768">512 × 768</option>
+            <option value="768x768">768 × 768</option>
+            <option value="1024x1024">1024 × 1024</option>
+            <option value="1024x576">1024 × 576 (wide)</option>
+            <option value="576x1024">576 × 1024 (tall)</option>
+          </select>
+          <label>Steps: <span id="img-steps-val">20</span></label>
+          <input type="range" id="img-steps" min="1" max="60" value="20"
+                 oninput="document.getElementById('img-steps-val').textContent=this.value">
+          <label>CFG: <span id="img-cfg-val">7</span></label>
+          <input type="range" id="img-cfg" min="1" max="20" value="7" step="0.5"
+                 oninput="document.getElementById('img-cfg-val').textContent=this.value">
+          <button class="btn-primary" id="gen-img-btn" onclick="generateImage()">
+            <i class="fas fa-magic"></i> Generate
+          </button>
+          <div id="img-tether-badge" style="display:none;align-items:center;gap:5px;font-size:11px;color:var(--accent);margin-top:4px;background:var(--bg-input);border:1px solid var(--accent);border-radius:4px;padding:2px 7px">
+            <i class="fas fa-link" style="font-size:10px"></i>
+            <span>Linked to msg <span id="img-tether-num"></span></span>
+            <button onclick="clearImgTether()" title="Unlink message" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:13px;line-height:1;padding:0 0 0 2px" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text-muted)'">&times;</button>
+          </div>
+          <div id="img-status" style="font-size:12px;color:var(--text-muted);min-height:16px;text-align:center"></div>
+          <div id="image-result"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TTS pane -->
+    <div class="rp-pane" id="rp-tts">
+      <div class="rp-pane-inner">
+        <div class="rp-section-title">Text to Speech (Kokoro)</div>
+        <div class="tts-form">
+          <label>Text to synthesize</label>
+          <textarea id="tts-source-text" placeholder="Paste text here, or use the 🔊 button on any message…" rows="4"></textarea>
+          <label>Voice</label>
+          <select id="tts-voice">
+            <option value="af_bella">Bella (English F)</option>
+            <option value="af_sarah">Sarah (English F)</option>
+            <option value="am_adam">Adam (English M)</option>
+            <option value="am_michael">Michael (English M)</option>
+            <option value="bf_emma">Emma (British F)</option>
+            <option value="bm_george">George (British M)</option>
+            <option value="jf_alpha">Alpha (Japanese F)</option>
+            <option value="jm_kumo">Kumo (Japanese M)</option>
+          </select>
+          <label>Speed: <span id="tts-speed-val">1.0</span></label>
+          <input type="range" id="tts-speed" min="0.5" max="2.0" step="0.1" value="1.0"
+                 oninput="document.getElementById('tts-speed-val').textContent=(+this.value).toFixed(1)">
+          <button class="btn-primary" id="tts-btn" onclick="synthesizeSpeech()">
+            <i class="fas fa-volume-up"></i> Synthesize
+          </button>
+          <div id="tts-status" style="font-size:12px;color:var(--text-muted);min-height:16px;text-align:center"></div>
+          <div id="tts-audio-player"></div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /right-panel -->
+</div><!-- /app -->
+
+<!-- Hidden auto-TTS audio sink -->
+<div id="auto-tts-player" style="display:none"></div>
+
+<!-- Lightbox -->
+<div id="lightbox" onclick="closeLightbox()">
+  <button id="lightbox-close" onclick="closeLightbox()">&times;</button>
+  <img id="lightbox-img" src="" alt="Generated image">
+</div>
+
+<!-- Settings modal -->
+<div id="settings-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div id="settings-box">
+    <h3><i class="fas fa-cog"></i> Chat Settings</h3>
+    <div class="settings-field">
+      <label>System prompt</label>
+      <textarea id="setting-system-prompt" rows="4"
+        placeholder="You are a helpful assistant…"></textarea>
+    </div>
+    <div class="settings-field">
+      <label>Max context messages (0 = unlimited)</label>
+      <input type="number" id="setting-max-context" value="0" min="0" max="200">
+    </div>
+    <div class="settings-field">
+      <label>Temperature (0.0 – 2.0)</label>
+      <input type="number" id="setting-temperature" value="0.7" min="0" max="2" step="0.1">
+    </div>
+    <div class="settings-actions">
+      <button class="btn-secondary" onclick="document.getElementById('settings-modal').classList.remove('open')">Cancel</button>
+      <button class="btn-primary" style="width:auto" onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* =========================================================
+   Configuration
+   The Flask app acts as an Ollama + ComfyUI proxy, mounted
+   at /ollama. So all API paths are /ollama/api/<endpoint>.
+   ========================================================= */
+const API = '/ollama';   // proxy base — must match url_prefix in chat_proxy_bp
+
+/* =========================================================
+   State
+   ========================================================= */
+let conversations = {};        // { [id]: { id, title, messages: [] } }
+let activeConvId   = null;
+let isGenerating   = false;
+let abortController = null;
+let thinkingEnabled = false;
+let autoTtsEnabled      = false;
+let autoImageEnabled    = false;
+let currentTetheredIndex = undefined;
+let settings = {
+  systemPrompt: '',
+  maxContext: 0,
+  temperature: 0.7,
+};
+
+/* =========================================================
+   Utility
+   ========================================================= */
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function escape(text) {
+  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderMarkdown(text) {
+  try { return marked.parse(text || ''); }
+  catch { return escape(text); }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function scrollToBottom() {
+  const m = document.getElementById('messages');
+  m.scrollTop = m.scrollHeight;
+}
+
+/* =========================================================
+   Persistence
+   ========================================================= */
+const CONV_KEY = 'chat_conversations_v1';
+const SETTINGS_KEY = 'chat_settings_v1';
+
+function persistConversations() {
+  try { localStorage.setItem(CONV_KEY, JSON.stringify(conversations)); } catch {}
+}
+
+function loadPersistedConversations() {
+  try {
+    const raw = localStorage.getItem(CONV_KEY);
+    if (raw) conversations = JSON.parse(raw);
+  } catch { conversations = {}; }
+}
+
+function loadPersistedSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw) Object.assign(settings, JSON.parse(raw));
+  } catch {}
+  document.getElementById('setting-system-prompt').value = settings.systemPrompt || '';
+  document.getElementById('setting-max-context').value   = settings.maxContext   ?? 0;
+  document.getElementById('setting-temperature').value   = settings.temperature  ?? 0.7;
+}
+
+function saveSettings() {
+  settings.systemPrompt = document.getElementById('setting-system-prompt').value.trim();
+  settings.maxContext   = parseInt(document.getElementById('setting-max-context').value) || 0;
+  settings.temperature  = parseFloat(document.getElementById('setting-temperature').value) || 0.7;
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {}
+  document.getElementById('settings-modal').classList.remove('open');
+}
+
+/* =========================================================
+   Conversation list
+   ========================================================= */
+function renderConvList() {
+  const list = document.getElementById('conv-list');
+  const ids = Object.keys(conversations).sort((a, b) => {
+    return (conversations[b].updatedAt || 0) - (conversations[a].updatedAt || 0);
+  });
+  if (!ids.length) {
+    list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:0.5rem 0.75rem">No conversations yet</div>';
+    return;
+  }
+  list.innerHTML = ids.map(id => {
+    const c = conversations[id];
+    const active = id === activeConvId ? 'active' : '';
+    return `<div class="conv-item ${active}" onclick="loadConversation('${id}')">
+      <i class="fas fa-comment" style="font-size:11px;flex-shrink:0"></i>
+      <span class="conv-title">${escape(c.title || 'Untitled')}</span>
+      <button class="conv-del" onclick="event.stopPropagation();deleteConversation('${id}')" title="Delete">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function newConversation() {
+  const id = uid();
+  conversations[id] = { id, title: 'New chat', messages: [], createdAt: Date.now(), updatedAt: Date.now() };
+  persistConversations();
+  loadConversation(id);
+}
+
+function loadConversation(id) {
+  activeConvId = id;
+  renderConvList();
+  renderMessages();
+}
+
+function deleteConversation(id) {
+  delete conversations[id];
+  persistConversations();
+  if (activeConvId === id) {
+    activeConvId = null;
+    document.getElementById('messages').innerHTML = buildWelcome();
+  }
+  renderConvList();
+}
+
+function clearAllConversations() {
+  if (!confirm('Delete all conversation history?')) return;
+  conversations = {};
+  activeConvId = null;
+  persistConversations();
+  renderConvList();
+  document.getElementById('messages').innerHTML = buildWelcome();
+}
+
+function buildWelcome() {
+  return `<div id="welcome" style="margin:auto;text-align:center;color:var(--text-muted);max-width:380px">
+    <h2><i class="fas fa-comments" style="color:var(--accent)"></i> Ollama Chat</h2>
+    <p>Select a model above and start a conversation. Your chat history is saved locally in your browser.</p>
+  </div>`;
+}
+
+/* =========================================================
+   Render messages
+   ========================================================= */
+function renderMessages() {
+  const conv = activeConvId ? conversations[activeConvId] : null;
+  const container = document.getElementById('messages');
+  if (!conv || !conv.messages.length) {
+    container.innerHTML = buildWelcome();
+    return;
+  }
+  container.innerHTML = conv.messages.map((m, i) => buildMessageHTML(m, i)).join('');
+  scrollToBottom();
+}
+
+function buildMessageHTML(msg, index) {
+  const isUser = msg.role === 'user';
+  const avatar = isUser
+    ? '<i class="fas fa-user"></i>'
+    : '<i class="fas fa-robot"></i>';
+  const thinkingHTML = msg.thinking
+    ? `<div class="thinking-block"><i class="fas fa-brain" style="margin-right:.35rem"></i>${renderMarkdown(msg.thinking)}</div>`
+    : '';
+  const content = renderMarkdown(msg.content || '');
+  const imageHTML = msg.imageUrl
+    ? `<div style="margin-top:.5rem"><img src="${msg.imageUrl}" style="max-width:260px;border-radius:var(--radius-sm);cursor:pointer" onclick="openLightbox('${msg.imageUrl}')" alt="Image"></div>`
+    : '';
+  const linkedThumbHTML = (!isUser && msg.linkedImageUrl)
+    ? `<img class="msg-linked-thumb" src="${msg.linkedImageUrl}" onclick="openLightbox('${msg.linkedImageUrl}')" alt="Generated image">`
+    : '';
+  const imgBtnClass = msg.linkedImageUrl ? 'msg-action-btn has-image' : 'msg-action-btn';
+  const imgBtnTitle = msg.linkedImageUrl ? 'Regenerate image' : 'Generate image from this message';
+  const actions = isUser ? '' : `
+    <div class="msg-actions">
+      <button class="msg-action-btn" onclick="copyMessage(${index})" title="Copy"><i class="fas fa-copy"></i></button>
+      <button class="msg-action-btn" onclick="speakMessage(${index})" title="Read aloud"><i class="fas fa-volume-up"></i></button>
+      <button class="${imgBtnClass} msg-img-btn" onclick="buildImageForMessage(${index})" title="${imgBtnTitle}"><i class="fas fa-image"></i></button>
+    </div>`;
+  return `<div class="msg-row ${isUser ? 'user' : 'ai'}" data-index="${index}">
+    <div class="msg-avatar">${avatar}</div>
+    <div>
+      <div class="msg-bubble">${thinkingHTML}${content}${imageHTML}${linkedThumbHTML}</div>
+      ${actions}
+    </div>
+  </div>`;
+}
+
+function addTypingIndicator() {
+  const container = document.getElementById('messages');
+  const el = document.createElement('div');
+  el.className = 'msg-row ai';
+  el.id = 'typing-indicator';
+  el.innerHTML = `<div class="msg-avatar"><i class="fas fa-robot"></i></div>
+    <div class="msg-bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  container.appendChild(el);
+  scrollToBottom();
+}
+
+function removeTypingIndicator() {
+  const el = document.getElementById('typing-indicator');
+  if (el) el.remove();
+}
+
+/* =========================================================
+   Model loading  — mirrors the settings page pattern
+   ========================================================= */
+async function loadModels() {
+  const sel = document.getElementById('model-select');
+  const icon = document.getElementById('refresh-models-icon');
+  if (icon) icon.classList.add('fa-spin');
+
+  // The model to pre-select: last used in chat, or the server-configured default
+  const serverDefault = '{{ ollama_model_name }}';
+  const preferred = localStorage.getItem('chat_model') || serverDefault;
+
+  try {
+    const resp = await fetch('/api/ai/ollama/models');
+    const data = await resp.json();
+
+    if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+
+    const models = Array.isArray(data.models) ? data.models : [];
+    if (!models.length) {
+      sel.innerHTML = `<option value="${preferred}">${preferred}</option>`;
+      setStatusDot(true);
+      return;
+    }
+
+    sel.innerHTML = '';
+    let foundPreferred = false;
+    models.forEach(m => {
+      const id = m.id || m.name;
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = m.name || id;
+      if (m.size) {
+        const gb = (Number(m.size) / (1024 ** 3)).toFixed(1);
+        opt.title = `~${gb} GB`;
+      }
+      if (id === preferred) { opt.selected = true; foundPreferred = true; }
+      sel.appendChild(opt);
+    });
+
+    if (!foundPreferred && preferred) {
+      const opt = document.createElement('option');
+      opt.value = preferred;
+      opt.textContent = `${preferred} (saved)`;
+      opt.selected = true;
+      sel.appendChild(opt);
+    }
+
+    setStatusDot(true);
+  } catch (err) {
+    sel.innerHTML = `<option value="${preferred}">${preferred}</option>`;
+    setStatusDot(false, err.message);
+  } finally {
+    if (icon) icon.classList.remove('fa-spin');
+  }
+}
+
+/* =========================================================
+   Health check
+   ========================================================= */
+function setStatusDot(online, msg) {
+  const dot = document.getElementById('status-dot');
+  dot.className = 'online' + (!online ? ' error' : '');
+  dot.style.background = online ? 'var(--success)' : 'var(--danger)';
+  dot.title = online ? 'Ollama online' : (msg || 'Offline');
+}
+
+async function checkHealth() {
+  try {
+    const resp = await fetch(`${API}/api/health`);
+    const data = await resp.json();
+    const ollamaOk = data.ollama?.online;
+    setStatusDot(ollamaOk, ollamaOk ? null : 'Ollama offline');
+  } catch {
+    setStatusDot(false, 'Could not reach proxy');
+  }
+}
+
+/* =========================================================
+   Sending messages
+   ========================================================= */
+async function sendMessage() {
+  if (isGenerating) return;
+  const input = document.getElementById('user-input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  const model = document.getElementById('model-select').value;
+  if (!model) { alert('Please select a model first.'); return; }
+
+  // Ensure we have an active conversation
+  if (!activeConvId) newConversation();
+  const conv = conversations[activeConvId];
+
+  // Add user message
+  conv.messages.push({ role: 'user', content: text });
+  conv.updatedAt = Date.now();
+  if (conv.title === 'New chat' && text.length < 60) conv.title = text;
+  persistConversations();
+  renderMessages();
+  renderConvList();
+  input.value = '';
+  input.style.height = 'auto';
+
+  // Build messages array for Ollama
+  let messages = [...conv.messages];
+  if (settings.systemPrompt) {
+    messages = [{ role: 'system', content: settings.systemPrompt }, ...messages];
+  }
+  if (settings.maxContext > 0 && messages.length > settings.maxContext + 1) {
+    const systemMsg = settings.systemPrompt ? [messages[0]] : [];
+    const recent = messages.slice(-settings.maxContext);
+    messages = [...systemMsg, ...recent];
+  }
+
+  // Lock UI
+  isGenerating = true;
+  abortController = new AbortController();
+  document.getElementById('send-btn').style.display = 'none';
+  document.getElementById('stop-btn').style.display = 'flex';
+  addTypingIndicator();
+
+  // Placeholder AI message
+  const aiMsg = { role: 'assistant', content: '', thinking: '' };
+  conv.messages.push(aiMsg);
+  const aiIndex = conv.messages.length - 1;
+
+  try {
+    const body = {
+      model,
+      messages,
+      stream: true,
+      options: { temperature: settings.temperature },
+    };
+    if (thinkingEnabled) body.think = true;
+
+    const resp = await fetch(`${API}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: abortController.signal,
+    });
+
+    if (!resp.ok) {
+      const err = await resp.text();
+      throw new Error(`Ollama error ${resp.status}: ${err}`);
+    }
+
+    removeTypingIndicator();
+    renderMessages();
+
+    const reader = resp.body.pipeThrough(new TextDecoderStream()).getReader();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += value;
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // keep incomplete line
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+          const chunk = JSON.parse(trimmed);
+          if (chunk.message) {
+            if (chunk.message.thinking) aiMsg.thinking += chunk.message.thinking;
+            if (chunk.message.content)  aiMsg.content  += chunk.message.content;
+          }
+          if (chunk.done) break;
+        } catch { /* partial JSON — skip */ }
+      }
+      // Live update the last message bubble
+      updateLastBubble(aiMsg);
+    }
+
+    // Final parse of any remaining buffer
+    if (buffer.trim()) {
+      try {
+        const chunk = JSON.parse(buffer.trim());
+        if (chunk.message?.content) aiMsg.content += chunk.message.content;
+      } catch {}
+    }
+
+    localStorage.setItem('chat_model', model);
+    // ── Post-response automation ───────────────────────────────────────────
+    if (aiMsg.content) {
+      if (autoTtsEnabled)   runAutoTts(aiMsg.content);
+      if (autoImageEnabled) { setImgTether(aiIndex); runAutoImage(aiMsg.content, aiIndex); }
+    }
+  } catch (err) {
+    removeTypingIndicator();
+    if (err.name !== 'AbortError') {
+      aiMsg.content = `⚠️ Error: ${err.message}`;
+      setStatusDot(false, err.message);
+    } else {
+      if (!aiMsg.content) aiMsg.content = '_Generation stopped._';
+    }
+  } finally {
+    isGenerating = false;
+    abortController = null;
+    document.getElementById('send-btn').style.display = 'flex';
+    document.getElementById('stop-btn').style.display = 'none';
+    persistConversations();
+    renderMessages();
+    renderConvList();
+    scrollToBottom();
+  }
+}
+
+function updateLastBubble(aiMsg) {
+  // Find last .msg-row.ai and update its bubble for live streaming
+  const rows = document.querySelectorAll('#messages .msg-row.ai');
+  const last = rows[rows.length - 1];
+  if (!last) return;
+  const bubble = last.querySelector('.msg-bubble');
+  if (!bubble) return;
+  const thinkingHTML = aiMsg.thinking
+    ? `<div class="thinking-block"><i class="fas fa-brain" style="margin-right:.35rem"></i>${renderMarkdown(aiMsg.thinking)}</div>`
+    : '';
+  bubble.innerHTML = thinkingHTML + renderMarkdown(aiMsg.content || '▌');
+  scrollToBottom();
+}
+
+function stopGeneration() {
+  if (abortController) abortController.abort();
+}
+
+/* =========================================================
+   Message actions
+   ========================================================= */
+function copyMessage(index) {
+  const conv = activeConvId ? conversations[activeConvId] : null;
+  if (!conv) return;
+  const msg = conv.messages[index];
+  if (msg) navigator.clipboard.writeText(msg.content).catch(() => {});
+}
+
+function speakMessage(index) {
+  const conv = activeConvId ? conversations[activeConvId] : null;
+  if (!conv) return;
+  const msg = conv.messages[index];
+  if (!msg) return;
+  document.getElementById('tts-source-text').value = msg.content;
+  switchRpTab('tts');
+  if (document.getElementById('right-panel').classList.contains('collapsed')) {
+    document.getElementById('right-panel').classList.remove('collapsed');
+  }
+}
+
+/* =========================================================
+   Right panel tabs
+   ========================================================= */
+function switchRpTab(name) {
+  document.querySelectorAll('.rp-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.rp-pane').forEach(p => p.classList.toggle('active', p.id === `rp-${name}`));
+}
+
+/* =========================================================
+   Image generation
+   ========================================================= */
+async function loadImageModels() {
+  const sel  = document.getElementById('img-model');
+  const icon = document.getElementById('refresh-img-models-icon');
+  if (icon) icon.classList.add('fa-spin');
+
+  const serverDefault = '{{ comfy_model_name }}';
+  const preferred = localStorage.getItem('chat_img_model') || serverDefault || '';
+
+  try {
+    const resp = await fetch(`${API}/api/comfy-models`);
+    const data = await resp.json();
+    const models = data.models || [];
+
+    if (!models.length) {
+      sel.innerHTML = preferred
+        ? `<option value="${preferred}">${preferred}</option>`
+        : '<option value="">No models found</option>';
+      return;
+    }
+
+    sel.innerHTML = '';
+    let foundPreferred = false;
+    models.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = m;
+      if (m === preferred) { opt.selected = true; foundPreferred = true; }
+      sel.appendChild(opt);
+    });
+
+    if (!foundPreferred && preferred) {
+      const opt = document.createElement('option');
+      opt.value = preferred;
+      opt.textContent = `${preferred} (saved)`;
+      opt.selected = true;
+      sel.appendChild(opt);
+    }
+  } catch {
+    if (preferred) {
+      sel.innerHTML = `<option value="${preferred}">${preferred} (ComfyUI offline)</option>`;
+    } else {
+      sel.innerHTML = '<option value="">ComfyUI offline</option>';
+    }
+  } finally {
+    if (icon) icon.classList.remove('fa-spin');
+  }
+}
+
+// Assemble positive/negative strings from section inputs
+function assembleImgPrompts() {
+  const POS_ORDER = ['actors', 'who', 'hair', 'body', 'act', 'focus', 'modifier', 'mood', 'lighting', 'location', 'quality', 'rating'];
+  const NEG_ORDER = ['style', 'character', 'composition'];
+  const BASE_NEG  = 'lowres, bad anatomy, bad hands, text, error, missing fingers, extra digits, cropped, worst quality, low quality, watermark';
+  const pos = {};
+  document.querySelectorAll('.img-sec-inp[data-pos-sec]').forEach(inp => { pos[inp.dataset.posSec] = inp.value.trim(); });
+  const neg = {};
+  document.querySelectorAll('.img-sec-inp[data-neg-sec]').forEach(inp => { neg[inp.dataset.negSec] = inp.value.trim(); });
+  const positive = POS_ORDER.map(k => pos[k] || '').filter(Boolean).join(', ');
+  const negSectionText = NEG_ORDER.map(k => neg[k] || '').filter(Boolean).join(', ');
+  const negative = [negSectionText, BASE_NEG].filter(Boolean).join(', ');
+  return { positive, negative };
+}
+
+function setImgTether(index) {
+  currentTetheredIndex = index;
+  const badge = document.getElementById('img-tether-badge');
+  const num   = document.getElementById('img-tether-num');
+  if (badge) badge.style.display = 'flex';
+  if (num)   num.textContent = index + 1;  // 1-based for display
+}
+
+function clearImgTether() {
+  currentTetheredIndex = undefined;
+  const badge = document.getElementById('img-tether-badge');
+  if (badge) badge.style.display = 'none';
+}
+
+async function generateImage(tetheredIndex) {
+  if (tetheredIndex === undefined) tetheredIndex = currentTetheredIndex;
+  const { positive: prompt, negative: negPrompt } = assembleImgPrompts();
+  const status = document.getElementById('img-status');
+  if (!prompt) { status.textContent = '⚠️ Fill in at least one positive section first.'; return; }
+
+  const model      = document.getElementById('img-model').value;
+  if (model) localStorage.setItem('chat_img_model', model);
+  const steps      = parseInt(document.getElementById('img-steps').value);
+  const cfg        = parseFloat(document.getElementById('img-cfg').value);
+  const [imgW, imgH] = (document.getElementById('img-size').value || '512x512').split('x').map(Number);
+
+  const btn = document.getElementById('gen-img-btn');
+  btn.disabled = true;
+  status.textContent = 'Submitting…';
+
+  try {
+    // Step 1 — submit job; returns immediately with a prompt_id
+    const submitResp = await fetch(`${API}/api/generate-image`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, negative_prompt: negPrompt, model, steps, cfg, width: imgW, height: imgH }),
+    });
+    if (!submitResp.ok) throw new Error(`HTTP ${submitResp.status}`);
+    const submitData = await submitResp.json();
+    if (submitData.error) throw new Error(submitData.error);
+    const promptId = submitData.prompt_id;
+
+    // Step 2 — poll /api/image-status/<id> until done (up to ~10 min)
+    status.textContent = 'Generating… (0 s)';
+    const startTs = Date.now();
+    let dataUrl = null;
+
+    for (let attempt = 0; attempt < 300; attempt++) {
+      await new Promise(r => setTimeout(r, 2000));
+      const elapsed = Math.round((Date.now() - startTs) / 1000);
+      status.textContent = `Generating… (${elapsed} s)`;
+
+      const pollResp = await fetch(`${API}/api/image-status/${promptId}`);
+      if (!pollResp.ok) continue;
+      const poll = await pollResp.json();
+
+      if (poll.status === 'done') {
+        dataUrl = poll.data_url;
+        break;
+      }
+      if (poll.status === 'error') {
+        throw new Error(poll.error || 'ComfyUI reported an error');
+      }
+      // 'pending' — keep polling
+    }
+
+    if (!dataUrl) throw new Error('Image generation timed out');
+
+    status.textContent = '';
+    const resultDiv = document.getElementById('image-result');
+    resultDiv.innerHTML = `
+      <img src="${dataUrl}" alt="Generated" onclick="openLightbox('${dataUrl}')">
+      <div class="img-actions">
+        <button onclick="downloadImage('${dataUrl}')"><i class="fas fa-download"></i> Save</button>
+        <button onclick="insertImageIntoChat('${dataUrl}')"><i class="fas fa-comment"></i> In chat</button>
+        ${promptId ? `<button onclick="deleteImage('${promptId}', this.closest('.img-actions').parentElement)"><i class="fas fa-trash"></i></button>` : ''}
+      </div>`;
+
+    // Tether image to the originating message
+    if (tetheredIndex !== undefined && activeConvId) {
+      const conv = conversations[activeConvId];
+      if (conv && conv.messages[tetheredIndex]) {
+        conv.messages[tetheredIndex].linkedImageUrl = dataUrl;
+        persistConversations();
+        renderMessages();
+      }
+    }
+  } catch (err) {
+    status.textContent = '⚠️ ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function downloadImage(dataUrl) {
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = `generated-${Date.now()}.png`;
+  a.click();
+}
+
+function insertImageIntoChat(dataUrl) {
+  if (!activeConvId) newConversation();
+  const conv = conversations[activeConvId];
+  conv.messages.push({ role: 'assistant', content: '*(generated image)*', imageUrl: dataUrl });
+  conv.updatedAt = Date.now();
+  persistConversations();
+  renderMessages();
+}
+
+async function deleteImage(assetId, containerEl) {
+  try {
+    await fetch(`${API}/api/delete-image`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt_id: assetId }),
+    });
+    if (containerEl) containerEl.remove();
+  } catch (err) {
+    alert('Could not delete: ' + err.message);
+  }
+}
+
+/* =========================================================
+   Lightbox
+   ========================================================= */
+function openLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+
+/* =========================================================
+   Auto-TTS
+   ========================================================= */
+function stripMarkdown(text) {
+  return text
+    .replace(/```[\s\S]*?```/g, '')   // code blocks
+    .replace(/`[^`]+`/g, '')          // inline code
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1') // links/images
+    .replace(/#{1,6}\s*/g, '')        // headings
+    .replace(/[*_~]{1,3}([^*_~]+)[*_~]{1,3}/g, '$1') // bold/italic
+    .replace(/^[-*+]\s+/gm, '')       // list bullets
+    .replace(/^\d+\.\s+/gm, '')       // numbered lists
+    .replace(/^>+\s*/gm, '')          // blockquotes
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+async function runAutoTts(text) {
+  const voice = document.getElementById('tts-voice').value;
+  const speed = parseFloat(document.getElementById('tts-speed').value) || 1.0;
+  const clean = stripMarkdown(text).slice(0, 3000);
+  if (!clean) return;
+  try {
+    const resp = await fetch(`${API}/api/tts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: clean, voice, speed }),
+    });
+    if (!resp.ok) return;
+    const blob = await resp.blob();
+    const url  = URL.createObjectURL(blob);
+    // Play silently in background sink — no UI switch required
+    const player = document.getElementById('auto-tts-player');
+    player.style.display = 'block';
+    player.innerHTML = `<audio autoplay src="${url}" onended="this.parentElement.style.display='none'"
+      style="position:fixed;bottom:8px;right:8px;width:260px;border-radius:8px;z-index:9999"></audio>`;
+  } catch { /* silently ignore */ }
+}
+
+/* =========================================================
+   Auto-image
+   ========================================================= */
+async function buildImageForMessage(index) {
+  if (!activeConvId) return;
+  const conv = conversations[activeConvId];
+  const msg = conv && conv.messages[index];
+  if (!msg || msg.role !== 'assistant' || !msg.content) return;
+
+  // Open panel so progress is visible
+  const rp = document.getElementById('right-panel');
+  if (rp.classList.contains('collapsed')) rp.classList.remove('collapsed');
+  switchRpTab('image');
+
+  setImgTether(index);
+
+  // Mark the button as pending for visual feedback during generation
+  const btn = document.querySelector(`#messages .msg-row[data-index="${index}"] .msg-img-btn`);
+  if (btn) { btn.classList.remove('has-image'); btn.classList.add('img-pending'); }
+
+  if (msg.linkedImageUrl) {
+    // Image already exists — regenerate using the current section values (user may have tweaked them)
+    await generateImage(index);
+  } else {
+    // First time — ask Ollama to build the prompt sections, then generate
+    await runAutoImage(msg.content, index);
+  }
+}
+
+async function runAutoImage(responseText, tetheredIndex) {
+  const model = document.getElementById('model-select').value;
+  if (!model) return;
+
+  // Open the image panel immediately so the user can see progress
+  const rp = document.getElementById('right-panel');
+  if (rp.classList.contains('collapsed')) rp.classList.remove('collapsed');
+  switchRpTab('image');
+
+  if (tetheredIndex !== undefined) setImgTether(tetheredIndex);
+
+  const status = document.getElementById('img-status');
+  status.textContent = '🎨 Building image prompt…';
+
+  const IMG_SECTION_SYSTEM = `You are an image prompt engineer for an Illustrious XL diffusion model. Given a piece of text, respond ONLY with a valid JSON object (no markdown, no code fences, no extra text) with exactly two top-level keys: "positive" and "negative". "positive" must be a JSON object with exactly these 11 keys (all strings, use empty string if not applicable): "actors" (Danbooru count tags, e.g. "1girl, solo"), "who" (character name/series if identifiable), "hair" (hair colour/length/style only — permanent physical traits), "body" (permanent physical build and skin attributes only — never clothing), "act" (action/pose/interaction), "focus" (framing and composition — crop style), "modifier" (clothing and accessories ONLY), "mood" (emotional tone/expression only), "lighting" (light source and quality only), "location" (a SINGLE setting — pick ONE place, never two), "quality" (technical quality tags, e.g. "masterpiece, best quality, very aesthetic, absurdres, highres"). "negative" must be a JSON object with exactly these 3 keys: "style" (art-style conflicts — ALWAYS include "realistic, 3d, photorealistic"), "character" (wrong physical or costume traits to exclude), "composition" (scene or framing clashes — empty string if no conflict). Each value must be comma-separated Danbooru-style tags — no sentences, no nesting.`;
+
+  const POS_KEYS = ['actors', 'who', 'hair', 'body', 'act', 'focus', 'modifier', 'mood', 'lighting', 'location', 'quality'];
+  const NEG_KEYS = ['style', 'character', 'composition'];
+
+  let parsedSections = null;
+  let fallbackPrompt = '';
+
+  try {
+    const resp = await fetch(`${API}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        stream: true,
+        options: { temperature: 0.7 },
+        messages: [
+          { role: 'system', content: IMG_SECTION_SYSTEM },
+          { role: 'user', content: responseText.slice(0, 1200) }
+        ]
+      }),
+    });
+    if (resp.ok) {
+      const raw = await resp.text();
+      let content = '';
+      for (const line of raw.trim().split('\n')) {
+        if (!line.trim()) continue;
+        try { const chunk = JSON.parse(line); content += chunk.message?.content || ''; } catch { }
+      }
+      content = content.trim();
+
+      // Try to extract and parse JSON from the response
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.positive && typeof parsed.positive === 'object') {
+            parsedSections = parsed;
+          }
+        } catch {
+          // Try removing trailing commas before closing braces
+          try {
+            const cleaned = jsonMatch[0].replace(/,(\s*[}\]])/g, '$1');
+            const parsed = JSON.parse(cleaned);
+            if (parsed.positive && typeof parsed.positive === 'object') parsedSections = parsed;
+          } catch { }
+        }
+      }
+      if (!parsedSections) fallbackPrompt = content;
+    }
+  } catch (e) {
+    console.warn('[auto-image] Ollama prompt generation failed:', e);
+  }
+
+  status.textContent = '';
+
+  if (parsedSections) {
+    // Populate positive sections
+    for (const key of POS_KEYS) {
+      const el = document.querySelector(`.img-sec-inp[data-pos-sec="${key}"]`);
+      if (!el) continue;
+      const val = (parsedSections.positive[key] || '').trim();
+      // Don't overwrite quality if AI left it empty — keep the default
+      if (val) el.value = val;
+      else if (key !== 'quality') el.value = '';
+    }
+    // Populate negative sections
+    if (parsedSections.negative && typeof parsedSections.negative === 'object') {
+      for (const key of NEG_KEYS) {
+        const el = document.querySelector(`.img-sec-inp[data-neg-sec="${key}"]`);
+        if (!el) continue;
+        const val = (parsedSections.negative[key] || '').trim();
+        if (val) el.value = val;
+        // Always keep at least the baseline for 'style' if AI left it empty
+        else if (key === 'style') el.value = 'realistic, 3d, photorealistic';
+        else el.value = '';
+      }
+    }
+    console.log('[auto-image] Populated sections from JSON:', parsedSections);
+  } else {
+    // Fallback: stuff the raw text into the 'act' field (best-effort)
+    const fallback = fallbackPrompt || stripMarkdown(responseText).slice(0, 300);
+    if (!fallback) { status.textContent = '⚠️ Could not build image prompt'; return; }
+    console.warn('[auto-image] JSON parse failed, using fallback into act field');
+    const actEl = document.querySelector('.img-sec-inp[data-pos-sec="act"]');
+    if (actEl) actEl.value = fallback;
+  }
+
+  generateImage(tetheredIndex);
+}
+
+/* =========================================================
+   TTS (manual)
+   ========================================================= */
+async function synthesizeSpeech() {
+  const text = document.getElementById('tts-source-text').value.trim();
+  if (!text) { alert('Please enter text to synthesize.'); return; }
+
+  const voice  = document.getElementById('tts-voice').value;
+  const speed  = parseFloat(document.getElementById('tts-speed').value);
+  const btn    = document.getElementById('tts-btn');
+  const status = document.getElementById('tts-status');
+
+  btn.disabled = true;
+  status.textContent = 'Synthesizing…';
+
+  try {
+    const resp = await fetch(`${API}/api/tts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, voice, speed }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${resp.status}`);
+    }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    status.textContent = '';
+    document.getElementById('tts-audio-player').innerHTML =
+      `<audio controls autoplay src="${url}" style="width:100%"></audio>`;
+  } catch (err) {
+    status.textContent = '⚠️ ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* =========================================================
+   UI controls
+   ========================================================= */
+document.getElementById('toggle-sidebar').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+});
+
+document.getElementById('toggle-right-panel').addEventListener('click', () => {
+  document.getElementById('right-panel').classList.toggle('collapsed');
+});
+
+document.getElementById('toggle-think').addEventListener('click', function() {
+  thinkingEnabled = !thinkingEnabled;
+  this.classList.toggle('active', thinkingEnabled);
+  this.title = thinkingEnabled ? 'Thinking enabled' : 'Enable extended reasoning';
+});
+
+document.getElementById('toggle-auto-tts').addEventListener('click', function() {
+  autoTtsEnabled = !autoTtsEnabled;
+  this.classList.toggle('active', autoTtsEnabled);
+  this.title = autoTtsEnabled ? 'Auto-TTS on — click to disable' : 'Auto-speak AI responses';
+  localStorage.setItem('chat_auto_tts', autoTtsEnabled ? '1' : '');
+});
+
+document.getElementById('toggle-auto-image').addEventListener('click', function() {
+  autoImageEnabled = !autoImageEnabled;
+  this.classList.toggle('active', autoImageEnabled);
+  this.title = autoImageEnabled ? 'Auto-image on — click to disable' : 'Auto-generate image from AI responses';
+  localStorage.setItem('chat_auto_image', autoImageEnabled ? '1' : '');
+});
+
+document.getElementById('model-select').addEventListener('change', function() {
+  localStorage.setItem('chat_model', this.value);
+});
+
+const userInput = document.getElementById('user-input');
+userInput.addEventListener('input', () => autoResize(userInput));
+userInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+/* =========================================================
+   Init
+   ========================================================= */
+(function init() {
+  loadPersistedConversations();
+  loadPersistedSettings();
+
+  // Restore auto-TTS / auto-image toggle states
+  if (localStorage.getItem('chat_auto_tts')) {
+    autoTtsEnabled = true;
+    document.getElementById('toggle-auto-tts').classList.add('active');
+  }
+  if (localStorage.getItem('chat_auto_image')) {
+    autoImageEnabled = true;
+    document.getElementById('toggle-auto-image').classList.add('active');
+  }
+
+  renderConvList();
+
+  // Load the most recent conversation if any
+  const ids = Object.keys(conversations).sort((a, b) =>
+    (conversations[b].updatedAt || 0) - (conversations[a].updatedAt || 0));
+  if (ids.length) loadConversation(ids[0]);
+
+  loadModels();
+  loadImageModels();
+  checkHealth();
+
+  // Periodic health check every 30s
+  setInterval(checkHealth, 30000);
+})();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
