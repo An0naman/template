@@ -246,20 +246,23 @@
         .decoration-rainbow::before { content: "🌈"; position: absolute; top: 0.5rem; right: 0.5rem; opacity: 0.5; }
 
         .entry-item {
-            background: var(--theme-bg-card, var(--bs-body-bg));
-            border: 1px solid var(--theme-border, var(--bs-border-color));
+            background: var(--entry-item-bg, var(--theme-bg-card, var(--bs-body-bg)));
+            border: 1px solid var(--entry-item-border, var(--theme-border, var(--bs-border-color)));
             border-radius: var(--border-radius);
             padding: var(--content-spacing);
             margin-bottom: 1rem;
             transition: all 0.2s ease;
             border-left: 3px solid transparent;
+            backdrop-filter: var(--entry-item-backdrop, none);
+            -webkit-backdrop-filter: var(--entry-item-backdrop, none);
         }
 
         .entry-item:hover {
+            background: var(--entry-item-bg-hover, var(--theme-bg-card, var(--bs-body-bg)));
             box-shadow: var(--shadow-md);
             transform: translateY(-1px);
-            border-color: var(--theme-primary, #0d6efd);
-            border-left-color: var(--theme-primary, #0d6efd);
+            border-color: var(--entry-item-border-hover, var(--theme-primary, #0d6efd));
+            border-left-color: var(--entry-item-border-left-hover, var(--theme-primary, #0d6efd));
         }
 
         /* Entry title styling */

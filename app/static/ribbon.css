@@ -2,6 +2,299 @@
 /* Theme-aware ribbon component that adapts to light/dark modes */
 
 .app-ribbon {
+    background: var(--theme-primary, var(--bs-primary));
+    color: white;
+    padding: 0.4rem 0;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 16px rgba(0, 0, 0, 0.2);
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ribbon-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 44px;
+}
+
+.ribbon-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    flex-shrink: 0;
+}
+
+.ribbon-logo {
+    height: 28px;
+    width: 28px;
+    object-fit: cover;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 2px;
+}
+
+.ribbon-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: white;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+}
+
+/* Navigation Section */
+.ribbon-navigation {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex: 1;
+    justify-content: center;
+    margin: 0 1rem;
+}
+
+.ribbon-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+.ribbon-btn {
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 0.3rem 0.7rem;
+    border-radius: 7px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    text-decoration: none;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+
+.ribbon-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: white;
+}
+
+.ribbon-btn:active {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.ribbon-btn i {
+    font-size: 0.875rem;
+    opacity: 0.9;
+}
+
+/* Navigation button styles */
+.ribbon-nav-btn {
+    position: relative;
+}
+
+.ribbon-nav-btn.active {
+    background: rgba(255, 255, 255, 0.22);
+    border-color: rgba(255, 255, 255, 0.35);
+    color: white;
+    font-weight: 600;
+}
+
+.ribbon-nav-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -0.4rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 50%;
+    height: 2px;
+    background: white;
+    border-radius: 2px;
+    opacity: 0.8;
+}
+
+/* Back button styles */
+.ribbon-back-btn {
+    margin-right: 0.5rem;
+    padding-right: 0.875rem;
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+    border-right-style: solid;
+}
+
+.ribbon-back-btn.disabled,
+.ribbon-back-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* Notification button styles */
+.ribbon-notification-btn {
+    position: relative;
+}
+
+.ribbon-notification-badge {
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    background: #ff453a;
+    color: white;
+    border-radius: 50%;
+    min-width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 0 3px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    animation: notificationPulse 2s infinite;
+}
+
+@keyframes notificationPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.12); }
+}
+
+.ribbon-notification-badge:empty {
+    display: none;
+}
+
+/* Dark mode - subtle frosted glass override */
+[data-bs-theme="dark"] .app-ribbon {
+    background: var(--theme-primary, var(--bs-primary));
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+[data-bs-theme="dark"] .ribbon-btn {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+[data-bs-theme="dark"] .ribbon-btn:hover {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.22);
+}
+
+[data-bs-theme="dark"] .ribbon-nav-btn.active {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+/* Responsive design */
+@media (max-width: 992px) {
+    .ribbon-navigation {
+        margin: 0 0.5rem;
+    }
+    
+    .ribbon-back-btn {
+        padding-right: 0.625rem;
+        margin-right: 0.25rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .ribbon-container {
+        padding: 0 0.875rem;
+        height: 40px;
+    }
+    
+    .ribbon-logo {
+        height: 26px;
+        width: 26px;
+    }
+    
+    .ribbon-title {
+        font-size: 0.875rem;
+    }
+    
+    .ribbon-btn-text {
+        display: none;
+    }
+    
+    .ribbon-btn {
+        padding: 0.3rem 0.45rem;
+    }
+    
+    .ribbon-btn i {
+        margin: 0;
+    }
+    
+    .ribbon-navigation {
+        gap: 0.2rem;
+        margin: 0 0.25rem;
+    }
+    
+    .ribbon-back-btn {
+        margin-right: 0.25rem;
+        padding-right: 0.45rem;
+    }
+    
+    .ribbon-notification-badge {
+        top: -5px;
+        right: -5px;
+        min-width: 15px;
+        height: 15px;
+        font-size: 0.6rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .app-ribbon {
+        padding: 0.3rem 0;
+    }
+    
+    .ribbon-container {
+        padding: 0 0.75rem;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        height: auto;
+    }
+    
+    .ribbon-logo {
+        height: 24px;
+        width: 24px;
+    }
+    
+    .ribbon-title {
+        font-size: 0.8125rem;
+    }
+    
+    .ribbon-brand {
+        gap: 0.25rem;
+    }
+    
+    .ribbon-navigation {
+        order: 2;
+        width: 100%;
+        justify-content: flex-end;
+        margin: 0;
+        padding-top: 0.25rem;
+    }
+    
+    .ribbon-actions {
+        order: 3;
+    }
+}
+
+/* Print styles */
+@media print {
+    .app-ribbon { display: none; }
+}
+
+
+.app-ribbon {
     background: linear-gradient(135deg, var(--theme-primary, var(--bs-primary)), var(--theme-primary-hover, var(--bs-primary)));
     color: white;
     padding: 0.5rem 0;

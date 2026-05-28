@@ -9,10 +9,14 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='notifications_modern.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='mobile.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='ribbon.css') }}">
+
+    <!-- Dynamic Theme CSS -->
+    <style id="theme-styles">
+        {{ theme_css|safe }}
+    </style>
     
     <style>
         body {
-            background-color: var(--bs-body-bg);
             color: var(--bs-body-color);
         }
         .container {
@@ -393,6 +397,59 @@
                         <div class="alert alert-secondary">
                             <i class="fas fa-info-circle me-2"></i>
                             <strong>No API key required.</strong> The app will connect directly to your configured Ollama endpoint.
+                        </div>
+
+                        <!-- ComfyUI / Chat settings -->
+                        <hr>
+                        <h6 class="mb-3"><i class="fas fa-comments me-1"></i>Chat Page — ComfyUI Integration</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="comfyServerUrl" class="form-label">
+                                        <i class="fas fa-image me-1"></i>ComfyUI Image API URL:
+                                    </label>
+                                    <input type="text" class="form-control" id="comfyServerUrl"
+                                           value="{{ params.comfy_server_url if params.comfy_server_url else '' }}"
+                                           placeholder="http://host:8799">
+                                    <small class="text-muted">Custom Animagine/image-gen backend URL (used by the Chat page for image generation).</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="comfyTtsUrl" class="form-label">
+                                        <i class="fas fa-volume-up me-1"></i>ComfyUI TTS URL (Kokoro):
+                                    </label>
+                                    <input type="text" class="form-control" id="comfyTtsUrl"
+                                           value="{{ params.comfy_tts_url if params.comfy_tts_url else '' }}"
+                                           placeholder="http://host:8189 (leave blank to auto-derive)">
+                                    <small class="text-muted">Standard ComfyUI API used for Kokoro TTS. Defaults to the Image API host on port 8189.</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="comfyModelName" class="form-label">
+                                        <i class="fas fa-image me-1"></i>Default Image Model:
+                                    </label>
+                                    <div class="input-group">
+                                        <select class="form-select" id="comfyModelName">
+                                            {% if params.comfy_model_name %}
+                                            <option value="{{ params.comfy_model_name }}" selected>{{ params.comfy_model_name }}</option>
+                                            {% else %}
+                                            <option value="">— click refresh to detect, or type below —</option>
+                                            {% endif %}
+                                        </select>
+                                        <button class="btn btn-outline-secondary" type="button" onclick="loadComfyImageModels()" title="Detect available image models">
+                                            <i class="fas fa-rotate" id="comfyModelRefreshIcon"></i>
+                                        </button>
+                                    </div>
+                                    <input type="text" class="form-control form-control-sm mt-1" id="comfyModelNameManual"
+                                           value="{{ params.comfy_model_name if params.comfy_model_name else '' }}"
+                                           placeholder="Or type checkpoint filename, e.g. my-sdxl-model.safetensors">
+                                    <small class="text-muted" id="comfyModelHelp">Refresh to detect from ComfyUI, or type the filename manually above.</small>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -2823,6 +2880,70 @@
             }
         };
 
+        window.loadComfyImageModels = async function() {
+            const modelSelect = document.getElementById('comfyModelName');
+            const manualInput = document.getElementById('comfyModelNameManual');
+            const icon = document.getElementById('comfyModelRefreshIcon');
+            const helpText = document.getElementById('comfyModelHelp');
+            const serverUrlInput = document.getElementById('comfyServerUrl');
+            if (!modelSelect) return;
+
+            const configuredModel = "{{ params.comfy_model_name if params.comfy_model_name else '' }}";
+            const preferred = (manualInput && manualInput.value.trim()) || modelSelect.value || configuredModel || '';
+
+            if (icon) icon.classList.add('fa-spin');
+            if (helpText) helpText.textContent = 'Fetching image models from ComfyUI…';
+
+            try {
+                const serverUrl = serverUrlInput ? serverUrlInput.value.trim() : '';
+                const url = serverUrl
+                    ? `/ollama/api/comfy-models?server_url=${encodeURIComponent(serverUrl)}`
+                    : '/ollama/api/comfy-models';
+                const resp = await fetch(url);
+                const data = await resp.json();
+
+                if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+
+                const models = Array.isArray(data.models) ? data.models : [];
+                modelSelect.innerHTML = '';
+
+                if (!models.length) {
+                    modelSelect.innerHTML = preferred
+                        ? `<option value="${preferred}">${preferred}</option>`
+                        : '<option value="">No models found \u2014 type filename manually below</option>';
+                    if (helpText) helpText.textContent = 'ComfyUI reported no checkpoints in its default paths. Type the filename manually below.';
+                    return;
+                }
+
+                let foundPreferred = false;
+                models.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m;
+                    opt.textContent = m;
+                    if (m === preferred) { opt.selected = true; foundPreferred = true; }
+                    modelSelect.appendChild(opt);
+                });
+
+                if (!foundPreferred && preferred) {
+                    const opt = document.createElement('option');
+                    opt.value = preferred;
+                    opt.textContent = `${preferred} (saved)`;
+                    opt.selected = true;
+                    modelSelect.appendChild(opt);
+                }
+
+                if (helpText) helpText.textContent = `Detected ${models.length} model${models.length === 1 ? '' : 's'}.`;
+            } catch (err) {
+                console.error('Error loading ComfyUI image models:', err);
+                modelSelect.innerHTML = preferred
+                    ? `<option value="${preferred}">${preferred}</option>`
+                    : '<option value="">ComfyUI unreachable</option>';
+                if (helpText) helpText.textContent = err.message || 'Unable to reach ComfyUI.';
+            } finally {
+                if (icon) icon.classList.remove('fa-spin');
+            }
+        };
+
         document.addEventListener('DOMContentLoaded', function() {
             // --- Initialization from Server Params ---
             const params = {
@@ -2940,6 +3061,13 @@
                             else if (el.id === 'geminiModelName') formData.gemini_model_name = el.value;
                             else if (el.id === 'ollamaBaseUrl') formData.ollama_base_url = el.value;
                             else if (el.id === 'ollamaModelName') formData.ollama_model_name = el.value;
+                            else if (el.id === 'comfyServerUrl') formData.comfy_server_url = el.value;
+                            else if (el.id === 'comfyTtsUrl') formData.comfy_tts_url = el.value;
+                            else if (el.id === 'comfyModelName') {
+                                // Prefer the manual text input if it has a value
+                                const manual = document.getElementById('comfyModelNameManual');
+                                formData.comfy_model_name = (manual && manual.value.trim()) ? manual.value.trim() : el.value;
+                            }
 
                             else if (el.id === 'geminiBasePrompt') formData.gemini_base_prompt = el.value;
                             else if (el.id === 'promptDescription') formData.prompt_description = el.value;

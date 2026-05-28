@@ -127,7 +127,7 @@ def handle_theme_settings():
                 background_image = data.get('background_image', {})
                 
                 # Valid options validation
-                valid_themes = ['default', 'emerald', 'purple', 'amber', 'custom']
+                valid_themes = ['default', 'emerald', 'purple', 'amber', 'casaos', 'custom']
                 valid_font_sizes = ['small', 'normal', 'large', 'extra-large']
                 valid_section_border_styles = ['none', 'thin', 'thick', 'dashed', 'rounded', 'retro', 'pixelated', 'pokemon', 'nature', 'autumn', 'ocean', 'forest', 'sunset']
                 valid_section_spacing = ['compact', 'normal', 'spacious']
@@ -522,6 +522,15 @@ def generate_theme_css(settings=None):
             'danger': '#ef4444',
             'warning': '#f97316',
             'info': '#06b6d4'
+        },
+        'casaos': {
+            'primary': '#5a9cf5',
+            'primary_hover': '#3d84e8',
+            'secondary': '#8e8e93',
+            'success': '#30d158',
+            'danger': '#ff453a',
+            'warning': '#ffd60a',
+            'info': '#64d2ff'
         },
         'custom': {
             'primary': '#0d6efd',
@@ -1252,11 +1261,27 @@ def generate_theme_css(settings=None):
     if dark_mode:
         # Use custom dark mode colors or defaults
         dark_colors = default_dark_mode.copy()
+        
+        # CasaOS theme gets its own distinctive dark palette
+        if theme == 'casaos' and not custom_dark_mode:
+            dark_colors = {
+                'bg_body': '#1c1c1e',
+                'bg_card': '#2c2c2e',
+                'bg_surface': '#3a3a3c',
+                'text': '#f2f2f7',
+                'text_muted': '#8e8e93',
+                'border': '#3d3d40'
+            }
+        
         if custom_dark_mode:
             dark_colors.update(custom_dark_mode)
             
         # Calculate theme-appropriate dark mode info colors based on selected theme
-        if theme == 'emerald':
+        if theme == 'casaos':
+            info_bg = "#0d2545"
+            info_border = "#3a7bd5"
+            info_text = "#99cfff"
+        elif theme == 'emerald':
             info_bg = "#0a2f23"
             info_border = "#059669" 
             info_text = "#6ee7b7"
@@ -1410,6 +1435,199 @@ def generate_theme_css(settings=None):
             {'--section-backdrop-filter: blur(8px);' if background == 'glassmorphic' else ''}
         }}
         """
+        
+        # Add CasaOS-specific glassmorphism overrides
+        if theme == 'casaos':
+            css += """
+        /* CasaOS Theme - Glassmorphism & Enhanced Dark Mode */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif !important;
+        }
+        
+        html:not(:has(body[style*="background: transparent"])) body {
+            background: #1c1c1e;
+        }
+        
+        .app-ribbon {
+            background: rgba(28, 28, 30, 0.85) !important;
+            backdrop-filter: blur(20px) saturate(1.8) !important;
+            -webkit-backdrop-filter: blur(20px) saturate(1.8) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+            box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+        }
+        
+        .ribbon-title {
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+        
+        .ribbon-btn {
+            background: rgba(255, 255, 255, 0.08) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 8px !important;
+            font-family: 'Inter', sans-serif !important;
+            font-size: 0.8125rem !important;
+            font-weight: 500 !important;
+            letter-spacing: 0.01em !important;
+            transition: all 0.15s ease !important;
+        }
+        
+        .ribbon-btn:hover {
+            background: rgba(255, 255, 255, 0.14) !important;
+            border-color: rgba(255, 255, 255, 0.18) !important;
+            transform: none !important;
+        }
+        
+        .ribbon-nav-btn.active {
+            background: rgba(90, 156, 245, 0.2) !important;
+            border-color: rgba(90, 156, 245, 0.4) !important;
+            color: #5a9cf5 !important;
+        }
+        
+        .ribbon-nav-btn.active::after {
+            background: #5a9cf5 !important;
+            border-radius: 2px !important;
+        }
+        
+        /* Cards & Widgets */
+        .content-card:not(.results-frame), .dashboard-widget, .card:not(.results-frame), .theme-section:not(.results-frame), .filter-section {
+            background: rgba(28, 28, 30, 0.55) !important;
+            backdrop-filter: blur(16px) saturate(1.6) !important;
+            -webkit-backdrop-filter: blur(16px) saturate(1.6) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 14px !important;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+        }
+
+        /* Results frame must be fully transparent so entry-items are the only glass layer */
+        .content-card.results-frame, .theme-section.results-frame {
+            background: transparent !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+        }
+
+        .card:hover, .dashboard-widget:hover {
+            border-color: rgba(90, 156, 245, 0.3) !important;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(90, 156, 245, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.09) !important;
+        }
+        
+        .widget-header, .section-header {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+        }
+        
+        /* Entry list items - dark mode glass */
+        :root {
+            --entry-item-bg: rgba(58, 58, 60, 0.3);
+            --entry-item-bg-hover: rgba(58, 58, 60, 0.6);
+            --entry-item-border: rgba(255, 255, 255, 0.09);
+            --entry-item-backdrop: blur(14px) saturate(1.4);
+        }
+
+        .entry-item {
+            border-left: 3px solid transparent !important;
+            border-radius: 10px !important;
+        }
+
+        .entry-item:hover {
+            border-color: rgba(90, 156, 245, 0.3) !important;
+            border-left-color: rgba(90, 156, 245, 0.8) !important;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+        }
+        
+        /* Buttons */
+        .btn-primary {
+            background: #5a9cf5 !important;
+            border-color: #5a9cf5 !important;
+            border-radius: 8px !important;
+            font-weight: 500 !important;
+        }
+        
+        .btn-primary:hover {
+            background: #3d84e8 !important;
+            border-color: #3d84e8 !important;
+        }
+        
+        .btn-outline-primary {
+            color: #5a9cf5 !important;
+            border-color: rgba(90, 156, 245, 0.5) !important;
+            border-radius: 8px !important;
+        }
+        
+        .btn-outline-primary:hover {
+            background: rgba(90, 156, 245, 0.15) !important;
+            border-color: #5a9cf5 !important;
+            color: #5a9cf5 !important;
+        }
+        
+        .btn, button:not(.ribbon-btn) {
+            border-radius: 8px !important;
+        }
+        
+        /* Badges & Pills */
+        .badge {
+            border-radius: 6px !important;
+            font-weight: 500 !important;
+            letter-spacing: 0.02em !important;
+        }
+        
+        /* Form Controls */
+        .form-control, .form-select {
+            background: rgba(58, 58, 60, 0.6) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 8px !important;
+            color: #f2f2f7 !important;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            background: rgba(58, 58, 60, 0.8) !important;
+            border-color: rgba(90, 156, 245, 0.6) !important;
+            box-shadow: 0 0 0 3px rgba(90, 156, 245, 0.15) !important;
+        }
+        
+        /* Tables */
+        .table {
+            --bs-table-bg: transparent !important;
+        }
+        
+        /* Gridstack items */
+        .grid-stack-item-content {
+            border-radius: 14px !important;
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+        
+        /* Headings */
+        h1, h2, h3, h4, h5, h6, .widget-title {
+            font-family: 'Inter', sans-serif !important;
+            font-weight: 600 !important;
+            letter-spacing: -0.02em !important;
+        }
+        
+        /* Gridstack */
+        .gridstack {
+            background: transparent !important;
+        }
+        """
+        
     else:
         # Use custom light mode colors or defaults
         light_colors = default_light_mode.copy()
@@ -2537,7 +2755,149 @@ def generate_theme_css(settings=None):
             {'--section-backdrop-filter: blur(8px);' if background == 'glassmorphic' else ''}
         }}
         """
-    
+
+        # Add CasaOS-specific light mode glassmorphism overrides
+        if theme == 'casaos':
+            css += """
+        /* CasaOS Theme - Light Mode Glassmorphism */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif !important;
+        }
+
+        .app-ribbon {
+            background: rgba(255, 255, 255, 0.82) !important;
+            backdrop-filter: blur(20px) saturate(1.8) !important;
+            -webkit-backdrop-filter: blur(20px) saturate(1.8) !important;
+            border-bottom: 1px solid rgba(60, 60, 67, 0.12) !important;
+            box-shadow: 0 1px 0 rgba(60, 60, 67, 0.08), 0 4px 20px rgba(0, 0, 0, 0.08) !important;
+        }
+
+        .ribbon-btn {
+            background: rgba(60, 60, 67, 0.06) !important;
+            border: 1px solid rgba(60, 60, 67, 0.12) !important;
+            border-radius: 8px !important;
+            font-family: 'Inter', sans-serif !important;
+            font-size: 0.8125rem !important;
+            font-weight: 500 !important;
+            color: #1c1c1e !important;
+            transition: all 0.15s ease !important;
+        }
+
+        .ribbon-btn:hover {
+            background: rgba(60, 60, 67, 0.12) !important;
+            border-color: rgba(60, 60, 67, 0.2) !important;
+        }
+
+        .ribbon-nav-btn.active {
+            background: rgba(90, 156, 245, 0.15) !important;
+            border-color: rgba(90, 156, 245, 0.35) !important;
+            color: #2c6fd4 !important;
+        }
+
+        .ribbon-nav-btn.active::after {
+            background: #5a9cf5 !important;
+            border-radius: 2px !important;
+        }
+
+        /* Cards & Widgets - White Frosted Glass */
+        .content-card:not(.results-frame), .dashboard-widget, .card:not(.results-frame), .theme-section:not(.results-frame), .filter-section {
+            background: rgba(255, 255, 255, 0.45) !important;
+            backdrop-filter: blur(20px) saturate(1.6) !important;
+            -webkit-backdrop-filter: blur(20px) saturate(1.6) !important;
+            border: 1px solid rgba(60, 60, 67, 0.12) !important;
+            border-radius: 14px !important;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+        }
+
+        /* Results frame must be fully transparent so entry-items are the only glass layer */
+        .content-card.results-frame, .theme-section.results-frame {
+            background: transparent !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+        }
+
+        .widget-header, .section-header {
+            border-bottom: 1px solid rgba(60, 60, 67, 0.1) !important;
+        }
+
+        /* Entry list items - light mode glass */
+        :root {
+            --entry-item-bg: rgba(255, 255, 255, 0.15);
+            --entry-item-bg-hover: rgba(255, 255, 255, 0.38);
+            --entry-item-border: rgba(255, 255, 255, 0.35);
+            --entry-item-border-hover: rgba(90, 156, 245, 0.5);
+            --entry-item-border-left-hover: #5a9cf5;
+            --entry-item-backdrop: blur(14px) saturate(1.6);
+        }
+
+        .entry-item {
+            background: rgba(255, 255, 255, 0.15) !important;
+            backdrop-filter: blur(14px) saturate(1.6) !important;
+            -webkit-backdrop-filter: blur(14px) saturate(1.6) !important;
+            border: 1px solid rgba(255, 255, 255, 0.35) !important;
+            border-left: 3px solid transparent !important;
+            border-radius: 10px !important;
+            box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+        }
+
+        .entry-item:hover {
+            background: rgba(255, 255, 255, 0.38) !important;
+            border-color: rgba(90, 156, 245, 0.5) !important;
+            border-left-color: #5a9cf5 !important;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background: #5a9cf5 !important;
+            border-color: #5a9cf5 !important;
+            border-radius: 8px !important;
+            font-weight: 500 !important;
+        }
+
+        .btn, button:not(.ribbon-btn) {
+            border-radius: 8px !important;
+        }
+
+        /* Form Controls */
+        .form-control, .form-select {
+            background: rgba(255, 255, 255, 0.8) !important;
+            border: 1px solid rgba(60, 60, 67, 0.2) !important;
+            border-radius: 8px !important;
+        }
+
+        /* Badges */
+        .badge {
+            border-radius: 6px !important;
+            font-weight: 500 !important;
+        }
+
+        /* Grid items */
+        .grid-stack-item-content {
+            border-radius: 14px !important;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(60, 60, 67, 0.2); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(60, 60, 67, 0.35); }
+
+        /* Headings */
+        h1, h2, h3, h4, h5, h6, .widget-title {
+            font-family: 'Inter', sans-serif !important;
+            font-weight: 600 !important;
+            letter-spacing: -0.02em !important;
+        }
+
+        .gridstack { background: transparent !important; }
+        """
+
     # Add background image support
     bg_image = settings.get('background_image', {})
     if bg_image.get('enabled', False) and bg_image.get('url'):
@@ -2549,8 +2909,14 @@ def generate_theme_css(settings=None):
         position = bg_image.get('position', 'center')
         
         css += f"""
-        /* Background Image */
+        /* Background Image - move base color to html so body::before shows through */
+        html {{
+            background-color: var(--theme-bg-body, #0d1117);
+        }}
+        
         body {{
+            background-color: transparent !important;
+            background: transparent !important;
             position: relative;
         }}
         

@@ -9,6 +9,11 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='notifications_modern.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='mobile.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='ribbon.css') }}">
+
+    <!-- Dynamic Theme CSS -->
+    <style id="theme-styles">
+        {{ theme_css|safe }}
+    </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/default.min.css">
     <style>

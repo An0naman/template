@@ -72,6 +72,7 @@ def api_update_system_params():
             'primary_ai_provider', 'gemini_api_key', 'groq_api_key', 'huggingface_api_key',
             'gemini_model_name', 'ollama_base_url', 'ollama_model_name', 'groq_model_name', 'huggingface_model', 'huggingface_image_size',
             'gemini_base_prompt',
+            'comfy_server_url', 'comfy_tts_url', 'comfy_model_name',
             'prompt_description', 'prompt_note', 'prompt_sql', 'prompt_theme', 'prompt_chat', 'prompt_diagram', 'prompt_diagram_rules', 'prompt_summary',
             'default_search_term', 'default_type_filter', 'default_status_filter', 
             'default_date_range', 'default_sort_by', 'default_content_display', 'default_result_limit'

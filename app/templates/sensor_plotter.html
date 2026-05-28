@@ -14,6 +14,11 @@
         .chart-container { position: relative; height: 60vh; width: 100%; }
         .card { box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15); border: none; }
     </style>
+
+    <!-- Dynamic Theme CSS -->
+    <style id="theme-styles">
+        {{ theme_css|safe }}
+    </style>
 </head>
 <body>
     <div class="container-fluid">
