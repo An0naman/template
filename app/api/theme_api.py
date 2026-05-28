@@ -113,7 +113,7 @@ def handle_theme_settings():
                     return jsonify({'error': 'No JSON data provided'}), 400
                 
                 # Validate input data
-                theme = data.get('theme', 'default')
+                theme = data.get('theme', 'casaos')
                 dark_mode = bool(data.get('dark_mode', False))
                 auto_dark_mode = bool(data.get('auto_dark_mode', False))
                 dark_mode_start = data.get('dark_mode_start', '18:00')
@@ -353,7 +353,7 @@ def handle_theme_settings():
                             background_image = {}
                 
                 # Set defaults if not found
-                settings.setdefault('theme', 'default')
+                settings.setdefault('theme', 'casaos')
                 settings.setdefault('dark_mode', False)
                 settings.setdefault('auto_dark_mode', False)
                 settings.setdefault('dark_mode_start', '18:00')
@@ -439,7 +439,7 @@ def get_current_theme_settings():
                     background_image = {}
         
         # Set defaults
-        settings.setdefault('current_theme', 'default')
+        settings.setdefault('current_theme', 'casaos')
         settings.setdefault('dark_mode_enabled', False)
         settings.setdefault('font_size', 'normal')
         settings.setdefault('high_contrast_enabled', False)
@@ -460,7 +460,7 @@ def get_current_theme_settings():
     except Exception as e:
         # Return defaults on error
         return {
-            'current_theme': 'default',
+            'current_theme': 'casaos',
             'dark_mode_enabled': False,
             'font_size': 'normal',
             'high_contrast_enabled': False,
@@ -476,7 +476,7 @@ def generate_theme_css(settings=None):
     if settings is None:
         settings = get_current_theme_settings()
     
-    theme = settings.get('current_theme', 'default')
+    theme = settings.get('current_theme', 'casaos')
     dark_mode = settings.get('dark_mode_enabled', False)
     custom_colors = settings.get('custom_colors', {})
     custom_light_mode = settings.get('custom_light_mode', {})
