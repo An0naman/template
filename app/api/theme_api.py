@@ -120,6 +120,7 @@ def handle_theme_settings():
                 dark_mode_end = data.get('dark_mode_end', '06:00')
                 font_size = data.get('font_size', 'normal')
                 high_contrast = bool(data.get('high_contrast', False))
+                casaos_glass_opacity = max(0, min(100, int(data.get('casaos_glass_opacity', 50))))
                 custom_colors = data.get('custom_colors', {})
                 custom_light_mode = data.get('custom_light_mode', {})
                 custom_dark_mode = data.get('custom_dark_mode', {})
@@ -227,7 +228,8 @@ def handle_theme_settings():
                     ('theme_dark_mode_start', dark_mode_start),
                     ('theme_dark_mode_end', dark_mode_end),
                     ('theme_font_size', font_size),
-                    ('theme_high_contrast', str(high_contrast))
+                    ('theme_high_contrast', str(high_contrast)),
+                    ('theme_casaos_glass_opacity', str(casaos_glass_opacity))
                 ]
                 
                 # Add section styles
@@ -281,7 +283,8 @@ def handle_theme_settings():
                     'custom_light_mode': custom_light_mode,
                     'custom_dark_mode': custom_dark_mode,
                     'section_styles': section_styles,
-                    'background_image': background_image
+                    'background_image': background_image,
+                    'casaos_glass_opacity': casaos_glass_opacity
                 }
                 
                 return jsonify({
@@ -351,9 +354,15 @@ def handle_theme_settings():
                             background_image = json.loads(parameter_value)
                         except (json.JSONDecodeError, TypeError):
                             background_image = {}
+                    elif parameter_name == 'theme_casaos_glass_opacity':
+                        try:
+                            settings['casaos_glass_opacity'] = int(parameter_value)
+                        except (ValueError, TypeError):
+                            settings['casaos_glass_opacity'] = 50
                 
                 # Set defaults if not found
                 settings.setdefault('theme', 'casaos')
+                settings.setdefault('casaos_glass_opacity', 50)
                 settings.setdefault('dark_mode', False)
                 settings.setdefault('auto_dark_mode', False)
                 settings.setdefault('dark_mode_start', '18:00')
@@ -437,9 +446,15 @@ def get_current_theme_settings():
                     background_image = json.loads(parameter_value)
                 except (json.JSONDecodeError, TypeError):
                     background_image = {}
+            elif parameter_name == 'theme_casaos_glass_opacity':
+                try:
+                    settings['casaos_glass_opacity'] = int(parameter_value)
+                except (ValueError, TypeError):
+                    settings['casaos_glass_opacity'] = 50
         
         # Set defaults
         settings.setdefault('current_theme', 'casaos')
+        settings.setdefault('casaos_glass_opacity', 50)
         settings.setdefault('dark_mode_enabled', False)
         settings.setdefault('font_size', 'normal')
         settings.setdefault('high_contrast_enabled', False)
@@ -478,6 +493,7 @@ def generate_theme_css(settings=None):
     
     theme = settings.get('current_theme', 'casaos')
     dark_mode = settings.get('dark_mode_enabled', False)
+    glass_opacity = settings.get('casaos_glass_opacity', 50) / 100.0
     custom_colors = settings.get('custom_colors', {})
     custom_light_mode = settings.get('custom_light_mode', {})
     custom_dark_mode = settings.get('custom_dark_mode', {})
@@ -1438,32 +1454,32 @@ def generate_theme_css(settings=None):
         
         # Add CasaOS-specific glassmorphism overrides
         if theme == 'casaos':
-            css += """
+            css += f"""
         /* CasaOS Theme - Glassmorphism & Enhanced Dark Mode */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         
-        body {
+        body {{
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif !important;
-        }
+        }}
         
-        html:not(:has(body[style*="background: transparent"])) body {
+        html:not(:has(body[style*="background: transparent"])) body {{
             background: #1c1c1e;
-        }
+        }}
         
-        .app-ribbon {
-            background: rgba(28, 28, 30, 0.85) !important;
+        .app-ribbon {{
+            background: rgba(28, 28, 30, {min(glass_opacity * 1.70, 0.97):.2f}) !important;
             backdrop-filter: blur(20px) saturate(1.8) !important;
             -webkit-backdrop-filter: blur(20px) saturate(1.8) !important;
             border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
             box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 20px rgba(0, 0, 0, 0.4) !important;
-        }
+        }}
         
-        .ribbon-title {
+        .ribbon-title {{
             font-weight: 600;
             letter-spacing: -0.01em;
-        }
+        }}
         
-        .ribbon-btn {
+        .ribbon-btn {{
             background: rgba(255, 255, 255, 0.08) !important;
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
             border-radius: 8px !important;
@@ -1472,160 +1488,160 @@ def generate_theme_css(settings=None):
             font-weight: 500 !important;
             letter-spacing: 0.01em !important;
             transition: all 0.15s ease !important;
-        }
+        }}
         
-        .ribbon-btn:hover {
+        .ribbon-btn:hover {{
             background: rgba(255, 255, 255, 0.14) !important;
             border-color: rgba(255, 255, 255, 0.18) !important;
             transform: none !important;
-        }
+        }}
         
-        .ribbon-nav-btn.active {
+        .ribbon-nav-btn.active {{
             background: rgba(90, 156, 245, 0.2) !important;
             border-color: rgba(90, 156, 245, 0.4) !important;
             color: #5a9cf5 !important;
-        }
+        }}
         
-        .ribbon-nav-btn.active::after {
+        .ribbon-nav-btn.active::after {{
             background: #5a9cf5 !important;
             border-radius: 2px !important;
-        }
+        }}
         
         /* Cards & Widgets */
-        .content-card:not(.results-frame), .dashboard-widget, .card:not(.results-frame), .theme-section:not(.results-frame), .filter-section {
-            background: rgba(28, 28, 30, 0.55) !important;
+        .content-card:not(.results-frame), .dashboard-widget, .card:not(.results-frame), .theme-section:not(.results-frame), .filter-section {{
+            background: rgba(28, 28, 30, {min(glass_opacity * 1.10, 0.99):.2f}) !important;
             backdrop-filter: blur(16px) saturate(1.6) !important;
             -webkit-backdrop-filter: blur(16px) saturate(1.6) !important;
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
             border-radius: 14px !important;
             box-shadow: 0 2px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
-        }
+        }}
 
         /* Results frame must be fully transparent so entry-items are the only glass layer */
-        .content-card.results-frame, .theme-section.results-frame {
+        .content-card.results-frame, .theme-section.results-frame {{
             background: transparent !important;
             backdrop-filter: none !important;
             -webkit-backdrop-filter: none !important;
             border: none !important;
             box-shadow: none !important;
             padding: 0 !important;
-        }
+        }}
 
-        .card:hover, .dashboard-widget:hover {
+        .card:hover, .dashboard-widget:hover {{
             border-color: rgba(90, 156, 245, 0.3) !important;
             box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(90, 156, 245, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.09) !important;
-        }
+        }}
         
-        .widget-header, .section-header {
+        .widget-header, .section-header {{
             border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
-        }
+        }}
         
         /* Entry list items - dark mode glass */
-        :root {
-            --entry-item-bg: rgba(58, 58, 60, 0.3);
-            --entry-item-bg-hover: rgba(58, 58, 60, 0.6);
+        :root {{
+            --entry-item-bg: rgba(58, 58, 60, {min(glass_opacity * 0.60, 1.0):.2f});
+            --entry-item-bg-hover: rgba(58, 58, 60, {min(glass_opacity * 1.20, 1.0):.2f});
             --entry-item-border: rgba(255, 255, 255, 0.09);
             --entry-item-backdrop: blur(14px) saturate(1.4);
-        }
+        }}
 
-        .entry-item {
+        .entry-item {{
             border-left: 3px solid transparent !important;
             border-radius: 10px !important;
-        }
+        }}
 
-        .entry-item:hover {
+        .entry-item:hover {{
             border-color: rgba(90, 156, 245, 0.3) !important;
             border-left-color: rgba(90, 156, 245, 0.8) !important;
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
-        }
+        }}
         
         /* Buttons */
-        .btn-primary {
+        .btn-primary {{
             background: #5a9cf5 !important;
             border-color: #5a9cf5 !important;
             border-radius: 8px !important;
             font-weight: 500 !important;
-        }
+        }}
         
-        .btn-primary:hover {
+        .btn-primary:hover {{
             background: #3d84e8 !important;
             border-color: #3d84e8 !important;
-        }
+        }}
         
-        .btn-outline-primary {
+        .btn-outline-primary {{
             color: #5a9cf5 !important;
             border-color: rgba(90, 156, 245, 0.5) !important;
             border-radius: 8px !important;
-        }
+        }}
         
-        .btn-outline-primary:hover {
+        .btn-outline-primary:hover {{
             background: rgba(90, 156, 245, 0.15) !important;
             border-color: #5a9cf5 !important;
             color: #5a9cf5 !important;
-        }
+        }}
         
-        .btn, button:not(.ribbon-btn) {
+        .btn, button:not(.ribbon-btn) {{
             border-radius: 8px !important;
-        }
+        }}
         
         /* Badges & Pills */
-        .badge {
+        .badge {{
             border-radius: 6px !important;
             font-weight: 500 !important;
             letter-spacing: 0.02em !important;
-        }
+        }}
         
         /* Form Controls */
-        .form-control, .form-select {
+        .form-control, .form-select {{
             background: rgba(58, 58, 60, 0.6) !important;
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
             border-radius: 8px !important;
             color: #f2f2f7 !important;
-        }
+        }}
         
-        .form-control:focus, .form-select:focus {
+        .form-control:focus, .form-select:focus {{
             background: rgba(58, 58, 60, 0.8) !important;
             border-color: rgba(90, 156, 245, 0.6) !important;
             box-shadow: 0 0 0 3px rgba(90, 156, 245, 0.15) !important;
-        }
+        }}
         
         /* Tables */
-        .table {
+        .table {{
             --bs-table-bg: transparent !important;
-        }
+        }}
         
         /* Gridstack items */
-        .grid-stack-item-content {
+        .grid-stack-item-content {{
             border-radius: 14px !important;
-        }
+        }}
         
         /* Scrollbar */
-        ::-webkit-scrollbar {
+        ::-webkit-scrollbar {{
             width: 6px;
             height: 6px;
-        }
-        ::-webkit-scrollbar-track {
+        }}
+        ::-webkit-scrollbar-track {{
             background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
+        }}
+        ::-webkit-scrollbar-thumb {{
             background: rgba(255, 255, 255, 0.15);
             border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
+        }}
+        ::-webkit-scrollbar-thumb:hover {{
             background: rgba(255, 255, 255, 0.25);
-        }
+        }}
         
         /* Headings */
-        h1, h2, h3, h4, h5, h6, .widget-title {
+        h1, h2, h3, h4, h5, h6, .widget-title {{
             font-family: 'Inter', sans-serif !important;
             font-weight: 600 !important;
             letter-spacing: -0.02em !important;
-        }
+        }}
         
         /* Gridstack */
-        .gridstack {
+        .gridstack {{
             background: transparent !important;
-        }
+        }}
         """
         
     else:
@@ -2758,23 +2774,23 @@ def generate_theme_css(settings=None):
 
         # Add CasaOS-specific light mode glassmorphism overrides
         if theme == 'casaos':
-            css += """
+            css += f"""
         /* CasaOS Theme - Light Mode Glassmorphism */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-        body {
+        body {{
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif !important;
-        }
+        }}
 
-        .app-ribbon {
-            background: rgba(255, 255, 255, 0.82) !important;
+        .app-ribbon {{
+            background: rgba(255, 255, 255, {min(glass_opacity * 1.64, 0.97):.2f}) !important;
             backdrop-filter: blur(20px) saturate(1.8) !important;
             -webkit-backdrop-filter: blur(20px) saturate(1.8) !important;
             border-bottom: 1px solid rgba(60, 60, 67, 0.12) !important;
             box-shadow: 0 1px 0 rgba(60, 60, 67, 0.08), 0 4px 20px rgba(0, 0, 0, 0.08) !important;
-        }
+        }}
 
-        .ribbon-btn {
+        .ribbon-btn {{
             background: rgba(60, 60, 67, 0.06) !important;
             border: 1px solid rgba(60, 60, 67, 0.12) !important;
             border-radius: 8px !important;
@@ -2783,119 +2799,119 @@ def generate_theme_css(settings=None):
             font-weight: 500 !important;
             color: #1c1c1e !important;
             transition: all 0.15s ease !important;
-        }
+        }}
 
-        .ribbon-btn:hover {
+        .ribbon-btn:hover {{
             background: rgba(60, 60, 67, 0.12) !important;
             border-color: rgba(60, 60, 67, 0.2) !important;
-        }
+        }}
 
-        .ribbon-nav-btn.active {
+        .ribbon-nav-btn.active {{
             background: rgba(90, 156, 245, 0.15) !important;
             border-color: rgba(90, 156, 245, 0.35) !important;
             color: #2c6fd4 !important;
-        }
+        }}
 
-        .ribbon-nav-btn.active::after {
+        .ribbon-nav-btn.active::after {{
             background: #5a9cf5 !important;
             border-radius: 2px !important;
-        }
+        }}
 
         /* Cards & Widgets - White Frosted Glass */
-        .content-card:not(.results-frame), .dashboard-widget, .card:not(.results-frame), .theme-section:not(.results-frame), .filter-section {
-            background: rgba(255, 255, 255, 0.45) !important;
+        .content-card:not(.results-frame), .dashboard-widget, .card:not(.results-frame), .theme-section:not(.results-frame), .filter-section {{
+            background: rgba(255, 255, 255, {min(glass_opacity * 0.90, 0.99):.2f}) !important;
             backdrop-filter: blur(20px) saturate(1.6) !important;
             -webkit-backdrop-filter: blur(20px) saturate(1.6) !important;
             border: 1px solid rgba(60, 60, 67, 0.12) !important;
             border-radius: 14px !important;
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
-        }
+        }}
 
         /* Results frame must be fully transparent so entry-items are the only glass layer */
-        .content-card.results-frame, .theme-section.results-frame {
+        .content-card.results-frame, .theme-section.results-frame {{
             background: transparent !important;
             backdrop-filter: none !important;
             -webkit-backdrop-filter: none !important;
             border: none !important;
             box-shadow: none !important;
             padding: 0 !important;
-        }
+        }}
 
-        .widget-header, .section-header {
+        .widget-header, .section-header {{
             border-bottom: 1px solid rgba(60, 60, 67, 0.1) !important;
-        }
+        }}
 
         /* Entry list items - light mode glass */
-        :root {
-            --entry-item-bg: rgba(255, 255, 255, 0.15);
-            --entry-item-bg-hover: rgba(255, 255, 255, 0.38);
+        :root {{
+            --entry-item-bg: rgba(255, 255, 255, {min(glass_opacity * 0.30, 1.0):.2f});
+            --entry-item-bg-hover: rgba(255, 255, 255, {min(glass_opacity * 0.76, 1.0):.2f});
             --entry-item-border: rgba(255, 255, 255, 0.35);
             --entry-item-border-hover: rgba(90, 156, 245, 0.5);
             --entry-item-border-left-hover: #5a9cf5;
             --entry-item-backdrop: blur(14px) saturate(1.6);
-        }
+        }}
 
-        .entry-item {
-            background: rgba(255, 255, 255, 0.15) !important;
+        .entry-item {{
+            background: rgba(255, 255, 255, {min(glass_opacity * 0.30, 1.0):.2f}) !important;
             backdrop-filter: blur(14px) saturate(1.6) !important;
             -webkit-backdrop-filter: blur(14px) saturate(1.6) !important;
             border: 1px solid rgba(255, 255, 255, 0.35) !important;
             border-left: 3px solid transparent !important;
             border-radius: 10px !important;
             box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
-        }
+        }}
 
-        .entry-item:hover {
-            background: rgba(255, 255, 255, 0.38) !important;
+        .entry-item:hover {{
+            background: rgba(255, 255, 255, {min(glass_opacity * 0.76, 1.0):.2f}) !important;
             border-color: rgba(90, 156, 245, 0.5) !important;
             border-left-color: #5a9cf5 !important;
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
-        }
+        }}
 
         /* Buttons */
-        .btn-primary {
+        .btn-primary {{
             background: #5a9cf5 !important;
             border-color: #5a9cf5 !important;
             border-radius: 8px !important;
             font-weight: 500 !important;
-        }
+        }}
 
-        .btn, button:not(.ribbon-btn) {
+        .btn, button:not(.ribbon-btn) {{
             border-radius: 8px !important;
-        }
+        }}
 
         /* Form Controls */
-        .form-control, .form-select {
+        .form-control, .form-select {{
             background: rgba(255, 255, 255, 0.8) !important;
             border: 1px solid rgba(60, 60, 67, 0.2) !important;
             border-radius: 8px !important;
-        }
+        }}
 
         /* Badges */
-        .badge {
+        .badge {{
             border-radius: 6px !important;
             font-weight: 500 !important;
-        }
+        }}
 
         /* Grid items */
-        .grid-stack-item-content {
+        .grid-stack-item-content {{
             border-radius: 14px !important;
-        }
+        }}
 
         /* Scrollbar */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(60, 60, 67, 0.2); border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(60, 60, 67, 0.35); }
+        ::-webkit-scrollbar {{ width: 6px; height: 6px; }}
+        ::-webkit-scrollbar-track {{ background: transparent; }}
+        ::-webkit-scrollbar-thumb {{ background: rgba(60, 60, 67, 0.2); border-radius: 3px; }}
+        ::-webkit-scrollbar-thumb:hover {{ background: rgba(60, 60, 67, 0.35); }}
 
         /* Headings */
-        h1, h2, h3, h4, h5, h6, .widget-title {
+        h1, h2, h3, h4, h5, h6, .widget-title {{
             font-family: 'Inter', sans-serif !important;
             font-weight: 600 !important;
             letter-spacing: -0.02em !important;
-        }
+        }}
 
-        .gridstack { background: transparent !important; }
+        .gridstack {{ background: transparent !important; }}
         """
 
     # Add background image support

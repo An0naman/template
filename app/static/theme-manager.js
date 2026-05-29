@@ -13,6 +13,7 @@ class ThemeManager {
             darkModeEnd: '06:00',
             fontSize: 'normal',
             highContrast: false,
+            casaosGlassOpacity: 50,
             
             // Color settings
             customColors: {},
@@ -914,6 +915,7 @@ class ThemeManager {
             darkMode: false,
             fontSize: 'normal',
             highContrast: false,
+            casaosGlassOpacity: 50,
             customColors: {},
             customLightMode: {},
             customDarkMode: {},
@@ -1009,7 +1011,8 @@ class ThemeManager {
                 custom_light_mode: this.state.customLightMode,
                 custom_dark_mode: this.state.customDarkMode,
                 section_styles: this.state.sectionStyles,
-                background_image: this.state.backgroundImage
+                background_image: this.state.backgroundImage,
+                casaos_glass_opacity: this.state.casaosGlassOpacity !== undefined ? this.state.casaosGlassOpacity : 50
             };
 
             const response = await fetch('/api/theme_settings', {

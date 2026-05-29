@@ -945,6 +945,22 @@
                             </div>
                         </div>
 
+                        <!-- CasaOS Glass Opacity (only shown when CasaOS theme selected) -->
+                        <div class="row" id="casaosOpacitySection" style="display: none;">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">
+                                    Glass Opacity: <span id="glassOpacityValue">50</span>%
+                                    <small class="text-muted ms-2">Controls transparency of cards, navbar, and entry items</small>
+                                </label>
+                                <input type="range" class="form-range" id="casaosGlassOpacity" min="0" max="100" value="50"
+                                    oninput="themeManager.updateSetting('root', 'casaosGlassOpacity', parseInt(this.value)); document.getElementById('glassOpacityValue').textContent = this.value;">
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">Transparent</small>
+                                    <small class="text-muted">Opaque</small>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Font Size -->
                         <div class="row">
                             <div class="col-md-6">
@@ -1637,7 +1653,8 @@
                 customLightMode: {{ custom_light_mode|tojson if custom_light_mode else '{}' }},
                 customDarkMode: {{ custom_dark_mode|tojson if custom_dark_mode else '{}' }},
                 sectionStyles: {{ section_styles|tojson if section_styles else '{}' }},
-                backgroundImage: {{ background_image|tojson if background_image else '{}' }}
+                backgroundImage: {{ background_image|tojson if background_image else '{}' }},
+                casaosGlassOpacity: {{ casaos_glass_opacity or 50 }}
             };
             
             themeManager.init(initialState);
@@ -1817,6 +1834,17 @@
             document.querySelectorAll('.theme-card').forEach(card => {
                 card.classList.toggle('selected', card.dataset.theme === currentTheme);
             });
+
+            // Show/hide CasaOS glass opacity slider
+            const opacitySection = document.getElementById('casaosOpacitySection');
+            if (opacitySection) {
+                opacitySection.style.display = currentTheme === 'casaos' ? 'flex' : 'none';
+                const slider = document.getElementById('casaosGlassOpacity');
+                const valueLabel = document.getElementById('glassOpacityValue');
+                const val = themeManager.state.casaosGlassOpacity !== undefined ? themeManager.state.casaosGlassOpacity : 50;
+                if (slider) slider.value = val;
+                if (valueLabel) valueLabel.textContent = val;
+            }
             
             // Update toggle states
             document.getElementById('darkModeToggle').checked = themeManager.state.darkMode;
