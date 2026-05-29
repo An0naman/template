@@ -910,7 +910,7 @@ class ThemeManager {
      */
     reset() {
         this.state = {
-            theme: 'default',
+            theme: 'casaos',
             darkMode: false,
             fontSize: 'normal',
             highContrast: false,
