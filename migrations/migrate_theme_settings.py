@@ -32,7 +32,7 @@ def migrate_theme_settings():
         
         # Default theme settings
         theme_settings = [
-            ('theme_color_scheme', 'default'),
+            ('theme_color_scheme', 'casaos'),
             ('theme_dark_mode', 'false'),
             ('theme_font_size', 'normal'),
             ('theme_high_contrast', 'false')
