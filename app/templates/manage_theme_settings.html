@@ -1719,6 +1719,7 @@
             // Glassmorphism toggle
             document.getElementById('glassmorphismToggle').addEventListener('change', (e) => {
                 themeManager.updateSetting('root', 'glassmorphism', e.target.checked);
+                updateUIFromState();
             });
             
             // Custom color inputs
