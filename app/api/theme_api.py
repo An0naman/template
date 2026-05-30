@@ -1473,7 +1473,7 @@ def generate_theme_css(settings=None):
         }}
         
         html:not(:has(body[style*="background: transparent"])) body {{
-            background: #1c1c1e;
+            background: radial-gradient(ellipse 120% 80% at 50% -10%, #252528 0%, #1c1c1e 70%);
         }}
         
         .app-ribbon {{
@@ -1490,9 +1490,10 @@ def generate_theme_css(settings=None):
         }}
         
         .ribbon-btn {{
-            background: rgba(255, 255, 255, 0.08) !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            background: rgba(255, 255, 255, 0.15) !important;
+            border: 1px solid rgba(255, 255, 255, 0.22) !important;
             border-radius: 8px !important;
+            color: rgba(255, 255, 255, 0.95) !important;
             font-family: 'Inter', sans-serif !important;
             font-size: 0.8125rem !important;
             font-weight: 500 !important;
@@ -1501,8 +1502,8 @@ def generate_theme_css(settings=None):
         }}
         
         .ribbon-btn:hover {{
-            background: rgba(255, 255, 255, 0.14) !important;
-            border-color: rgba(255, 255, 255, 0.18) !important;
+            background: rgba(255, 255, 255, 0.24) !important;
+            border-color: rgba(255, 255, 255, 0.32) !important;
             transform: none !important;
         }}
         
@@ -1518,7 +1519,7 @@ def generate_theme_css(settings=None):
         }}
         
         /* Cards & Widgets */
-        .content-card:not(.results-frame), .dashboard-widget, .card:not(.results-frame), .theme-section:not(.results-frame), .filter-section {{
+        .content-card:not(.results-frame), .dashboard-widget, .card:not(.results-frame), .theme-section:not(.results-frame), .filter-section, .dashboard-controls {{
             background: rgba(28, 28, 30, {min(glass_opacity * 1.10, 0.99):.2f}) !important;
             backdrop-filter: blur(16px) saturate(1.6) !important;
             -webkit-backdrop-filter: blur(16px) saturate(1.6) !important;
@@ -1563,6 +1564,19 @@ def generate_theme_css(settings=None):
             border-color: rgba(var(--theme-primary-rgb), 0.3) !important;
             border-left-color: rgba(var(--theme-primary-rgb), 0.8) !important;
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+        }}
+        
+        .entry-list-item {{
+            background: rgba(58, 58, 60, {min(glass_opacity * 0.60, 1.0):.2f}) !important;
+            backdrop-filter: blur(14px) saturate(1.4) !important;
+            -webkit-backdrop-filter: blur(14px) saturate(1.4) !important;
+            border: 1px solid rgba(255, 255, 255, 0.09) !important;
+            border-radius: 10px !important;
+        }}
+        
+        .entry-list-item:hover {{
+            background: rgba(58, 58, 60, {min(glass_opacity * 1.20, 1.0):.2f}) !important;
+            border-color: rgba(var(--theme-primary-rgb), 0.3) !important;
         }}
         
         /* Buttons */
@@ -2801,8 +2815,8 @@ def generate_theme_css(settings=None):
         }}
 
         .ribbon-btn {{
-            background: rgba(60, 60, 67, 0.06) !important;
-            border: 1px solid rgba(60, 60, 67, 0.12) !important;
+            background: rgba(60, 60, 67, 0.10) !important;
+            border: 1px solid rgba(60, 60, 67, 0.18) !important;
             border-radius: 8px !important;
             font-family: 'Inter', sans-serif !important;
             font-size: 0.8125rem !important;
@@ -2812,8 +2826,8 @@ def generate_theme_css(settings=None):
         }}
 
         .ribbon-btn:hover {{
-            background: rgba(60, 60, 67, 0.12) !important;
-            border-color: rgba(60, 60, 67, 0.2) !important;
+            background: rgba(60, 60, 67, 0.18) !important;
+            border-color: rgba(60, 60, 67, 0.28) !important;
         }}
 
         .ribbon-nav-btn.active {{
@@ -2828,7 +2842,7 @@ def generate_theme_css(settings=None):
         }}
 
         /* Cards & Widgets - White Frosted Glass */
-        .content-card:not(.results-frame), .dashboard-widget, .card:not(.results-frame), .theme-section:not(.results-frame), .filter-section {{
+        .content-card:not(.results-frame), .dashboard-widget, .card:not(.results-frame), .theme-section:not(.results-frame), .filter-section, .dashboard-controls {{
             background: rgba(255, 255, 255, {min(glass_opacity * 0.90, 0.99):.2f}) !important;
             backdrop-filter: blur(20px) saturate(1.6) !important;
             -webkit-backdrop-filter: blur(20px) saturate(1.6) !important;
@@ -2876,6 +2890,20 @@ def generate_theme_css(settings=None):
             border-color: rgba(var(--theme-primary-rgb), 0.5) !important;
             border-left-color: var(--theme-primary) !important;
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+        }}
+
+        .entry-list-item {{
+            background: rgba(255, 255, 255, {min(glass_opacity * 0.30, 1.0):.2f}) !important;
+            backdrop-filter: blur(14px) saturate(1.6) !important;
+            -webkit-backdrop-filter: blur(14px) saturate(1.6) !important;
+            border: 1px solid rgba(60, 60, 67, 0.12) !important;
+            border-radius: 10px !important;
+            box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06) !important;
+        }}
+        
+        .entry-list-item:hover {{
+            background: rgba(255, 255, 255, {min(glass_opacity * 0.76, 1.0):.2f}) !important;
+            border-color: rgba(var(--theme-primary-rgb), 0.4) !important;
         }}
 
         /* Buttons */
