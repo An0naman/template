@@ -1473,11 +1473,11 @@ def generate_theme_css(settings=None):
         }}
         
         html:not(:has(body[style*="background: transparent"])) body {{
-            background:
-                radial-gradient(ellipse 80% 60% at 15% 15%, rgba(var(--theme-primary-rgb), 0.14) 0%, transparent 55%),
-                radial-gradient(ellipse 70% 50% at 85% 75%, rgba(var(--theme-primary-rgb), 0.10) 0%, transparent 50%),
-                radial-gradient(ellipse 50% 40% at 50% 100%, rgba(var(--theme-primary-rgb), 0.06) 0%, transparent 50%),
-                #1c1c1e !important;
+            background-image:
+                radial-gradient(ellipse 80% 60% at 15% 15%, rgba(var(--theme-primary-rgb), 0.18) 0%, transparent 55%),
+                radial-gradient(ellipse 70% 50% at 85% 75%, rgba(var(--theme-primary-rgb), 0.12) 0%, transparent 50%),
+                radial-gradient(ellipse 50% 40% at 50% 100%, rgba(var(--theme-primary-rgb), 0.08) 0%, transparent 50%) !important;
+            background-attachment: fixed !important;
         }}
         
         .app-ribbon {{
@@ -2811,11 +2811,11 @@ def generate_theme_css(settings=None):
         }}
 
         html:not(:has(body[style*="background: transparent"])) body {{
-            background:
-                radial-gradient(ellipse 80% 60% at 15% 15%, rgba(var(--theme-primary-rgb), 0.12) 0%, transparent 55%),
-                radial-gradient(ellipse 70% 50% at 85% 75%, rgba(var(--theme-primary-rgb), 0.08) 0%, transparent 50%),
-                radial-gradient(ellipse 50% 40% at 50% 100%, rgba(var(--theme-primary-rgb), 0.05) 0%, transparent 50%),
-                #f0f0f5 !important;
+            background-image:
+                radial-gradient(ellipse 80% 60% at 15% 15%, rgba(var(--theme-primary-rgb), 0.14) 0%, transparent 55%),
+                radial-gradient(ellipse 70% 50% at 85% 75%, rgba(var(--theme-primary-rgb), 0.10) 0%, transparent 50%),
+                radial-gradient(ellipse 50% 40% at 50% 100%, rgba(var(--theme-primary-rgb), 0.06) 0%, transparent 50%) !important;
+            background-attachment: fixed !important;
         }}
 
         .app-ribbon {{
