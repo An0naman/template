@@ -1522,14 +1522,27 @@ def generate_theme_css(settings=None):
             border-radius: 2px !important;
         }}
         
+        /* CSS variables so pages using var(--section-*) also get glass treatment */
+        :root {{
+            --section-bg: rgba(28, 28, 30, {min(glass_opacity * 1.10, 0.99):.2f});
+            --section-border: rgba(255, 255, 255, 0.1);
+            --section-backdrop-filter: blur(16px) saturate(1.6);
+            --section-border-radius: 14px;
+            --section-shadow: 0 2px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+        }}
+
         /* Cards & Widgets */
-        .content-card:not(.results-frame), .dashboard-widget, .card:not(.results-frame), .theme-section:not(.results-frame), .filter-section, .dashboard-controls {{
+        .content-card:not(.results-frame), .dashboard-widget, .card:not(.results-frame), .theme-section:not(.results-frame), .filter-section, .dashboard-controls, .content-section {{
             background: rgba(28, 28, 30, {min(glass_opacity * 1.10, 0.99):.2f}) !important;
             backdrop-filter: blur(16px) saturate(1.6) !important;
             -webkit-backdrop-filter: blur(16px) saturate(1.6) !important;
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
             border-radius: 14px !important;
             box-shadow: 0 2px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+        }}
+
+        .content-section {{
+            border-left: 1px solid rgba(255, 255, 255, 0.1) !important;
         }}
 
         /* Results frame must be fully transparent so entry-items are the only glass layer */
@@ -1642,8 +1655,11 @@ def generate_theme_css(settings=None):
         .grid-stack-item-content {{
             border-radius: 14px !important;
         }}
-        
-        /* Scrollbar */
+
+        /* Section wrappers - reset will-change so backdrop-filter can see through to page background */
+        .section-wrapper {{
+            will-change: auto !important;
+        }}
         ::-webkit-scrollbar {{
             width: 6px;
             height: 6px;
@@ -2853,14 +2869,27 @@ def generate_theme_css(settings=None):
             border-radius: 2px !important;
         }}
 
+        /* CSS variables so pages using var(--section-*) also get glass treatment */
+        :root {{
+            --section-bg: rgba(255, 255, 255, {min(glass_opacity * 0.90, 0.99):.2f});
+            --section-border: rgba(60, 60, 67, 0.12);
+            --section-backdrop-filter: blur(20px) saturate(1.6);
+            --section-border-radius: 14px;
+            --section-shadow: 0 2px 12px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        }}
+
         /* Cards & Widgets - White Frosted Glass */
-        .content-card:not(.results-frame), .dashboard-widget, .card:not(.results-frame), .theme-section:not(.results-frame), .filter-section, .dashboard-controls {{
+        .content-card:not(.results-frame), .dashboard-widget, .card:not(.results-frame), .theme-section:not(.results-frame), .filter-section, .dashboard-controls, .content-section {{
             background: rgba(255, 255, 255, {min(glass_opacity * 0.90, 0.99):.2f}) !important;
             backdrop-filter: blur(20px) saturate(1.6) !important;
             -webkit-backdrop-filter: blur(20px) saturate(1.6) !important;
             border: 1px solid rgba(60, 60, 67, 0.12) !important;
             border-radius: 14px !important;
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+        }}
+
+        .content-section {{
+            border-left: 1px solid rgba(60, 60, 67, 0.12) !important;
         }}
 
         /* Results frame must be fully transparent so entry-items are the only glass layer */
@@ -2946,6 +2975,11 @@ def generate_theme_css(settings=None):
         /* Grid items */
         .grid-stack-item-content {{
             border-radius: 14px !important;
+        }}
+
+        /* Section wrappers - reset will-change so backdrop-filter can see through to page background */
+        .section-wrapper {{
+            will-change: auto !important;
         }}
 
         /* Scrollbar */
