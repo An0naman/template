@@ -879,7 +879,7 @@
                                             <div class="color-swatch" style="background: #ff453a;"></div>
                                             <h6 class="mb-0 ms-2">CasaOS <span class="badge bg-primary ms-1" style="font-size:0.6rem;">Default</span></h6>
                                         </div>
-                                        <small class="text-muted">Glassmorphism with Torres del Paine wallpaper</small>
+                                        <small class="text-muted">Apple-style colors: blue, green, red</small>
                                     </div>
                                 </div>
 
@@ -945,7 +945,21 @@
                             </div>
                         </div>
 
-                        <!-- CasaOS Glass Opacity (only shown when CasaOS theme selected) -->
+                        <!-- Glassmorphism Toggle -->
+                        <div class="row align-items-center mb-3">
+                            <div class="col-md-8">
+                                <h6 class="mb-0"><i class="fas fa-layer-group me-2"></i>Glassmorphism</h6>
+                                <p class="text-muted mb-0 small">Frosted glass cards &amp; blur effects &mdash; works with any color palette</p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <label class="switch">
+                                    <input type="checkbox" id="glassmorphismToggle" {{ 'checked' if glassmorphism_enabled else '' }}>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Glass Opacity (shown when Glassmorphism is enabled) -->
                         <div class="row" id="casaosOpacitySection" style="display: none;">
                             <div class="col-12">
                                 <label class="form-label fw-semibold">
@@ -1654,7 +1668,8 @@
                 customDarkMode: {{ custom_dark_mode|tojson if custom_dark_mode else '{}' }},
                 sectionStyles: {{ section_styles|tojson if section_styles else '{}' }},
                 backgroundImage: {{ background_image|tojson if background_image else '{}' }},
-                casaosGlassOpacity: {{ casaos_glass_opacity or 50 }}
+                casaosGlassOpacity: {{ casaos_glass_opacity or 50 }},
+                glassmorphism: {{ 'true' if glassmorphism_enabled else 'false' }}
             };
             
             themeManager.init(initialState);
@@ -1699,6 +1714,11 @@
             // High contrast toggle
             document.getElementById('highContrastToggle').addEventListener('change', (e) => {
                 themeManager.updateSetting('root', 'highContrast', e.target.checked);
+            });
+
+            // Glassmorphism toggle
+            document.getElementById('glassmorphismToggle').addEventListener('change', (e) => {
+                themeManager.updateSetting('root', 'glassmorphism', e.target.checked);
             });
             
             // Custom color inputs
@@ -1835,16 +1855,21 @@
                 card.classList.toggle('selected', card.dataset.theme === currentTheme);
             });
 
-            // Show/hide CasaOS glass opacity slider
+            // Show/hide glass opacity slider based on glassmorphism toggle
             const opacitySection = document.getElementById('casaosOpacitySection');
             if (opacitySection) {
-                opacitySection.style.display = currentTheme === 'casaos' ? 'flex' : 'none';
+                const glassEnabled = themeManager.state.glassmorphism || false;
+                opacitySection.style.display = glassEnabled ? 'flex' : 'none';
                 const slider = document.getElementById('casaosGlassOpacity');
                 const valueLabel = document.getElementById('glassOpacityValue');
                 const val = themeManager.state.casaosGlassOpacity !== undefined ? themeManager.state.casaosGlassOpacity : 50;
                 if (slider) slider.value = val;
                 if (valueLabel) valueLabel.textContent = val;
             }
+
+            // Sync glassmorphism toggle checkbox
+            const glassToggle = document.getElementById('glassmorphismToggle');
+            if (glassToggle) glassToggle.checked = themeManager.state.glassmorphism || false;
             
             // Update toggle states
             document.getElementById('darkModeToggle').checked = themeManager.state.darkMode;

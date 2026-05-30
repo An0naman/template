@@ -121,6 +121,7 @@ def handle_theme_settings():
                 font_size = data.get('font_size', 'normal')
                 high_contrast = bool(data.get('high_contrast', False))
                 casaos_glass_opacity = max(0, min(100, int(data.get('casaos_glass_opacity', 50))))
+                glassmorphism_enabled = bool(data.get('glassmorphism', False))
                 custom_colors = data.get('custom_colors', {})
                 custom_light_mode = data.get('custom_light_mode', {})
                 custom_dark_mode = data.get('custom_dark_mode', {})
@@ -229,7 +230,8 @@ def handle_theme_settings():
                     ('theme_dark_mode_end', dark_mode_end),
                     ('theme_font_size', font_size),
                     ('theme_high_contrast', str(high_contrast)),
-                    ('theme_casaos_glass_opacity', str(casaos_glass_opacity))
+                    ('theme_casaos_glass_opacity', str(casaos_glass_opacity)),
+                    ('theme_glassmorphism', '1' if glassmorphism_enabled else '0')
                 ]
                 
                 # Add section styles
@@ -284,7 +286,8 @@ def handle_theme_settings():
                     'custom_dark_mode': custom_dark_mode,
                     'section_styles': section_styles,
                     'background_image': background_image,
-                    'casaos_glass_opacity': casaos_glass_opacity
+                    'casaos_glass_opacity': casaos_glass_opacity,
+                    'glassmorphism': glassmorphism_enabled
                 }
                 
                 return jsonify({
@@ -359,10 +362,13 @@ def handle_theme_settings():
                             settings['casaos_glass_opacity'] = int(parameter_value)
                         except (ValueError, TypeError):
                             settings['casaos_glass_opacity'] = 50
+                    elif parameter_name == 'theme_glassmorphism':
+                        settings['glassmorphism'] = (parameter_value == '1')
                 
                 # Set defaults if not found
                 settings.setdefault('theme', 'casaos')
                 settings.setdefault('casaos_glass_opacity', 50)
+                settings.setdefault('glassmorphism', False)
                 settings.setdefault('dark_mode', False)
                 settings.setdefault('auto_dark_mode', False)
                 settings.setdefault('dark_mode_start', '18:00')
@@ -451,10 +457,13 @@ def get_current_theme_settings():
                     settings['casaos_glass_opacity'] = int(parameter_value)
                 except (ValueError, TypeError):
                     settings['casaos_glass_opacity'] = 50
+            elif parameter_name == 'theme_glassmorphism':
+                settings['glassmorphism_enabled'] = (parameter_value == '1')
         
         # Set defaults
         settings.setdefault('current_theme', 'casaos')
         settings.setdefault('casaos_glass_opacity', 50)
+        settings.setdefault('glassmorphism_enabled', False)
         settings.setdefault('dark_mode_enabled', False)
         settings.setdefault('font_size', 'normal')
         settings.setdefault('high_contrast_enabled', False)
@@ -494,6 +503,7 @@ def generate_theme_css(settings=None):
     theme = settings.get('current_theme', 'casaos')
     dark_mode = settings.get('dark_mode_enabled', False)
     glass_opacity = settings.get('casaos_glass_opacity', 50) / 100.0
+    glassmorphism_enabled = settings.get('glassmorphism_enabled', False)
     custom_colors = settings.get('custom_colors', {})
     custom_light_mode = settings.get('custom_light_mode', {})
     custom_dark_mode = settings.get('custom_dark_mode', {})
@@ -1452,8 +1462,8 @@ def generate_theme_css(settings=None):
         }}
         """
         
-        # Add CasaOS-specific glassmorphism overrides
-        if theme == 'casaos':
+        # Add glassmorphism overrides (applies to any theme when enabled)
+        if glassmorphism_enabled:
             css += f"""
         /* CasaOS Theme - Glassmorphism & Enhanced Dark Mode */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -1497,13 +1507,13 @@ def generate_theme_css(settings=None):
         }}
         
         .ribbon-nav-btn.active {{
-            background: rgba(90, 156, 245, 0.2) !important;
-            border-color: rgba(90, 156, 245, 0.4) !important;
-            color: #5a9cf5 !important;
+            background: rgba(var(--theme-primary-rgb), 0.2) !important;
+            border-color: rgba(var(--theme-primary-rgb), 0.4) !important;
+            color: var(--theme-primary) !important;
         }}
         
         .ribbon-nav-btn.active::after {{
-            background: #5a9cf5 !important;
+            background: var(--theme-primary) !important;
             border-radius: 2px !important;
         }}
         
@@ -1528,8 +1538,8 @@ def generate_theme_css(settings=None):
         }}
 
         .card:hover, .dashboard-widget:hover {{
-            border-color: rgba(90, 156, 245, 0.3) !important;
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(90, 156, 245, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.09) !important;
+            border-color: rgba(var(--theme-primary-rgb), 0.3) !important;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(var(--theme-primary-rgb), 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.09) !important;
         }}
         
         .widget-header, .section-header {{
@@ -1550,34 +1560,34 @@ def generate_theme_css(settings=None):
         }}
 
         .entry-item:hover {{
-            border-color: rgba(90, 156, 245, 0.3) !important;
-            border-left-color: rgba(90, 156, 245, 0.8) !important;
+            border-color: rgba(var(--theme-primary-rgb), 0.3) !important;
+            border-left-color: rgba(var(--theme-primary-rgb), 0.8) !important;
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
         }}
         
         /* Buttons */
         .btn-primary {{
-            background: #5a9cf5 !important;
-            border-color: #5a9cf5 !important;
+            background: var(--theme-primary) !important;
+            border-color: var(--theme-primary) !important;
             border-radius: 8px !important;
             font-weight: 500 !important;
         }}
         
         .btn-primary:hover {{
-            background: #3d84e8 !important;
-            border-color: #3d84e8 !important;
+            background: var(--theme-primary-hover) !important;
+            border-color: var(--theme-primary-hover) !important;
         }}
         
         .btn-outline-primary {{
-            color: #5a9cf5 !important;
-            border-color: rgba(90, 156, 245, 0.5) !important;
+            color: var(--theme-primary) !important;
+            border-color: rgba(var(--theme-primary-rgb), 0.5) !important;
             border-radius: 8px !important;
         }}
         
         .btn-outline-primary:hover {{
-            background: rgba(90, 156, 245, 0.15) !important;
-            border-color: #5a9cf5 !important;
-            color: #5a9cf5 !important;
+            background: rgba(var(--theme-primary-rgb), 0.15) !important;
+            border-color: var(--theme-primary) !important;
+            color: var(--theme-primary) !important;
         }}
         
         .btn, button:not(.ribbon-btn) {{
@@ -1601,8 +1611,8 @@ def generate_theme_css(settings=None):
         
         .form-control:focus, .form-select:focus {{
             background: rgba(58, 58, 60, 0.8) !important;
-            border-color: rgba(90, 156, 245, 0.6) !important;
-            box-shadow: 0 0 0 3px rgba(90, 156, 245, 0.15) !important;
+            border-color: rgba(var(--theme-primary-rgb), 0.6) !important;
+            box-shadow: 0 0 0 3px rgba(var(--theme-primary-rgb), 0.15) !important;
         }}
         
         /* Tables */
@@ -2772,8 +2782,8 @@ def generate_theme_css(settings=None):
         }}
         """
 
-        # Add CasaOS-specific light mode glassmorphism overrides
-        if theme == 'casaos':
+        # Add glassmorphism overrides (applies to any theme when enabled)
+        if glassmorphism_enabled:
             css += f"""
         /* CasaOS Theme - Light Mode Glassmorphism */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -2807,13 +2817,13 @@ def generate_theme_css(settings=None):
         }}
 
         .ribbon-nav-btn.active {{
-            background: rgba(90, 156, 245, 0.15) !important;
-            border-color: rgba(90, 156, 245, 0.35) !important;
-            color: #2c6fd4 !important;
+            background: rgba(var(--theme-primary-rgb), 0.15) !important;
+            border-color: rgba(var(--theme-primary-rgb), 0.35) !important;
+            color: var(--theme-primary-darker) !important;
         }}
 
         .ribbon-nav-btn.active::after {{
-            background: #5a9cf5 !important;
+            background: var(--theme-primary) !important;
             border-radius: 2px !important;
         }}
 
@@ -2846,8 +2856,8 @@ def generate_theme_css(settings=None):
             --entry-item-bg: rgba(255, 255, 255, {min(glass_opacity * 0.30, 1.0):.2f});
             --entry-item-bg-hover: rgba(255, 255, 255, {min(glass_opacity * 0.76, 1.0):.2f});
             --entry-item-border: rgba(255, 255, 255, 0.35);
-            --entry-item-border-hover: rgba(90, 156, 245, 0.5);
-            --entry-item-border-left-hover: #5a9cf5;
+            --entry-item-border-hover: rgba(var(--theme-primary-rgb), 0.5);
+            --entry-item-border-left-hover: var(--theme-primary);
             --entry-item-backdrop: blur(14px) saturate(1.6);
         }}
 
@@ -2863,15 +2873,15 @@ def generate_theme_css(settings=None):
 
         .entry-item:hover {{
             background: rgba(255, 255, 255, {min(glass_opacity * 0.76, 1.0):.2f}) !important;
-            border-color: rgba(90, 156, 245, 0.5) !important;
-            border-left-color: #5a9cf5 !important;
+            border-color: rgba(var(--theme-primary-rgb), 0.5) !important;
+            border-left-color: var(--theme-primary) !important;
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
         }}
 
         /* Buttons */
         .btn-primary {{
-            background: #5a9cf5 !important;
-            border-color: #5a9cf5 !important;
+            background: var(--theme-primary) !important;
+            border-color: var(--theme-primary) !important;
             border-radius: 8px !important;
             font-weight: 500 !important;
         }}
