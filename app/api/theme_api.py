@@ -1486,6 +1486,8 @@ def generate_theme_css(settings=None):
                 background-attachment: scroll !important;
             }}
         }}
+
+        .app-ribbon {{
             background: rgba(28, 28, 30, {min(glass_opacity * 1.70, 0.97):.2f}) !important;
             backdrop-filter: blur(20px) saturate(1.8) !important;
             -webkit-backdrop-filter: blur(20px) saturate(1.8) !important;
