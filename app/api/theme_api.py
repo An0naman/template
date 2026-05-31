@@ -1479,8 +1479,13 @@ def generate_theme_css(settings=None):
                 radial-gradient(ellipse 50% 40% at 50% 100%, rgba(var(--theme-primary-rgb), 0.08) 0%, transparent 50%) !important;
             background-attachment: fixed !important;
         }}
-        
-        .app-ribbon {{
+
+        /* Disable fixed background on touch devices - it causes per-frame repaints (jank) on iOS/Android */
+        @media (hover: none) {{
+            html:not(:has(body[style*="background: transparent"])) body {{
+                background-attachment: scroll !important;
+            }}
+        }}
             background: rgba(28, 28, 30, {min(glass_opacity * 1.70, 0.97):.2f}) !important;
             backdrop-filter: blur(20px) saturate(1.8) !important;
             -webkit-backdrop-filter: blur(20px) saturate(1.8) !important;
@@ -2832,6 +2837,13 @@ def generate_theme_css(settings=None):
                 radial-gradient(ellipse 70% 50% at 85% 75%, rgba(var(--theme-primary-rgb), 0.10) 0%, transparent 50%),
                 radial-gradient(ellipse 50% 40% at 50% 100%, rgba(var(--theme-primary-rgb), 0.06) 0%, transparent 50%) !important;
             background-attachment: fixed !important;
+        }}
+
+        /* Disable fixed background on touch devices - it causes per-frame repaints (jank) on iOS/Android */
+        @media (hover: none) {{
+            html:not(:has(body[style*="background: transparent"])) body {{
+                background-attachment: scroll !important;
+            }}
         }}
 
         .app-ribbon {{
