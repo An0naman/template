@@ -370,6 +370,9 @@ async function showAddWidgetModal() {
         }
     }
     
+    // Populate entry metrics for entry_data_chart widgets
+    loadEdWidgetMetrics();
+
     // Populate git repositories (only if git integration is enabled)
     const gitRepoSelect = document.getElementById('gitRepositorySelect');
     if (gitRepoSelect) {
@@ -418,18 +421,141 @@ async function showAddWidgetModal() {
     modal.show();
 }
 
+function handleEdXAxisTypeChange() {
+    const xAxisType = document.getElementById('edWidgetXAxisType');
+    const fieldRow = document.getElementById('edWidgetXAxisFieldRow');
+    const timeRangeRow = document.getElementById('edWidgetTimeRangeRow');
+    if (!xAxisType) return;
+    if (fieldRow) fieldRow.style.display = xAxisType.value === 'entry_field' ? 'block' : 'none';
+    if (timeRangeRow) timeRangeRow.style.display = xAxisType.value === 'recorded_at' ? 'block' : 'none';
+}
+
+function handleEdRelDefChange() {
+    const pivotId = document.getElementById('edWidgetPivotId').value;
+    const relDefId = document.getElementById('edWidgetRelDef').value;
+    if (pivotId) loadEdWidgetColumns(pivotId, relDefId);
+}
+
+async function loadEdWidgetColumns(pivotEntryId, relDefId) {
+    const container = document.getElementById('entryColumnCheckboxes');
+    if (!container) return;
+    container.innerHTML = '<span class="text-muted small">Loading columns\u2026</span>';
+    try {
+        // Resolve related entry type from a sample related entry
+        const relResp = await fetch(`/api/entries/${encodeURIComponent(pivotEntryId)}/relationships`);
+        if (!relResp.ok) throw new Error('Could not load relationships');
+        const rels = await relResp.json();
+        const filtered = relDefId
+            ? rels.filter(r => String(r.definition_id) === String(relDefId))
+            : rels;
+        if (!filtered.length) {
+            container.innerHTML = '<span class="text-muted small">No related entries found.</span>';
+            return;
+        }
+        // Use the first related entry to discover the related entry type
+        const sampleEntryId = filtered[0].related_entry_id;
+        const entryResp = await fetch(`/api/entries/${encodeURIComponent(sampleEntryId)}`);
+        if (!entryResp.ok) throw new Error('Could not load entry');
+        const entryData = await entryResp.json();
+        const typeId = entryData.entry_type_id ?? entryData.entry?.entry_type_id;
+        if (!typeId) throw new Error('Could not determine entry type');
+        const colResp = await fetch(`/api/entry-types/${encodeURIComponent(typeId)}/custom-columns`);
+        if (!colResp.ok) throw new Error('Could not load custom columns');
+        const assignments = await colResp.json();
+        const numericCols = assignments.filter(a => a.column && a.column.column_type === 'number');
+        if (!numericCols.length) {
+            container.innerHTML = '<span class="text-muted small">No numeric custom columns for this entry type.</span>';
+            return;
+        }
+        container.innerHTML = numericCols.map(a => `
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" value="${a.column.id}"
+                       id="edCol_${a.column.id}" checked>
+                <label class="form-check-label" for="edCol_${a.column.id}">
+                    ${a.column.label}${a.column.unit ? ` <small class="text-muted">(${a.column.unit})</small>` : ''}
+                </label>
+            </div>
+        `).join('');
+    } catch (e) {
+        container.innerHTML = `<span class="text-danger small">${e.message || 'Could not load columns.'}</span>`;
+    }
+}
+
+let _edPivotSearchTimer = null;
+async function handleEdPivotSearch(query) {
+    clearTimeout(_edPivotSearchTimer);
+    const results = document.getElementById('edWidgetPivotResults');
+    if (!query || query.length < 2) { if (results) results.style.display = 'none'; return; }
+    _edPivotSearchTimer = setTimeout(async () => {
+        try {
+            const resp = await fetch(`/api/entries?search=${encodeURIComponent(query)}`);
+            if (!resp.ok) return;
+            const entries = await resp.json();
+            if (!results) return;
+            if (!entries.length) {
+                results.innerHTML = '<div class="list-group-item list-group-item-action disabled text-muted small">No entries found</div>';
+            } else {
+                results.innerHTML = entries.slice(0, 20).map(e =>
+                    `<button type="button" class="list-group-item list-group-item-action small py-1"
+                             onclick="selectEdPivotEntry(${e.id}, ${JSON.stringify(e.title).replace(/"/g, '&quot;')})">
+                        <strong>${e.title}</strong>
+                        <span class="text-muted ms-1">${e.entry_type_label || ''}</span>
+                     </button>`
+                ).join('');
+            }
+            results.style.display = 'block';
+        } catch (e) { console.error('Pivot entry search failed', e); }
+    }, 300);
+}
+
+async function selectEdPivotEntry(entryId, entryTitle) {
+    document.getElementById('edWidgetPivotId').value = entryId;
+    document.getElementById('edWidgetPivotSearch').value = entryTitle;
+    const nameDiv = document.getElementById('edWidgetPivotName');
+    if (nameDiv) nameDiv.textContent = `Selected: ${entryTitle}`;
+    const results = document.getElementById('edWidgetPivotResults');
+    if (results) results.style.display = 'none';
+
+    // Load relationship definitions available for this entry
+    const relDefSel = document.getElementById('edWidgetRelDef');
+    if (!relDefSel) return;
+    relDefSel.innerHTML = '<option value="">Loading…</option>';
+    try {
+        const resp = await fetch(`/api/entries/${entryId}/relationships`);
+        if (!resp.ok) throw new Error();
+        const rels = await resp.json();
+        const defsMap = {};
+        rels.forEach(r => {
+            if (!defsMap[r.definition_id]) {
+                defsMap[r.definition_id] = { id: r.definition_id, label: r.relationship_label || r.definition_name };
+            }
+        });
+        const defs = Object.values(defsMap);
+        if (!defs.length) {
+            relDefSel.innerHTML = '<option value="">No relationships found for this entry</option>';
+        } else {
+            relDefSel.innerHTML = '<option value="">All related entries</option>'
+                + defs.map(d => `<option value="${d.id}">${d.label}</option>`).join('');
+        }
+    } catch (e) {
+        relDefSel.innerHTML = '<option value="">Could not load relationships</option>';
+    }
+}
+
 function handleWidgetTypeChange(event) {
     // Handle both event object and direct calls
     const widgetType = event ? event.target.value : document.getElementById('widgetType').value;
     const dataSourceConfig = document.getElementById('dataSourceConfig');
     const savedSearchConfig = document.getElementById('savedSearchConfig');
     const sensorDataConfig = document.getElementById('sensorDataConfig');
+    const entryDataConfig = document.getElementById('entryDataConfig');
     const aiSummaryPromptConfig = document.getElementById('aiSummaryPromptConfig');
     const chartConfig = document.getElementById('chartConfig');
     
     // Hide all configs (check if they exist first)
     if (savedSearchConfig) savedSearchConfig.style.display = 'none';
     if (sensorDataConfig) sensorDataConfig.style.display = 'none';
+    if (entryDataConfig) entryDataConfig.style.display = 'none';
     if (dataSourceConfig) dataSourceConfig.style.display = 'none';
     if (aiSummaryPromptConfig) aiSummaryPromptConfig.style.display = 'none';
     if (chartConfig) chartConfig.style.display = 'none';
@@ -443,6 +569,8 @@ function handleWidgetTypeChange(event) {
         if (widgetType === 'ai_summary' && aiSummaryPromptConfig) {
             aiSummaryPromptConfig.style.display = 'block';
         }
+    } else if (widgetType === 'entry_data_chart') {
+        if (entryDataConfig) entryDataConfig.style.display = 'block';
     } else if (widgetType === 'line_chart') {
         if (dataSourceConfig) dataSourceConfig.style.display = 'block';
         if (savedSearchConfig) savedSearchConfig.style.display = 'block';
@@ -477,14 +605,33 @@ function handleWidgetTypeChange(event) {
 function handleChartAttributeChange(event) {
     const attribute = event ? event.target.value : document.getElementById('chartAttribute').value;
     const timelineOptions = document.getElementById('timelineOptions');
-    
-    if (timelineOptions) {
-        // Show timeline options for date/timeline attribute
-        if (attribute === 'date_timeline') {
-            timelineOptions.style.display = 'block';
-        } else {
-            timelineOptions.style.display = 'none';
+    const customColumnOptions = document.getElementById('customColumnOptions');
+
+    if (timelineOptions) timelineOptions.style.display = attribute === 'date_timeline' ? 'block' : 'none';
+    if (customColumnOptions) {
+        customColumnOptions.style.display = attribute === 'custom_column' ? 'block' : 'none';
+        if (attribute === 'custom_column') loadChartSelectColumns();
+    }
+}
+
+async function loadChartSelectColumns() {
+    const sel = document.getElementById('chartCustomColumnId');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Loading\u2026</option>';
+    try {
+        const resp = await fetch('/api/custom-columns');
+        if (!resp.ok) throw new Error();
+        const cols = await resp.json();
+        const selectCols = cols.filter(c => c.column_type === 'select');
+        if (!selectCols.length) {
+            sel.innerHTML = '<option value="">No select-type columns found</option>';
+            return;
         }
+        sel.innerHTML = selectCols.map(c =>
+            `<option value="${c.id}">${c.label}</option>`
+        ).join('');
+    } catch (e) {
+        sel.innerHTML = '<option value="">Could not load columns</option>';
     }
 }
 
@@ -554,6 +701,16 @@ async function addWidget() {
                 widgetData.config.date_field = dateField;
                 widgetData.config.timeline_grouping = timelineGrouping;
             }
+
+            // Save custom column id for custom_column attribute
+            if (chartAttribute === 'custom_column') {
+                const colId = document.getElementById('chartCustomColumnId').value;
+                if (!colId) {
+                    showNotification('Please select a custom column', 'warning');
+                    return;
+                }
+                widgetData.config.custom_column_id = parseInt(colId);
+            }
         } else {
             showNotification('Please select chart type, attribute, and data source', 'warning');
             return;
@@ -573,6 +730,32 @@ async function addWidget() {
                 time_range: timeRange
             };
         }
+    }
+
+    if (widgetType === 'entry_data_chart') {
+        const pivotId = document.getElementById('edWidgetPivotId').value;
+        if (!pivotId) {
+            showNotification('Please select a pivot entry', 'warning');
+            return;
+        }
+        const relDefId = document.getElementById('edWidgetRelDef').value;
+        const checkedCols = document.querySelectorAll('#entryColumnCheckboxes input[type=checkbox]:checked');
+        const columnIds = Array.from(checkedCols).map(cb => parseInt(cb.value));
+        if (!columnIds.length) {
+            showNotification('Please select at least one column to plot', 'warning');
+            return;
+        }
+        const xAxisType = document.getElementById('edWidgetXAxisType').value;
+        const xAxisField = document.getElementById('edWidgetXAxisField').value;
+        widgetData.data_source_type = 'entry_relationship';
+        widgetData.data_source_id = parseInt(pivotId);
+        widgetData.config = {
+            data_mode: 'columns',
+            column_ids: columnIds,
+            relationship_definition_id: relDefId ? parseInt(relDefId) : null,
+            x_axis_type: xAxisType,
+            x_axis_field: xAxisField,
+        };
     }
     
     if (widgetType === 'git_commits') {
@@ -730,7 +913,7 @@ async function editWidget(widgetId) {
         }
     }
     
-    // For line charts, also set sensor config
+    // For sensor line charts, set sensor config
     if (widget.widget_type === 'line_chart' && widget.config) {
         try {
             const config = typeof widget.config === 'string' ? JSON.parse(widget.config) : widget.config;
@@ -744,6 +927,47 @@ async function editWidget(widgetId) {
             }
         } catch (e) {
             console.error('Error parsing widget config:', e);
+        }
+    }
+
+    // For entry data charts, restore metric selection and axis config
+    if (widget.widget_type === 'entry_data_chart' && widget.config) {
+        try {
+            const config = typeof widget.config === 'string' ? JSON.parse(widget.config) : widget.config;
+            if (widget.data_source_id) {
+                document.getElementById('edWidgetPivotId').value = widget.data_source_id;
+                fetch(`/api/entries/${widget.data_source_id}`).then(r => r.ok ? r.json() : null).then(data => {
+                    if (!data) return;
+                    document.getElementById('edWidgetPivotSearch').value = data.title || '';
+                    const nameDiv = document.getElementById('edWidgetPivotName');
+                    if (nameDiv) nameDiv.textContent = `Selected: ${data.title}`;
+                    selectEdPivotEntry(widget.data_source_id, data.title).then(() => {
+                        if (config.relationship_definition_id) {
+                            const relDef = document.getElementById('edWidgetRelDef');
+                            if (relDef) relDef.value = config.relationship_definition_id;
+                        }
+                        loadEdWidgetColumns(widget.data_source_id, config.relationship_definition_id).then(() => {
+                            if (config.column_ids && Array.isArray(config.column_ids)) {
+                                document.querySelectorAll('#entryColumnCheckboxes input[type=checkbox]').forEach(cb => cb.checked = false);
+                                config.column_ids.forEach(id => {
+                                    const cb = document.querySelector(`#entryColumnCheckboxes input[value="${id}"]`);
+                                    if (cb) cb.checked = true;
+                                });
+                            }
+                        });
+                    });
+                });
+            }
+            if (config.x_axis_type) {
+                const xAxisType = document.getElementById('edWidgetXAxisType');
+                if (xAxisType) { xAxisType.value = config.x_axis_type; handleEdXAxisTypeChange(); }
+            }
+            if (config.x_axis_field) {
+                const xAxisField = document.getElementById('edWidgetXAxisField');
+                if (xAxisField) xAxisField.value = config.x_axis_field;
+            }
+        } catch (e) {
+            console.error('Error parsing entry_data_chart widget config:', e);
         }
     }
     
@@ -772,9 +996,16 @@ async function editWidget(widgetId) {
                 const chartAttributeSelect = document.getElementById('chartAttribute');
                 if (chartAttributeSelect) {
                     chartAttributeSelect.value = config.chart_attribute;
-                    // Trigger change to show/hide timeline options
+                    // Trigger change to show/hide sub-panels
                     handleChartAttributeChange({ target: { value: config.chart_attribute } });
                 }
+            }
+            if (config.custom_column_id) {
+                // Load select columns then restore the saved selection
+                loadChartSelectColumns().then(() => {
+                    const colSel = document.getElementById('chartCustomColumnId');
+                    if (colSel) colSel.value = config.custom_column_id;
+                });
             }
             if (config.date_field) {
                 const dateFieldSelect = document.getElementById('dateField');
@@ -983,6 +1214,9 @@ function renderWidget(widget, data) {
             break;
         case 'line_chart':
             renderLineChart(bodyEl, widget.id, data);
+            break;
+        case 'entry_data_chart':
+            renderEntryDataChart(bodyEl, widget.id, data);
             break;
         case 'stat_card':
             renderStatCard(bodyEl, data);
@@ -1248,6 +1482,103 @@ function renderLineChart(bodyEl, widgetId, data) {
                         text: 'Value'
                     }
                 }
+            }
+        }
+    });
+}
+
+async function loadEdWidgetMetrics() {
+    const container = document.getElementById('entryMetricCheckboxes');
+    if (!container) return;
+    container.innerHTML = '<span class="text-muted small">Loading metrics…</span>';
+    try {
+        const res = await fetch('/api/entry-metrics');
+        if (!res.ok) throw new Error('Failed to load metrics');
+        const metrics = await res.json();
+        if (!metrics.length) {
+            container.innerHTML = '<span class="text-muted small">No metrics defined yet.</span>';
+            return;
+        }
+        container.innerHTML = metrics.map(m => `
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" value="${m.id}" id="edMetric_${m.id}">
+                <label class="form-check-label d-flex align-items-center gap-1" for="edMetric_${m.id}">
+                    ${m.color ? `<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${m.color}"></span>` : ''}
+                    ${m.label || m.name}${m.unit ? ` <small class="text-muted">(${m.unit})</small>` : ''}
+                </label>
+            </div>
+        `).join('');
+    } catch (e) {
+        container.innerHTML = '<span class="text-danger small">Could not load metrics.</span>';
+    }
+}
+
+function renderEntryDataChart(bodyEl, widgetId, data) {
+    if (data.error) {
+        bodyEl.innerHTML = `<div class="text-danger p-3">${data.error}</div>`;
+        return;
+    }
+    if (!data.series || data.series.length === 0 || data.series.every(s => s.data_points.length === 0)) {
+        bodyEl.innerHTML = '<div class="text-muted text-center p-3">No data available</div>';
+        return;
+    }
+
+    const canvasId = `chart-${widgetId}`;
+    bodyEl.innerHTML = `<div class="chart-container"><canvas id="${canvasId}"></canvas></div>`;
+    const ctx = document.getElementById(canvasId).getContext('2d');
+
+    if (widgetCharts[widgetId]) widgetCharts[widgetId].destroy();
+
+    const isTimeSeries = data.x_axis_type === 'recorded_at';
+    const isCategorySeries = data.x_axis_type === 'category';
+    const defaultColors = ['#4bc0c0','#ff6384','#36a2eb','#ffce56','#9966ff','#ff9f40','#c9cbcf'];
+
+    // Build a union of all x-labels for category/entry-field axes
+    let xLabels;
+    if (!isTimeSeries) {
+        const labelSet = new Set();
+        data.series.forEach(s => s.data_points.forEach(p => labelSet.add(p.x)));
+        xLabels = Array.from(labelSet);
+        // Sort labels (string sort is fine for entry names / date strings)
+        xLabels.sort();
+    }
+
+    const datasets = data.series.map((s, idx) => ({
+        label: s.unit ? `${s.label} (${s.unit})` : s.label,
+        data: isTimeSeries
+            ? s.data_points.map(p => ({ x: p.x, y: p.y }))
+            : s.data_points.map(p => ({ x: p.x, y: p.y })),
+        borderColor: s.color || defaultColors[idx % defaultColors.length],
+        backgroundColor: (s.color || defaultColors[idx % defaultColors.length]) + '33',
+        tension: 0.1,
+        fill: false,
+        pointRadius: 3
+    }));
+
+    widgetCharts[widgetId] = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: isTimeSeries ? undefined : xLabels,
+            datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: datasets.length > 1, position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y}`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    type: isTimeSeries ? 'time' : 'category',
+                    display: true,
+                    title: { display: true, text: data.x_axis_label || (isTimeSeries ? 'Time' : 'Entry') }
+                },
+                y: { display: true, title: { display: true, text: 'Value' } }
             }
         }
     });

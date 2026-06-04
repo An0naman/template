@@ -1,0 +1,232 @@
+{# Entry Data Points Section
+   Renders a multi-metric chart + add/manage readings for the current entry.
+   Expects:  entry.id (from Jinja context)
+             section_id  (passed via {% with %})
+#}
+
+<div class="entry-data-section" id="entryDataSection-{{ section_id }}"
+     data-entry-id="{{ entry.id }}"
+     data-section-id="{{ section_id }}">
+
+    {# ── Data source toggle ───────────────────────────────────────────── #}
+    <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+        <div class="btn-group btn-group-sm" role="group">
+            <input type="radio" class="btn-check" name="edSource-{{ section_id }}"
+                   id="edSourceOwn-{{ section_id }}" value="own" checked
+                   onchange="edHandleSourceChange('{{ section_id }}')">
+            <label class="btn btn-outline-primary" for="edSourceOwn-{{ section_id }}">
+                <i class="fas fa-dot-circle me-1"></i>This Entry
+            </label>
+            <input type="radio" class="btn-check" name="edSource-{{ section_id }}"
+                   id="edSourceRel-{{ section_id }}" value="related"
+                   onchange="edHandleSourceChange('{{ section_id }}')">
+            <label class="btn btn-outline-primary" for="edSourceRel-{{ section_id }}">
+                <i class="fas fa-project-diagram me-1"></i>Related Entries
+            </label>
+        </div>
+
+        {# Relationship definition picker — shown in "related" mode #}
+        <select class="form-select form-select-sm d-none" style="width:auto;max-width:280px;"
+                id="edRelDef-{{ section_id }}"
+                onchange="edHandleRelDefChange('{{ section_id }}')">
+            <option value="">Loading relationships…</option>
+        </select>
+    </div>
+
+    {# ── Data mode toggle (shown only when sourceMode = related) ─────────── #}
+    <div class="d-flex align-items-center gap-2 flex-wrap mb-2 d-none" id="edDataModeRow-{{ section_id }}">
+        <small class="text-muted">Plot:</small>
+        <div class="btn-group btn-group-sm" role="group">
+            <input type="radio" class="btn-check" name="edDataMode-{{ section_id }}"
+                   id="edDataModeMetrics-{{ section_id }}" value="metrics" checked
+                   onchange="edHandleDataModeChange('{{ section_id }}')">
+            <label class="btn btn-outline-secondary" for="edDataModeMetrics-{{ section_id }}">
+                <i class="fas fa-chart-line me-1"></i>Logged Readings
+            </label>
+            <input type="radio" class="btn-check" name="edDataMode-{{ section_id }}"
+                   id="edDataModeColumns-{{ section_id }}" value="columns"
+                   onchange="edHandleDataModeChange('{{ section_id }}')">
+            <label class="btn btn-outline-secondary" for="edDataModeColumns-{{ section_id }}">
+                <i class="fas fa-table-columns me-1"></i>Custom Column Values
+            </label>
+            <input type="radio" class="btn-check" name="edDataMode-{{ section_id }}"
+                   id="edDataModeDistribution-{{ section_id }}" value="distribution"
+                   onchange="edHandleDataModeChange('{{ section_id }}')">
+            <label class="btn btn-outline-secondary" for="edDataModeDistribution-{{ section_id }}">
+                <i class="fas fa-chart-pie me-1"></i>Distribution
+            </label>
+        </div>
+    </div>
+
+    {# ── Select-column picker (shown in "distribution" data mode) ────────── #}
+    <div class="d-flex align-items-center gap-2 flex-wrap mb-2 d-none" id="edSelectColRow-{{ section_id }}">
+        <small class="text-muted">Column:</small>
+        <select class="form-select form-select-sm" style="width:auto;max-width:260px;"
+                id="edSelectColPicker-{{ section_id }}"
+                onchange="edHandleSelectColChange('{{ section_id }}')">
+            <option value="">Loading…</option>
+        </select>
+    </div>
+
+    {# ── Toolbar ─────────────────────────────────────────────────────── #}
+    <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
+
+        {# Metric picker (multi-select shown as tag list) #}
+        <div class="dropdown" id="edMetricDropdown-{{ section_id }}">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                    type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                <i class="fas fa-chart-line me-1"></i><span id="edMetricLabel-{{ section_id }}">All Metrics</span>
+            </button>
+            <ul class="dropdown-menu p-2" style="min-width:220px;" id="edMetricMenu-{{ section_id }}">
+                <li class="text-muted small px-2 py-1">Loading metrics…</li>
+            </ul>
+        </div>
+
+        {# Column picker — shown in "columns" data mode #}
+        <div class="dropdown d-none" id="edColumnDropdown-{{ section_id }}">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                    type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                <i class="fas fa-table-columns me-1"></i><span id="edColumnLabel-{{ section_id }}">All Columns</span>
+            </button>
+            <ul class="dropdown-menu p-2" style="min-width:220px;" id="edColumnMenu-{{ section_id }}">
+                <li class="text-muted small px-2 py-1">Loading columns…</li>
+            </ul>
+        </div>
+
+        {# Time range #}
+        <select class="form-select form-select-sm" style="width:auto;"
+                id="edTimeRange-{{ section_id }}">
+            <option value="7d">Last 7 Days</option>
+            <option value="30d" selected>Last 30 Days</option>
+            <option value="90d">Last 90 Days</option>
+            <option value="365d">Last Year</option>
+            <option value="all">All Time</option>
+        </select>
+
+        {# X-axis type #}
+        <select class="form-select form-select-sm" style="width:auto;"
+                id="edXAxisType-{{ section_id }}">
+            <option value="recorded_at">X: Time of reading</option>
+            <option value="entry_name">X: Entry Name</option>
+            <option value="entry_field">X: Entry date field</option>
+        </select>
+
+        {# Entry date field (shown only when x_axis_type = entry_field) #}
+        <select class="form-select form-select-sm d-none" style="width:auto;"
+                id="edXAxisField-{{ section_id }}">
+            <option value="commenced_at">Start Date</option>
+            <option value="created_at">Created Date</option>
+            <option value="intended_end_date">Intended End Date</option>
+            <option value="actual_end_date">Actual End Date</option>
+        </select>
+
+        {# Chart type #}
+        <select class="form-select form-select-sm" style="width:auto;"
+                id="edChartType-{{ section_id }}">
+            <option value="line">Line</option>
+            <option value="bar">Bar</option>
+            <option value="scatter">Scatter</option>
+            <option value="pie">Pie</option>
+            <option value="doughnut">Doughnut</option>
+        </select>
+
+        <button class="btn btn-sm btn-outline-primary ms-auto" id="edAddBtn-{{ section_id }}"
+                onclick="edOpenAddModal('{{ section_id }}')">
+            <i class="fas fa-plus me-1"></i>Add Reading
+        </button>
+
+        <button class="btn btn-sm btn-outline-secondary"
+                onclick="edToggleTable('{{ section_id }}')">
+            <i class="fas fa-table me-1"></i>Table
+        </button>
+    </div>
+
+    {# ── Chart ─────────────────────────────────────────────────────────── #}
+    <div id="edChartContainer-{{ section_id }}" style="position:relative; height:280px;">
+        <canvas id="edChart-{{ section_id }}"></canvas>
+    </div>
+
+    <div id="edNoData-{{ section_id }}" class="alert alert-info mt-2 d-none">
+        No data points yet. Click <strong>Add Reading</strong> to log the first value.
+    </div>
+
+    {# ── Data table (hidden by default) ────────────────────────────────── #}
+    <div id="edTableContainer-{{ section_id }}" class="d-none mt-3">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Value</th>
+                        <th>Recorded At</th>
+                        <th>Notes</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="edTableBody-{{ section_id }}"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{# ── Add / Edit modal (one per section instance) ──────────────────────── #}
+<div class="modal fade" id="edAddModal-{{ section_id }}" tabindex="-1"
+     aria-labelledby="edAddModalLabel-{{ section_id }}" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="edAddModalLabel-{{ section_id }}">Add Reading</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edEditDpId-{{ section_id }}">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Metric <span class="text-danger">*</span></label>
+                    <select class="form-select" id="edAddMetricId-{{ section_id }}">
+                        <option value="">Select metric…</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Value <span class="text-danger">*</span></label>
+                    <input type="number" step="any" class="form-control" id="edAddValue-{{ section_id }}"
+                           placeholder="e.g. 5.2">
+                    <div class="form-text" id="edAddUnit-{{ section_id }}"></div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Recorded At</label>
+                    <input type="datetime-local" class="form-control" id="edAddRecordedAt-{{ section_id }}">
+                    <div class="form-text">Leave blank to use now.</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Notes</label>
+                    <textarea class="form-control" id="edAddNotes-{{ section_id }}" rows="2"
+                              placeholder="Optional annotation"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary"
+                        onclick="edSaveReading('{{ section_id }}')">
+                    <i class="fas fa-save me-1"></i>Save
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ── Load CSS + JS ─────────────────────────────────────────────────────── #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/sections/entry_data.css') }}"
+      onerror="this.remove()">
+<script src="{{ url_for('static', filename='js/sections/_entry_data_functions.js') }}"></script>
+<script>
+(function() {
+    const sid = '{{ section_id }}';
+    const entryId = {{ entry.id }};
+    // Initialise after DOM is ready (script may execute synchronously on first load)
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => edInitSection(sid, entryId));
+    } else {
+        edInitSection(sid, entryId);
+    }
+})();
+</script>

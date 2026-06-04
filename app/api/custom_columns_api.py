@@ -573,3 +573,171 @@ def upsert_entry_values(entry_id):
     except Exception as e:
         logger.error(f"Error upserting custom column values for entry {entry_id}: {e}", exc_info=True)
         return jsonify({'error': 'An internal error occurred.'}), 500
+
+
+# ---------------------------------------------------------------------------
+# Custom-column chart data (compare related entries by numeric column values)
+# ---------------------------------------------------------------------------
+
+@custom_columns_api_bp.route('/custom-columns/chart-data', methods=['GET'])
+def column_chart_data():
+    """Return Chart.js-ready series from CustomColumnValue across multiple entries.
+
+    Query params
+    ------------
+    entry_ids   : comma-separated entry IDs (required)
+    column_ids  : comma-separated CustomColumn IDs (required)
+    x_axis_type : 'entry_name' (default) | 'entry_field'
+    x_axis_field: when x_axis_type='entry_field', one of:
+                  commenced_at | created_at | intended_end_date | actual_end_date
+    """
+    entry_ids_str  = request.args.get('entry_ids', '')
+    column_ids_str = request.args.get('column_ids', '')
+    x_axis_type    = request.args.get('x_axis_type', 'entry_name')
+    x_axis_field   = request.args.get('x_axis_field', 'commenced_at')
+
+    # Whitelist field names to prevent SQL injection
+    _ALLOWED_FIELDS = {'commenced_at', 'created_at', 'intended_end_date', 'actual_end_date'}
+    if x_axis_field not in _ALLOWED_FIELDS:
+        x_axis_field = 'commenced_at'
+
+    try:
+        entry_ids  = [int(i) for i in entry_ids_str.split(',')  if i.strip()]
+        column_ids = [int(i) for i in column_ids_str.split(',') if i.strip()]
+    except ValueError:
+        return jsonify({'error': 'Invalid IDs'}), 400
+
+    if not entry_ids or not column_ids:
+        return jsonify({'series': [], 'x_axis_type': 'category', 'x_axis_label': 'Entry'}), 200
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    ep = ','.join(['?'] * len(entry_ids))
+    cp = ','.join(['?'] * len(column_ids))
+
+    # Entry metadata
+    cursor.execute(
+        f'SELECT id, title, commenced_at, created_at, intended_end_date, actual_end_date '
+        f'FROM Entry WHERE id IN ({ep})',
+        entry_ids,
+    )
+    entry_rows = {r['id']: r for r in cursor.fetchall()}
+
+    # Column metadata
+    cursor.execute(f'SELECT id, label, unit FROM CustomColumn WHERE id IN ({cp})', column_ids)
+    col_meta = {r['id']: r for r in cursor.fetchall()}
+
+    # All stored values in one query
+    cursor.execute(
+        f'SELECT entry_id, custom_column_id, value FROM CustomColumnValue '
+        f'WHERE entry_id IN ({ep}) AND custom_column_id IN ({cp})',
+        entry_ids + column_ids,
+    )
+    value_map: dict = {}
+    for r in cursor.fetchall():
+        value_map.setdefault(r['entry_id'], {})[r['custom_column_id']] = r['value']
+
+    def _x_val(er):
+        if x_axis_type == 'entry_field':
+            v = er[x_axis_field]
+            return str(v)[:10] if v else er['title']
+        return er['title']
+
+    def _sort_key(eid):
+        er = entry_rows.get(eid)
+        if not er:
+            return ''
+        if x_axis_type == 'entry_field':
+            return str(er[x_axis_field] or '')
+        return er['title'] or ''
+
+    sorted_ids = sorted([e for e in entry_ids if e in entry_rows], key=_sort_key)
+
+    palette = ['#4bc0c0', '#ff6384', '#36a2eb', '#ffce56', '#9966ff', '#ff9f40', '#c9cbcf']
+    series = []
+    for i, col_id in enumerate(column_ids):
+        meta = col_meta.get(col_id, {})
+        pts = []
+        for eid in sorted_ids:
+            raw = value_map.get(eid, {}).get(col_id)
+            if raw is None:
+                continue
+            try:
+                y = float(raw)
+            except (ValueError, TypeError):
+                continue
+            pts.append({'x': _x_val(entry_rows[eid]), 'y': y, 'entry_id': eid})
+        series.append({
+            'label': meta.get('label', f'Column {col_id}'),
+            'column_id': col_id,
+            'unit': meta.get('unit') or '',
+            'color': palette[i % len(palette)],
+            'data_points': pts,
+        })
+
+    x_label = 'Entry' if x_axis_type == 'entry_name' else x_axis_field.replace('_', ' ').title()
+    return jsonify({
+        'series': series,
+        'x_axis_type': 'category',
+        'x_axis_label': x_label,
+    }), 200
+
+
+@custom_columns_api_bp.route('/custom-columns/distribution', methods=['GET'])
+def column_distribution():
+    """Return distribution counts for a select-type custom column across multiple entries.
+
+    Query params
+    ------------
+    entry_ids : comma-separated entry IDs (required)
+    column_id : single CustomColumn ID of type 'select' (required)
+    """
+    entry_ids_str = request.args.get('entry_ids', '')
+    column_id     = request.args.get('column_id', type=int)
+
+    if not entry_ids_str or not column_id:
+        return jsonify({'categories': [], 'column_label': '', 'total': 0}), 200
+
+    try:
+        entry_ids = [int(i) for i in entry_ids_str.split(',') if i.strip()]
+    except ValueError:
+        return jsonify({'error': 'Invalid entry_ids'}), 400
+
+    if not entry_ids:
+        return jsonify({'categories': [], 'column_label': '', 'total': 0}), 200
+
+    conn   = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT id, label FROM CustomColumn WHERE id = ?', (column_id,))
+    col_row = cursor.fetchone()
+    if not col_row:
+        return jsonify({'error': 'Column not found'}), 404
+
+    ep = ','.join(['?'] * len(entry_ids))
+    cursor.execute(
+        f'SELECT value FROM CustomColumnValue '
+        f'WHERE entry_id IN ({ep}) AND custom_column_id = ?',
+        entry_ids + [column_id],
+    )
+    rows = cursor.fetchall()
+
+    counts: dict = {}
+    for r in rows:
+        val = (r['value'] or '').strip()
+        if val:
+            counts[val] = counts.get(val, 0) + 1
+
+    palette = ['#4bc0c0', '#ff6384', '#36a2eb', '#ffce56', '#9966ff', '#ff9f40',
+               '#c9cbcf', '#e7e9ed', '#71b37c', '#f7464a']
+    categories = [
+        {'name': name, 'count': cnt, 'color': palette[i % len(palette)]}
+        for i, (name, cnt) in enumerate(sorted(counts.items(), key=lambda x: -x[1]))
+    ]
+
+    return jsonify({
+        'categories':    categories,
+        'column_label':  col_row['label'],
+        'total':         sum(counts.values()),
+    }), 200

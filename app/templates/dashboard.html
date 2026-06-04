@@ -12,7 +12,8 @@
     
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
     <!-- Gridstack for drag-and-drop dashboard -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10.1.2/dist/gridstack.min.css">
     <script src="https://cdn.jsdelivr.net/npm/gridstack@10.1.2/dist/gridstack-all.js"></script>
@@ -403,6 +404,7 @@
                                 {% else %}
                                 <option value="" disabled>📉 Line Chart (Enable sensors in settings)</option>
                                 {% endif %}
+                                <option value="entry_data_chart">📊 Entry Data Chart</option>
                                 <option value="stat_card">📊 Stat Card</option>
                                 <option value="ai_summary">🤖 AI Summary</option>
                                 {% if get_system_parameters().get('git_integration_enabled', '0') == '1' %}
@@ -438,12 +440,22 @@
                             
                             <div class="mb-3">
                                 <label for="chartAttribute" class="form-label">Data Attribute</label>
-                                <select class="form-select" id="chartAttribute" required>
+                                <select class="form-select" id="chartAttribute" required onchange="handleChartAttributeChange(event)">
                                     <option value="">Select attribute...</option>
                                     <option value="status">Status</option>
                                     <option value="entry_type">Entry Type</option>
+                                    <option value="custom_column">Custom Column (Select)</option>
                                     <option value="date_timeline">Date/Timeline</option>
                                 </select>
+                            </div>
+
+                            <!-- Custom column picker (shown when attribute = custom_column) -->
+                            <div id="customColumnOptions" style="display:none;" class="mb-3">
+                                <label for="chartCustomColumnId" class="form-label">Select Column</label>
+                                <select class="form-select" id="chartCustomColumnId">
+                                    <option value="">Loading columns…</option>
+                                </select>
+                                <div class="form-text">Only <code>select</code>-type columns are listed. One slice per distinct option value.</div>
                             </div>
                             
                             <div id="timelineOptions" style="display: none;">
@@ -502,6 +514,64 @@
                                 </div>
                             </div>
                             {% endif %}
+
+                        </div>
+
+                        <!-- Entry Data Points config (entry_data_chart widget) -->
+                        <div id="entryDataConfig" style="display: none;">
+                            <hr>
+                            <h6><i class="fas fa-chart-line me-2"></i>Chart Data</h6>
+
+                            <!-- Pivot entry search -->
+                            <div class="mb-3">
+                                <label class="form-label">Pivot Entry</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="text" class="form-control" id="edWidgetPivotSearch"
+                                           placeholder="Search by title…"
+                                           oninput="handleEdPivotSearch(this.value)">
+                                </div>
+                                <div id="edWidgetPivotResults" class="list-group mt-1"
+                                     style="max-height:140px;overflow-y:auto;display:none;position:relative;z-index:10;"></div>
+                                <input type="hidden" id="edWidgetPivotId">
+                                <div id="edWidgetPivotName" class="form-text text-success"></div>
+                            </div>
+
+                            <!-- Relationship dropdown -->
+                            <div class="mb-3">
+                                <label for="edWidgetRelDef" class="form-label">Relationship</label>
+                                <select class="form-select" id="edWidgetRelDef"
+                                        onchange="handleEdRelDefChange()">
+                                    <option value="">Select pivot entry first…</option>
+                                </select>
+                                <div class="form-text">Custom column values from all related entries will be plotted as separate lines.</div>
+                            </div>
+
+                            <!-- Column checkboxes (auto-loaded from related entry type) -->
+                            <div class="mb-3">
+                                <label class="form-label">Columns to Plot</label>
+                                <div id="entryColumnCheckboxes" class="border rounded p-2" style="max-height:180px;overflow-y:auto;">
+                                    <span class="text-muted small">Select a pivot entry and relationship first…</span>
+                                </div>
+                            </div>
+
+                            <!-- X-axis -->
+                            <div class="mb-3">
+                                <label for="edWidgetXAxisType" class="form-label">X-Axis</label>
+                                <select class="form-select" id="edWidgetXAxisType"
+                                        onchange="handleEdXAxisTypeChange()">
+                                    <option value="entry_name" selected>Entry Name</option>
+                                    <option value="entry_field">Entry date field</option>
+                                </select>
+                            </div>
+                            <div id="edWidgetXAxisFieldRow" style="display:none;" class="mb-3">
+                                <label for="edWidgetXAxisField" class="form-label">Entry Date Field</label>
+                                <select class="form-select" id="edWidgetXAxisField">
+                                    <option value="commenced_at">Start Date</option>
+                                    <option value="created_at">Created Date</option>
+                                    <option value="intended_end_date">Intended End Date</option>
+                                    <option value="actual_end_date">Actual End Date</option>
+                                </select>
+                            </div>
                         </div>
 
                         <!-- AI Summary Widget-Specific Prompt -->
