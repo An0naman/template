@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Entry Data Points — Feature Showcase</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  body { background: #0d1117; color: #e6edf3; }
+  .showcase-header { background: linear-gradient(135deg, #0d6efd22, #6f42c122); border-bottom: 1px solid #30363d; }
+  .scenario-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; overflow: hidden; }
+  .scenario-card .card-header { background: #21262d; border-bottom: 1px solid #30363d; }
+  .scenario-label { font-size: 0.7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .pill-badge { font-size: 0.7rem; padding: .2rem .55rem; border-radius: 999px; }
+  .metric-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .widget-card { background: #161b22; border: 1px solid #30363d; border-radius: 10px; }
+  .widget-header { background: #21262d; border-bottom: 1px solid #30363d; padding: .55rem 1rem;
+                   display: flex; align-items: center; justify-content: space-between; }
+  .widget-body { padding: .75rem 1rem 1rem; }
+  .toolbar { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; }
+  .chart-wrap { position: relative; height: 260px; }
+  .table-wrap { max-height: 180px; overflow-y: auto; }
+  .section-card { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1rem; position: relative; overflow: hidden; }
+  .section-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: linear-gradient(135deg, #0d6efd, #6f42c1); }
+  .no-data { background: #1c2128; border: 1px solid #30363d; border-radius: 8px; padding: 1.5rem; text-align: center; color: #8b949e; }
+  .data-badge { background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: .15rem .5rem; font-size: .75rem; font-family: monospace; }
+  .annotation { background: #0d6efd22; border: 1px dashed #0d6efd66; border-radius: 6px; padding: .5rem .75rem; font-size: .8rem; color: #79c0ff; }
+  .flow-arrow { color: #8b949e; font-size: 1.5rem; text-align: center; }
+  hr { border-color: #30363d; }
+  /* custom scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #444c56; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ HEADER ═══════════════════════ -->
+<div class="showcase-header py-4 mb-4">
+  <div class="container">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      <div>
+        <h1 class="mb-0 fs-3 fw-bold">
+          <i class="fas fa-chart-line text-primary me-2"></i>Entry Data Points
+        </h1>
+        <p class="text-secondary mb-0 mt-1">
+          Feature showcase — multi-metric charts on entries &amp; dashboards, with relationship-bound data
+        </p>
+      </div>
+      <div class="ms-auto d-flex gap-2">
+        <span class="badge bg-primary">New Feature</span>
+        <span class="badge bg-secondary">Mock Data</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container pb-5">
+
+  <!-- ════════════════════════════════════════════════════════════
+       SECTION 1 — CONCEPT OVERVIEW
+  ════════════════════════════════════════════════════════════ -->
+  <div class="row mb-5">
+    <div class="col">
+      <h5 class="fw-bold text-secondary mb-3"><i class="fas fa-sitemap me-2"></i>How It Works</h5>
+      <div class="row g-3">
+        <div class="col-md-4">
+          <div class="section-card h-100">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <i class="fas fa-ruler-combined text-primary"></i>
+              <strong>1. Define Metrics</strong>
+            </div>
+            <p class="text-secondary small mb-2">
+              In <em>Settings → Entry Metrics</em>, define named numeric measurements scoped to an entry type.
+            </p>
+            <div class="d-flex flex-column gap-1">
+              <div class="data-badge"><span class="metric-dot me-1" style="background:#4bc0c0"></span>Temperature (°C) · Brewing Batch</div>
+              <div class="data-badge"><span class="metric-dot me-1" style="background:#ff6384"></span>Original Gravity · Brewing Batch</div>
+              <div class="data-badge"><span class="metric-dot me-1" style="background:#36a2eb"></span>pH · Brewing Batch</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="section-card h-100">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <i class="fas fa-edit text-success"></i>
+              <strong>2. Record Readings</strong>
+            </div>
+            <p class="text-secondary small mb-2">
+              On any entry's <em>Data Points</em> section, click <strong>Add Reading</strong> to log a timestamped value for any metric.
+            </p>
+            <div class="d-flex flex-column gap-1">
+              <div class="data-badge">Batch #42 → Temperature = 18.4 °C @ Day 1</div>
+              <div class="data-badge">Batch #42 → Gravity = 1.052 @ Day 1</div>
+              <div class="data-badge">Batch #42 → Temperature = 17.9 °C @ Day 3</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="section-card h-100">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <i class="fas fa-chart-area text-warning"></i>
+              <strong>3. Plot &amp; Compare</strong>
+            </div>
+            <p class="text-secondary small mb-2">
+              View charts on the entry itself, or add a <em>Dashboard Widget</em> to compare many entries at once —
+              either via a Saved Search or by following a relationship from a pivot entry.
+            </p>
+            <div class="annotation">
+              <i class="fas fa-project-diagram me-1"></i>
+              E.g. "Show temperature of all batches <em>related to</em> Recipe #7"
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       SECTION 2 — ENTRY SECTION: "THIS ENTRY" MODE
+  ════════════════════════════════════════════════════════════ -->
+  <h5 class="fw-bold text-secondary mb-3">
+    <i class="fas fa-file-alt me-2"></i>Entry Section — <span class="text-white">This Entry</span> Mode
+  </h5>
+  <p class="text-secondary small mb-3">
+    A single entry's metrics plotted together. Here: <strong>Brewing Batch #42 — "Cascade Pale Ale"</strong>
+    with three metrics tracked daily during fermentation.
+  </p>
+
+  <div class="scenario-card mb-5">
+    <div class="card-header px-3 py-2 d-flex align-items-center gap-2">
+      <i class="fas fa-flask text-primary"></i>
+      <span class="fw-semibold">Brewing Batch #42 — Cascade Pale Ale</span>
+      <span class="badge bg-success ms-2">Active</span>
+      <span class="ms-auto scenario-label text-secondary">Entry Detail View → Data Points Section</span>
+    </div>
+    <div class="p-3">
+
+      <!-- Source toggle -->
+      <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+        <div class="btn-group btn-group-sm" role="group">
+          <input type="radio" class="btn-check" name="srcA" id="srcA_own" checked onchange="switchSourceA('own')">
+          <label class="btn btn-outline-primary" for="srcA_own"><i class="fas fa-dot-circle me-1"></i>This Entry</label>
+          <input type="radio" class="btn-check" name="srcA" id="srcA_rel" onchange="switchSourceA('related')">
+          <label class="btn btn-outline-primary" for="srcA_rel"><i class="fas fa-project-diagram me-1"></i>Related Entries</label>
+        </div>
+        <div id="relDefRowA" class="d-none">
+          <select class="form-select form-select-sm" id="relDefA" onchange="switchSourceA('related')" style="width:auto;">
+            <option value="all">All related entries</option>
+            <option value="recipe">Made from Recipe</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <!-- Metric picker dropdown -->
+        <div class="dropdown">
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                  data-bs-toggle="dropdown" data-bs-auto-close="outside">
+            <i class="fas fa-chart-line me-1"></i><span id="metricLabelA">All Metrics</span>
+          </button>
+          <ul class="dropdown-menu p-2" style="min-width:220px;">
+            <li><label class="dropdown-item d-flex align-items-center gap-2 py-1">
+              <input type="checkbox" class="form-check-input mt-0" id="mA_temp" checked onchange="redrawA()">
+              <span class="metric-dot" style="background:#4bc0c0"></span>
+              Temperature <small class="text-secondary ms-1">(°C)</small>
+            </label></li>
+            <li><label class="dropdown-item d-flex align-items-center gap-2 py-1">
+              <input type="checkbox" class="form-check-input mt-0" id="mA_grav" checked onchange="redrawA()">
+              <span class="metric-dot" style="background:#ff6384"></span>
+              Gravity <small class="text-secondary ms-1">(SG)</small>
+            </label></li>
+            <li><label class="dropdown-item d-flex align-items-center gap-2 py-1">
+              <input type="checkbox" class="form-check-input mt-0" id="mA_ph" checked onchange="redrawA()">
+              <span class="metric-dot" style="background:#36a2eb"></span>
+              pH
+            </label></li>
+          </ul>
+        </div>
+
+        <select class="form-select form-select-sm" style="width:auto;" id="timeRangeA" onchange="redrawA()">
+          <option value="7d">Last 7 Days</option>
+          <option value="30d" selected>Last 30 Days</option>
+          <option value="all">All Time</option>
+        </select>
+
+        <select class="form-select form-select-sm" style="width:auto;" id="xAxisA" onchange="switchXAxisA()">
+          <option value="time">X: Time of reading</option>
+          <option value="entry_field">X: Entry date field</option>
+        </select>
+
+        <select class="form-select form-select-sm d-none" style="width:auto;" id="xFieldA" onchange="redrawA()">
+          <option value="commenced_at">Start Date</option>
+          <option value="created_at">Created Date</option>
+        </select>
+
+        <select class="form-select form-select-sm" style="width:auto;" id="chartTypeA" onchange="redrawA()">
+          <option value="line">Line</option>
+          <option value="bar">Bar</option>
+          <option value="scatter">Scatter</option>
+        </select>
+
+        <button class="btn btn-sm btn-outline-primary ms-auto" onclick="openAddModal()">
+          <i class="fas fa-plus me-1"></i>Add Reading
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="toggleTableA()">
+          <i class="fas fa-table me-1"></i>Table
+        </button>
+      </div>
+
+      <!-- Chart -->
+      <div class="chart-wrap mb-2" id="chartWrapA">
+        <canvas id="chartA"></canvas>
+      </div>
+      <div id="noDataA" class="no-data d-none">No data for selected metrics / time range</div>
+
+      <!-- Data table (hidden by default) -->
+      <div id="tableA" class="d-none mt-2">
+        <div class="table-wrap">
+          <table class="table table-sm table-dark table-hover align-middle mb-0" style="font-size:.8rem;">
+            <thead><tr class="text-secondary">
+              <th>Metric</th><th>Value</th><th>Recorded</th><th>Notes</th>
+            </tr></thead>
+            <tbody id="tableBodyA"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════════════════════════════════════
+       SECTION 3 — ENTRY SECTION: "RELATED ENTRIES" MODE
+  ════════════════════════════════════════════════════════════ -->
+  <h5 class="fw-bold text-secondary mb-3">
+    <i class="fas fa-project-diagram me-2"></i>Entry Section — <span class="text-white">Related Entries</span> Mode
+  </h5>
+  <p class="text-secondary small mb-3">
+    Switch to <strong>Related Entries</strong> on the same section to see data from all entries linked to this one.
+    Here: <strong>Recipe #7 — "Cascade Pale Ale Base"</strong> has three batches.
+    Selecting "Made from Recipe" shows each batch's temperature as a separate series.
+  </p>
+
+  <!-- Relationship diagram -->
+  <div class="row g-2 mb-3 align-items-center">
+    <div class="col-auto">
+      <div class="scenario-card p-2 px-3 text-center" style="min-width:140px;">
+        <div class="small text-secondary">Pivot Entry</div>
+        <div class="fw-bold"><i class="fas fa-book-open text-warning me-1"></i>Recipe #7</div>
+        <div class="small text-secondary">Cascade Pale Ale Base</div>
+      </div>
+    </div>
+    <div class="col-auto flow-arrow"><i class="fas fa-long-arrow-alt-right"></i></div>
+    <div class="col">
+      <div class="row g-2">
+        <div class="col-auto">
+          <div class="scenario-card p-2 px-3 text-center" style="border-color:#4bc0c066;">
+            <div class="small text-secondary">via "Made from"</div>
+            <div class="fw-semibold"><i class="fas fa-flask me-1" style="color:#4bc0c0"></i>Batch #40</div>
+            <div class="small text-secondary" style="color:#4bc0c0">8 readings</div>
+          </div>
+        </div>
+        <div class="col-auto">
+          <div class="scenario-card p-2 px-3 text-center" style="border-color:#ff638466;">
+            <div class="small text-secondary">via "Made from"</div>
+            <div class="fw-semibold"><i class="fas fa-flask me-1" style="color:#ff6384"></i>Batch #41</div>
+            <div class="small text-secondary" style="color:#ff6384">8 readings</div>
+          </div>
+        </div>
+        <div class="col-auto">
+          <div class="scenario-card p-2 px-3 text-center" style="border-color:#36a2eb66;">
+            <div class="small text-secondary">via "Made from"</div>
+            <div class="fw-semibold"><i class="fas fa-flask me-1" style="color:#36a2eb"></i>Batch #42</div>
+            <div class="small text-secondary" style="color:#36a2eb">8 readings</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scenario-card mb-5">
+    <div class="card-header px-3 py-2 d-flex align-items-center gap-2">
+      <i class="fas fa-book-open text-warning"></i>
+      <span class="fw-semibold">Recipe #7 — Cascade Pale Ale Base</span>
+      <span class="ms-auto scenario-label text-secondary">Entry Detail View → Data Points Section</span>
+    </div>
+    <div class="p-3">
+
+      <!-- Source toggle (pre-set to "Related") -->
+      <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+        <div class="btn-group btn-group-sm" role="group">
+          <input type="radio" class="btn-check" name="srcB" id="srcB_own" onchange="showNoRelData()">
+          <label class="btn btn-outline-primary" for="srcB_own"><i class="fas fa-dot-circle me-1"></i>This Entry</label>
+          <input type="radio" class="btn-check" name="srcB" id="srcB_rel" checked>
+          <label class="btn btn-outline-primary active" for="srcB_rel"><i class="fas fa-project-diagram me-1"></i>Related Entries</label>
+        </div>
+        <select class="form-select form-select-sm" style="width:auto;" id="relDefB" onchange="redrawB()">
+          <option value="all">All related entries</option>
+          <option value="recipe" selected>Made from Recipe</option>
+        </select>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <div class="dropdown">
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                  data-bs-toggle="dropdown" data-bs-auto-close="outside">
+            <i class="fas fa-chart-line me-1"></i><span id="metricLabelB">Temperature</span>
+          </button>
+          <ul class="dropdown-menu p-2" style="min-width:220px;">
+            <li><label class="dropdown-item d-flex align-items-center gap-2 py-1">
+              <input type="checkbox" class="form-check-input mt-0" id="mB_temp" checked onchange="redrawB()">
+              <span class="metric-dot" style="background:#9966ff"></span>
+              Temperature <small class="text-secondary ms-1">(°C)</small>
+            </label></li>
+            <li><label class="dropdown-item d-flex align-items-center gap-2 py-1">
+              <input type="checkbox" class="form-check-input mt-0" id="mB_grav" onchange="redrawB()">
+              <span class="metric-dot" style="background:#ff9f40"></span>
+              Gravity <small class="text-secondary ms-1">(SG × 1000)</small>
+            </label></li>
+          </ul>
+        </div>
+
+        <select class="form-select form-select-sm" style="width:auto;" id="timeRangeB" onchange="redrawB()">
+          <option value="30d" selected>Last 30 Days</option>
+          <option value="all">All Time</option>
+        </select>
+
+        <select class="form-select form-select-sm" style="width:auto;" id="xAxisB" onchange="switchXAxisB()">
+          <option value="day">X: Day of fermentation</option>
+          <option value="date">X: Calendar date</option>
+        </select>
+
+        <select class="form-select form-select-sm" style="width:auto;" id="chartTypeB" onchange="redrawB()">
+          <option value="line">Line</option>
+          <option value="scatter">Scatter</option>
+        </select>
+
+        <span class="ms-auto badge bg-secondary">3 related entries · <span id="pointCountB">24</span> readings</span>
+      </div>
+
+      <div id="noRelDataB" class="no-data d-none">Switch to "Related Entries" mode to compare batches</div>
+
+      <div class="chart-wrap mb-2" id="chartWrapB">
+        <canvas id="chartB"></canvas>
+      </div>
+
+      <div class="annotation mt-2">
+        <i class="fas fa-lightbulb me-1"></i>
+        <strong>Each line = one related entry.</strong> Batch #40 ran hotter (+1.5 °C), Batch #41 was coldest.
+        Compare fermentation profiles side-by-side without leaving the recipe page.
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════════════════════════════════════
+       SECTION 4 — DASHBOARD WIDGET
+  ════════════════════════════════════════════════════════════ -->
+  <h5 class="fw-bold text-secondary mb-3">
+    <i class="fas fa-tachometer-alt me-2"></i>Dashboard — <span class="text-white">Entry Data Chart Widget</span>
+  </h5>
+  <p class="text-secondary small mb-3">
+    Two dashboard widget configurations side by side: one using a <strong>Saved Search</strong> to
+    aggregate all active batches, and one using a <strong>pivot entry + relationship</strong> to
+    scope data to one recipe's batches.
+  </p>
+
+  <!-- Widget config modal preview -->
+  <div class="row mb-3">
+    <div class="col-lg-6">
+      <div class="scenario-card p-3 mb-3">
+        <div class="scenario-label text-secondary mb-2"><i class="fas fa-cog me-1"></i>Widget Config — Saved Search source</div>
+        <div class="d-flex flex-column gap-2" style="font-size:.82rem;">
+          <div class="d-flex gap-2 align-items-center">
+            <span class="text-secondary" style="width:140px;">Widget type</span>
+            <span class="badge bg-primary">📊 Line Chart (Entry Data Points)</span>
+          </div>
+          <div class="d-flex gap-2 align-items-center">
+            <span class="text-secondary" style="width:140px;">Entry Source</span>
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-outline-secondary btn-sm active">Saved Search</button>
+              <button class="btn btn-outline-secondary btn-sm disabled">Related to Entry</button>
+            </div>
+          </div>
+          <div class="d-flex gap-2 align-items-center">
+            <span class="text-secondary" style="width:140px;">Saved Search</span>
+            <span class="data-badge">Active Brewing Batches (12 entries)</span>
+          </div>
+          <div class="d-flex gap-2 align-items-center">
+            <span class="text-secondary" style="width:140px;">Metrics</span>
+            <span class="data-badge"><span class="metric-dot me-1" style="background:#4bc0c0"></span>Temperature</span>
+          </div>
+          <div class="d-flex gap-2 align-items-center">
+            <span class="text-secondary" style="width:140px;">X-Axis</span>
+            <span class="data-badge">Time of reading</span>
+          </div>
+          <div class="d-flex gap-2 align-items-center">
+            <span class="text-secondary" style="width:140px;">Time Range</span>
+            <span class="data-badge">Last 30 Days</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="scenario-card p-3 mb-3">
+        <div class="scenario-label text-secondary mb-2"><i class="fas fa-cog me-1"></i>Widget Config — Related to Entry source</div>
+        <div class="d-flex flex-column gap-2" style="font-size:.82rem;">
+          <div class="d-flex gap-2 align-items-center">
+            <span class="text-secondary" style="width:140px;">Widget type</span>
+            <span class="badge bg-primary">📊 Line Chart (Entry Data Points)</span>
+          </div>
+          <div class="d-flex gap-2 align-items-center">
+            <span class="text-secondary" style="width:140px;">Entry Source</span>
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-outline-secondary btn-sm disabled">Saved Search</button>
+              <button class="btn btn-outline-secondary btn-sm active">Related to Entry</button>
+            </div>
+          </div>
+          <div class="d-flex gap-2 align-items-center">
+            <span class="text-secondary" style="width:140px;">Pivot Entry</span>
+            <span class="data-badge"><i class="fas fa-book-open me-1 text-warning"></i>Recipe #7 — Cascade Pale Ale Base</span>
+          </div>
+          <div class="d-flex gap-2 align-items-center">
+            <span class="text-secondary" style="width:140px;">Relationship</span>
+            <span class="data-badge">Made from Recipe → 3 batches</span>
+          </div>
+          <div class="d-flex gap-2 align-items-center">
+            <span class="text-secondary" style="width:140px;">Metrics</span>
+            <div class="d-flex gap-1 flex-wrap">
+              <span class="data-badge"><span class="metric-dot me-1" style="background:#4bc0c0"></span>Temperature</span>
+              <span class="data-badge"><span class="metric-dot me-1" style="background:#ff6384"></span>Gravity</span>
+            </div>
+          </div>
+          <div class="d-flex gap-2 align-items-center">
+            <span class="text-secondary" style="width:140px;">X-Axis</span>
+            <span class="data-badge">Day of fermentation (entry field)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard widgets side by side -->
+  <div class="row g-3 mb-5">
+    <!-- Widget 1 — Saved Search, all active batches, time axis -->
+    <div class="col-lg-6">
+      <div class="widget-card">
+        <div class="widget-header">
+          <span class="fw-semibold" style="font-size:.9rem;"><i class="fas fa-thermometer-half text-primary me-2"></i>Fermentation Temps — All Active Batches</span>
+          <div class="d-flex gap-1">
+            <button class="btn btn-link btn-sm text-secondary p-0 px-1"><i class="fas fa-sync"></i></button>
+            <button class="btn btn-link btn-sm text-primary p-0 px-1"><i class="fas fa-edit"></i></button>
+          </div>
+        </div>
+        <div class="widget-body">
+          <div class="d-flex gap-2 mb-2 flex-wrap" style="font-size:.75rem;">
+            <span class="pill-badge bg-secondary"><i class="fas fa-search me-1"></i>Saved Search: Active Batches</span>
+            <span class="pill-badge" style="background:#0d6efd22;color:#79c0ff;border:1px solid #0d6efd44;">
+              <span class="metric-dot me-1" style="background:#4bc0c0;width:7px;height:7px;"></span>Temperature
+            </span>
+            <span class="pill-badge bg-secondary">Last 30 Days</span>
+          </div>
+          <div style="position:relative;height:220px;">
+            <canvas id="chartDash1"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Widget 2 — Related to Recipe #7, two metrics, day axis -->
+    <div class="col-lg-6">
+      <div class="widget-card">
+        <div class="widget-header">
+          <span class="fw-semibold" style="font-size:.9rem;"><i class="fas fa-project-diagram text-warning me-2"></i>Recipe #7 — Batch Comparison</span>
+          <div class="d-flex gap-1">
+            <button class="btn btn-link btn-sm text-secondary p-0 px-1"><i class="fas fa-sync"></i></button>
+            <button class="btn btn-link btn-sm text-primary p-0 px-1"><i class="fas fa-edit"></i></button>
+          </div>
+        </div>
+        <div class="widget-body">
+          <div class="d-flex gap-2 mb-2 flex-wrap" style="font-size:.75rem;">
+            <span class="pill-badge" style="background:#f0a50022;color:#f0c060;border:1px solid #f0a50044;">
+              <i class="fas fa-project-diagram me-1"></i>Recipe #7 → 3 batches
+            </span>
+            <span class="pill-badge" style="background:#0d6efd22;color:#79c0ff;border:1px solid #0d6efd44;">
+              <span class="metric-dot me-1" style="background:#4bc0c0;width:7px;height:7px;"></span>Temp
+            </span>
+            <span class="pill-badge" style="background:#0d6efd22;color:#79c0ff;border:1px solid #0d6efd44;">
+              <span class="metric-dot me-1" style="background:#ff6384;width:7px;height:7px;"></span>Gravity
+            </span>
+            <span class="pill-badge bg-secondary">Day of fermentation</span>
+          </div>
+          <div style="position:relative;height:220px;">
+            <canvas id="chartDash2"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════════════════════════════════════
+       SECTION 5 — DATA TABLE VIEW
+  ════════════════════════════════════════════════════════════ -->
+  <h5 class="fw-bold text-secondary mb-3">
+    <i class="fas fa-table me-2"></i>Data Table — Raw Readings
+  </h5>
+  <p class="text-secondary small mb-3">
+    The <strong>Table</strong> toggle on the section toolbar shows the underlying readings with metric,
+    value, timestamp and notes — editable inline (not shown here).
+  </p>
+  <div class="scenario-card mb-5">
+    <div class="table-responsive">
+      <table class="table table-dark table-hover align-middle mb-0" style="font-size:.82rem;">
+        <thead>
+          <tr class="text-secondary">
+            <th class="ps-3">Entry</th>
+            <th>Metric</th>
+            <th>Value</th>
+            <th>Recorded At</th>
+            <th>Notes</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="fullTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- Add Reading modal (mock) -->
+<div class="modal fade" id="addModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content" style="background:#161b22;border:1px solid #30363d;">
+      <div class="modal-header" style="border-color:#30363d;">
+        <h5 class="modal-title fs-6">Add Reading — Batch #42</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Metric <span class="text-danger">*</span></label>
+          <select class="form-select form-select-sm" id="addMetric">
+            <option>Temperature (°C)</option>
+            <option>Gravity (SG)</option>
+            <option>pH</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Value <span class="text-danger">*</span></label>
+          <input type="number" class="form-control form-control-sm" placeholder="e.g. 18.5">
+          <div class="form-text">Unit: °C</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Recorded At</label>
+          <input type="datetime-local" class="form-control form-control-sm" id="addTs">
+        </div>
+        <div class="mb-2">
+          <label class="form-label fw-semibold">Notes</label>
+          <input type="text" class="form-control form-control-sm" placeholder="Optional…">
+        </div>
+      </div>
+      <div class="modal-footer" style="border-color:#30363d;">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary btn-sm" data-bs-dismiss="modal">
+          <i class="fas fa-save me-1"></i>Save Reading
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ════════════════════════════════════════════════════════════
+// MOCK DATA
+// ════════════════════════════════════════════════════════════
+
+// Batch #42 — single entry readings (days 1–8 of fermentation)
+const DAYS = ['Day 1','Day 2','Day 3','Day 4','Day 5','Day 6','Day 7','Day 8'];
+
+const batchSelf = {
+  temperature: [18.4, 18.1, 17.9, 18.2, 18.0, 17.8, 17.6, 17.5],
+  gravity:     [1052, 1042, 1035, 1028, 1022, 1018, 1015, 1013],
+  ph:          [5.4,  5.3,  5.3,  5.2,  5.2,  5.1,  5.1,  5.0],
+};
+
+// Three related batches for Recipe #7 comparison
+const relBatches = {
+  'Batch #40': {
+    temp:    [19.9, 20.1, 19.8, 20.0, 19.7, 19.5, 19.3, 19.1],
+    gravity: [1054, 1044, 1036, 1029, 1023, 1018, 1015, 1013],
+    color:   '#4bc0c0',
+  },
+  'Batch #41': {
+    temp:    [17.8, 17.5, 17.3, 17.6, 17.4, 17.2, 17.0, 16.9],
+    gravity: [1050, 1040, 1033, 1027, 1021, 1017, 1014, 1012],
+    color:   '#ff6384',
+  },
+  'Batch #42': {
+    temp:    [18.4, 18.1, 17.9, 18.2, 18.0, 17.8, 17.6, 17.5],
+    gravity: [1052, 1042, 1035, 1028, 1022, 1018, 1015, 1013],
+    color:   '#36a2eb',
+  },
+};
+
+// ════════════════════════════════════════════════════════════
+// CHART A — single entry (this-entry mode)
+// ════════════════════════════════════════════════════════════
+let chartA = null;
+
+function buildDatasetsA() {
+  const datasets = [];
+  if (document.getElementById('mA_temp').checked)
+    datasets.push({ label:'Temperature (°C)', data: batchSelf.temperature, borderColor:'#4bc0c0', backgroundColor:'#4bc0c033', tension:.3, fill:false });
+  if (document.getElementById('mA_grav').checked)
+    datasets.push({ label:'Gravity (SG)', data: batchSelf.gravity.map(g=>g/1000), borderColor:'#ff6384', backgroundColor:'#ff638433', tension:.3, fill:false, yAxisID: 'y2' });
+  if (document.getElementById('mA_ph').checked)
+    datasets.push({ label:'pH', data: batchSelf.ph, borderColor:'#36a2eb', backgroundColor:'#36a2eb33', tension:.3, fill:false });
+  return datasets;
+}
+
+function redrawA() {
+  const ctx = document.getElementById('chartA').getContext('2d');
+  if (chartA) chartA.destroy();
+  const type = document.getElementById('chartTypeA').value;
+  const datasets = buildDatasetsA();
+  const noData = document.getElementById('noDataA');
+  const wrap = document.getElementById('chartWrapA');
+  if (!datasets.length) { noData.classList.remove('d-none'); wrap.style.display='none'; return; }
+  noData.classList.add('d-none'); wrap.style.display='';
+
+  chartA = new Chart(ctx, {
+    type: type === 'scatter' ? 'scatter' : type,
+    data: { labels: DAYS, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode:'index', intersect:false },
+      plugins: { legend: { position:'top', labels:{ usePointStyle:true, color:'#8b949e' } } },
+      scales: {
+        x: { ticks:{color:'#8b949e'}, grid:{color:'#21262d'} },
+        y: { ticks:{color:'#8b949e'}, grid:{color:'#21262d'} },
+        y2: { position:'right', ticks:{color:'#ff6384'}, grid:{drawOnChartArea:false}, display: !!datasets.find(d=>d.yAxisID==='y2') },
+      }
+    }
+  });
+  updateTableA();
+}
+
+function switchXAxisA() {
+  const v = document.getElementById('xAxisA').value;
+  document.getElementById('xFieldA').classList.toggle('d-none', v !== 'entry_field');
+  redrawA();
+}
+
+function toggleTableA() {
+  const t = document.getElementById('tableA');
+  t.classList.toggle('d-none');
+}
+
+function updateTableA() {
+  const tbody = document.getElementById('tableBodyA');
+  const rows = [];
+  if (document.getElementById('mA_temp').checked)
+    batchSelf.temperature.forEach((v,i)=>rows.push({metric:'Temperature', unit:'°C', color:'#4bc0c0', val:v, day:DAYS[i], notes:''}));
+  if (document.getElementById('mA_grav').checked)
+    batchSelf.gravity.forEach((v,i)=>rows.push({metric:'Gravity', unit:'SG', color:'#ff6384', val:v, day:DAYS[i], notes:''}));
+  if (document.getElementById('mA_ph').checked)
+    batchSelf.ph.forEach((v,i)=>rows.push({metric:'pH', unit:'', color:'#36a2eb', val:v, day:DAYS[i], notes: i===0?'After pitching yeast':''}));
+  rows.sort((a,b)=>a.day<b.day?1:-1);
+  tbody.innerHTML = rows.map(r=>`
+    <tr>
+      <td><span class="data-badge" style="color:${r.color}"><span class="metric-dot me-1" style="background:${r.color}"></span>${r.metric}</span></td>
+      <td class="fw-semibold">${r.val} <small class="text-secondary">${r.unit}</small></td>
+      <td class="text-secondary">${r.day}</td>
+      <td class="text-secondary">${r.notes||'—'}</td>
+    </tr>`).join('');
+}
+
+// ════════════════════════════════════════════════════════════
+// CHART A — related entries mode (switch)
+// ════════════════════════════════════════════════════════════
+function switchSourceA(mode) {
+  const relRow = document.getElementById('relDefRowA');
+  if (mode === 'related') {
+    relRow.classList.remove('d-none');
+    drawRelatedA();
+  } else {
+    relRow.classList.add('d-none');
+    redrawA();
+  }
+}
+
+let chartARelated = null;
+function drawRelatedA() {
+  const ctx = document.getElementById('chartA').getContext('2d');
+  if (chartA) { chartA.destroy(); chartA = null; }
+  if (chartARelated) chartARelated.destroy();
+
+  const datasets = Object.entries(relBatches).map(([name, d])=>({
+    label: name,
+    data: d.temp,
+    borderColor: d.color,
+    backgroundColor: d.color + '33',
+    tension: .3, fill: false,
+  }));
+
+  chartARelated = new Chart(ctx, {
+    type: 'line',
+    data: { labels: DAYS, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode:'index', intersect:false },
+      plugins: { legend: { position:'top', labels:{ usePointStyle:true, color:'#8b949e' } } },
+      scales: {
+        x: { ticks:{color:'#8b949e'}, grid:{color:'#21262d'}, title:{display:true, text:'Day of fermentation', color:'#8b949e'} },
+        y: { ticks:{color:'#8b949e'}, grid:{color:'#21262d'}, title:{display:true, text:'Temperature (°C)', color:'#8b949e'} },
+      }
+    }
+  });
+
+  document.getElementById('metricLabelA').textContent = 'Temperature';
+  document.getElementById('noDataA').classList.add('d-none');
+  document.getElementById('chartWrapA').style.display = '';
+}
+
+// ════════════════════════════════════════════════════════════
+// CHART B — recipe entry, related batches
+// ════════════════════════════════════════════════════════════
+let chartB = null;
+
+function redrawB() {
+  const srcOwn = document.getElementById('srcB_own').checked;
+  const noRel = document.getElementById('noRelDataB');
+  const wrap = document.getElementById('chartWrapB');
+  if (srcOwn) { noRel.classList.remove('d-none'); wrap.style.display='none'; return; }
+  noRel.classList.add('d-none'); wrap.style.display='';
+
+  const showTemp = document.getElementById('mB_temp').checked;
+  const showGrav = document.getElementById('mB_grav').checked;
+  const xMode   = document.getElementById('xAxisB').value;
+  const type    = document.getElementById('chartTypeB').value;
+  const ctx     = document.getElementById('chartB').getContext('2d');
+  if (chartB) chartB.destroy();
+
+  const datasets = [];
+  const batchKeys = Object.keys(relBatches);
+  const defColors = ['#9966ff','#ff9f40','#c9cbcf'];
+
+  if (showTemp) {
+    batchKeys.forEach((name,i)=>{
+      datasets.push({
+        label: `${name} – Temp`,
+        data: relBatches[name].temp,
+        borderColor: defColors[i],
+        backgroundColor: defColors[i]+'33',
+        tension:.3, fill:false,
+        borderWidth: 2, pointRadius: 4,
+      });
+    });
+  }
+  if (showGrav) {
+    batchKeys.forEach((name,i)=>{
+      datasets.push({
+        label: `${name} – Gravity`,
+        data: relBatches[name].gravity.map(g=>(g-1000)/10),  // normalize for visibility
+        borderColor: defColors[i],
+        backgroundColor: defColors[i]+'33',
+        tension:.3, fill:false,
+        borderDash:[4,4],
+        borderWidth: 1.5, pointRadius: 3,
+      });
+    });
+  }
+
+  const ptCount = datasets.reduce((s,d)=>s+d.data.length,0);
+  document.getElementById('pointCountB').textContent = ptCount;
+
+  chartB = new Chart(ctx, {
+    type: type === 'scatter' ? 'scatter' : 'line',
+    data: { labels: DAYS, datasets },
+    options: {
+      responsive: true, maintainAspectRatio:false,
+      interaction: { mode:'index', intersect:false },
+      plugins: { legend:{ position:'top', labels:{ usePointStyle:true, color:'#8b949e', boxWidth:12 } } },
+      scales: {
+        x: { ticks:{color:'#8b949e'}, grid:{color:'#21262d'}, title:{display:true, text: xMode==='day'?'Day of fermentation':'Calendar date', color:'#8b949e'} },
+        y: { ticks:{color:'#8b949e'}, grid:{color:'#21262d'}, title:{display:true, text: showGrav?'Temp (°C) / Gravity (×10 offset)':'Temperature (°C)', color:'#8b949e'} },
+      }
+    }
+  });
+}
+
+function switchXAxisB() { redrawB(); }
+function showNoRelData() { redrawB(); }
+
+// ════════════════════════════════════════════════════════════
+// DASHBOARD WIDGET 1 — all active batches, time series
+// ════════════════════════════════════════════════════════════
+function drawDash1() {
+  // Simulate 5 batches with staggered start dates (flattened to category)
+  const labels = ['May 3','May 5','May 7','May 9','May 11','May 13','May 15','May 17','May 19','May 21','May 23','May 25'];
+  const batchColors = ['#4bc0c0','#ff6384','#36a2eb','#ffce56','#9966ff'];
+  const baseTemps   = [18.4, 19.2, 17.5, 18.8, 20.1];
+  const datasets = batchColors.map((c,i)=>({
+    label: `Batch #${40+i}`,
+    data: labels.map((_,j)=>{
+      const offset = j < i*2 ? null : +(baseTemps[i] + Math.sin(j*0.7+i)*0.6 - j*0.04).toFixed(1);
+      return offset;
+    }),
+    borderColor: c, backgroundColor: c+'22', tension:.3, fill:false, spanGaps:false,
+    pointRadius:3, borderWidth:2,
+  }));
+
+  const ctx = document.getElementById('chartDash1').getContext('2d');
+  new Chart(ctx, {
+    type:'line', data:{ labels, datasets },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{ legend:{ position:'top', labels:{ usePointStyle:true, color:'#8b949e', boxWidth:10, font:{size:10} } } },
+      scales:{
+        x:{ ticks:{color:'#8b949e', font:{size:10}}, grid:{color:'#21262d'}, title:{display:true,text:'Date',color:'#8b949e',font:{size:10}} },
+        y:{ ticks:{color:'#8b949e', font:{size:10}}, grid:{color:'#21262d'}, title:{display:true,text:'°C',color:'#8b949e',font:{size:10}} },
+      }
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// DASHBOARD WIDGET 2 — recipe relationship, two metrics
+// ════════════════════════════════════════════════════════════
+function drawDash2() {
+  const colors = ['#4bc0c0','#ff6384','#36a2eb'];
+  const names  = ['Batch #40','Batch #41','Batch #42'];
+  const datasets = [];
+  names.forEach((n,i)=>{
+    datasets.push({
+      label:`${n} – Temp`,
+      data: relBatches[n].temp,
+      borderColor: colors[i], backgroundColor: colors[i]+'22',
+      tension:.3, fill:false, borderWidth:2, pointRadius:3,
+    });
+    datasets.push({
+      label:`${n} – Gravity`,
+      data: relBatches[n].gravity.map(g=>(g-1012)/4),  // scale to overlay
+      borderColor: colors[i], backgroundColor: colors[i]+'11',
+      tension:.3, fill:false, borderWidth:1.5, pointRadius:3,
+      borderDash:[4,3],
+    });
+  });
+
+  const ctx = document.getElementById('chartDash2').getContext('2d');
+  new Chart(ctx, {
+    type:'line', data:{ labels: DAYS, datasets },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{ legend:{ position:'top', labels:{ usePointStyle:true, color:'#8b949e', boxWidth:10, font:{size:10} } } },
+      scales:{
+        x:{ ticks:{color:'#8b949e', font:{size:10}}, grid:{color:'#21262d'}, title:{display:true,text:'Day of fermentation',color:'#8b949e',font:{size:10}} },
+        y:{ ticks:{color:'#8b949e', font:{size:10}}, grid:{color:'#21262d'}, title:{display:true,text:'Temp (°C) / Gravity (scaled)',color:'#8b949e',font:{size:10}} },
+      }
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// FULL DATA TABLE
+// ════════════════════════════════════════════════════════════
+function buildFullTable() {
+  const rows = [];
+  Object.entries(relBatches).forEach(([batch, d])=>{
+    d.temp.forEach((v,i)=>rows.push({batch, metric:'Temperature', unit:'°C',  val:v, day:DAYS[i], color:d.color}));
+    d.gravity.forEach((v,i)=>rows.push({batch, metric:'Gravity',     unit:'SG', val:v, day:DAYS[i], color:d.color}));
+  });
+
+  const tbody = document.getElementById('fullTableBody');
+  tbody.innerHTML = rows.slice(0,20).map(r=>`
+    <tr>
+      <td class="ps-3 fw-semibold" style="color:${r.color}"><i class="fas fa-flask me-1"></i>${r.batch}</td>
+      <td><span class="data-badge">${r.metric}</span></td>
+      <td class="fw-semibold">${r.val} <small class="text-secondary">${r.unit}</small></td>
+      <td class="text-secondary">${r.day}</td>
+      <td class="text-secondary">—</td>
+      <td><button class="btn btn-link btn-sm text-secondary p-0" style="font-size:.75rem;"><i class="fas fa-edit"></i></button></td>
+    </tr>`).join('')
+    + `<tr><td colspan="6" class="text-center text-secondary ps-3" style="font-size:.78rem;">${rows.length - 20} more rows…</td></tr>`;
+}
+
+// ════════════════════════════════════════════════════════════
+// ADD MODAL
+// ════════════════════════════════════════════════════════════
+function openAddModal() {
+  const now = new Date(); now.setSeconds(0,0);
+  document.getElementById('addTs').value = now.toISOString().slice(0,16);
+  new bootstrap.Modal(document.getElementById('addModal')).show();
+}
+
+// ════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════
+redrawA();
+redrawB();
+drawDash1();
+drawDash2();
+buildFullTable();
+</script>
+</body>
+</html>

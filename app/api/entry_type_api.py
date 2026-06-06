@@ -153,14 +153,14 @@ def delete_entry_type(entry_type_id):
 
     try:
         # Check for dependencies in 'Entry' table
-        cursor.execute("SELECT COUNT(*) FROM Entry WHERE entry_type_id = ?", (entry_type_id,))
-        entry_count = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) AS cnt FROM Entry WHERE entry_type_id = ?", (entry_type_id,))
+        entry_count = cursor.fetchone()['cnt']
         if entry_count > 0:
             return jsonify({'error': f'Cannot delete entry type. {entry_count} entries are linked to it. Please delete linked entries first.'}), 409
 
         # Check for dependencies in 'RelationshipDefinition' table
-        cursor.execute("SELECT COUNT(*) FROM RelationshipDefinition WHERE entry_type_id_from = ? OR entry_type_id_to = ?", (entry_type_id, entry_type_id))
-        rel_def_count = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) AS cnt FROM RelationshipDefinition WHERE entry_type_id_from = ? OR entry_type_id_to = ?", (entry_type_id, entry_type_id))
+        rel_def_count = cursor.fetchone()['cnt']
         if rel_def_count > 0:
             return jsonify({'error': f'Cannot delete entry type. {rel_def_count} relationship definitions are linked to it. Please delete linked relationship definitions first.'}), 409
 

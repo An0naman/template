@@ -150,7 +150,8 @@ def create_app():
     from .api.sensor_master_api import sensor_master_api_bp
     from .api.photo_gallery_api import photo_gallery_api_bp
     from .api.custom_columns_api import custom_columns_api_bp
-    
+    from .api.entry_metrics_api import entry_metrics_api_bp
+
     # Import Git integration blueprints
     from .api.git_api import git_api_bp
     from .routes.git_routes import git_routes_bp
@@ -163,57 +164,64 @@ def create_app():
     from .api.garmin_api import garmin_api_bp
 
     # Register all blueprints
-    app.register_blueprint(main_bp)
-    app.register_blueprint(maintenance_bp)
-    app.register_blueprint(printer_bp)  # Printer routes (already has /api/printer prefix)
-    app.register_blueprint(entry_api_bp, url_prefix='/api')
-    app.register_blueprint(entry_type_api_bp, url_prefix='/api')
-    app.register_blueprint(entry_state_api_bp, url_prefix='/api')
-    app.register_blueprint(notes_api_bp, url_prefix='/api')
-    app.register_blueprint(note_bindings_bp, url_prefix='/api')
-    app.register_blueprint(system_params_api_bp, url_prefix='/api')
-    app.register_blueprint(search_params_api_bp, url_prefix='/api')
-    app.register_blueprint(relationships_api_bp, url_prefix='/api')
-    app.register_blueprint(shared_relationships_api_bp, url_prefix='/api')
-    app.register_blueprint(wikipedia_api_bp, url_prefix='/api')
-    app.register_blueprint(notifications_api_bp, url_prefix='/api')
-    app.register_blueprint(labels_api_bp, url_prefix='/api')
-    app.register_blueprint(cron_api_bp, url_prefix='/api')
-    app.register_blueprint(theme_api, url_prefix='/api')
-    app.register_blueprint(device_api_bp, url_prefix='/api')
-    app.register_blueprint(sql_api_bp, url_prefix='/api')
-    app.register_blueprint(backup_api_bp, url_prefix='/api')
-    app.register_blueprint(ntfy_api_bp, url_prefix='/api')
-    app.register_blueprint(ai_api_bp, url_prefix='/api')
-    app.register_blueprint(user_preferences_api_bp, url_prefix='/api')
-    app.register_blueprint(units_api_bp)
-    app.register_blueprint(units_management_bp)
-    app.register_blueprint(shared_sensor_api_bp, url_prefix='/api')
-    app.register_blueprint(range_sensor_api, url_prefix='/api')
-    app.register_blueprint(saved_search_api_bp, url_prefix='/api')
-    app.register_blueprint(dashboard_api_bp, url_prefix='/api')
-    app.register_blueprint(entry_layout_api_bp, url_prefix='/api')
-    app.register_blueprint(milestone_api_bp, url_prefix='/api')
-    app.register_blueprint(health_api_bp, url_prefix='/api')
-    app.register_blueprint(version_management_api_bp, url_prefix='/api')
-    app.register_blueprint(milestone_template_api_bp, url_prefix='/api')
-    app.register_blueprint(entry_type_relationship_api_bp, url_prefix='/api')
-    app.register_blueprint(planning_api_bp)
-    app.register_blueprint(kanban_api_bp, url_prefix='/api')
-    app.register_blueprint(sensor_master_api_bp, url_prefix='/api')
-    app.register_blueprint(photo_gallery_api_bp, url_prefix='/api')
-    app.register_blueprint(custom_columns_api_bp, url_prefix='/api')
-    
-    # Register Git integration blueprints
-    app.register_blueprint(git_api_bp)  # API routes have /api prefix in the blueprint
-    app.register_blueprint(git_routes_bp)  # Page routes
-    app.register_blueprint(strava_routes_bp)  # Strava routes
-    app.register_blueprint(garmin_routes_bp)  # Garmin routes
-    app.register_blueprint(chat_routes_bp)    # Chat page
-    app.register_blueprint(chat_proxy_bp, url_prefix='/ollama')  # Ollama/ComfyUI proxy
-    app.register_blueprint(anycubic_api_bp)  # Anycubic printer routes
-    app.register_blueprint(strava_api_bp)    # Strava field mapping API
-    app.register_blueprint(garmin_api_bp)    # Garmin field mapping API
+    for bp in (main_bp, maintenance_bp, printer_bp):
+        app.register_blueprint(bp)
+
+    for bp in (
+        entry_api_bp,
+        entry_type_api_bp,
+        entry_state_api_bp,
+        notes_api_bp,
+        note_bindings_bp,
+        system_params_api_bp,
+        search_params_api_bp,
+        relationships_api_bp,
+        shared_relationships_api_bp,
+        wikipedia_api_bp,
+        notifications_api_bp,
+        labels_api_bp,
+        cron_api_bp,
+        theme_api,
+        device_api_bp,
+        sql_api_bp,
+        backup_api_bp,
+        ntfy_api_bp,
+        ai_api_bp,
+        user_preferences_api_bp,
+        shared_sensor_api_bp,
+        range_sensor_api,
+        saved_search_api_bp,
+        dashboard_api_bp,
+        entry_layout_api_bp,
+        milestone_api_bp,
+        health_api_bp,
+        version_management_api_bp,
+        milestone_template_api_bp,
+        entry_type_relationship_api_bp,
+        kanban_api_bp,
+        sensor_master_api_bp,
+        photo_gallery_api_bp,
+        custom_columns_api_bp,
+        entry_metrics_api_bp,
+    ):
+        app.register_blueprint(bp, url_prefix='/api')
+
+    for bp in (
+        units_api_bp,
+        units_management_bp,
+        planning_api_bp,
+        git_api_bp,
+        git_routes_bp,
+        strava_routes_bp,
+        garmin_routes_bp,
+        chat_routes_bp,
+        anycubic_api_bp,
+        strava_api_bp,
+        garmin_api_bp,
+    ):
+        app.register_blueprint(bp)
+
+    app.register_blueprint(chat_proxy_bp, url_prefix='/ollama')
 
     app.logger.info("Blueprints registered.")
 

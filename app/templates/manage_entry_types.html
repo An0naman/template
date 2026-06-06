@@ -285,8 +285,8 @@
                                     <td><strong>{{ type.name }}</strong></td>
                                     <td>{{ type.singular_label }}</td>
                                     <td>{{ type.plural_label }}</td>
-                                    <td>{{ type.description | truncate(50) }}</td>
-                                    <td><span class="badge bg-light text-dark">{{ type.note_types | truncate(30) }}</span></td>
+                                    <td>{{ type.description | default('', true) | truncate(50) }}</td>
+                                    <td><span class="badge bg-light text-dark">{{ type.note_types | default('', true) | truncate(30) }}</span></td>
                                     <td class="text-center">
                                         {% if type.is_primary %}
                                             <i class="fas fa-star status-icon text-warning" title="Primary Type"></i>

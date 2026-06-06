@@ -395,23 +395,77 @@ def sync_garmin_data(target_date=None):
                 errors.append(f"entry_type lookup: {e}")
 
     synced_entry_id = None
+    entry_was_created = False
     written_count = 0
     if entry_type_id:
         try:
             cursor = conn.cursor()
             now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            entry_title = f"Garmin Sync {target_date}"
+
+            # Find an existing day entry before creating a new one
             cursor.execute(
-                """INSERT INTO Entry (entry_type_id, title, created_at)
-                   VALUES (?, ?, ?)""",
-                (int(entry_type_id), f"Garmin Sync {target_date}", now),
+                "SELECT id FROM Entry WHERE entry_type_id = ? AND title = ? LIMIT 1",
+                (int(entry_type_id), entry_title),
             )
-            synced_entry_id = cursor.lastrowid
-            conn.commit()
-            written_count = 0
+            existing = cursor.fetchone()
+            if existing:
+                synced_entry_id = existing["id"]
+            else:
+                cursor.execute(
+                    "INSERT INTO Entry (entry_type_id, title, created_at) VALUES (?, ?, ?)",
+                    (int(entry_type_id), entry_title, now),
+                )
+                synced_entry_id = cursor.lastrowid
+                entry_was_created = True
+                conn.commit()
+
             if field_mapping:
                 written_count, field_errors = _apply_field_mapping(synced_entry_id, flat, field_mapping, conn)
                 errors.extend(field_errors)
                 conn.commit()
+
+            # Find-or-create a day entry and link the Garmin data entry to it
+            day_entry_type_id = _get_system_param(conn, "garmin_day_entry_type_id")
+            rel_def_id        = _get_system_param(conn, "garmin_relationship_def_id")
+            if day_entry_type_id and rel_def_id:
+                try:
+                    day_title = f"Day {target_date}"
+                    cursor.execute(
+                        "SELECT id FROM Entry WHERE entry_type_id = ? AND title = ? LIMIT 1",
+                        (int(day_entry_type_id), day_title),
+                    )
+                    day_row = cursor.fetchone()
+                    if day_row:
+                        day_entry_id = day_row["id"]
+                    else:
+                        cursor.execute(
+                            "INSERT INTO Entry (entry_type_id, title, created_at) VALUES (?, ?, ?)",
+                            (int(day_entry_type_id), day_title, now),
+                        )
+                        day_entry_id = cursor.lastrowid
+                        conn.commit()
+
+                    # Determine relationship direction from the definition
+                    cursor.execute(
+                        "SELECT entry_type_id_from, entry_type_id_to FROM RelationshipDefinition WHERE id = ?",
+                        (int(rel_def_id),),
+                    )
+                    rel_def_row = cursor.fetchone()
+                    if rel_def_row and int(rel_def_row["entry_type_id_from"]) == int(day_entry_type_id):
+                        src_id, tgt_id = day_entry_id, synced_entry_id
+                    else:
+                        src_id, tgt_id = synced_entry_id, day_entry_id
+
+                    cursor.execute(
+                        """INSERT OR IGNORE INTO EntryRelationship
+                               (source_entry_id, target_entry_id, relationship_type, created_at)
+                           VALUES (?, ?, ?, ?)""",
+                        (src_id, tgt_id, int(rel_def_id), now),
+                    )
+                    conn.commit()
+                except Exception as exc:
+                    errors.append(f"day_link: {exc}")
         except Exception as e:
             errors.append(f"entry creation: {e}")
     else:
@@ -424,7 +478,8 @@ def sync_garmin_data(target_date=None):
 
     mapped_count = len([v for v in field_mapping.values() if v]) if field_mapping else 0
     if synced_entry_id:
-        msg = f"Synced {len(flat)} Garmin fields for {target_date}. Entry #{synced_entry_id} created, {written_count}/{mapped_count} column values written."
+        action = "created" if entry_was_created else "updated"
+        msg = f"Synced {len(flat)} Garmin fields for {target_date}. Entry #{synced_entry_id} {action}, {written_count}/{mapped_count} column values written."
     elif entry_type_id:
         msg = f"Fetched {len(flat)} Garmin fields for {target_date} but failed to create entry: {'; '.join(errors)}"
     else:
@@ -435,6 +490,7 @@ def sync_garmin_data(target_date=None):
         "date": target_date,
         "fields_fetched": list(flat.keys()),
         "entry_id": synced_entry_id,
+        "entry_created": entry_was_created,
         "errors": errors,
         "message": msg,
     }

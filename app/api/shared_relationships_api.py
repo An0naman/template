@@ -308,10 +308,10 @@ def create_shared_relationships(entry_id):
                 
                 # Check for existing relationship
                 cursor.execute(
-                    "SELECT COUNT(*) FROM EntryRelationship WHERE source_entry_id = ? AND target_entry_id = ? AND relationship_type = ?",
+                    "SELECT COUNT(*) AS cnt FROM EntryRelationship WHERE source_entry_id = ? AND target_entry_id = ? AND relationship_type = ?",
                     (entry_id, target_entry_id, definition_id)
                 )
-                if cursor.fetchone()[0] > 0:
+                if cursor.fetchone()['cnt'] > 0:
                     failed_relationships.append({
                         'data': rel_data,
                         'error': 'This specific relationship already exists'

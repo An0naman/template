@@ -141,8 +141,8 @@ def api_delete_relationship_definition(definition_id):
     cursor = conn.cursor()
     try:
         # Check if any 'EntryRelationship' entries are linked to this definition
-        cursor.execute("SELECT COUNT(*) FROM EntryRelationship WHERE relationship_type = ?", (definition_id,))
-        linked_relationships_count = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) AS cnt FROM EntryRelationship WHERE relationship_type = ?", (definition_id,))
+        linked_relationships_count = cursor.fetchone()['cnt']
         if linked_relationships_count > 0:
             return jsonify({"error": f"Cannot delete relationship definition. {linked_relationships_count} existing entry relationships use this definition. Please delete them first."}), 409
 
@@ -277,13 +277,13 @@ def add_entry_relationship(entry_id):
         # Check for existing relationship in BOTH directions (same source, target, and definition)
         # A relationship between Entry A and Entry B should only exist once, regardless of direction
         cursor.execute(
-            """SELECT COUNT(*) FROM EntryRelationship 
+            """SELECT COUNT(*) AS cnt FROM EntryRelationship 
                WHERE relationship_type = ? 
                AND ((source_entry_id = ? AND target_entry_id = ?) 
                     OR (source_entry_id = ? AND target_entry_id = ?))""",
             (definition_id, source_entry_id, target_entry_id, target_entry_id, source_entry_id)
         )
-        if cursor.fetchone()[0] > 0:
+        if cursor.fetchone()['cnt'] > 0:
             return jsonify({"error": "This relationship already exists (possibly in the opposite direction)."}), 409
 
         # Server-side cardinality validation disabled - handled by frontend

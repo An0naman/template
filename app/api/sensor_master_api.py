@@ -458,11 +458,11 @@ def sensor_heartbeat():
         
         # Check if there are new commands
         cursor.execute('''
-            SELECT COUNT(*) FROM SensorCommandQueue
+            SELECT COUNT(*) AS cnt FROM SensorCommandQueue
             WHERE sensor_id = ? AND status = 'pending'
         ''', (sensor_id,))
         
-        pending_commands = cursor.fetchone()[0]
+        pending_commands = cursor.fetchone()['cnt']
         
         return jsonify({
             'status': 'acknowledged',

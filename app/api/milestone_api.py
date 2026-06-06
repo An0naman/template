@@ -157,11 +157,11 @@ def create_milestone(entry_id):
         # If order_position not provided, append to end
         if order_position is None:
             cursor.execute("""
-                SELECT COALESCE(MAX(order_position), 0) + 1
+                SELECT COALESCE(MAX(order_position), 0) + 1 AS next_pos
                 FROM EntryStateMilestone
                 WHERE entry_id = ?
             """, (entry_id,))
-            order_position = cursor.fetchone()[0]
+            order_position = cursor.fetchone()['next_pos']
         else:
             # Validate and adjust existing orders if needed
             order_position = int(order_position)

@@ -947,6 +947,16 @@
             alert('Error updating note: ' + error.message);
         }
     }
+
+    function normalizeAttachmentPath(filePath) {
+        if (filePath.startsWith('http://') || filePath.startsWith('https://') || filePath.startsWith('/static/')) {
+            return filePath;
+        }
+        if (filePath.startsWith('uploads/')) {
+            return `/static/${filePath}`;
+        }
+        return `/static/uploads/${filePath}`;
+    }
     
     function createNoteCard(note) {
         const noteItem = document.createElement('div');
@@ -985,17 +995,7 @@
             <div class="mb-2">
                 <div class="d-flex gap-2 flex-wrap">
                     ${imageAttachments.slice(0, 3).map(imgPath => {
-                        // Handle various path formats
-                        let fullPath;
-                        if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) {
-                            fullPath = imgPath;
-                        } else if (imgPath.startsWith('/static/')) {
-                            fullPath = imgPath;
-                        } else if (imgPath.startsWith('uploads/')) {
-                            fullPath = `/static/${imgPath}`;
-                        } else {
-                            fullPath = `/static/uploads/${imgPath}`;
-                        }
+                        const fullPath = normalizeAttachmentPath(imgPath);
                         const fileName = imgPath.split('/').pop();
                         return `<img src="${fullPath}" alt="Attachment" style="height: 80px; width: 80px; object-fit: cover; border-radius: 4px; cursor: pointer;" onclick="openImageInModal('${fullPath}', '${fileName.replace(/'/g, "\\'")}', ${note.id})" title="Click to view full size">`;
                     }).join('')}
@@ -1084,17 +1084,7 @@
                             <h6><i class="fas fa-paperclip me-2"></i>Attachments:</h6>
                             <div class="row row-cols-2 row-cols-md-3 g-2">
                                 ${note.file_paths.map(filePath => {
-                                    // Handle various path formats
-                                    let fullPath;
-                                    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
-                                        fullPath = filePath;
-                                    } else if (filePath.startsWith('/static/')) {
-                                        fullPath = filePath;
-                                    } else if (filePath.startsWith('uploads/')) {
-                                        fullPath = `/static/${filePath}`;
-                                    } else {
-                                        fullPath = `/static/uploads/${filePath}`;
-                                    }
+                                    const fullPath = normalizeAttachmentPath(filePath);
                                     const fileName = filePath.split('/').pop();
                                     const fileExt = fileName.split('.').pop().toLowerCase();
                                     const fileIcon = getFileIcon(fileExt);
@@ -1109,7 +1099,7 @@
                                                     ${!isImage ? `<i class="${fileIcon} fa-2x mb-2"></i>` : ''}
                                                     <p class="small mb-1 text-truncate" title="${fileName}">${fileName}</p>
                                                     <a href="${fullPath}" target="_blank" class="btn btn-sm btn-outline-primary">
-                                                        <i class="fas fa-${isImage ? 'download' : 'download'}"></i>
+                                                        <i class="fas fa-download"></i>
                                                     </a>
                                                 </div>
                                             </div>
@@ -1954,17 +1944,7 @@
                         return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(fileExt);
                     })
                     .map(imgPath => {
-                        // Handle various path formats
-                        let fullPath;
-                        if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) {
-                            fullPath = imgPath;
-                        } else if (imgPath.startsWith('/static/')) {
-                            fullPath = imgPath;
-                        } else if (imgPath.startsWith('uploads/')) {
-                            fullPath = `/static/${imgPath}`;
-                        } else {
-                            fullPath = `/static/uploads/${imgPath}`;
-                        }
+                        const fullPath = normalizeAttachmentPath(imgPath);
                         const fileName = imgPath.split('/').pop();
                         return { src: fullPath, title: fileName };
                     });

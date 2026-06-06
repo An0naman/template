@@ -80,7 +80,7 @@ def _lighten_color(hex_color, factor):
         g = int(g + (255 - g) * factor)
         b = int(b + (255 - b) * factor)
         return _rgb_to_hex((min(255, r), min(255, g), min(255, b)))
-    except:
+    except Exception:
         return hex_color  # Return original on error
 
 def _darken_color(hex_color, factor):
@@ -91,7 +91,7 @@ def _darken_color(hex_color, factor):
         g = int(g * (1 - factor))
         b = int(b * (1 - factor))
         return _rgb_to_hex((max(0, r), max(0, g), max(0, b)))
-    except:
+    except Exception:
         return hex_color  # Return original on error
 
 def get_db():
@@ -216,10 +216,6 @@ def handle_theme_settings():
                 
                 # Store theme settings in database
                 cursor = db.cursor()
-                
-                # Check if theme settings exist
-                cursor.execute("SELECT COUNT(*) FROM SystemParameters WHERE parameter_name LIKE 'theme_%'")
-                existing_count = _extract_first_col(cursor.fetchone())
                 
                 # Save or update theme settings
                 theme_settings = [
@@ -508,8 +504,6 @@ def generate_theme_css(settings=None):
     custom_light_mode = settings.get('custom_light_mode', {})
     custom_dark_mode = settings.get('custom_dark_mode', {})
     section_styles = settings.get('section_styles', {})
-    custom_light_mode = settings.get('custom_light_mode', {})
-    custom_dark_mode = settings.get('custom_dark_mode', {})
     
     # Define color schemes
     color_schemes = {

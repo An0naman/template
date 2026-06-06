@@ -528,8 +528,8 @@
                             
                             row.innerHTML = `
                                 <td>${def.name}</td>
-                                <td>${def.entry_type_from_label} (${def.cardinality_from})</td>
-                                <td>${def.entry_type_to_label} (${def.cardinality_to})</td>
+                                <td>${def.entry_type_from_label} (${Number(def.cardinality_from) === 1 ? 'one' : 'many'})</td>
+                                <td>${def.entry_type_to_label} (${Number(def.cardinality_to) === 1 ? 'one' : 'many'})</td>
                                 <td>${def.label_from_side}</td>
                                 <td>${def.label_to_side}</td>
                                 <td class="text-center">
@@ -554,8 +554,8 @@
                                             data-description="${def.description || ''}"
                                             data-entry-type-id-from="${def.entry_type_id_from}"
                                             data-entry-type-id-to="${def.entry_type_id_to}"
-                                            data-cardinality-from="${def.cardinality_from === 1 ? 'one' : 'many'}"
-                                            data-cardinality-to="${def.cardinality_to === 1 ? 'one' : 'many'}"
+                                            data-cardinality-from="${Number(def.cardinality_from) === 1 ? 'one' : 'many'}"
+                                            data-cardinality-to="${Number(def.cardinality_to) === 1 ? 'one' : 'many'}"
                                             data-label-from-side="${def.label_from_side}"
                                             data-label-to-side="${def.label_to_side}"
                                             data-allow-quantity-unit="${def.allow_quantity_unit ? 1 : 0}"

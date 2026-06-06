@@ -264,6 +264,23 @@ class EntryLayoutService:
                 'fit_mode': 'cover',
                 'image_urls': []
             }
+        },
+        'entry_data': {
+            'title': 'Data Points',
+            'section_type': 'entry_data',
+            'position_x': 0,
+            'position_y': 112,
+            'width': 12,
+            'height': 5,
+            'is_visible': 0,
+            'is_collapsible': 1,
+            'default_collapsed': 0,
+            'display_order': 112,
+            'config': {
+                'default_chart_type': 'line',
+                'default_time_range': '30d',
+                'x_axis_type': 'recorded_at',
+            }
         }
     }
     

@@ -388,7 +388,7 @@ class AutoMigration:
 
             # ── Migration: add unit column to CustomColumn ─────────────────
             migration_name = "add_custom_column_unit.py"
-            if not self.check_migration_applied(migration_name):
+            if not self.is_migration_applied(migration_name):
                 start_time = datetime.now()
                 cursor = conn.cursor()
                 # Check whether column already exists (idempotent)
@@ -401,7 +401,7 @@ class AutoMigration:
                     col_exists = (row["cnt"] if hasattr(row, "keys") else row[0]) > 0
                 else:
                     cursor.execute("PRAGMA table_info(CustomColumn)")
-                    col_exists = any(r["name"] == 'unit' for r in cursor.fetchall())
+                    col_exists = any(r[1] == 'unit' for r in cursor.fetchall())  # PRAGMA returns tuples: (cid, name, type, ...)
 
                 if not col_exists:
                     cursor.execute("ALTER TABLE CustomColumn ADD COLUMN unit TEXT DEFAULT ''")
@@ -410,6 +410,70 @@ class AutoMigration:
 
                 exec_time = int((datetime.now() - start_time).total_seconds() * 1000)
                 self.record_migration(migration_name, success=True, exec_time=exec_time)
+
+            # ── Migration: add EntryMetric + EntryDataPoint tables ─────────
+            migration_name = "add_entry_metrics.py"
+            if not self.is_migration_applied(migration_name):
+                start_time = datetime.now()
+                cursor = conn.cursor()
+                if not self.check_table_exists('EntryMetric'):
+                    logger.info("Creating EntryMetric and EntryDataPoint tables...")
+                    cursor.execute(f'''
+                        CREATE TABLE IF NOT EXISTS EntryMetric (
+                            id {pk},
+                            entry_type_id INTEGER,
+                            name {text} NOT NULL,
+                            label {text} NOT NULL,
+                            unit {text} NOT NULL DEFAULT '',
+                            color {text} NOT NULL DEFAULT '#4bc0c0',
+                            display_order INTEGER NOT NULL DEFAULT 0,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    ''')
+                    if mysql:
+                        cursor.execute('''
+                            ALTER TABLE EntryMetric
+                            ADD UNIQUE KEY uq_metric_name (name(191))
+                        ''')
+                    else:
+                        cursor.execute('''
+                            CREATE UNIQUE INDEX IF NOT EXISTS uq_metric_name
+                            ON EntryMetric(name)
+                        ''')
+                    cursor.execute(f'''
+                        CREATE TABLE IF NOT EXISTS EntryDataPoint (
+                            id {pk},
+                            entry_id INTEGER NOT NULL,
+                            metric_id INTEGER NOT NULL,
+                            value REAL NOT NULL,
+                            recorded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            notes {text},
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    ''')
+                    if mysql:
+                        cursor.execute('''
+                            ALTER TABLE EntryDataPoint
+                            ADD INDEX idx_edp_entry_metric (entry_id, metric_id),
+                            ADD INDEX idx_edp_recorded (recorded_at)
+                        ''')
+                    else:
+                        cursor.execute('''
+                            CREATE INDEX IF NOT EXISTS idx_edp_entry_metric
+                            ON EntryDataPoint(entry_id, metric_id)
+                        ''')
+                        cursor.execute('''
+                            CREATE INDEX IF NOT EXISTS idx_edp_recorded
+                            ON EntryDataPoint(recorded_at)
+                        ''')
+                    conn.commit()
+                    exec_time = int((datetime.now() - start_time).total_seconds() * 1000)
+                    self.record_migration(migration_name, success=True, exec_time=exec_time)
+                    logger.info(f"✓ EntryMetric + EntryDataPoint tables created ({exec_time}ms)")
+                else:
+                    self.record_migration(migration_name, success=True, exec_time=0)
+                    logger.info("✓ EntryMetric tables already exist")
 
             conn.close()
             return True

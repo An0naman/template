@@ -1,5 +1,5 @@
 # template_app/app/routes/main_routes.py
-from datetime import datetime
+from datetime import date, datetime
 
 from flask import Blueprint, render_template, request, g, current_app, redirect, url_for
 from ..db import get_connection
@@ -11,6 +11,31 @@ def get_db():
     if 'db' not in g:
         g.db = get_connection()
     return g.db
+
+
+def _format_sync_timestamp(timestamp_value):
+    """Format unix timestamp values for settings display, preserving raw fallback."""
+    if not timestamp_value:
+        return None
+    try:
+        return datetime.fromtimestamp(int(timestamp_value)).strftime('%Y-%m-%d %H:%M:%S')
+    except (TypeError, ValueError, OSError):
+        return timestamp_value
+
+
+def _get_theme_page_context(params=None):
+    """Build shared project/theme context used by themed pages."""
+    from ..db import get_system_parameters
+    from ..api.theme_api import generate_theme_css, get_current_theme_settings
+
+    if params is None:
+        params = get_system_parameters()
+    theme_settings = get_current_theme_settings()
+    return {
+        'project_name': params.get('project_name'),
+        'theme_settings': theme_settings,
+        'theme_css': generate_theme_css(theme_settings),
+    }
 
 
 def _get_custom_column_values(entry_id, entry_type_id, cursor):
@@ -60,9 +85,9 @@ def index():
 @main_bp.route('/entries')
 def entries():
     from ..db import get_system_parameters, get_user_preference, set_user_preference # Import locally for function use
-    from ..api.theme_api import generate_theme_css, get_current_theme_settings
 
     params = get_system_parameters()
+    page_context = _get_theme_page_context(params)
     conn = get_db()
     cursor = conn.cursor()
 
@@ -169,8 +194,8 @@ def entries():
                            current_status=status_filter,
                            current_result_limit=result_limit,
                            search_defaults=search_defaults,
-                           theme_css=generate_theme_css(),
-                           theme_settings=get_current_theme_settings())
+                           theme_css=page_context['theme_css'],
+                           theme_settings=page_context['theme_settings'])
 
 @main_bp.route('/entry/<int:entry_id>')
 def entry_detail_v2(entry_id):
@@ -398,9 +423,13 @@ def entry_detail_v2(entry_id):
     }
     
     # Debug logging
-    print(f"DEBUG V2 Entry {entry_id} - section_rows: {section_rows}")
-    print(f"DEBUG V2 Entry {entry_id} - section_config: {section_config}")
-    print(f"DEBUG V2 Entry {entry_id} - relationships: {relationships_data['total_count']} total")
+    current_app.logger.debug("V2 Entry %s section_rows: %s", entry_id, section_rows)
+    current_app.logger.debug("V2 Entry %s section_config: %s", entry_id, section_config)
+    current_app.logger.debug(
+        "V2 Entry %s relationships: %s total",
+        entry_id,
+        relationships_data['total_count'],
+    )
 
     # Extract tabs and sections by tab
     tabs = layout.get('tabs', []) if layout else []
@@ -434,21 +463,8 @@ def settings():
     from ..db import get_system_parameters
     params = get_system_parameters()
 
-    strava_last_sync_display = None
-    strava_last_sync_timestamp = params.get('strava_last_sync_timestamp')
-    if strava_last_sync_timestamp:
-        try:
-            strava_last_sync_display = datetime.fromtimestamp(int(strava_last_sync_timestamp)).strftime('%Y-%m-%d %H:%M:%S')
-        except (TypeError, ValueError, OSError):
-            strava_last_sync_display = strava_last_sync_timestamp
-
-    garmin_last_sync_display = None
-    garmin_last_sync_timestamp = params.get('garmin_last_sync_timestamp')
-    if garmin_last_sync_timestamp:
-        try:
-            garmin_last_sync_display = datetime.fromtimestamp(int(garmin_last_sync_timestamp)).strftime('%Y-%m-%d %H:%M:%S')
-        except (TypeError, ValueError, OSError):
-            garmin_last_sync_display = garmin_last_sync_timestamp
+    strava_last_sync_display = _format_sync_timestamp(params.get('strava_last_sync_timestamp'))
+    garmin_last_sync_display = _format_sync_timestamp(params.get('garmin_last_sync_timestamp'))
 
     # Fetch entry types for mapping configuration
     conn = get_db()
@@ -462,7 +478,7 @@ def settings():
                           entry_types=entry_types,
                           strava_last_sync_display=strava_last_sync_display,
                           garmin_last_sync_display=garmin_last_sync_display,
-                          today_date=__import__('datetime').date.today().isoformat())
+                          today_date=date.today().isoformat())
 
 @main_bp.route('/sql_ide')
 def sql_ide():
@@ -476,27 +492,17 @@ def sql_ide():
 @main_bp.route('/dashboard')
 def dashboard():
     """Dashboard route for configurable analytics dashboard"""
-    from ..db import get_system_parameters
-    from ..api.theme_api import generate_theme_css, get_current_theme_settings
-    
-    params = get_system_parameters()
-    theme_settings = get_current_theme_settings()
-    theme_css = generate_theme_css(theme_settings)
+    page_context = _get_theme_page_context()
     
     return render_template('dashboard.html',
-                          project_name=params.get('project_name'),
-                          theme_settings=theme_settings,
-                          theme_css=theme_css)
+                          project_name=page_context['project_name'],
+                          theme_settings=page_context['theme_settings'],
+                          theme_css=page_context['theme_css'])
 
 @main_bp.route('/entry-layout-builder/<int:entry_type_id>')
 def entry_layout_builder(entry_type_id):
     """Entry Layout Builder route for configuring entry type layouts"""
-    from ..db import get_system_parameters
-    from ..api.theme_api import generate_theme_css, get_current_theme_settings
-    
-    params = get_system_parameters()
-    theme_settings = get_current_theme_settings()
-    theme_css = generate_theme_css(theme_settings)
+    page_context = _get_theme_page_context()
     
     # Get entry type information
     conn = get_db()
@@ -528,19 +534,14 @@ def entry_layout_builder(entry_type_id):
     return render_template('entry_layout_builder.html',
                           entry_type_id=entry_type_id,
                           entry_type=entry_type_dict,
-                          project_name=params.get('project_name'),
-                          theme_settings=theme_settings,
-                          theme_css=theme_css)
+                          project_name=page_context['project_name'],
+                          theme_settings=page_context['theme_settings'],
+                          theme_css=page_context['theme_css'])
 
 @main_bp.route('/kanban')
 def kanban_list():
     """Kanban boards list route - redirects to default board if one exists"""
-    from ..db import get_system_parameters
-    from ..api.theme_api import generate_theme_css, get_current_theme_settings
-    
-    params = get_system_parameters()
-    theme_settings = get_current_theme_settings()
-    theme_css = generate_theme_css(theme_settings)
+    page_context = _get_theme_page_context()
     
     # Check if user explicitly wants to see the list
     show_list = request.args.get('list', 'false').lower() == 'true'
@@ -562,19 +563,14 @@ def kanban_list():
             return redirect(url_for('main.kanban_board', board_id=default_board['id']))
     
     return render_template('kanban_list.html',
-                          project_name=params.get('project_name'),
-                          theme_settings=theme_settings,
-                          theme_css=theme_css)
+                          project_name=page_context['project_name'],
+                          theme_settings=page_context['theme_settings'],
+                          theme_css=page_context['theme_css'])
 
 @main_bp.route('/kanban/<int:board_id>')
 def kanban_board(board_id):
     """Kanban board detail view route"""
-    from ..db import get_system_parameters
-    from ..api.theme_api import generate_theme_css, get_current_theme_settings
-    
-    params = get_system_parameters()
-    theme_settings = get_current_theme_settings()
-    theme_css = generate_theme_css(theme_settings)
+    page_context = _get_theme_page_context()
     
     # Get board information
     conn = get_db()
@@ -606,24 +602,19 @@ def kanban_board(board_id):
     return render_template('kanban_board.html',
                           board_id=board_id,
                           board=board_dict,
-                          project_name=params.get('project_name'),
-                          theme_settings=theme_settings,
-                          theme_css=theme_css)
+                          project_name=page_context['project_name'],
+                          theme_settings=page_context['theme_settings'],
+                          theme_css=page_context['theme_css'])
 
 @main_bp.route('/sensor-master-control')
 def sensor_master_control():
     """Sensor Master Control management page"""
-    from ..db import get_system_parameters
-    from ..api.theme_api import generate_theme_css, get_current_theme_settings
-    
-    params = get_system_parameters()
-    theme_settings = get_current_theme_settings()
-    theme_css = generate_theme_css(theme_settings)
+    page_context = _get_theme_page_context()
     
     return render_template('sensor_master_control.html',
-                          project_name=params.get('project_name'),
-                          theme_settings=theme_settings,
-                          theme_css=theme_css)
+                          project_name=page_context['project_name'],
+                          theme_settings=page_context['theme_settings'],
+                          theme_css=page_context['theme_css'])
 
 @main_bp.route('/sensor-plotter')
 def sensor_plotter():
@@ -638,12 +629,7 @@ def test_board_config():
 @main_bp.route('/manage-custom-columns')
 def manage_custom_columns():
     """Custom columns management page"""
-    from ..db import get_system_parameters
-    from ..api.theme_api import generate_theme_css, get_current_theme_settings
-
-    params = get_system_parameters()
-    theme_settings = get_current_theme_settings()
-    theme_css = generate_theme_css(theme_settings)
+    page_context = _get_theme_page_context()
 
     conn = get_db()
     cursor = conn.cursor()
@@ -651,7 +637,24 @@ def manage_custom_columns():
     entry_types = [dict(r) for r in cursor.fetchall()]
 
     return render_template('manage_custom_columns.html',
-                           project_name=params.get('project_name'),
+                           project_name=page_context['project_name'],
                            entry_types=entry_types,
-                           theme_settings=theme_settings,
-                           theme_css=theme_css)
+                           theme_settings=page_context['theme_settings'],
+                           theme_css=page_context['theme_css'])
+
+
+@main_bp.route('/manage-entry-metrics')
+def manage_entry_metrics():
+    """Entry metrics management page"""
+    page_context = _get_theme_page_context()
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, name, singular_label FROM EntryType ORDER BY singular_label ASC')
+    entry_types = [dict(r) for r in cursor.fetchall()]
+
+    return render_template('manage_entry_metrics.html',
+                           project_name=page_context['project_name'],
+                           entry_types=entry_types,
+                           theme_settings=page_context['theme_settings'],
+                           theme_css=page_context['theme_css'])

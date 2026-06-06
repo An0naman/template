@@ -1,5 +1,5 @@
 # template_app/app/api/system_params_api.py
-from flask import Blueprint, request, jsonify, g, current_app
+from flask import Blueprint, request, jsonify, g
 import logging
 from ..db import get_system_parameters, get_connection # Import the helper functions
 from ..utils.sensor_type_manager import get_sensor_types_from_device_data
@@ -9,6 +9,51 @@ system_params_api_bp = Blueprint('system_params_api', __name__)
 
 # Get a logger for this module
 logger = logging.getLogger(__name__)
+
+DEFAULT_CUSTOM_NOTE_TYPES_JSON = '{"custom_types":[],"default_prompts":{}}'
+
+AI_RECONFIGURE_PARAMS = {
+    'primary_ai_provider', 'gemini_api_key', 'groq_api_key', 'huggingface_api_key',
+    'gemini_model_name', 'ollama_base_url', 'ollama_model_name', 'groq_model_name',
+    'huggingface_model', 'huggingface_image_size', 'gemini_base_prompt',
+    'prompt_description', 'prompt_note', 'prompt_sql', 'prompt_theme', 'prompt_chat',
+    'prompt_diagram', 'prompt_diagram_rules', 'prompt_summary'
+}
+
+ALLOWED_PARAMS = {
+    # Core UI/system params
+    'project_name', 'entry_singular_label', 'entry_plural_label', 'project_subtitle', 'enable_sensors',
+    'enable_sensor_master_control', 'enable_kanban', 'sensor_types',
+    # Git integration settings
+    'git_integration_enabled', 'git_provider', 'git_token', 'gitlab_url',
+    # Strava integration settings
+    'strava_enabled', 'strava_client_id', 'strava_client_secret', 'strava_refresh_token',
+    'strava_activity_mapping', 'strava_field_mapping', 'strava_sync_enabled', 'strava_sync_schedule',
+    # Garmin Connect integration settings
+    'garmin_sync_enabled', 'garmin_sync_schedule', 'garmin_entry_type_id',
+    # Apple Health integration settings
+    'apple_health_enabled', 'apple_health_api_key', 'apple_health_source_url', 'apple_health_source_token',
+    'apple_health_sync_enabled', 'apple_health_sync_schedule', 'apple_health_last_sync_timestamp',
+    'apple_health_last_payload', 'apple_health_last_source',
+    # ntfy push notification settings
+    'ntfy_enabled',
+    # Anycubic 3D printer integration settings
+    'anycubic_enabled', 'anycubic_printer_model', 'anycubic_api_type',
+    'anycubic_printer_ip', 'anycubic_printer_port', 'anycubic_api_key',
+    'anycubic_polling_enabled', 'anycubic_polling_interval',
+    'anycubic_auto_create_entries', 'anycubic_fetch_file', 'anycubic_entry_type_id',
+    'anycubic_field_mapping',
+    'project_logo_path', 'label_font_size', 'label_include_qr_code', 'label_include_logo',
+    'label_qr_code_prefix', 'allowed_file_types', 'max_file_size', 'custom_note_types',
+    'primary_ai_provider', 'gemini_api_key', 'groq_api_key', 'huggingface_api_key',
+    'gemini_model_name', 'ollama_base_url', 'ollama_model_name', 'groq_model_name',
+    'huggingface_model', 'huggingface_image_size', 'gemini_base_prompt',
+    'comfy_server_url', 'comfy_tts_url', 'comfy_model_name',
+    'prompt_description', 'prompt_note', 'prompt_sql', 'prompt_theme', 'prompt_chat',
+    'prompt_diagram', 'prompt_diagram_rules', 'prompt_summary',
+    'default_search_term', 'default_type_filter', 'default_status_filter',
+    'default_date_range', 'default_sort_by', 'default_content_display', 'default_result_limit'
+}
 
 def get_db():
     if 'db' not in g:
@@ -29,7 +74,7 @@ def api_get_single_param(param_name):
         else:
             # Return empty structure for custom_note_types if it doesn't exist yet
             if param_name == 'custom_note_types':
-                return jsonify({'value': '{"custom_types":[],"default_prompts":{}}'}), 200
+                return jsonify({'value': DEFAULT_CUSTOM_NOTE_TYPES_JSON}), 200
             return jsonify({'error': 'Parameter not found'}), 404
     except Exception as e:
         logger.error(f"Error fetching parameter {param_name}: {e}", exc_info=True)
@@ -37,57 +82,23 @@ def api_get_single_param(param_name):
 
 @system_params_api_bp.route('/system_params', methods=['POST', 'PATCH'])
 def api_update_system_params():
-    data = request.json
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({'error': 'Invalid JSON payload'}), 400
+
     conn = get_db()
     cursor = conn.cursor()
     updated_count = 0
     ai_params_updated = False
     
     try:
-        # Allowed parameter prefixes/names
-        allowed_params = [
-            # Core UI/system params
-            'project_name', 'entry_singular_label', 'entry_plural_label', 'project_subtitle', 'enable_sensors', 'enable_sensor_master_control', 'enable_kanban', 'sensor_types', 
-            # Git integration settings
-            'git_integration_enabled', 'git_provider', 'git_token', 'gitlab_url',
-            # Strava integration settings
-            'strava_enabled', 'strava_client_id', 'strava_client_secret', 'strava_refresh_token',
-            'strava_activity_mapping', 'strava_field_mapping', 'strava_sync_enabled', 'strava_sync_schedule',
-            # Garmin Connect integration settings
-            'garmin_sync_enabled', 'garmin_sync_schedule', 'garmin_entry_type_id',
-            # Apple Health integration settings
-            'apple_health_enabled', 'apple_health_api_key', 'apple_health_source_url', 'apple_health_source_token',
-            'apple_health_sync_enabled', 'apple_health_sync_schedule', 'apple_health_last_sync_timestamp',
-            'apple_health_last_payload', 'apple_health_last_source',
-            # ntfy push notification settings
-            'ntfy_enabled',
-            # Anycubic 3D printer integration settings
-            'anycubic_enabled', 'anycubic_printer_model', 'anycubic_api_type',
-            'anycubic_printer_ip', 'anycubic_printer_port', 'anycubic_api_key',
-            'anycubic_polling_enabled', 'anycubic_polling_interval',
-            'anycubic_auto_create_entries', 'anycubic_fetch_file', 'anycubic_entry_type_id',
-            'anycubic_field_mapping',
-            'project_logo_path', 'label_font_size', 'label_include_qr_code', 'label_include_logo',
-            'label_qr_code_prefix', 'allowed_file_types', 'max_file_size', 'custom_note_types',
-            'primary_ai_provider', 'gemini_api_key', 'groq_api_key', 'huggingface_api_key',
-            'gemini_model_name', 'ollama_base_url', 'ollama_model_name', 'groq_model_name', 'huggingface_model', 'huggingface_image_size',
-            'gemini_base_prompt',
-            'comfy_server_url', 'comfy_tts_url', 'comfy_model_name',
-            'prompt_description', 'prompt_note', 'prompt_sql', 'prompt_theme', 'prompt_chat', 'prompt_diagram', 'prompt_diagram_rules', 'prompt_summary',
-            'default_search_term', 'default_type_filter', 'default_status_filter', 
-            'default_date_range', 'default_sort_by', 'default_content_display', 'default_result_limit'
-        ]
-        
         for param_name, param_value in data.items():
             # Track if AI-related parameters are being updated
-            if param_name in ['primary_ai_provider', 'gemini_api_key', 'groq_api_key', 'huggingface_api_key',
-                             'gemini_model_name', 'ollama_base_url', 'ollama_model_name', 'groq_model_name', 'huggingface_model', 'huggingface_image_size',
-                             'gemini_base_prompt', 
-                             'prompt_description', 'prompt_note', 'prompt_sql', 'prompt_theme', 'prompt_chat', 'prompt_diagram', 'prompt_diagram_rules', 'prompt_summary']:
+            if param_name in AI_RECONFIGURE_PARAMS:
                 ai_params_updated = True
             
             # Allow any parameter in the whitelist OR any parameter starting with 'label_'
-            if param_name in allowed_params or param_name.startswith('label_'):
+            if param_name in ALLOWED_PARAMS or param_name.startswith('label_'):
                 # Use REPLACE INTO which handles both insert and update atomically
                 cursor.execute(
                     "INSERT OR REPLACE INTO SystemParameters (parameter_name, parameter_value) VALUES (?, ?)",
@@ -125,7 +136,7 @@ def api_update_system_params():
 def preview_device_sensors():
     """Preview what sensor types would be discovered from device data"""
     try:
-        data = request.json
+        data = request.get_json(silent=True) or {}
         device_data = data.get('device_data', {})
         
         if not device_data:

@@ -18,20 +18,34 @@ def get_db():
 
 @entry_api_bp.route('/entries', methods=['GET'])
 def get_all_entries():
-    """Get all entries"""
+    """Get all entries, optionally filtered by ?search= (title substring) and ?entry_type_id="""
     try:
         conn = get_db()
         cursor = conn.cursor()
-        
-        cursor.execute('''
+
+        search = request.args.get('search', '').strip()
+        entry_type_id = request.args.get('entry_type_id', '').strip()
+
+        conditions = ['COALESCE(e.is_archived, 0) = 0']
+        params = []
+        if search:
+            conditions.append('e.title LIKE ?')
+            params.append(f'%{search}%')
+        if entry_type_id:
+            conditions.append('e.entry_type_id = ?')
+            params.append(int(entry_type_id))
+
+        where_clause = ' AND '.join(conditions)
+        cursor.execute(f'''
                  SELECT e.id, e.title, e.description, e.intended_end_date, e.actual_end_date,
                      e.status, e.created_at, e.commenced_at, e.entry_type_id, et.singular_label AS entry_type_label,
                      COALESCE(e.is_archived, 0) AS is_archived, e.archived_at
                  FROM Entry e
                  JOIN EntryType et ON e.entry_type_id = et.id
-                 WHERE COALESCE(e.is_archived, 0) = 0
+                 WHERE {where_clause}
                  ORDER BY e.created_at DESC
-             ''')
+                 LIMIT 100
+             ''', params)
         
         rows = cursor.fetchall()
         entries = []
