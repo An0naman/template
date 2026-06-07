@@ -56,6 +56,11 @@ class _MySQLCursorWrapper:
     def fetchone(self):
         return self._c.fetchone()
 
+    def fetchmany(self, size=None):
+        if size is None:
+            return self._c.fetchmany()
+        return self._c.fetchmany(size)
+
     def fetchall(self):
         return self._c.fetchall()
 

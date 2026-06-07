@@ -483,11 +483,12 @@ def settings():
 @main_bp.route('/sql_ide')
 def sql_ide():
     """SQL IDE route for database management"""
-    from ..db import get_system_parameters
-    params = get_system_parameters()
-    
+    page_context = _get_theme_page_context()
+
     return render_template('simple_sql_ide.html',
-                          project_name=params.get('project_name'))
+                          project_name=page_context['project_name'],
+                          theme_settings=page_context['theme_settings'],
+                          theme_css=page_context['theme_css'])
 
 @main_bp.route('/dashboard')
 def dashboard():

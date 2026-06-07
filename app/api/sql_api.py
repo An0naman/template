@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, g, current_app
 import logging
+import re
 
 # Define a Blueprint for SQL API
 sql_api_bp = Blueprint('sql_api', __name__)
@@ -41,7 +42,8 @@ def _get_tables(cursor):
         )
     else:  # sqlite
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-    return [row[0] for row in cursor.fetchall()]
+    return [row[0] for row in cursor.fetchall()] if _db_type() != 'mysql' \
+        else [row['table_name'] for row in cursor.fetchall()]
 
 
 def _table_exists(cursor, table_name):
@@ -110,9 +112,9 @@ def _get_columns(cursor, table_name):
             SELECT
                 column_name,
                 column_type,
-                CASE WHEN is_nullable = 'NO' THEN 1 ELSE 0 END,
+                CASE WHEN is_nullable = 'NO' THEN 1 ELSE 0 END AS not_null,
                 column_default,
-                CASE WHEN column_key = 'PRI' THEN 1 ELSE 0 END
+                CASE WHEN column_key = 'PRI' THEN 1 ELSE 0 END AS is_pk
             FROM information_schema.columns
             WHERE table_schema = DATABASE() AND table_name = %s
             ORDER BY ordinal_position
@@ -121,9 +123,9 @@ def _get_columns(cursor, table_name):
         )
         for i, row in enumerate(cursor.fetchall()):
             columns.append({
-                'cid': i, 'name': row[0], 'type': row[1],
-                'not_null': bool(row[2]), 'default_value': row[3],
-                'primary_key': bool(row[4])
+                'cid': i, 'name': row['column_name'], 'type': row['column_type'],
+                'not_null': bool(row['not_null']), 'default_value': row['column_default'],
+                'primary_key': bool(row['is_pk'])
             })
     else:  # sqlite
         cursor.execute(f"PRAGMA table_info({table_name})")
@@ -187,8 +189,11 @@ def _get_foreign_keys(cursor, table_name):
         )
         for i, row in enumerate(cursor.fetchall()):
             fks.append({
-                'id': i, 'seq': i, 'table': row[2], 'from': row[1],
-                'to': row[3], 'on_update': row[4], 'on_delete': row[5], 'match': 'NONE'
+                'id': i, 'seq': i,
+                'table': row['referenced_table_name'], 'from': row['column_name'],
+                'to': row['referenced_column_name'],
+                'on_update': row['update_rule'], 'on_delete': row['delete_rule'],
+                'match': 'NONE'
             })
     else:  # sqlite
         cursor.execute(f"PRAGMA foreign_key_list({table_name})")
@@ -223,12 +228,12 @@ def _get_indexes(cursor, table_name):
         cursor.execute(f"SHOW INDEX FROM `{table_name}`")
         seen = {}
         for row in cursor.fetchall():
-            name = row[2]  # Key_name column
+            name = row['Key_name']
             if name not in seen:
                 seen[name] = True
                 indexes.append({
                     'seq': len(indexes), 'name': name,
-                    'unique': row[1] == 0, 'origin': 'c', 'partial': False
+                    'unique': row['Non_unique'] == 0, 'origin': 'c', 'partial': False
                 })
     else:  # sqlite
         cursor.execute(f"PRAGMA index_list({table_name})")
@@ -250,6 +255,40 @@ def _quote_table(table_name):
     return f'[{table_name}]'  # sqlite
 
 
+def _translate_tsql(query):
+    """Translate common T-SQL / SQL Server syntax to the target DB dialect."""
+    # ── SELECT TOP n → SELECT … LIMIT n ─────────────────────────────────
+    # Handles:  SELECT TOP 10  /  SELECT TOP (10)  (case-insensitive)
+    m = re.compile(
+        r'^(\s*SELECT\s+)TOP\s*\(?\s*(\d+)\s*\)?\s+',
+        re.IGNORECASE
+    ).match(query)
+    if m:
+        n = m.group(2)
+        rest = query[m.end():].rstrip('; \t\r\n')
+        if not re.search(r'\bLIMIT\b', rest, re.IGNORECASE):
+            query = f'SELECT {rest} LIMIT {n}'
+
+    # ── Strip WITH (NOLOCK) / NOLOCK hints ───────────────────────────────
+    query = re.sub(r'\bWITH\s*\(\s*NOLOCK\s*\)', '', query, flags=re.IGNORECASE)
+    query = re.sub(r'\bNOLOCK\b', '', query, flags=re.IGNORECASE)
+
+    # ── Strip GO batch separator ─────────────────────────────────────────
+    query = re.sub(r'^\s*GO\s*$', '', query, flags=re.IGNORECASE | re.MULTILINE)
+
+    # ── ISNULL(x, y) → COALESCE(x, y) ───────────────────────────────────
+    query = re.sub(r'\bISNULL\s*\(', 'COALESCE(', query, flags=re.IGNORECASE)
+
+    # ── GETDATE() → dialect-appropriate current timestamp ────────────────
+    db = _db_type()
+    if db == 'sqlite':
+        query = re.sub(r'\bGETDATE\s*\(\s*\)', "datetime('now')", query, flags=re.IGNORECASE)
+    else:
+        query = re.sub(r'\bGETDATE\s*\(\s*\)', 'NOW()', query, flags=re.IGNORECASE)
+
+    return query.strip()
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -263,6 +302,7 @@ def execute_sql():
             return jsonify({'error': 'No query provided'}), 400
 
         query = data['query'].strip()
+        query = _translate_tsql(query)
         query_upper = query.upper()
 
         conn = get_db()
@@ -279,16 +319,19 @@ def execute_sql():
                 'query': query
             })
         else:
-            rows = cursor.fetchall()
+            row_limit = data.get('limit', 1000)
+            if not isinstance(row_limit, int) or row_limit <= 0:
+                row_limit = 1000
+            rows = cursor.fetchmany(row_limit)
             column_names = [d[0] for d in cursor.description] if cursor.description else []
             results = []
             for row in rows:
-                row_dict = {}
-                for i, col in enumerate(column_names):
-                    val = row[i]
-                    if hasattr(val, 'isoformat'):
-                        val = val.isoformat()
-                    row_dict[col] = val
+                if isinstance(row, dict):
+                    row_dict = {col: (v.isoformat() if hasattr(v := row.get(col), 'isoformat') else v)
+                                for col in column_names}
+                else:
+                    row_dict = {col: (row[i].isoformat() if hasattr(row[i], 'isoformat') else row[i])
+                                for i, col in enumerate(column_names)}
                 results.append(row_dict)
             return jsonify({
                 'success': True,
@@ -361,15 +404,14 @@ def get_table_sample(table_name):
         cursor.execute(f"SELECT * FROM {_quote_table(table_name)} LIMIT 100")
         rows = cursor.fetchall()
         column_names = [d[0] for d in cursor.description] if cursor.description else []
-
         results = []
         for row in rows:
-            row_dict = {}
-            for i, col in enumerate(column_names):
-                val = row[i]
-                if hasattr(val, 'isoformat'):
-                    val = val.isoformat()
-                row_dict[col] = val
+            if isinstance(row, dict):
+                row_dict = {col: (v.isoformat() if hasattr(v := row.get(col), 'isoformat') else v)
+                            for col in column_names}
+            else:
+                row_dict = {col: (row[i].isoformat() if hasattr(row[i], 'isoformat') else row[i])
+                            for i, col in enumerate(column_names)}
             results.append(row_dict)
 
         return jsonify({
