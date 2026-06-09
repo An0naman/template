@@ -99,19 +99,15 @@ async function edInitSection(sid, entryId) {
         relDefSel.value = String(savedConfig.rel_def_id);
     }
 
+    // Store saved column IDs so edLoadColumns can use them when called during relDefChange
+    if (savedConfig.selected_column_ids) {
+        st._savedColumnIds = savedConfig.selected_column_ids;
+    }
+
     await edHandleRelDefChange(sid);
 
-    // After columns load, restore saved column selection
-    if (savedConfig.selected_column_ids && savedConfig.selected_column_ids.length) {
-        st.selectedColumnIds = savedConfig.selected_column_ids;
-        const menu = document.getElementById(`edColumnMenu-${sid}`);
-        if (menu) {
-            menu.querySelectorAll('input[type="checkbox"][data-col-id]').forEach(cb => {
-                cb.checked = st.selectedColumnIds.includes(parseInt(cb.dataset.colId));
-            });
-        }
-        await edRefresh(sid);
-    }
+    // Clear the temporary saved IDs reference
+    delete st._savedColumnIds;
 }
 
 // ── Save current section state as defaults to DB ─────────────────────────
@@ -297,7 +293,7 @@ async function edHandleDataModeChange(sid) {
         if (!st.relatedEntryTypeId && st.relatedEntryIds.length) {
             await _edResolveRelatedEntryType(sid);
         } else if (st.relatedEntryTypeId) {
-            await edLoadColumns(sid, st.relatedEntryTypeId);
+            await edLoadColumns(sid, st.relatedEntryTypeId, st._savedColumnIds);
             await edRefresh(sid);
         }
     } else if (st.dataMode === 'distribution') {
@@ -345,7 +341,7 @@ async function edHandleDataModeChange(sid) {
         if (!st.relatedEntryTypeId && st.relatedEntryIds.length) {
             await _edResolveRelatedEntryType(sid);
         } else if (st.relatedEntryTypeId) {
-            await edLoadColumns(sid, st.relatedEntryTypeId);
+            await edLoadColumns(sid, st.relatedEntryTypeId, st._savedColumnIds);
             await edRefresh(sid);
         }
     }
@@ -363,7 +359,7 @@ async function _edResolveRelatedEntryType(sid) {
             if (st.dataMode === 'distribution') {
                 await edLoadSelectColumns(sid, st.relatedEntryTypeId);
             } else {
-                await edLoadColumns(sid, st.relatedEntryTypeId);
+                await edLoadColumns(sid, st.relatedEntryTypeId, st._savedColumnIds);
             }
             await edRefresh(sid);
         }
@@ -372,7 +368,7 @@ async function _edResolveRelatedEntryType(sid) {
     }
 }
 
-async function edLoadColumns(sid, entryTypeId) {
+async function edLoadColumns(sid, entryTypeId, preselectedIds) {
     const st = _edGet(sid);
     const menu = document.getElementById(`edColumnMenu-${sid}`);
     try {
@@ -391,20 +387,30 @@ async function edLoadColumns(sid, entryTypeId) {
             return;
         }
 
-        // Select all by default
-        st.selectedColumnIds = st.columns.map(c => c.id);
+        // Use preselected IDs if provided and valid, otherwise select all
+        const allIds = st.columns.map(c => c.id);
+        if (preselectedIds && preselectedIds.length) {
+            // Keep only IDs that actually exist in this column set
+            st.selectedColumnIds = preselectedIds.filter(id => allIds.includes(id));
+            if (!st.selectedColumnIds.length) st.selectedColumnIds = allIds;
+        } else {
+            st.selectedColumnIds = allIds;
+        }
 
         if (menu) {
-            menu.innerHTML = st.columns.map(c => `
+            menu.innerHTML = st.columns.map(c => {
+                const isChecked = st.selectedColumnIds.includes(c.id);
+                return `
                 <li>
                   <label class="dropdown-item d-flex align-items-center gap-2 py-1">
                     <input type="checkbox" class="form-check-input mt-0"
-                           value="${c.id}" checked
+                           value="${c.id}" ${isChecked ? 'checked' : ''}
                            onchange="edOnColumnToggle('${sid}', ${c.id}, this.checked)">
                     <span>${_edEsc(c.label)}${c.unit ? ' (' + _edEsc(c.unit) + ')' : ''}</span>
                   </label>
                 </li>
-            `).join('');
+                `;
+            }).join('');
         }
         _edUpdateColumnLabel(sid);
     } catch (err) {
