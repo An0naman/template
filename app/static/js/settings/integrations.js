@@ -395,6 +395,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                 cardinality_to:    'many',
                                 label_from_side:   `${actLabel}s`,
                                 label_to_side:     dayLabel,
+                                is_hierarchical:   true,
+                                hierarchy_direction: 'from_to_child',
                             }),
                         });
                         created++;
@@ -784,6 +786,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                 cardinality_to:    'many',
                                 label_from_side:   `${dataLabel}s`,
                                 label_to_side:     dayLabel,
+                                is_hierarchical:   true,
+                                hierarchy_direction: 'from_to_child',
                             }),
                         });
                         const r = await fetch('/api/relationship_definitions');
