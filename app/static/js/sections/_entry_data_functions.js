@@ -16,8 +16,8 @@ function _edGet(sid) {
             selectedMetricIds: [],
             dataPoints: [],
             tableVisible: false,
-            sourceMode: 'own',        // 'own' | 'related'
-            dataMode: 'metrics',      // 'metrics' | 'columns'
+            sourceMode: 'related',    // always 'related'
+            dataMode: 'columns',      // 'columns' | 'distribution'
             relationships: [],        // from GET /api/entries/<id>/relationships
             relatedEntryIds: [],      // resolved entry IDs when in 'related' mode
             relatedEntryTypeId: null, // entry_type_id of related entries
@@ -52,12 +52,14 @@ async function edInitSection(sid, entryId) {
         });
     }
 
-    // Load relationships for the source toggle (don't await — load in parallel)
-    edLoadRelationships(sid, entryId);
+    // Start in related mode — load relationships then trigger rel-def change
+    const relDefSel   = document.getElementById(`edRelDef-${sid}`);
+    const dataModeRow = document.getElementById(`edDataModeRow-${sid}`);
+    if (relDefSel)   relDefSel.classList.remove('d-none');
+    if (dataModeRow) dataModeRow.classList.remove('d-none');
 
-    // Load metrics available for this entry's type
-    await edLoadMetrics(sid, entryId);
-    await edRefresh(sid);
+    await edLoadRelationships(sid, entryId);
+    await edHandleRelDefChange(sid);
 }
 
 // ── Source mode (own vs related) ──────────────────────────────────────────
@@ -155,9 +157,8 @@ async function edHandleRelDefChange(sid) {
         // Resolve related entry type then reload columns/select columns
         await _edResolveRelatedEntryType(sid);
     } else {
-        // Reload metrics — show all since related entries may have any metric
-        await edLoadMetrics(sid, st.entryId, true);
-        await edRefresh(sid);
+        // Default to columns mode
+        await _edResolveRelatedEntryType(sid);
     }
 }
 
@@ -226,19 +227,32 @@ async function edHandleDataModeChange(sid) {
             await edRefresh(sid);
         }
     } else {
-        metricDrop.classList.remove('d-none');
-        columnDrop.classList.add('d-none');
+        // columns mode (default)
+        metricDrop?.classList.add('d-none');
+        columnDrop.classList.remove('d-none');
         if (selectColRow) selectColRow.classList.add('d-none');
-        timeRangeSel.classList.remove('d-none');
+        timeRangeSel.classList.add('d-none');
         xAxisTypeSel.classList.remove('d-none');
-        if (addBtn) addBtn.classList.remove('d-none');
-        // Re-enable all chart types and default to line
+        // Restrict chart type to non-distribution options
         if (chartTypeSel) {
             ['line','bar','scatter'].forEach(v => { const o = chartTypeSel.querySelector(`option[value="${v}"]`); if(o) o.disabled = false; });
             ['pie','doughnut'].forEach(v => { const o = chartTypeSel.querySelector(`option[value="${v}"]`); if(o) o.disabled = true; });
             if (['pie','doughnut'].includes(chartTypeSel.value)) chartTypeSel.value = 'line';
         }
-        await edRefresh(sid);
+        // Default x-axis to entry creation date
+        if (xAxisTypeSel && xAxisTypeSel.value === 'recorded_at') {
+            xAxisTypeSel.value = 'entry_field';
+            if (xAxisFieldSel) {
+                xAxisFieldSel.value = 'created_at';
+                xAxisFieldSel.classList.remove('d-none');
+            }
+        }
+        if (!st.relatedEntryTypeId && st.relatedEntryIds.length) {
+            await _edResolveRelatedEntryType(sid);
+        } else if (st.relatedEntryTypeId) {
+            await edLoadColumns(sid, st.relatedEntryTypeId);
+            await edRefresh(sid);
+        }
     }
 }
 
