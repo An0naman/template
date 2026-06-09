@@ -479,6 +479,40 @@ def delete_layout_tab(tab_id):
         return jsonify({'error': 'Failed to delete tab'}), 500
 
 
+@entry_layout_api_bp.route('/entry-layout-sections/<int:section_id>/config', methods=['PATCH'])
+def patch_section_config(section_id):
+    """Merge-update the config JSON for a section (used by Data Points & other sections to save defaults)."""
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        conn = get_db()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT config FROM EntryLayoutSection WHERE id = ?", (section_id,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'error': 'Section not found'}), 404
+
+        existing = {}
+        if row['config']:
+            try:
+                existing = json.loads(row['config']) if isinstance(row['config'], str) else row['config']
+            except (json.JSONDecodeError, TypeError):
+                existing = {}
+
+        merged = {**existing, **data}
+        success = EntryLayoutService.update_section(section_id, {'config': merged})
+        if success:
+            return jsonify({'message': 'Section config saved', 'config': merged}), 200
+        return jsonify({'error': 'Failed to save config'}), 500
+
+    except Exception as e:
+        logger.error(f"Error patching section config {section_id}: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to save config'}), 500
+
+
 @entry_layout_api_bp.route('/entry-layouts/<int:layout_id>/sections-by-tab', methods=['GET'])
 def get_sections_by_tab(layout_id):
     """

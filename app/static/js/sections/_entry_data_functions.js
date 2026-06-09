@@ -52,6 +52,40 @@ async function edInitSection(sid, entryId) {
         });
     }
 
+    // Read saved config from data-config attribute on the section element
+    const sectionEl = document.getElementById(`entryDataSection-${sid}`);
+    let savedConfig = {};
+    if (sectionEl) {
+        try { savedConfig = JSON.parse(sectionEl.dataset.config || '{}'); } catch(e) {}
+    }
+
+    // Apply saved scalar controls before loading data
+    if (savedConfig.time_range) {
+        const tr = document.getElementById(`edTimeRange-${sid}`);
+        if (tr) tr.value = savedConfig.time_range;
+    }
+    if (savedConfig.x_axis_type) {
+        const xa = document.getElementById(`edXAxisType-${sid}`);
+        if (xa) xa.value = savedConfig.x_axis_type;
+    }
+    if (savedConfig.x_axis_field) {
+        const xf = document.getElementById(`edXAxisField-${sid}`);
+        if (xf) xf.value = savedConfig.x_axis_field;
+    }
+    if (savedConfig.chart_type) {
+        const ct = document.getElementById(`edChartType-${sid}`);
+        if (ct) ct.value = savedConfig.chart_type;
+    }
+
+    // Apply saved data mode
+    if (savedConfig.data_mode) {
+        st.dataMode = savedConfig.data_mode;
+        const modeRadio = document.getElementById(
+            st.dataMode === 'distribution' ? `edDataModeDistribution-${sid}` : `edDataModeColumns-${sid}`
+        );
+        if (modeRadio) modeRadio.checked = true;
+    }
+
     // Start in related mode — load relationships then trigger rel-def change
     const relDefSel   = document.getElementById(`edRelDef-${sid}`);
     const dataModeRow = document.getElementById(`edDataModeRow-${sid}`);
@@ -59,7 +93,68 @@ async function edInitSection(sid, entryId) {
     if (dataModeRow) dataModeRow.classList.remove('d-none');
 
     await edLoadRelationships(sid, entryId);
+
+    // Apply saved rel-def selection after options are populated
+    if (savedConfig.rel_def_id && relDefSel) {
+        relDefSel.value = String(savedConfig.rel_def_id);
+    }
+
     await edHandleRelDefChange(sid);
+
+    // After columns load, restore saved column selection
+    if (savedConfig.selected_column_ids && savedConfig.selected_column_ids.length) {
+        st.selectedColumnIds = savedConfig.selected_column_ids;
+        const menu = document.getElementById(`edColumnMenu-${sid}`);
+        if (menu) {
+            menu.querySelectorAll('input[type="checkbox"][data-col-id]').forEach(cb => {
+                cb.checked = st.selectedColumnIds.includes(parseInt(cb.dataset.colId));
+            });
+        }
+        await edRefresh(sid);
+    }
+}
+
+// ── Save current section state as defaults to DB ─────────────────────────
+async function edSaveDefaults(sid) {
+    const st = _edGet(sid);
+    const sectionEl = document.getElementById(`entryDataSection-${sid}`);
+    if (!sectionEl) return;
+
+    const config = {
+        rel_def_id:          parseInt(document.getElementById(`edRelDef-${sid}`)?.value) || null,
+        data_mode:           st.dataMode || 'columns',
+        selected_column_ids: st.selectedColumnIds || [],
+        chart_type:          document.getElementById(`edChartType-${sid}`)?.value || 'line',
+        time_range:          document.getElementById(`edTimeRange-${sid}`)?.value || '30d',
+        x_axis_type:         document.getElementById(`edXAxisType-${sid}`)?.value || 'entry_field',
+        x_axis_field:        document.getElementById(`edXAxisField-${sid}`)?.value || 'created_at',
+    };
+
+    const btn = sectionEl.querySelector(`button[onclick*="edSaveDefaults"]`);
+    const origHtml = btn ? btn.innerHTML : null;
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving…'; }
+
+    try {
+        const resp = await fetch(`/api/entry-layout-sections/${sid}/config`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config),
+        });
+        if (resp.ok) {
+            sectionEl.dataset.config = JSON.stringify(config);
+            if (btn) btn.innerHTML = '<i class="fas fa-check me-1"></i>Saved!';
+        } else {
+            if (btn) btn.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Failed';
+        }
+    } catch(e) {
+        console.error('[entry_data] edSaveDefaults error:', e);
+        if (btn) btn.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Error';
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            setTimeout(() => { btn.innerHTML = origHtml; }, 2000);
+        }
+    }
 }
 
 // ── Source mode (own vs related) ──────────────────────────────────────────

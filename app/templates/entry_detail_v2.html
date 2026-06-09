@@ -547,7 +547,7 @@
                                         {% elif section_type == 'custom_columns' %}
                                             {% with section_id=section.id %}{% include 'sections/_custom_columns_section.html' %}{% endwith %}
                                         {% elif section_type == 'entry_data' %}
-                                            {% with section_id=section.id %}{% include 'sections/_entry_data_section.html' %}{% endwith %}
+                                            {% with section_id=section.id, section_config=section.config %}{% include 'sections/_entry_data_section.html' %}{% endwith %}
                                         {% endif %}
                                 
                                 </div>
@@ -679,7 +679,7 @@
                                 {% elif section_type == 'custom_columns' %}
                                     {% with section_id=section.id, custom_column_values=custom_column_values, entry=entry %}{% include 'sections/_custom_columns_section.html' %}{% endwith %}
                                 {% elif section_type == 'entry_data' %}
-                                    {% with section_id=section.id %}{% include 'sections/_entry_data_section.html' %}{% endwith %}
+                                    {% with section_id=section.id, section_config=section.config %}{% include 'sections/_entry_data_section.html' %}{% endwith %}
                                 {% else %}
                                     <h5>{{ section_type|title }} Section</h5>
                                     <p class="text-muted">Content will go here</p>

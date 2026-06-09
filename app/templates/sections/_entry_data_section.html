@@ -6,7 +6,8 @@
 
 <div class="entry-data-section" id="entryDataSection-{{ section_id }}"
      data-entry-id="{{ entry.id }}"
-     data-section-id="{{ section_id }}">
+     data-section-id="{{ section_id }}"
+     data-config='{{ (section_config or {}) | tojson }}'>
 
     {# ── Relationship definition picker ──────────────────────────────── #}
     <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
@@ -100,6 +101,11 @@
         <button class="btn btn-sm btn-outline-secondary ms-auto"
                 onclick="edToggleTable('{{ section_id }}')">
             <i class="fas fa-table me-1"></i>Table
+        </button>
+
+        <button class="btn btn-sm btn-outline-secondary" title="Save current selections as defaults for this section"
+                onclick="edSaveDefaults('{{ section_id }}')">
+            <i class="fas fa-bookmark me-1"></i>Save Defaults
         </button>
     </div>
 
