@@ -252,6 +252,62 @@ def sync_strava_activities():
     backfilled = 0
     cursor = conn.cursor()
 
+    # Load day-linking config once
+    day_entry_type_id = get_system_param(conn, 'strava_day_entry_type_id')
+
+    def _link_to_day(activity_entry_id, activity_entry_type_id, date_str):
+        """Find-or-create the Day entry for date_str and link activity_entry_id to it.
+        Looks up the correct relationship definition by matching day_type→activity_type."""
+        if not day_entry_type_id:
+            return
+        try:
+            # Find the relationship def connecting day type → this activity's entry type
+            cursor.execute(
+                """SELECT id, entry_type_id_from FROM RelationshipDefinition
+                   WHERE (entry_type_id_from = ? AND entry_type_id_to = ?)
+                      OR (entry_type_id_to = ? AND entry_type_id_from = ?)
+                   LIMIT 1""",
+                (int(day_entry_type_id), int(activity_entry_type_id),
+                 int(day_entry_type_id), int(activity_entry_type_id)),
+            )
+            rel_row = cursor.fetchone()
+            if not rel_row:
+                logger.debug(f"No relationship def found for day_type={day_entry_type_id}→entry_type={activity_entry_type_id}")
+                return
+            rel_def_id = rel_row['id']
+
+            # Find-or-create Day entry
+            day_title = f"Day {date_str}"
+            cursor.execute(
+                "SELECT id FROM Entry WHERE entry_type_id = ? AND title = ? LIMIT 1",
+                (int(day_entry_type_id), day_title),
+            )
+            day_row = cursor.fetchone()
+            if day_row:
+                day_entry_id = day_row['id']
+            else:
+                cursor.execute(
+                    "INSERT INTO Entry (entry_type_id, title, created_at) VALUES (?, ?, ?)",
+                    (int(day_entry_type_id), day_title, date_str),
+                )
+                day_entry_id = cursor.lastrowid
+
+            # Direction: day is "from" side → day is parent (source)
+            if int(rel_row['entry_type_id_from']) == int(day_entry_type_id):
+                src_id, tgt_id = day_entry_id, activity_entry_id
+            else:
+                src_id, tgt_id = activity_entry_id, day_entry_id
+
+            cursor.execute(
+                """INSERT OR IGNORE INTO EntryRelationship
+                       (source_entry_id, target_entry_id, relationship_type, created_at)
+                   VALUES (?, ?, ?, ?)""",
+                (src_id, tgt_id, int(rel_def_id), date_str),
+            )
+            conn.commit()
+        except Exception as exc:
+            logger.warning(f"Strava day link failed for entry {activity_entry_id}: {exc}")
+
     for activity in activities:
         strava_id = str(activity['id'])
         strava_type = activity.get('sport_type') or activity.get('type', '')
@@ -288,42 +344,7 @@ def sync_strava_activities():
                 backfilled += 1
 
             # Ensure Day link exists for existing activities too
-            day_entry_type_id = get_system_param(conn, 'strava_day_entry_type_id')
-            rel_def_id        = get_system_param(conn, 'strava_relationship_def_id')
-            if day_entry_type_id and rel_def_id:
-                try:
-                    day_title = f"Day {date_str}"
-                    cursor.execute(
-                        "SELECT id FROM Entry WHERE entry_type_id = ? AND title = ? LIMIT 1",
-                        (int(day_entry_type_id), day_title),
-                    )
-                    day_row = cursor.fetchone()
-                    if day_row:
-                        day_entry_id = day_row['id']
-                    else:
-                        cursor.execute(
-                            "INSERT INTO Entry (entry_type_id, title, created_at) VALUES (?, ?, ?)",
-                            (int(day_entry_type_id), day_title, date_str),
-                        )
-                        day_entry_id = cursor.lastrowid
-                    cursor.execute(
-                        "SELECT entry_type_id_from FROM RelationshipDefinition WHERE id = ?",
-                        (int(rel_def_id),),
-                    )
-                    rel_def_row = cursor.fetchone()
-                    if rel_def_row and int(rel_def_row['entry_type_id_from']) == int(day_entry_type_id):
-                        src_id, tgt_id = day_entry_id, existing_entry['id']
-                    else:
-                        src_id, tgt_id = existing_entry['id'], day_entry_id
-                    cursor.execute(
-                        """INSERT OR IGNORE INTO EntryRelationship
-                               (source_entry_id, target_entry_id, relationship_type, created_at)
-                           VALUES (?, ?, ?, ?)""",
-                        (src_id, tgt_id, int(rel_def_id), date_str),
-                    )
-                    conn.commit()
-                except Exception as exc:
-                    logger.warning(f"Strava day link (existing) failed for activity {strava_id}: {exc}")
+            _link_to_day(existing_entry['id'], entry_type_id, date_str)
             continue
 
         # Format Details
@@ -350,45 +371,7 @@ def sync_strava_activities():
                 _apply_field_mapping(entry_id, field_values, field_mapping, conn)
 
             # Find-or-create a day entry and link this activity to it
-            day_entry_type_id = get_system_param(conn, 'strava_day_entry_type_id')
-            rel_def_id        = get_system_param(conn, 'strava_relationship_def_id')
-            if day_entry_type_id and rel_def_id:
-                try:
-                    day_title = f"Day {date_str}"
-                    cursor.execute(
-                        "SELECT id FROM Entry WHERE entry_type_id = ? AND title = ? LIMIT 1",
-                        (int(day_entry_type_id), day_title),
-                    )
-                    day_row = cursor.fetchone()
-                    if day_row:
-                        day_entry_id = day_row['id']
-                    else:
-                        cursor.execute(
-                            "INSERT INTO Entry (entry_type_id, title, created_at) VALUES (?, ?, ?)",
-                            (int(day_entry_type_id), day_title, date_str),
-                        )
-                        day_entry_id = cursor.lastrowid
-
-                    # Determine relationship direction from definition
-                    cursor.execute(
-                        "SELECT entry_type_id_from, entry_type_id_to FROM RelationshipDefinition WHERE id = ?",
-                        (int(rel_def_id),),
-                    )
-                    rel_def_row = cursor.fetchone()
-                    if rel_def_row and int(rel_def_row['entry_type_id_from']) == int(day_entry_type_id):
-                        src_id, tgt_id = day_entry_id, entry_id
-                    else:
-                        src_id, tgt_id = entry_id, day_entry_id
-
-                    cursor.execute(
-                        """INSERT OR IGNORE INTO EntryRelationship
-                               (source_entry_id, target_entry_id, relationship_type, created_at)
-                           VALUES (?, ?, ?, ?)""",
-                        (src_id, tgt_id, int(rel_def_id), date_str),
-                    )
-                    conn.commit()
-                except Exception as exc:
-                    logger.warning(f"Strava day link failed for activity {strava_id}: {exc}")
+            _link_to_day(entry_id, entry_type_id, date_str)
 
         except Exception as e:
             logger.error(f"Error inserting entry for Strava activity {strava_id}: {e}")
