@@ -401,24 +401,17 @@ def sync_garmin_data(target_date=None):
         try:
             cursor = conn.cursor()
             now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-            entry_title = f"Garmin Sync {target_date}"
+            # Each sync creates a new snapshot entry with a timestamp in the title
+            sync_time = datetime.now(timezone.utc).strftime("%H:%M")
+            entry_title = f"Health {target_date} {sync_time}"
 
-            # Find an existing day entry before creating a new one
             cursor.execute(
-                "SELECT id FROM Entry WHERE entry_type_id = ? AND title = ? LIMIT 1",
-                (int(entry_type_id), entry_title),
+                "INSERT INTO Entry (entry_type_id, title, created_at) VALUES (?, ?, ?)",
+                (int(entry_type_id), entry_title, now),
             )
-            existing = cursor.fetchone()
-            if existing:
-                synced_entry_id = existing["id"]
-            else:
-                cursor.execute(
-                    "INSERT INTO Entry (entry_type_id, title, created_at) VALUES (?, ?, ?)",
-                    (int(entry_type_id), entry_title, now),
-                )
-                synced_entry_id = cursor.lastrowid
-                entry_was_created = True
-                conn.commit()
+            synced_entry_id = cursor.lastrowid
+            entry_was_created = True
+            conn.commit()
 
             if field_mapping:
                 written_count, field_errors = _apply_field_mapping(synced_entry_id, flat, field_mapping, conn)
