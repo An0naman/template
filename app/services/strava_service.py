@@ -286,6 +286,44 @@ def sync_strava_activities():
                 field_values = _activity_to_field_dict(activity)
                 _apply_field_mapping(existing_entry["id"], field_values, field_mapping, conn)
                 backfilled += 1
+
+            # Ensure Day link exists for existing activities too
+            day_entry_type_id = get_system_param(conn, 'strava_day_entry_type_id')
+            rel_def_id        = get_system_param(conn, 'strava_relationship_def_id')
+            if day_entry_type_id and rel_def_id:
+                try:
+                    day_title = f"Day {date_str}"
+                    cursor.execute(
+                        "SELECT id FROM Entry WHERE entry_type_id = ? AND title = ? LIMIT 1",
+                        (int(day_entry_type_id), day_title),
+                    )
+                    day_row = cursor.fetchone()
+                    if day_row:
+                        day_entry_id = day_row['id']
+                    else:
+                        cursor.execute(
+                            "INSERT INTO Entry (entry_type_id, title, created_at) VALUES (?, ?, ?)",
+                            (int(day_entry_type_id), day_title, date_str),
+                        )
+                        day_entry_id = cursor.lastrowid
+                    cursor.execute(
+                        "SELECT entry_type_id_from FROM RelationshipDefinition WHERE id = ?",
+                        (int(rel_def_id),),
+                    )
+                    rel_def_row = cursor.fetchone()
+                    if rel_def_row and int(rel_def_row['entry_type_id_from']) == int(day_entry_type_id):
+                        src_id, tgt_id = day_entry_id, existing_entry['id']
+                    else:
+                        src_id, tgt_id = existing_entry['id'], day_entry_id
+                    cursor.execute(
+                        """INSERT OR IGNORE INTO EntryRelationship
+                               (source_entry_id, target_entry_id, relationship_type, created_at)
+                           VALUES (?, ?, ?, ?)""",
+                        (src_id, tgt_id, int(rel_def_id), date_str),
+                    )
+                    conn.commit()
+                except Exception as exc:
+                    logger.warning(f"Strava day link (existing) failed for activity {strava_id}: {exc}")
             continue
 
         # Format Details
@@ -348,6 +386,7 @@ def sync_strava_activities():
                            VALUES (?, ?, ?, ?)""",
                         (src_id, tgt_id, int(rel_def_id), date_str),
                     )
+                    conn.commit()
                 except Exception as exc:
                     logger.warning(f"Strava day link failed for activity {strava_id}: {exc}")
 
