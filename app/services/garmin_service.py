@@ -428,6 +428,9 @@ def sync_garmin_data(target_date=None):
             # Find-or-create a day entry and link the Garmin data entry to it
             day_entry_type_id = _get_system_param(conn, "garmin_day_entry_type_id")
             rel_def_id        = _get_system_param(conn, "garmin_relationship_def_id")
+            day_entry_id      = None
+            day_entry_created = False
+            day_linked        = False
             if day_entry_type_id and rel_def_id:
                 try:
                     day_title = f"Day {target_date}"
@@ -444,6 +447,7 @@ def sync_garmin_data(target_date=None):
                             (int(day_entry_type_id), day_title, now),
                         )
                         day_entry_id = cursor.lastrowid
+                        day_entry_created = True
                         conn.commit()
 
                     # Determine relationship direction from the definition
@@ -463,6 +467,7 @@ def sync_garmin_data(target_date=None):
                            VALUES (?, ?, ?, ?)""",
                         (src_id, tgt_id, int(rel_def_id), now),
                     )
+                    day_linked = cursor.rowcount > 0
                     conn.commit()
                 except Exception as exc:
                     errors.append(f"day_link: {exc}")
@@ -480,6 +485,10 @@ def sync_garmin_data(target_date=None):
     if synced_entry_id:
         action = "created" if entry_was_created else "updated"
         msg = f"Synced {len(flat)} Garmin fields for {target_date}. Entry #{synced_entry_id} {action}, {written_count}/{mapped_count} column values written."
+        if day_entry_id:
+            day_action = "created" if day_entry_created else "found"
+            link_action = "linked" if day_linked else "already linked"
+            msg += f" Day entry #{day_entry_id} {day_action} and {link_action}."
     elif entry_type_id:
         msg = f"Fetched {len(flat)} Garmin fields for {target_date} but failed to create entry: {'; '.join(errors)}"
     else:
@@ -491,6 +500,8 @@ def sync_garmin_data(target_date=None):
         "fields_fetched": list(flat.keys()),
         "entry_id": synced_entry_id,
         "entry_created": entry_was_created,
+        "day_entry_id": day_entry_id,
+        "day_entry_created": day_entry_created,
         "errors": errors,
         "message": msg,
     }
