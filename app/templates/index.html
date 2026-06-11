@@ -2606,7 +2606,10 @@ LIMIT 100</textarea>
                     if (useSqlMode) {
                         console.log('SQL mode enabled in loaded search - executing SQL query');
                         await performLiveFilter();
-                    } else if (skipReload) {
+                    } else {
+                        // Always apply filters when we stay on the same page.
+                        // This ensures default saved searches with only advanced filters
+                        // (e.g. states/date/content) are applied on initial load.
                         await performLiveFilter();
                     }
                 }

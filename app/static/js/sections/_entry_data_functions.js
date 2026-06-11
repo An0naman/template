@@ -172,6 +172,7 @@ async function edInitSection(sid, entryId) {
     }
 
     await edHandleRelDefChange(sid);
+    await edHandleDataModeChange(sid);
 
     // Clear the temporary saved IDs reference
     delete st._savedColumnIds;
@@ -364,7 +365,10 @@ async function edHandleDataModeChange(sid) {
         }
         // Load columns for the related entry type
         if (!st.relatedEntryTypeId && st.relatedEntryIds.length) {
-            const savedConfig = _edGetSavedConfig(sid);
+            await _edResolveRelatedEntryType(sid);
+        } else if (st.relatedEntryTypeId) {
+            await edLoadColumns(sid, st.relatedEntryTypeId, st._savedColumnIds);
+            await edRefresh(sid);
         }
     } else if (st.dataMode === 'distribution') {
         metricDrop?.classList.add('d-none');
