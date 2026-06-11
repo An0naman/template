@@ -328,6 +328,22 @@ def init_db():
         except Exception:
             pass  # Column already exists or table not yet created
 
+        # Migration: Add SQL-mode columns if they don't exist
+        try:
+            saved_search_columns = _get_columns(cursor, 'SavedSearch')
+
+            if 'custom_sql_query' not in saved_search_columns:
+                cursor.execute("ALTER TABLE SavedSearch ADD COLUMN custom_sql_query TEXT DEFAULT ''")
+                conn.commit()
+                logger.info("Added custom_sql_query column to SavedSearch table")
+
+            if 'use_sql_mode' not in saved_search_columns:
+                cursor.execute("ALTER TABLE SavedSearch ADD COLUMN use_sql_mode INTEGER DEFAULT 0")
+                conn.commit()
+                logger.info("Added use_sql_mode column to SavedSearch table")
+        except Exception:
+            pass  # Columns already exist or table not yet created
+
         # Create Dashboard Table for storing dashboard configurations
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Dashboard (
