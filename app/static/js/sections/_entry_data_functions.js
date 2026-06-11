@@ -30,6 +30,68 @@ function _edGet(sid) {
     return _edState[sid];
 }
 
+function _edGetSavedConfig(sid) {
+    const sectionEl = document.getElementById(`entryDataSection-${sid}`);
+    if (!sectionEl) return {};
+    try {
+        return JSON.parse(sectionEl.dataset.config || '{}');
+    } catch (err) {
+        return {};
+    }
+}
+
+function _edSetSavedConfig(sid, config) {
+    const sectionEl = document.getElementById(`entryDataSection-${sid}`);
+    if (sectionEl) {
+        sectionEl.dataset.config = JSON.stringify(config || {});
+    }
+}
+
+function _edUpdateTableAxisHeader(sid, axisLabel) {
+    const header = document.getElementById(`edTableAxisHeader-${sid}`);
+    if (header) {
+        header.textContent = axisLabel || 'Recorded At';
+    }
+}
+
+function _edFormatAxisValue(value, xAxisType) {
+    if (value === null || value === undefined || value === '') return '—';
+    if (xAxisType !== 'recorded_at') return _edEsc(String(value));
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return _edEsc(String(value));
+    return _edEsc(date.toLocaleString());
+}
+
+function _edGetResponsiveChartHeight(sid) {
+    const sectionEl = document.getElementById(`entryDataSection-${sid}`);
+    if (!sectionEl) return null;
+
+    const wrapper = sectionEl.closest('.section-wrapper');
+    if (!wrapper) return null;
+
+    const wrapperRect = wrapper.getBoundingClientRect();
+    if (!wrapperRect.height) return null;
+
+    const controls = Array.from(sectionEl.querySelectorAll('[data-ed-controls]'));
+    const controlsHeight = controls.reduce((total, el) => total + el.getBoundingClientRect().height, 0);
+
+    return Math.max(220, Math.floor(wrapperRect.height - controlsHeight - 88));
+}
+
+function _edApplyResponsiveChartSize(sid) {
+    const chartContainer = document.getElementById(`edChartContainer-${sid}`);
+    if (!chartContainer) return;
+
+    const responsiveHeight = _edGetResponsiveChartHeight(sid);
+    if (responsiveHeight) {
+        chartContainer.style.height = `${responsiveHeight}px`;
+    }
+
+    const st = _edGet(sid);
+    if (st.chart) st.chart.resize();
+}
+
 // ── Initialise ────────────────────────────────────────────────────────────
 async function edInitSection(sid, entryId) {
     const st = _edGet(sid);
@@ -53,10 +115,12 @@ async function edInitSection(sid, entryId) {
     }
 
     // Read saved config from data-config attribute on the section element
-    const sectionEl = document.getElementById(`entryDataSection-${sid}`);
-    let savedConfig = {};
-    if (sectionEl) {
-        try { savedConfig = JSON.parse(sectionEl.dataset.config || '{}'); } catch(e) {}
+    const savedConfig = _edGetSavedConfig(sid);
+
+    _edApplyResponsiveChartSize(sid);
+    if (!st._resizeHandler) {
+        st._resizeHandler = () => _edApplyResponsiveChartSize(sid);
+        window.addEventListener('resize', st._resizeHandler);
     }
 
     // Apply saved scalar controls before loading data
@@ -103,11 +167,15 @@ async function edInitSection(sid, entryId) {
     if (savedConfig.selected_column_ids) {
         st._savedColumnIds = savedConfig.selected_column_ids;
     }
+    if (savedConfig.selected_select_column_id) {
+        st._savedSelectColumnId = savedConfig.selected_select_column_id;
+    }
 
     await edHandleRelDefChange(sid);
 
     // Clear the temporary saved IDs reference
     delete st._savedColumnIds;
+    delete st._savedSelectColumnId;
 }
 
 // ── Save current section state as defaults to DB ─────────────────────────
@@ -120,6 +188,10 @@ async function edSaveDefaults(sid) {
         rel_def_id:          parseInt(document.getElementById(`edRelDef-${sid}`)?.value) || null,
         data_mode:           st.dataMode || 'columns',
         selected_column_ids: st.selectedColumnIds || [],
+        excluded_column_ids: (st.columns || [])
+            .map(column => column.id)
+            .filter(id => !(st.selectedColumnIds || []).includes(id)),
+        selected_select_column_id: st.selectedSelectColumnId || null,
         chart_type:          document.getElementById(`edChartType-${sid}`)?.value || 'line',
         time_range:          document.getElementById(`edTimeRange-${sid}`)?.value || '30d',
         x_axis_type:         document.getElementById(`edXAxisType-${sid}`)?.value || 'entry_field',
@@ -137,7 +209,8 @@ async function edSaveDefaults(sid) {
             body: JSON.stringify(config),
         });
         if (resp.ok) {
-            sectionEl.dataset.config = JSON.stringify(config);
+            const payload = await resp.json();
+            _edSetSavedConfig(sid, payload.config || config);
             if (btn) btn.innerHTML = '<i class="fas fa-check me-1"></i>Saved!';
         } else {
             if (btn) btn.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Failed';
@@ -269,8 +342,8 @@ async function edHandleDataModeChange(sid) {
     const chartTypeSel  = document.getElementById(`edChartType-${sid}`);
 
     if (st.dataMode === 'columns') {
-        metricDrop.classList.add('d-none');
-        columnDrop.classList.remove('d-none');
+        metricDrop?.classList.add('d-none');
+        columnDrop?.classList.remove('d-none');
         if (selectColRow) selectColRow.classList.add('d-none');
         timeRangeSel.classList.add('d-none');
         xAxisTypeSel.classList.remove('d-none');
@@ -291,14 +364,11 @@ async function edHandleDataModeChange(sid) {
         }
         // Load columns for the related entry type
         if (!st.relatedEntryTypeId && st.relatedEntryIds.length) {
-            await _edResolveRelatedEntryType(sid);
-        } else if (st.relatedEntryTypeId) {
-            await edLoadColumns(sid, st.relatedEntryTypeId, st._savedColumnIds);
-            await edRefresh(sid);
+            const savedConfig = _edGetSavedConfig(sid);
         }
     } else if (st.dataMode === 'distribution') {
-        metricDrop.classList.add('d-none');
-        columnDrop.classList.add('d-none');
+        metricDrop?.classList.add('d-none');
+        columnDrop?.classList.add('d-none');
         if (selectColRow) selectColRow.classList.remove('d-none');
         timeRangeSel.classList.add('d-none');
         xAxisTypeSel.classList.add('d-none');
@@ -387,11 +457,16 @@ async function edLoadColumns(sid, entryTypeId, preselectedIds) {
             return;
         }
 
-        // Use preselected IDs if provided and valid, otherwise select all
+        // Use preselected IDs if provided and valid, otherwise honor saved exclusions, otherwise select all
         const allIds = st.columns.map(c => c.id);
+        const savedConfig = _edGetSavedConfig(sid);
+        const excludedIds = Array.isArray(savedConfig.excluded_column_ids) ? savedConfig.excluded_column_ids : [];
         if (preselectedIds && preselectedIds.length) {
             // Keep only IDs that actually exist in this column set
             st.selectedColumnIds = preselectedIds.filter(id => allIds.includes(id));
+            if (!st.selectedColumnIds.length) st.selectedColumnIds = allIds;
+        } else if (excludedIds.length) {
+            st.selectedColumnIds = allIds.filter(id => !excludedIds.includes(id));
             if (!st.selectedColumnIds.length) st.selectedColumnIds = allIds;
         } else {
             st.selectedColumnIds = allIds;
@@ -577,6 +652,8 @@ async function edRefresh(sid) {
     const st = _edGet(sid);
     if (!st.entryId) return;
 
+    _edApplyResponsiveChartSize(sid);
+
     // Branch: column values mode uses a different data source and endpoint
     if (st.dataMode === 'columns') {
         await edRefreshColumns(sid);
@@ -623,6 +700,8 @@ async function edRefresh(sid) {
 
         const hasData = data.series && data.series.some(s => s.data_points.length > 0);
         edShowNoData(sid, !hasData);
+        st.lastXAxisType = data.x_axis_type || xAxisType;
+        _edUpdateTableAxisHeader(sid, data.x_axis_label || 'Recorded At');
 
         if (hasData) {
             edRenderChart(sid, data);
@@ -670,6 +749,8 @@ async function edRefreshColumns(sid) {
 
         const hasData = data.series && data.series.some(s => s.data_points.length > 0);
         edShowNoData(sid, !hasData);
+        st.lastXAxisType = data.x_axis_type || effectiveXType;
+        _edUpdateTableAxisHeader(sid, data.x_axis_label || 'Recorded At');
         if (hasData) {
             edRenderChart(sid, data);
             if (st.tableVisible) edRenderTableFromSeries(sid, data.series);
@@ -704,7 +785,11 @@ async function edLoadSelectColumns(sid, entryTypeId) {
                 .map(c => `<option value="${c.id}">${_edEsc(c.label)}</option>`)
                 .join('');
         }
-        st.selectedSelectColumnId = st.selectColumns[0].id;
+        const savedConfig = _edGetSavedConfig(sid);
+        const desiredId = st._savedSelectColumnId || savedConfig.selected_select_column_id;
+        const matched = st.selectColumns.find(c => c.id === desiredId);
+        st.selectedSelectColumnId = matched ? matched.id : st.selectColumns[0].id;
+        if (picker) picker.value = String(st.selectedSelectColumnId);
     } catch (err) {
         console.error(`[entry_data:${sid}] Error loading select columns:`, err);
         if (picker) picker.innerHTML = '<option value="">Failed to load columns</option>';
@@ -737,8 +822,11 @@ async function edRefreshDistribution(sid) {
 
         const hasData = data.categories && data.categories.length > 0;
         edShowNoData(sid, !hasData);
+        st.lastXAxisType = 'distribution';
+        _edUpdateTableAxisHeader(sid, data.column_label || 'Value');
         if (hasData) {
             edRenderDistributionChart(sid, data);
+            if (st.tableVisible) edRenderDistributionTable(sid, data);
         }
     } catch (err) {
         console.error(`[entry_data:${sid}] Error refreshing distribution:`, err);
@@ -796,6 +884,26 @@ function edRenderDistributionChart(sid, data) {
             },
         },
     });
+}
+
+function edRenderDistributionTable(sid, data) {
+    const tbody = document.getElementById(`edTableBody-${sid}`);
+    if (!tbody) return;
+
+    if (!data.categories || !data.categories.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-muted text-center">No data</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = data.categories.map(category => `
+        <tr>
+            <td><span class="badge bg-secondary">${_edEsc(data.column_label || 'Distribution')}</span></td>
+            <td class="fw-semibold">${category.count}</td>
+            <td class="text-muted small">${_edEsc(category.name)}</td>
+            <td class="text-muted small">—</td>
+            <td></td>
+        </tr>
+    `).join('');
 }
 
 function edShowNoData(sid, show) {
@@ -880,17 +988,24 @@ function edRenderTable(sid) {
 function edRenderTableFromSeries(sid, series) {
     const tbody = document.getElementById(`edTableBody-${sid}`);
     if (!tbody) return;
+    const st = _edGet(sid);
 
     // Flatten all data points, add metric label
     const rows = [];
     series.forEach(s => {
         s.data_points.forEach(p => {
-            rows.push({ metric: s.label, unit: s.unit, ...p });
+            rows.push({ metric: s.label, unit: s.unit, axisValue: p.x, ...p });
         });
     });
 
-    // Sort by x (time) descending
-    rows.sort((a, b) => (b.x > a.x ? 1 : -1));
+    const chartXType = st.lastXAxisType || 'recorded_at';
+    rows.sort((a, b) => {
+        if (chartXType === 'recorded_at') {
+            return String(b.axisValue || '').localeCompare(String(a.axisValue || ''));
+        }
+        return String(a.metric || '').localeCompare(String(b.metric || ''))
+            || String(a.entryTitle || '').localeCompare(String(b.entryTitle || ''));
+    });
 
     if (!rows.length) {
         tbody.innerHTML = '<tr><td colspan="5" class="text-muted text-center">No data</td></tr>';
@@ -901,7 +1016,7 @@ function edRenderTableFromSeries(sid, series) {
         <tr>
             <td><span class="badge bg-secondary">${_edEsc(r.metric)}</span></td>
             <td class="fw-semibold">${r.y}${r.unit ? ' ' + _edEsc(r.unit) : ''}</td>
-            <td class="text-muted small">${r.x ? new Date(r.x).toLocaleString() : '—'}</td>
+            <td class="text-muted small">${_edFormatAxisValue(r.axisValue, chartXType)}</td>
             <td class="text-muted small">${r.notes ? _edEsc(r.notes) : '—'}</td>
             <td></td>
         </tr>

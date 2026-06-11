@@ -10,7 +10,7 @@
      data-config='{{ (section_config or {}) | tojson }}'>
 
     {# ── Relationship definition picker ──────────────────────────────── #}
-    <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+    <div class="d-flex align-items-center gap-2 flex-wrap mb-2" data-ed-controls>
         <select class="form-select form-select-sm" style="width:auto;max-width:280px;"
                 id="edRelDef-{{ section_id }}"
                 onchange="edHandleRelDefChange('{{ section_id }}')">
@@ -19,7 +19,7 @@
     </div>
 
     {# ── Data mode toggle ─────────────────────────────────────────────── #}
-    <div class="d-flex align-items-center gap-2 flex-wrap mb-2" id="edDataModeRow-{{ section_id }}">
+    <div class="d-flex align-items-center gap-2 flex-wrap mb-2" id="edDataModeRow-{{ section_id }}" data-ed-controls>
         <small class="text-muted">Plot:</small>
         <div class="btn-group btn-group-sm" role="group">
             <input type="radio" class="btn-check" name="edDataMode-{{ section_id }}"
@@ -38,7 +38,7 @@
     </div>
 
     {# ── Select-column picker (shown in "distribution" data mode) ────────── #}
-    <div class="d-flex align-items-center gap-2 flex-wrap mb-2 d-none" id="edSelectColRow-{{ section_id }}">
+    <div class="d-flex align-items-center gap-2 flex-wrap mb-2 d-none" id="edSelectColRow-{{ section_id }}" data-ed-controls>
         <small class="text-muted">Column:</small>
         <select class="form-select form-select-sm" style="width:auto;max-width:260px;"
                 id="edSelectColPicker-{{ section_id }}"
@@ -48,7 +48,7 @@
     </div>
 
     {# ── Toolbar ─────────────────────────────────────────────────────── #}
-    <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
+    <div class="d-flex align-items-center gap-2 flex-wrap mb-3" data-ed-controls>
 
         {# Column picker — shown in "columns" data mode #}
         <div class="dropdown d-none" id="edColumnDropdown-{{ section_id }}">
@@ -110,7 +110,7 @@
     </div>
 
     {# ── Chart ─────────────────────────────────────────────────────────── #}
-    <div id="edChartContainer-{{ section_id }}" style="position:relative; height:280px;">
+    <div id="edChartContainer-{{ section_id }}" style="position:relative; min-height:220px; height:clamp(240px, 42vh, 560px);">
         <canvas id="edChart-{{ section_id }}"></canvas>
     </div>
 
@@ -126,7 +126,7 @@
                     <tr>
                         <th>Metric</th>
                         <th>Value</th>
-                        <th>Recorded At</th>
+                        <th id="edTableAxisHeader-{{ section_id }}">Recorded At</th>
                         <th>Notes</th>
                         <th></th>
                     </tr>
