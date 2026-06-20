@@ -3,7 +3,7 @@
 Migration script to add automatic dark mode settings to existing theme configurations
 """
 
-import sqlite3
+import pymysql
 import os
 
 def migrate_auto_dark_mode():

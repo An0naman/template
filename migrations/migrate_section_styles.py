@@ -4,7 +4,7 @@ Migration script to add section styles support to existing theme settings.
 This script adds the new section_styles parameters to existing installations.
 """
 
-import sqlite3
+import pymysql
 import json
 import os
 import sys
@@ -119,7 +119,7 @@ def migrate_section_styles():
         conn.commit()
         print("\nSection styles migration completed successfully!")
         
-    except sqlite3.Error as e:
+    except pymysql.Error as e:
         print(f"Database error: {e}")
         return False
     except Exception as e:

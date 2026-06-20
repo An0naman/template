@@ -10,7 +10,7 @@ Configuration is stored at the section DEFINITION level (entry_type_id + section
 meaning all entries of the same type share the same configuration.
 """
 
-import sqlite3
+import pymysql
 import os
 
 def run_migration():

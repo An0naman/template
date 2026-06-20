@@ -3,7 +3,7 @@
 Migration: Add last_battery_update_source column to SensorRegistration
 """
 
-import sqlite3
+import pymysql
 import logging
 
 logger = logging.getLogger(__name__)

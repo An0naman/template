@@ -1,7 +1,7 @@
 """
 Add allowed_statuses column to GitRepository table
 """
-import sqlite3
+import pymysql
 import os
 import sys
 from datetime import datetime

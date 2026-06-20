@@ -3,7 +3,7 @@
 Migration: Add Dashboard and DashboardWidget tables
 """
 
-import sqlite3
+import pymysql
 import os
 import sys
 

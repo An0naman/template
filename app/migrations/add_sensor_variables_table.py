@@ -6,7 +6,7 @@ Author: System
 Date: 2026-01-04
 """
 
-import sqlite3
+import pymysql
 import sys
 import os
 
@@ -63,7 +63,7 @@ def apply_migration(conn):
             VALUES (?, datetime('now'))
         """, (get_migration_id(),))
         conn.commit()
-    except sqlite3.OperationalError:
+    except pymysql.OperationalError:
         # MigrationHistory table doesn't exist, skip tracking
         print("  (Migration tracking skipped - MigrationHistory table not found)")
     

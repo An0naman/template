@@ -13,7 +13,7 @@ Changes:
 - Remove UNIQUE constraint and replace with new one including target_entry_id
 """
 
-import sqlite3
+import pymysql
 import sys
 import os
 from pathlib import Path
@@ -22,7 +22,6 @@ def get_db():
     """Get database connection"""
     db_path = os.environ.get('DATABASE_PATH', '/app/data/database.db')
     conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
     return conn
 
 def migrate():

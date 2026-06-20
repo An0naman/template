@@ -3,7 +3,7 @@
 Migration script to add url_bookmarks column to Note table
 """
 
-import sqlite3
+import pymysql
 import json
 import logging
 from urllib.parse import urlparse
@@ -16,7 +16,6 @@ def migrate_database(db_path):
     """Add url_bookmarks column and migrate existing urls data"""
     try:
         conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         # Check if url_bookmarks column exists

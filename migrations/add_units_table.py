@@ -3,7 +3,7 @@
 Migration: Add units table for maintaining unit types
 """
 
-import sqlite3
+import pymysql
 import sys
 import os
 

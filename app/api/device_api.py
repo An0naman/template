@@ -1,7 +1,7 @@
 # app/api/device_api.py
 
 from flask import Blueprint, request, jsonify, g
-import sqlite3
+import pymysql
 import requests
 import socket
 import threading
@@ -22,7 +22,6 @@ def get_db():
     """Get database connection"""
     if 'db' not in g:
         g.db = get_connection()
-        g.db.row_factory = sqlite3.Row
     return g.db
 
 def get_local_network_range():

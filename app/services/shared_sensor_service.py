@@ -217,7 +217,7 @@ class SharedSensorDataService:
                         VALUES (?, ?, ?)
                     ''', (shared_sensor_id, entry_id, link_type))
                     links_created += 1
-                except sqlite3.IntegrityError:
+                except pymysql.IntegrityError:
                     # Link already exists, skip
                     logger.debug(f"Link between sensor {shared_sensor_id} and entry {entry_id} already exists")
                     

@@ -16,7 +16,7 @@ You can also run it manually:
     python app/migrations/add_script_version_tracking.py
 """
 
-import sqlite3
+import pymysql
 import os
 import sys
 import logging
@@ -52,7 +52,7 @@ def migration_already_applied(cursor) -> bool:
         count = cursor.fetchone()[0]
         return count > 0
         
-    except sqlite3.OperationalError as e:
+    except pymysql.OperationalError as e:
         if "no such table" in str(e):
             return False
         raise
@@ -70,7 +70,7 @@ def apply_migration(cursor):
             ADD COLUMN current_script_id INTEGER
         ''')
         logger.info("Added current_script_id column")
-    except sqlite3.OperationalError as e:
+    except pymysql.OperationalError as e:
         if "duplicate column name" not in str(e):
             raise
         logger.info("current_script_id column already exists")
@@ -82,7 +82,7 @@ def apply_migration(cursor):
             ADD COLUMN current_script_version TEXT
         ''')
         logger.info("Added current_script_version column")
-    except sqlite3.OperationalError as e:
+    except pymysql.OperationalError as e:
         if "duplicate column name" not in str(e):
             raise
         logger.info("current_script_version column already exists")

@@ -25,7 +25,7 @@ Guidelines:
 5. Make migrations idempotent (safe to run multiple times)
 """
 
-import sqlite3
+import pymysql
 import os
 import sys
 import logging
@@ -80,7 +80,7 @@ def migration_already_applied(cursor) -> bool:
         count = cursor.fetchone()[0]
         return count > 0
         
-    except sqlite3.OperationalError as e:
+    except pymysql.OperationalError as e:
         # If schema_migrations table doesn't exist, migration hasn't been applied
         if "no such table: schema_migrations" in str(e):
             logger.warning("schema_migrations table not found - run 000_init_migration_tracking.py first")

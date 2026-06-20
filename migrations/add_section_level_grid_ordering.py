@@ -7,7 +7,7 @@ per-section ordering instead of per-entry-type ordering.
 Date: 2025-11-08
 """
 
-import sqlite3
+import pymysql
 import sys
 import os
 

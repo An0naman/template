@@ -10,7 +10,7 @@ Changes:
 - Updates existing UserPreferences.default_result_limit from '50' to '10000'
 """
 
-import sqlite3
+import pymysql
 import sys
 import os
 

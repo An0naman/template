@@ -17,7 +17,7 @@ Changes:
 5. Assign all existing sections to 'main' tab
 """
 
-import sqlite3
+import pymysql
 import json
 import sys
 import os
@@ -36,7 +36,6 @@ def migrate():
     conn = None
     try:
         conn = sqlite3.connect(DATABASE_PATH)
-        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         # Step 1: Create EntryLayoutTab table
@@ -72,7 +71,7 @@ def migrate():
                 print("✓ tab_id column added to EntryLayoutSection")
             else:
                 print("⊙ tab_id column already exists")
-        except sqlite3.Error as e:
+        except pymysql.Error as e:
             print(f"✗ Error adding tab_id column: {e}")
             raise
         
@@ -90,7 +89,7 @@ def migrate():
                 print("✓ tab_order column added to EntryLayoutSection")
             else:
                 print("⊙ tab_order column already exists")
-        except sqlite3.Error as e:
+        except pymysql.Error as e:
             print(f"✗ Error adding tab_order column: {e}")
             raise
         
@@ -163,7 +162,7 @@ def migrate():
         
         return True
         
-    except sqlite3.Error as e:
+    except pymysql.Error as e:
         print(f"\n✗ Migration failed: {e}")
         if conn:
             conn.rollback()
@@ -184,7 +183,6 @@ def rollback():
     conn = None
     try:
         conn = sqlite3.connect(DATABASE_PATH)
-        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         print("\n[1/4] Dropping indexes...")
@@ -215,7 +213,7 @@ def rollback():
         
         return True
         
-    except sqlite3.Error as e:
+    except pymysql.Error as e:
         print(f"\n✗ Rollback failed: {e}")
         if conn:
             conn.rollback()

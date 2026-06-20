@@ -3,7 +3,7 @@
 Migration: Add SensorTelemetry table for real-time sensor data plotting
 """
 
-import sqlite3
+import pymysql
 import logging
 
 logger = logging.getLogger(__name__)

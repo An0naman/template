@@ -3,7 +3,7 @@
 Migration: Add unique constraint for default Kanban boards per entry type
 """
 
-import sqlite3
+import pymysql
 import os
 import sys
 
@@ -63,7 +63,7 @@ def migrate():
         print("\nThis ensures only one default board per entry type at the database level.")
         return True
         
-    except sqlite3.Error as e:
+    except pymysql.Error as e:
         print(f"\n✗ Migration failed: {e}")
         conn.rollback()
         return False

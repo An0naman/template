@@ -3,7 +3,7 @@
 Migration: Add Kanban Board and Column tables
 """
 
-import sqlite3
+import pymysql
 import os
 import sys
 
@@ -62,7 +62,7 @@ def migrate():
         print("\n✓ Migration completed successfully!")
         return True
         
-    except sqlite3.Error as e:
+    except pymysql.Error as e:
         print(f"\n✗ Migration failed: {e}")
         conn.rollback()
         return False

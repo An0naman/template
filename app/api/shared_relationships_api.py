@@ -332,7 +332,7 @@ def create_shared_relationships(entry_id):
                     'unit': unit
                 })
                 
-            except sqlite3.IntegrityError as e:
+            except pymysql.IntegrityError as e:
                 failed_relationships.append({
                     'data': rel_data,
                     'error': f'Database integrity error: {str(e)}'

@@ -9,7 +9,7 @@ Tables Created:
 - RelationshipGridOrder: Stores user preferences for grid ordering per entry
 """
 
-import sqlite3
+import pymysql
 import sys
 import os
 
@@ -22,7 +22,6 @@ def run_migration(db_path='data/template.db'):
     print()
     
     conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
     try:

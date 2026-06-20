@@ -20,7 +20,7 @@ You can also run it manually:
     python app/migrations/add_board_type_column.py
 """
 
-import sqlite3
+import pymysql
 import os
 import sys
 import logging
@@ -43,7 +43,7 @@ def migration_already_applied(cursor) -> bool:
         cursor.execute("PRAGMA table_info(SensorRegistration)")
         columns = [row[1] for row in cursor.fetchall()]
         return 'board_type' in columns
-    except sqlite3.OperationalError as e:
+    except pymysql.OperationalError as e:
         logger.error(f"Error checking migration status: {e}")
         return False
 
@@ -78,7 +78,7 @@ def apply_migration(cursor):
         if updated_count > 0:
             logger.info(f"✓ Updated {updated_count} existing sensor(s) with default board_type")
         
-    except sqlite3.OperationalError as e:
+    except pymysql.OperationalError as e:
         if "duplicate column name" in str(e).lower():
             logger.info("Column already exists, skipping...")
         else:
@@ -93,7 +93,7 @@ def record_migration(cursor):
             VALUES (?, CURRENT_TIMESTAMP)
         """, (Path(__file__).name,))
         logger.info(f"✓ Recorded migration: {Path(__file__).name}")
-    except sqlite3.OperationalError as e:
+    except pymysql.OperationalError as e:
         logger.warning(f"Could not record migration: {e}")
 
 

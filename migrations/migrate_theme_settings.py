@@ -4,7 +4,7 @@ Database migration script to add theme settings support.
 This script adds the necessary system_params entries for theme functionality.
 """
 
-import sqlite3
+import pymysql
 import os
 import sys
 
@@ -66,7 +66,7 @@ def migrate_theme_settings():
         conn.close()
         return True
         
-    except sqlite3.Error as e:
+    except pymysql.Error as e:
         print(f"❌ Database error: {e}")
         return False
     except Exception as e:

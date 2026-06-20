@@ -34,8 +34,8 @@ def health_check():
     
     # Check 2: Data directory writable
     try:
-        from app.config import DATABASE_PATH
-        data_dir = os.path.dirname(DATABASE_PATH)
+        from app.config import PROJECT_ROOT
+        data_dir = os.path.join(PROJECT_ROOT, 'data')
         test_file = os.path.join(data_dir, '.health_check')
         with open(test_file, 'w') as f:
             f.write('ok')

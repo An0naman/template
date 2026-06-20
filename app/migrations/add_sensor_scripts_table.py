@@ -18,7 +18,7 @@ Or set DATABASE_PATH environment variable:
 DATABASE_PATH=./data/template.db python app/migrations/add_sensor_scripts_table.py
 """
 
-import sqlite3
+import pymysql
 import sys
 import os
 from datetime import datetime

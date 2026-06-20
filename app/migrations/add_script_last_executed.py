@@ -7,7 +7,7 @@ Created: 2025-11-23
 Description: Adds last_executed timestamp to track when ESP32 last ran a script
 """
 
-import sqlite3
+import pymysql
 import os
 import sys
 import logging

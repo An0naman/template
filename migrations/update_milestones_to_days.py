@@ -4,7 +4,7 @@ Migration: Update Entry State Milestones to use days instead of dates
 Changes target_date to days_from_start for better reusability
 """
 
-import sqlite3
+import pymysql
 import sys
 import os
 from pathlib import Path
@@ -20,7 +20,6 @@ def get_db_connection():
     """Get direct database connection without Flask context"""
     db_path = os.environ.get('DATABASE_PATH', 'data/template.db')
     conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
     return conn
 
 
@@ -147,7 +146,7 @@ def migrate():
         
         return True
         
-    except sqlite3.Error as e:
+    except pymysql.Error as e:
         print(f"\n❌ Error during migration: {e}")
         conn.rollback()
         return False
@@ -201,7 +200,7 @@ def rollback():
         
         return True
         
-    except sqlite3.Error as e:
+    except pymysql.Error as e:
         print(f"\n❌ Error during rollback: {e}")
         conn.rollback()
         return False

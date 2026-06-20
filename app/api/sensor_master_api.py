@@ -19,7 +19,7 @@ Endpoints:
 """
 
 from flask import Blueprint, request, jsonify, g
-import sqlite3
+import pymysql
 import json
 import hashlib
 import logging
@@ -39,7 +39,6 @@ def get_db():
     """Get database connection"""
     if 'db' not in g:
         g.db = get_connection()
-        g.db.row_factory = sqlite3.Row
     return g.db
 
 
@@ -430,7 +429,7 @@ def sensor_heartbeat():
                     INSERT INTO SensorTelemetry (sensor_id, data, timestamp)
                     VALUES (?, ?, ?)
                 ''', (sensor_id, json.dumps(data['metrics']), timestamp))
-            except sqlite3.OperationalError:
+            except pymysql.OperationalError:
                 # Table might not exist if migration wasn't run
                 logger.warning("SensorTelemetry table not found. Skipping telemetry storage.")
 
@@ -1872,7 +1871,7 @@ def get_sensor_telemetry(sensor_id):
                 'telemetry': telemetry
             }), 200
             
-        except sqlite3.OperationalError:
+        except pymysql.OperationalError:
             return jsonify({'error': 'Telemetry data not available'}), 404
             
     except Exception as e:

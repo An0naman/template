@@ -13,7 +13,7 @@ Usage:
     python migrations/add_status_triggers_to_entry_state.py --down  # Rollback migration
 """
 
-import sqlite3
+import pymysql
 import sys
 import os
 from pathlib import Path
@@ -30,7 +30,6 @@ def get_db_connection():
     """Get direct database connection without Flask context"""
     db_path = os.environ.get('DATABASE_PATH', 'data/template.db')
     conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
     return conn
 
 

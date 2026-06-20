@@ -6,7 +6,7 @@ Automatically runs pending migrations when the app starts.
 This ensures downstream apps always have the correct schema.
 """
 
-import sqlite3
+import pymysql
 import os
 import sys
 import logging
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def _get_conn(db_path):
-    """Return a DB connection — MariaDB if DATABASE_URL is set, else SQLite."""
+    """Return a DB connection — MariaDB if DATABASE_URL is set, else MariaDB."""
     database_url = os.environ.get('DATABASE_URL', '')
     if database_url.startswith('mysql'):
         import pymysql
@@ -33,7 +33,7 @@ def _get_conn(db_path):
             autocommit=False,
             connect_timeout=10,
         )
-    return sqlite3.connect(db_path)
+    return pymysql.connect(db_path)
 
 
 def _placeholder(database_url=None):
@@ -160,7 +160,7 @@ class AutoMigration:
                 result = (row[0] if row else 0) > 0
             else:
                 cursor.execute(f"""
-                    SELECT name FROM sqlite_master 
+                    SELECT name FROM mariadb_master 
                     WHERE type='table' AND name={ph}
                 """, (table_name,))
                 result = cursor.fetchone() is not None

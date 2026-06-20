@@ -1,6 +1,6 @@
 # template_app/app/routes/maintenance_routes.py
 from flask import Blueprint, render_template, g, current_app
-import sqlite3
+import pymysql
 
 # Define a Blueprint for maintenance routes
 maintenance_bp = Blueprint('maintenance', __name__, template_folder='../templates')
@@ -9,7 +9,6 @@ def get_db():
     if 'db' not in g:
         from ..db import get_connection
         g.db = get_connection()
-        g.db.row_factory = sqlite3.Row
     return g.db
 
 @maintenance_bp.route('/maintenance')

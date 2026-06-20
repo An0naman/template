@@ -4,7 +4,7 @@ Migration script to add Gemini API key parameter to SystemParameters table
 """
 
 import os
-import sqlite3
+import pymysql
 
 def migrate_gemini_api_key():
     """Add Gemini API key parameter to SystemParameters table"""
@@ -130,7 +130,7 @@ def migrate_gemini_api_key():
         
         return True
         
-    except sqlite3.Error as e:
+    except pymysql.Error as e:
         print(f"❌ Database error: {e}")
         return False
     except Exception as e:

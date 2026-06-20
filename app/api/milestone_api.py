@@ -5,7 +5,7 @@ API endpoints for managing entry status milestones
 from flask import Blueprint, request, jsonify, g
 from datetime import datetime, timezone, timedelta
 import logging
-import sqlite3
+import pymysql
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,6 @@ def get_db():
     if 'db' not in g:
         from ..db import get_connection
         g.db = get_connection()
-        g.db.row_factory = sqlite3.Row
     return g.db
 
 

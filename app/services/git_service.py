@@ -10,7 +10,7 @@ import base64
 import json
 from datetime import datetime
 from typing import Optional, Dict, List, Tuple
-import sqlite3
+import pymysql
 
 try:
     from github import Github, GithubException

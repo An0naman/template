@@ -2,7 +2,7 @@
 """
 Fix invalid branch names in the Git database
 """
-import sqlite3
+import pymysql
 import os
 import sys
 
@@ -15,11 +15,11 @@ def fix_invalid_branches():
         print(f"Database not found at {db_path}")
         return
     
-    conn = sqlite3.connect(db_path)
+    conn = pymysql.connect(db_path)
     cursor = conn.cursor()
     
     # Check if GitCommit table exists
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='GitCommit'")
+    cursor.execute("SELECT name FROM mariadb_master WHERE type='table' AND name='GitCommit'")
     if not cursor.fetchone():
         print("GitCommit table not found. Git integration may not be set up yet.")
         conn.close()

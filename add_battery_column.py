@@ -1,7 +1,7 @@
-import sqlite3
+import pymysql
 
 def migrate():
-    conn = sqlite3.connect('data/template.db')
+    conn = pymysql.connect('data/template.db')
     c = conn.cursor()
     
     try:

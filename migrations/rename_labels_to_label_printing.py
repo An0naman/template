@@ -6,7 +6,7 @@ This migration updates existing EntryLayoutSection records that use the old
 'labels' section_type to use the new 'label_printing' section_type.
 """
 
-import sqlite3
+import pymysql
 import sys
 import os
 

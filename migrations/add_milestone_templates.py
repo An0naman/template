@@ -5,7 +5,7 @@ Creates the EntryTypeRelationship table and adds template fields to Entry table
 for enabling milestone template sharing between related entry types.
 """
 
-import sqlite3
+import pymysql
 import sys
 import os
 from pathlib import Path
@@ -20,7 +20,6 @@ def get_db_connection():
     import os
     db_path = os.environ.get('DATABASE_PATH', 'data/template.db')
     conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
     return conn
 
 
@@ -195,7 +194,7 @@ def migrate():
         
         return True
         
-    except sqlite3.Error as e:
+    except pymysql.Error as e:
         print(f"\n❌ Database error during migration: {e}")
         conn.rollback()
         return False
@@ -249,7 +248,7 @@ def rollback():
         
         return True
         
-    except sqlite3.Error as e:
+    except pymysql.Error as e:
         print(f"\n❌ Database error during rollback: {e}")
         conn.rollback()
         return False

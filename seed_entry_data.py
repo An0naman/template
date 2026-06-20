@@ -136,8 +136,8 @@ DEFAULT_STATES = [
 # ─── Helpers ───────────────────────────────────────────────────────────────────
 
 def row_id(row):
-    """Return the 'id' field from a sqlite3.Row or a dict (MySQL DictCursor)."""
-    if hasattr(row, 'keys'):        # sqlite3.Row
+    """Return the 'id' field from a pymysql.Row or a dict (MySQL DictCursor)."""
+    if hasattr(row, 'keys'):        # pymysql.Row
         return row['id']
     if isinstance(row, dict):       # pymysql DictCursor
         return row['id']
@@ -497,7 +497,7 @@ def main():
         is_mysql = 'mysql' in db_url.lower() or 'mariadb' in db_url.lower()
         ph  = q(is_mysql)
         ign = ii(is_mysql)
-        db_label = f"MariaDB ({db_url.split('@')[-1]})" if is_mysql else f"SQLite ({current_app.config.get('DATABASE_PATH')})"
+        db_label = f"MariaDB ({db_url.split('@')[-1]})" if is_mysql else f"mariadb ({current_app.config.get('DATABASE_PATH')})"
 
         conn = get_connection()
         cur  = conn.cursor()

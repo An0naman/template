@@ -149,7 +149,7 @@ class DashboardService:
                     params.append(int(search['type_filter']))
                 
                 # Specific states filter (comma-separated list of states)
-                # sqlite3.Row objects don't have .get(), check for key existence
+                # mariadb3.Row objects don't have .get(), check for key existence
                 if 'specific_states' in search.keys() and search['specific_states']:
                     states = [s.strip() for s in search['specific_states'].split(',') if s.strip()]
                     if states:
@@ -1341,12 +1341,12 @@ Please incorporate these specific instructions into your analysis and summary.""
         Get data for a specific widget based on its configuration
         
         Args:
-            widget: Widget configuration dict or sqlite3.Row object
+            widget: Widget configuration dict or mariadb3.Row object
             
         Returns:
             Dict with widget data
         """
-        # Handle both dict and sqlite3.Row objects
+        # Handle both dict and mariadb3.Row objects
         widget_type = widget['widget_type']
         data_source_type = widget['data_source_type']
         data_source_id = widget['data_source_id']

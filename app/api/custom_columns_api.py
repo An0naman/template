@@ -560,7 +560,7 @@ def upsert_entry_values(entry_id):
             value = item.get('value', '')
             if not column_id:
                 continue
-            # Use INSERT OR REPLACE for SQLite / REPLACE INTO for MySQL
+            # Use INSERT OR REPLACE for MariaDB / REPLACE INTO for MySQL
             # (db.py's _MySQLCursorWrapper rewrites INSERT OR REPLACE → REPLACE INTO)
             cursor.execute('''
                 INSERT OR REPLACE INTO CustomColumnValue

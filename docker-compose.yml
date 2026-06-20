@@ -72,7 +72,7 @@ services:
       volumes:
         - container: /app/data
           description:
-            en_us: Application data directory containing SQLite database and files
+            en_us: Application data directory containing database and files
         - container: /app/uploads
           description:
             en_us: Uploaded files directory for logos, note attachments and images

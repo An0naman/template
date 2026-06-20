@@ -3,7 +3,7 @@ Range-based Sensor Data Service
 Provides efficient sensor data management using sensor ID ranges instead of individual links
 """
 
-import sqlite3
+import pymysql
 import json
 import logging
 from datetime import datetime

@@ -3,7 +3,7 @@
 Migration script to add Hugging Face parameters to existing database
 Run this if you already have a database and want to add Hugging Face support
 """
-import sqlite3
+import pymysql
 import os
 import sys
 
@@ -58,7 +58,7 @@ try:
     else:
         print("\n✨ All parameters already exist - no migration needed")
         
-except sqlite3.Error as e:
+except pymysql.Error as e:
     print(f"❌ Database error: {e}")
     sys.exit(1)
 except Exception as e:

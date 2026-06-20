@@ -175,7 +175,7 @@ def create_kanban_board():
             'message': 'Kanban board created successfully'
         }), 201
         
-    except sqlite3.IntegrityError as e:
+    except pymysql.IntegrityError as e:
         logger.error(f"Integrity error creating kanban board: {e}")
         return jsonify({'error': 'A board with this name already exists'}), 400
     except Exception as e:
@@ -218,7 +218,7 @@ def update_kanban_board(board_id):
         
         return jsonify({'message': 'Kanban board updated successfully'}), 200
         
-    except sqlite3.IntegrityError as e:
+    except pymysql.IntegrityError as e:
         logger.error(f"Integrity error updating kanban board: {e}")
         return jsonify({'error': 'A board with this name already exists'}), 400
     except Exception as e:
@@ -282,7 +282,7 @@ def add_column_to_board(board_id):
             'message': 'Column added successfully'
         }), 201
         
-    except sqlite3.IntegrityError as e:
+    except pymysql.IntegrityError as e:
         logger.error(f"Integrity error adding column: {e}")
         return jsonify({'error': 'This state already exists in the board'}), 400
     except Exception as e:

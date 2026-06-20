@@ -3,7 +3,7 @@
 Migration script to add default search parameters to SystemParameters table
 """
 
-import sqlite3
+import pymysql
 import os
 import sys
 
@@ -23,7 +23,6 @@ def migrate_search_defaults():
     
     try:
         conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         # Check if SystemParameters table exists
@@ -95,7 +94,7 @@ def migrate_search_defaults():
         conn.close()
         return True
         
-    except sqlite3.Error as e:
+    except pymysql.Error as e:
         print(f"❌ Database error: {e}")
         return False
     except Exception as e:

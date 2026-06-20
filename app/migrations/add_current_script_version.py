@@ -7,7 +7,7 @@ Created: 2025-11-23
 Description: Adds field to track which script version is currently running on the sensor
 """
 
-import sqlite3
+import pymysql
 import os
 import sys
 import logging

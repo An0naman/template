@@ -16,7 +16,7 @@ def get_db():
 
 
 def _db_type():
-    """Return 'sqlite', 'postgresql', or 'mysql' based on current config."""
+    """Return 'mariadb', 'postgresql', or 'mysql' based on current config."""
     from ..db import get_db_type
     return get_db_type()
 
@@ -40,8 +40,8 @@ def _get_tables(cursor):
             "WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE' "
             "ORDER BY table_name"
         )
-    else:  # sqlite
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+    else:  # mariadb
+        cursor.execute("SELECT name FROM mariadb_master WHERE type='table' ORDER BY name")
     return [row[0] for row in cursor.fetchall()] if _db_type() != 'mysql' \
         else [row['table_name'] for row in cursor.fetchall()]
 
@@ -64,7 +64,7 @@ def _table_exists(cursor, table_name):
         )
     else:
         cursor.execute(
-            f"SELECT name FROM sqlite_master WHERE type='table' AND name={ph}",
+            f"SELECT name FROM mariadb_master WHERE type='table' AND name={ph}",
             (table_name,)
         )
     return cursor.fetchone() is not None
@@ -127,7 +127,7 @@ def _get_columns(cursor, table_name):
                 'not_null': bool(row['not_null']), 'default_value': row['column_default'],
                 'primary_key': bool(row['is_pk'])
             })
-    else:  # sqlite
+    else:  # mariadb
         cursor.execute(f"PRAGMA table_info({table_name})")
         for row in cursor.fetchall():
             columns.append({
@@ -195,7 +195,7 @@ def _get_foreign_keys(cursor, table_name):
                 'on_update': row['update_rule'], 'on_delete': row['delete_rule'],
                 'match': 'NONE'
             })
-    else:  # sqlite
+    else:  # mariadb
         cursor.execute(f"PRAGMA foreign_key_list({table_name})")
         for row in cursor.fetchall():
             fks.append({
@@ -235,7 +235,7 @@ def _get_indexes(cursor, table_name):
                     'seq': len(indexes), 'name': name,
                     'unique': row['Non_unique'] == 0, 'origin': 'c', 'partial': False
                 })
-    else:  # sqlite
+    else:  # mariadb
         cursor.execute(f"PRAGMA index_list({table_name})")
         for row in cursor.fetchall():
             indexes.append({
@@ -252,7 +252,7 @@ def _quote_table(table_name):
         return f'"{table_name}"'
     if db == 'mysql':
         return f'`{table_name}`'
-    return f'[{table_name}]'  # sqlite
+    return f'[{table_name}]'  # mariadb
 
 
 def _translate_tsql(query):
@@ -281,7 +281,7 @@ def _translate_tsql(query):
 
     # ── GETDATE() → dialect-appropriate current timestamp ────────────────
     db = _db_type()
-    if db == 'sqlite':
+    if db == 'mariadb':
         query = re.sub(r'\bGETDATE\s*\(\s*\)', "datetime('now')", query, flags=re.IGNORECASE)
     else:
         query = re.sub(r'\bGETDATE\s*\(\s*\)', 'NOW()', query, flags=re.IGNORECASE)

@@ -5,7 +5,7 @@ Migration: Add units table using the same database connection as the app
 
 import sys
 import os
-import sqlite3
+import pymysql
 
 # Add the app directory to Python path
 sys.path.insert(0, '/app')

@@ -234,7 +234,7 @@ def _apply_field_mapping(
             if previous_value is not None and str(previous_value) == str(value):
                 continue
         try:
-            # Use DB-agnostic upsert logic so this works on both SQLite and MariaDB.
+            # Use DB-agnostic upsert logic so this works on both MariaDB and MariaDB.
             cursor.execute(
                 "UPDATE CustomColumnValue SET value = ?, updated_at = ? WHERE custom_column_id = ? AND entry_id = ?",
                 (str(value), now, int(column_id), entry_id),

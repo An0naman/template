@@ -3,7 +3,7 @@
 Migration to add ntfy_sent column to Notification table
 """
 
-import sqlite3
+import pymysql
 import sys
 import os
 

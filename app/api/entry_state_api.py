@@ -2,7 +2,7 @@
 from flask import Blueprint, request, jsonify, g, current_app
 from datetime import datetime, timezone
 import logging
-import sqlite3
+import pymysql
 
 # Define a Blueprint for Entry State API
 entry_state_api_bp = Blueprint('entry_state_api', __name__)
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 def _has_entry_state_trigger_columns(cursor):
     """Return True when EntryState has sets_commenced/sets_ended columns."""
     try:
-        db_type = getattr(cursor, 'db_type', 'sqlite')
+        db_type = getattr(cursor, 'db_type', 'mariadb')
         if db_type == 'mysql':
             cursor.execute('''
                 SELECT COLUMN_NAME
@@ -139,7 +139,7 @@ def create_entry_state(entry_type_id):
             'message': 'State created successfully!',
             'state_id': cursor.lastrowid
         }), 201
-    except sqlite3.IntegrityError:
+    except pymysql.IntegrityError:
         return jsonify({'error': 'A state with this name already exists for this entry type.'}), 400
     except Exception as e:
         logger.error(f"Error creating entry state: {e}", exc_info=True)
@@ -212,7 +212,7 @@ def update_entry_state(entry_type_id, state_id):
             return jsonify({'error': 'State not found or no changes made.'}), 404
         
         return jsonify({'message': 'State updated successfully!'}), 200
-    except sqlite3.IntegrityError:
+    except pymysql.IntegrityError:
         return jsonify({'error': 'A state with this name already exists for this entry type.'}), 400
     except Exception as e:
         logger.error(f"Error updating entry state: {e}", exc_info=True)

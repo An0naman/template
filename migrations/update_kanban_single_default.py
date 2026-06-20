@@ -3,7 +3,7 @@
 Migration: Update Kanban default constraint to allow only one default across all boards
 """
 
-import sqlite3
+import pymysql
 import os
 import sys
 
@@ -68,7 +68,7 @@ def migrate():
         print("\nThis ensures only ONE default board exists across all entry types.")
         return True
         
-    except sqlite3.Error as e:
+    except pymysql.Error as e:
         print(f"\n✗ Migration failed: {e}")
         conn.rollback()
         return False

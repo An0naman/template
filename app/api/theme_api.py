@@ -46,7 +46,7 @@ theme_api = Blueprint('theme_api', __name__)
 
 
 def _extract_param_row(row):
-    """Normalize DB row to (parameter_name, parameter_value) across sqlite/mysql wrappers."""
+    """Normalize DB row to (parameter_name, parameter_value) across mariadb/mysql wrappers."""
     if isinstance(row, dict):
         return row.get('parameter_name'), row.get('parameter_value')
     if isinstance(row, (list, tuple)) and len(row) >= 2:

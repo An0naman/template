@@ -6,7 +6,7 @@ Allows relationship types to enable template sharing between linked entries
 Example: A "uses recipe" relationship can allow samples to inherit templates from their recipe
 """
 
-import sqlite3
+import pymysql
 import sys
 import os
 from datetime import datetime, timezone
@@ -23,7 +23,6 @@ def run_migration(db_path='data/template.db'):
     print()
     
     conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
     try:

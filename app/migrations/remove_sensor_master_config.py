@@ -11,7 +11,7 @@ Usage:
 python app/migrations/remove_sensor_master_config.py
 """
 
-import sqlite3
+import pymysql
 import sys
 import os
 

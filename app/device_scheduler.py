@@ -3,7 +3,7 @@
 import threading
 import time
 import requests
-import sqlite3
+import pymysql
 import logging
 from datetime import datetime, timedelta, timezone
 from .db import get_connection

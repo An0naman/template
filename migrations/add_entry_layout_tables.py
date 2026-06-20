@@ -10,7 +10,7 @@ Tables created:
 - EntryLayoutSection: Stores individual section configurations
 """
 
-import sqlite3
+import pymysql
 import json
 import sys
 import os
@@ -308,7 +308,6 @@ def migrate():
     conn = None
     try:
         conn = sqlite3.connect(DATABASE_PATH)
-        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         # Create EntryTypeLayout Table
@@ -439,7 +438,7 @@ def migrate():
         
         return True
         
-    except sqlite3.Error as e:
+    except pymysql.Error as e:
         print(f"\n✗ Migration failed: {e}")
         if conn:
             conn.rollback()
@@ -460,7 +459,6 @@ def rollback():
     conn = None
     try:
         conn = sqlite3.connect(DATABASE_PATH)
-        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         print("\n[1/2] Dropping EntryLayoutSection table...")
@@ -479,7 +477,7 @@ def rollback():
         
         return True
         
-    except sqlite3.Error as e:
+    except pymysql.Error as e:
         print(f"\n✗ Rollback failed: {e}")
         if conn:
             conn.rollback()

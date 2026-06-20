@@ -186,7 +186,11 @@ def sync_strava_activities():
     last_sync = get_system_param(conn, 'strava_last_sync_timestamp')
     base_params = {'per_page': 200}
     if last_sync:
-        base_params['after'] = last_sync
+        try:
+            # Look back 14 days (1209600 seconds) to catch delayed uploads
+            base_params['after'] = max(0, int(last_sync) - 1209600)
+        except ValueError:
+            base_params['after'] = last_sync
 
     # Paginate through all available activities
     activities = []

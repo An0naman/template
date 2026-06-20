@@ -5,7 +5,7 @@ import logging
 from datetime import datetime, timedelta
 from flask import current_app
 from app.db import get_connection
-import sqlite3
+import pymysql
 
 logger = logging.getLogger(__name__)
 

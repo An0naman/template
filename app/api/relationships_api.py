@@ -2,7 +2,7 @@
 from flask import Blueprint, request, jsonify, g, current_app
 import logging
 import json
-import sqlite3
+import pymysql
 from ..serializers import serialize_relationship_definition, serialize_entry_relationship # Import serializers
 from ..db import get_connection
 
@@ -82,7 +82,7 @@ def api_create_relationship_definition():
         ))
         conn.commit()
         return jsonify({"message": f'Relationship Definition "{name}" created successfully!', 'id': cursor.lastrowid}), 201
-    except sqlite3.IntegrityError as e:
+    except pymysql.IntegrityError as e:
         conn.rollback()
         # Check for specific unique constraint violation for 'name'
         if "UNIQUE constraint failed: RelationshipDefinition.name" in str(e):
@@ -127,7 +127,7 @@ def api_update_relationship_definition(definition_id):
         if cursor.rowcount == 0:
             return jsonify({"error": "Relationship Definition not found or no changes made."}), 404
         return jsonify({"message": "Relationship Definition updated successfully!"}), 200
-    except sqlite3.IntegrityError:
+    except pymysql.IntegrityError:
         conn.rollback()
         return jsonify({'error': 'A relationship definition with that name already exists.'}), 409
     except Exception as e:
@@ -296,7 +296,7 @@ def add_entry_relationship(entry_id):
         )
         conn.commit()
         return jsonify({"message": "Relationship added successfully!", "relationship_id": cursor.lastrowid}), 201
-    except sqlite3.IntegrityError as e:
+    except pymysql.IntegrityError as e:
         conn.rollback()
         if "FOREIGN KEY constraint failed" in str(e):
             return jsonify({"error": "Invalid source entry, target entry, or relationship definition ID."}), 400
@@ -389,7 +389,7 @@ def add_new_entry_relationship(entry_id):
         conn.commit()
 
         return jsonify({"message": "New entry and relationship added successfully!", "new_entry_id": new_entry_id}), 201
-    except sqlite3.IntegrityError as e:
+    except pymysql.IntegrityError as e:
         conn.rollback()
         return jsonify({"error": f"An integrity error occurred: {e}"}), 409
     except Exception as e:

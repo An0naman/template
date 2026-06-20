@@ -7,7 +7,7 @@ Created: 2025-11-23
 Description: Creates table to store serial output/logs from ESP32 sensors
 """
 
-import sqlite3
+import pymysql
 import os
 import sys
 import logging

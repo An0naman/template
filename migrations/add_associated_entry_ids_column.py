@@ -4,7 +4,7 @@ Migration script to add associated_entry_ids column to Note table.
 This column will store a JSON array of entry IDs that are associated with a note.
 """
 
-import sqlite3
+import pymysql
 import json
 import logging
 from pathlib import Path
@@ -18,7 +18,6 @@ def migrate_database(db_path):
     try:
         # Connect to database
         conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         # Check if the column already exists
@@ -51,7 +50,7 @@ def migrate_database(db_path):
             logger.error("Migration failed: Column not found after addition")
             return False
             
-    except sqlite3.Error as e:
+    except pymysql.Error as e:
         logger.error(f"Database error during migration: {e}")
         if conn:
             conn.rollback()

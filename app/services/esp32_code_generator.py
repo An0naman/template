@@ -29,7 +29,7 @@ class ESP32CodeGenerator:
         Initialize the code generator with database connection
         
         Args:
-            db_connection: SQLite database connection
+            db_connection: MariaDB database connection
         """
         self.conn = db_connection
         self.cursor = self.conn.cursor()

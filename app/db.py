@@ -1,5 +1,5 @@
 # template_app/app/db.py
-import sqlite3
+import pymysql
 import re
 from urllib.parse import urlparse
 from flask import current_app, g
@@ -14,21 +14,21 @@ logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # MySQL / MariaDB compatibility layer
-# Wraps PyMySQL to behave like sqlite3 so all route code works unchanged.
+# Wraps PyMySQL to behave like pymysql so all route code works unchanged.
 # ---------------------------------------------------------------------------
 
 def _adapt_ddl(sql):
-    """Convert SQLite DDL to MariaDB-compatible DDL (called inside MySQL wrapper)."""
+    """Convert mariadb DDL to MariaDB-compatible DDL (called inside MySQL wrapper)."""
     sql = sql.replace('AUTOINCREMENT', 'AUTO_INCREMENT')
     sql = re.sub(r'DEFAULT "([^"]*)"', r"DEFAULT '\1'", sql)
     # MySQL/MariaDB cannot index TEXT columns without a key length.
-    # For SQLite schemas that use TEXT PRIMARY KEY, map to VARCHAR(255) PRIMARY KEY.
+    # For mariadb schemas that use TEXT PRIMARY KEY, map to VARCHAR(255) PRIMARY KEY.
     sql = re.sub(r'\b(\w+)\s+TEXT\s+PRIMARY\s+KEY\b', r'\1 VARCHAR(255) PRIMARY KEY', sql, flags=re.IGNORECASE)
     return sql
 
 
 class _MySQLCursorWrapper:
-    """Wraps a PyMySQL DictCursor to be interface-compatible with sqlite3.Cursor."""
+    """Wraps a PyMySQL DictCursor to be interface-compatible with pymysql.Cursor."""
     db_type = 'mysql'
 
     def __init__(self, cursor):
@@ -38,7 +38,10 @@ class _MySQLCursorWrapper:
         # Adapt DDL (CREATE TABLE, ALTER TABLE)
         if re.match(r'\s*(CREATE|ALTER)\s', sql, re.IGNORECASE):
             sql = _adapt_ddl(sql)
-        # Translate SQLite-specific DML patterns
+        # Translate mariadb-specific DML patterns
+        if params is not None:
+            # Escape literal percents so PyMySQL string formatting doesn't trip on LIKE '%T00:00'
+            sql = sql.replace('%', '%%')
         sql = sql.replace('?', '%s')
         sql = re.sub(r'\bINSERT\s+OR\s+REPLACE\s+INTO\b', 'REPLACE INTO', sql, flags=re.IGNORECASE)
         sql = re.sub(r'\bINSERT\s+OR\s+IGNORE\s+INTO\b', 'INSERT IGNORE INTO', sql, flags=re.IGNORECASE)
@@ -48,6 +51,8 @@ class _MySQLCursorWrapper:
             self._c.execute(sql)
 
     def executemany(self, sql, params):
+        if params is not None:
+            sql = sql.replace('%', '%%')
         sql = sql.replace('?', '%s')
         sql = re.sub(r'\bINSERT\s+OR\s+REPLACE\s+INTO\b', 'REPLACE INTO', sql, flags=re.IGNORECASE)
         sql = re.sub(r'\bINSERT\s+OR\s+IGNORE\s+INTO\b', 'INSERT IGNORE INTO', sql, flags=re.IGNORECASE)
@@ -85,7 +90,7 @@ class _MySQLCursorWrapper:
 
 
 class _MySQLConnWrapper:
-    """Wraps a PyMySQL connection to be interface-compatible with sqlite3.Connection."""
+    """Wraps a PyMySQL connection to be interface-compatible with pymysql.Connection."""
     db_type = 'mysql'
 
     def __init__(self, conn):
@@ -120,17 +125,17 @@ class _MySQLConnWrapper:
 # ---------------------------------------------------------------------------
 
 def get_db_type():
-    """Return 'sqlite', 'postgresql', or 'mysql' based on current config."""
+    """Return 'mariadb', 'postgresql', or 'mysql' based on current config."""
     url = current_app.config.get('DATABASE_URL', '')
     if url.startswith(('postgresql://', 'postgres://')):
         return 'postgresql'
     if url.startswith(('mysql://', 'mariadb://')):
         return 'mysql'
-    return 'sqlite'
+    raise ValueError("DATABASE_URL is not set or not supported. Only mysql is supported.")
 
 
 def _get_columns(cursor, table_name):
-    """Return list of column names for a table. Works for both SQLite and MySQL."""
+    """Return list of column names for a table. Works for both mariadb and MySQL."""
     if isinstance(cursor, _MySQLCursorWrapper):
         cursor._c.execute(
             "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
@@ -165,22 +170,10 @@ def get_connection():
         except Exception as e:
             logger.error(f"Error connecting to MariaDB: {e}")
             raise
-    else:
-        db_path = current_app.config['DATABASE_PATH']
-        try:
-            conn = sqlite3.connect(db_path)
-            conn.row_factory = sqlite3.Row
-            logger.debug(f"Connected to database: {db_path}")
-            return conn
-        except sqlite3.Error as e:
-            logger.error(f"Error connecting to database at {db_path}: {e}")
-            raise
 
 def init_db():
     # This function is now called from run.py (or create_app in __init__.py for testing)
     # It ensures the database schema is set up.
-    db_path = current_app.config['DATABASE_PATH']
-    db_exists = os.path.exists(db_path)
 
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -485,7 +478,7 @@ def init_db():
             columns = _get_columns(cursor, 'Note')
             
             if 'image_paths' in columns and 'file_paths' not in columns:
-                # SQLite doesn't support renaming columns directly, so we need to:
+                # mariadb doesn't support renaming columns directly, so we need to:
                 # 1. Add the new column
                 # 2. Copy data from old column to new column
                 # 3. Drop the old column (requires recreating the table)
@@ -1136,7 +1129,8 @@ def init_db():
             logger.error(f"Error during EntryState migration: {e}")
 
         conn.commit()
-        if not db_exists:
+        cursor.execute("SELECT COUNT(*) as count FROM SystemParameters")
+        if cursor.fetchone()['count'] == 0:
             logger.info("Database schema initialized and default system parameters inserted.")
         else:
             logger.info("Database schema checked and updated (if necessary), default system parameters ensured.")

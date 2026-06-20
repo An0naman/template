@@ -6,7 +6,7 @@ Description: Creates the schema_migrations table to track which migrations have 
              This should be the first migration in any new app instance.
 """
 
-import sqlite3
+import pymysql
 import os
 import sys
 import logging

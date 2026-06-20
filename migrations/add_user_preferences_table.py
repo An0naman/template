@@ -4,7 +4,7 @@ Migration: Add UserPreferences table for persistent filter settings
 Created: 2024
 """
 
-import sqlite3
+import pymysql
 import sys
 import os
 
@@ -54,7 +54,7 @@ def migrate(db_path):
         print("Successfully created UserPreferences table")
         return True
         
-    except sqlite3.Error as e:
+    except pymysql.Error as e:
         print(f"Error during migration: {e}")
         conn.rollback()
         return False

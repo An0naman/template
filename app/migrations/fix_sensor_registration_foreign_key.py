@@ -16,7 +16,7 @@ You can also run it manually:
     python app/migrations/fix_sensor_registration_foreign_key.py
 """
 
-import sqlite3
+import pymysql
 import os
 import sys
 import logging
@@ -44,7 +44,7 @@ def migration_already_applied(cursor) -> bool:
         count = cursor.fetchone()[0]
         return count > 0
         
-    except sqlite3.OperationalError as e:
+    except pymysql.OperationalError as e:
         if "no such table" in str(e):
             return False
         raise

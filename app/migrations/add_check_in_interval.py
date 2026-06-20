@@ -8,7 +8,7 @@ Description: Adds check_in_interval column to SensorRegistration table to allow
              configuring hibernation duration per device.
 """
 
-import sqlite3
+import pymysql
 import os
 import sys
 import logging
@@ -36,7 +36,7 @@ def migration_already_applied(cursor) -> bool:
         count = cursor.fetchone()[0]
         return count > 0
         
-    except sqlite3.OperationalError as e:
+    except pymysql.OperationalError as e:
         if "no such table: schema_migrations" in str(e):
             logger.warning("schema_migrations table not found - run 000_init_migration_tracking.py first")
             return False

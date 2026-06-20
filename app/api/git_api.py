@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def _row_to_dict(row, columns=None):
-    """Normalize sqlite tuples and MariaDB dict rows into one dict shape."""
+    """Normalize mariadb tuples and MariaDB dict rows into one dict shape."""
     if isinstance(row, dict):
         return dict(row)
     if columns is not None:
@@ -758,9 +758,9 @@ def get_entry_commits(entry_id):
                 'error': 'Entry not found'
             }), 404
         
-        # Check if GitCommit table exists (supports SQLite and MariaDB/MySQL)
+        # Check if GitCommit table exists (supports MariaDB and MariaDB/MySQL)
         try:
-            db_type = getattr(cursor, 'db_type', 'sqlite')
+            db_type = getattr(cursor, 'db_type', 'mariadb')
             if db_type == 'mysql':
                 cursor.execute('''
                     SELECT 1
@@ -771,7 +771,7 @@ def get_entry_commits(entry_id):
             else:
                 cursor.execute('''
                     SELECT 1
-                    FROM sqlite_master
+                    FROM mariadb_master
                     WHERE type = 'table' AND name = 'GitCommit'
                     LIMIT 1
                 ''')

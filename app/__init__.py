@@ -1,5 +1,5 @@
 # template_app/app/__init__.py
-import sqlite3
+import pymysql
 from flask import Flask, g
 import os
 import logging
@@ -55,7 +55,6 @@ def create_app():
     def get_db():
         if 'db' not in g:
             g.db = get_connection() # Use the get_connection from db.py
-            g.db.row_factory = sqlite3.Row # Allows accessing columns by name, crucial for dict-like access
         return g.db
 
     @app.teardown_appcontext
@@ -271,14 +270,12 @@ def create_app():
                 database_type = 'MariaDB/MySQL'
             elif db_url_lower.startswith('postgres://') or db_url_lower.startswith('postgresql://'):
                 database_type = 'PostgreSQL'
-            elif db_url_lower.startswith('sqlite://'):
-                database_type = 'SQLite'
             else:
-                database_type = 'SQLite'
+                database_type = 'MariaDB/MySQL'
 
             # Build a safe location string (no credentials)
             database_location = ''
-            if database_url and not db_url_lower.startswith('sqlite'):
+            if database_url:
                 try:
                     from urllib.parse import urlparse
                     parsed = urlparse(database_url)

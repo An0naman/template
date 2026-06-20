@@ -56,7 +56,7 @@ def add_entry_type():
         )
         conn.commit()
         return jsonify({'message': 'Entry type added successfully!', 'id': cursor.lastrowid}), 201
-    except sqlite3.IntegrityError:
+    except pymysql.IntegrityError:
         conn.rollback()
         return jsonify({'error': f'Entry type with name "{name}" already exists.'}), 409
     except Exception as e:
@@ -138,7 +138,7 @@ def update_entry_type(entry_type_id):
         if cursor.rowcount == 0:
             return jsonify({'error': 'Entry type not found or no changes made.'}), 404
         return jsonify({'message': 'Entry type updated successfully!'}), 200
-    except sqlite3.IntegrityError:
+    except pymysql.IntegrityError:
         conn.rollback()
         return jsonify({'error': 'An entry type with that name already exists.'}), 409
     except Exception as e:

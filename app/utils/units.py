@@ -10,11 +10,10 @@ def get_db_connection_direct():
         from app.db import get_connection
         return get_connection()
     except RuntimeError:
-        # Fall back to direct SQLite connection if outside Flask context
-        import sqlite3
+        # Fall back to direct MariaDB connection if outside Flask context
+        import pymysql
         from app.config import DATABASE_PATH
-        conn = sqlite3.connect(DATABASE_PATH)
-        conn.row_factory = sqlite3.Row
+        conn = pymysql.connect(DATABASE_PATH)
         return conn
 
 def get_unit_suggestions():

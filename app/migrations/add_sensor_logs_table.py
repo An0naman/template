@@ -16,7 +16,7 @@ Run manually:
     python app/migrations/add_sensor_logs_table.py
 """
 
-import sqlite3
+import pymysql
 import os
 import sys
 import logging
@@ -44,7 +44,7 @@ def migration_already_applied(cursor) -> bool:
         count = cursor.fetchone()[0]
         return count > 0
         
-    except sqlite3.OperationalError as e:
+    except pymysql.OperationalError as e:
         if "no such table: schema_migrations" in str(e):
             # If schema_migrations doesn't exist, we can't track migrations
             # But we can check if the table exists
@@ -107,7 +107,7 @@ def main():
                 INSERT INTO schema_migrations (migration_name, applied_at)
                 VALUES (?, ?)
             """, (Path(__file__).name, datetime.now().isoformat()))
-        except sqlite3.OperationalError:
+        except pymysql.OperationalError:
             logger.warning("schema_migrations table not found - migration applied but not tracked")
         
         conn.commit()

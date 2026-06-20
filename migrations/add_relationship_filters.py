@@ -4,7 +4,7 @@ Migration: Add relationship filtering to SavedSearch table
 This allows users to filter entries based on their relationships with other entries.
 """
 
-import sqlite3
+import pymysql
 import sys
 
 def run_migration(db_path):

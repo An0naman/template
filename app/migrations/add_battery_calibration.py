@@ -5,7 +5,7 @@ This migration adds support for battery voltage divider calibration
 allowing users to set R1/R2 values and calibrated voltage readings.
 """
 
-import sqlite3
+import pymysql
 import logging
 from datetime import datetime
 
@@ -22,7 +22,7 @@ def check_if_applied(cursor):
     try:
         cursor.execute("SELECT 1 FROM schema_migrations WHERE migration_name = ?", (MIGRATION_ID,))
         return cursor.fetchone() is not None
-    except sqlite3.OperationalError:
+    except pymysql.OperationalError:
         # schema_migrations table doesn't exist
         return False
 
@@ -91,7 +91,6 @@ def run_migration(db_path):
     """
     try:
         conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         # Create migrations table if it doesn't exist

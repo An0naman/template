@@ -6,7 +6,7 @@ Defines which entry types can share milestone templates with each other
 from flask import Blueprint, request, jsonify, g
 from datetime import datetime, timezone
 import logging
-import sqlite3
+import pymysql
 
 logger = logging.getLogger(__name__)
 

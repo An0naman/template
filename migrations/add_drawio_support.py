@@ -7,7 +7,7 @@ This migration adds:
 2. 'drawio' section to existing entry type layouts
 """
 
-import sqlite3
+import pymysql
 import json
 import sys
 import os
@@ -26,7 +26,6 @@ def migrate():
     conn = None
     try:
         conn = sqlite3.connect(DATABASE_PATH)
-        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         # Create EntryDrawioDiagram Table

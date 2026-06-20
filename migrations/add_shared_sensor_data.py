@@ -7,7 +7,7 @@ Migration: Implement shared sensor data model
 - Provides rollback functionality
 """
 
-import sqlite3
+import pymysql
 import json
 import logging
 from datetime import datetime
@@ -24,7 +24,6 @@ def migrate_to_shared_sensor_data(db_path):
     """
     
     conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
     try:

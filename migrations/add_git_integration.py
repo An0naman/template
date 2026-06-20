@@ -2,7 +2,7 @@
 Git Integration Migration
 Adds tables for Git repositories, commits, and branches
 """
-import sqlite3
+import pymysql
 import os
 import sys
 from datetime import datetime

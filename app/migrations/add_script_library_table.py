@@ -15,7 +15,7 @@ Usage:
 python app/migrations/add_script_library_table.py
 """
 
-import sqlite3
+import pymysql
 import sys
 import os
 

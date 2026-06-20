@@ -5,7 +5,7 @@ This migration adds a boolean column to track whether a saved search
 should use SQL mode (custom SQL query) instead of standard filters.
 """
 
-import sqlite3
+import pymysql
 import logging
 from pathlib import Path
 

@@ -652,7 +652,7 @@ def add_sensor_data_to_entry(entry_id):
         
         return jsonify({'message': 'Sensor data added successfully!', 'sensor_id': sensor_id}), 201
         
-    except sqlite3.IntegrityError:
+    except pymysql.IntegrityError:
         # This occurs if entry_id doesn't exist due to FOREIGN KEY constraint
         conn.rollback()
         return jsonify({'error': 'Entry not found for adding sensor data.'}), 404

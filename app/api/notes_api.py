@@ -4,7 +4,7 @@ from datetime import datetime
 import json
 import logging
 import os
-import sqlite3
+import pymysql
 from werkzeug.utils import secure_filename
 from ..serializers import serialize_note # Import the serializer
 from ..db import get_system_parameters, get_connection # Import system parameters and db connection
@@ -67,8 +67,8 @@ def serialize_file_paths(file_paths):
 
 
 def is_integrity_error(exc):
-    """Handle sqlite/pymysql integrity exceptions without hard dependency on pymysql."""
-    if isinstance(exc, sqlite3.IntegrityError):
+    """Handle mariadb/pymysql integrity exceptions without hard dependency on pymysql."""
+    if isinstance(exc, pymysql.IntegrityError):
         return True
 
     class_name = exc.__class__.__name__.lower()
@@ -352,7 +352,7 @@ def get_notes_for_entry(entry_id):
     logger.info(f"Getting notes for entry_id: {entry_id}")
 
     try:
-        # Use SQL that works across SQLite and MySQL/MariaDB.
+        # Use SQL that works across MariaDB and MySQL/MariaDB.
         # We pull likely candidates and then do exact associated_entry_ids matching in Python.
         cursor.execute("""
             SELECT DISTINCT n.id, n.entry_id, n.note_title, n.note_text, n.type, n.created_at, n.file_paths, n.associated_entry_ids, n.url_bookmarks,

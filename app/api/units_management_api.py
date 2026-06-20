@@ -3,7 +3,7 @@ Units management API
 """
 
 from flask import Blueprint, request, jsonify
-import sqlite3
+import pymysql
 import logging
 
 def get_db_connection_direct():
@@ -15,7 +15,7 @@ def get_db_connection_direct():
     except RuntimeError:
         # Fall back to direct connection if outside Flask context
         from app.config import DATABASE_PATH
-        return sqlite3.connect(DATABASE_PATH)
+        return pymysql.connect(DATABASE_PATH)
 
 units_management_bp = Blueprint('units_management', __name__)
 
@@ -27,7 +27,6 @@ def get_all_units():
         active_only = request.args.get('active_only', 'true').lower() == 'true'
         
         conn = get_db_connection_direct()
-        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         # Build query
@@ -91,7 +90,6 @@ def create_unit():
             return jsonify({'success': False, 'error': 'Name and category are required'}), 400
         
         conn = get_db_connection_direct()
-        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         # Check if unit name already exists
@@ -132,7 +130,6 @@ def update_unit(unit_id):
         data = request.get_json()
         
         conn = get_db_connection_direct()
-        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         # Check if unit exists
@@ -186,7 +183,6 @@ def delete_unit(unit_id):
     """Delete a unit (soft delete by setting is_active=False)"""
     try:
         conn = get_db_connection_direct()
-        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         # Check if unit exists
@@ -215,7 +211,6 @@ def get_categories():
     """Get all unit categories"""
     try:
         conn = get_db_connection_direct()
-        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         cursor.execute("""

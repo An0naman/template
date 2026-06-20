@@ -5,7 +5,7 @@ Created: 2025-10-30
 Description: Adds support for custom SQL queries in saved searches
 """
 
-import sqlite3
+import pymysql
 import sys
 import os
 import logging
